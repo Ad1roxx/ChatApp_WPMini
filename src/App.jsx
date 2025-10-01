@@ -1,35 +1,37 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import TopBar from "./components/TopBar";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import ChatPage from "./pages/ChatPage";
+import MentorChatsPage from "./pages/MentorChatsPage";
+import AnnouncementsPage from "./pages/AnnouncementsPage";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    if (dark) {
+      document.body.classList.add("dark");
+    } else {
+      document.body.classList.remove("dark");
+    }
+  }, [dark]);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="app">
+      <TopBar dark={dark} setDark={setDark} />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/chat/:id" element={<ChatPage />} />
+          <Route path="/mentor/chats" element={<MentorChatsPage />} />
+          <Route path="/chat/group" element={<ChatPage />} />
+          <Route path="/mentor/announcements" element={<AnnouncementsPage />} />
+        </Routes>
+      </BrowserRouter>
+    </div>
+  );
 }
-
-export default App
