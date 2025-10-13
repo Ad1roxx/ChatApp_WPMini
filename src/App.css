@@ -203,6 +203,8 @@ input[type="text"] {
   font-weight: 700;
   font-size: 16px;
   letter-spacing: 0.5px;
+  color: white;
+  text-decoration: none;
 }
 
 
@@ -672,4 +674,30 @@ body.dark .card-title {
   outline: none;
   resize: vertical;
   margin-bottom: 16px;
+}
+
+.edit-profile-page {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.topbar-actions {
+    display: flex;
+    gap: 10px;
 }

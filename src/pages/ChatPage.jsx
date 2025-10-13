@@ -1,35 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, getDoc } from 'firebase/firestore';
+import { db, auth } from "../firebase";
 import Avatar from "../components/Avatar";
 import MessageBubble from "../components/MessageBubble";
 import Composer from "../components/Composer";
 import DayDivider from "../components/DayDivider";
 
-const SAMPLE_MESSAGES = {
-  "1": [
-    { id: 1, from: "Alice", text: "Hi there!", mine: false, time: "09:03" },
-    { id: 2, from: "Me", text: "Hello!", mine: true, time: "09:04" },
-    { id: 3, from: "Alice", text: "See you tomorrow!", mine: false, time: "10:45" },
-  ],
-  "2": [],
-  "3": [],
-};
-
-const TypingStatus = () => (
-  <div className="typing-status">
-    <span>typing</span>
-    <div className="dot"></div>
-    <div className="dot"></div>
-    <div className="dot"></div>
-  </div>
-);
-
 export default function ChatPage() {
   const { id } = useParams();
   const nav = useNavigate();
-  const [messages, setMessages] = useState(SAMPLE_MESSAGES[id] || []);
-  const [isTyping, setIsTyping] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [chat, setChat] = useState(null);
   const listRef = useRef(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     listRef.current?.scrollTo({
@@ -38,17 +22,52 @@ export default function ChatPage() {
     });
   }, [messages]);
 
-  useEffect(() => {
-    if (isTyping) {
-      const timeout = setTimeout(() => setIsTyping(false), 2000);
-      return () => clearTimeout(timeout);
-    }
-  }, [isTyping]);
-
-  const send = (text) => {
-    const userMessage = { id: Date.now(), from: "Me", text, mine: true, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
-    setMessages(prev => [...prev, userMessage]);
+  const send = async (text) => {
+    const { uid, displayName } = auth.currentUser;
+    await addDoc(collection(db, "chats", id, "messages"), {
+      text: text,
+      from: displayName,
+      createdAt: serverTimestamp(),
+      uid
+    });
   };
+
+  useEffect(() => {
+    const chatDocRef = doc(db, "chats", id);
+    const unsubChat = onSnapshot(chatDocRef, (doc) => {
+      setChat(doc.data());
+    });
+
+    const q = query(collection(db, "chats", id, "messages"), orderBy("createdAt"));
+    const unsubMessages = onSnapshot(q, (querySnapshot) => {
+      const newMessages = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        newMessages.push({
+          id: doc.id,
+          ...data,
+          mine: data.uid === auth.currentUser.uid
+        });
+      });
+      setMessages(newMessages);
+    });
+
+    return () => {
+      unsubChat();
+      unsubMessages();
+    };
+  }, [id]);
+
+  const getPeerName = () => {
+    if (chat) {
+      const { uid } = auth.currentUser;
+      const peerIndex = chat.users.findIndex(u => u !== uid);
+      return chat.userNames[peerIndex];
+    }
+    return "";
+  }
+
+  const peerName = getPeerName();
 
   return (
     <div className="chat-page">
@@ -56,11 +75,11 @@ export default function ChatPage() {
         <button className="icon-btn" onClick={() => nav(-1)}>
           ←
         </button>
-        <Avatar label={"A"} />
+        <Avatar label={peerName ? peerName[0] : "?"} />
         <div className="peer">
-          <div className="title">{`User ${id}`}</div>
+          <div className="title">{peerName}</div>
           <div className="status">
-            {isTyping ? <TypingStatus /> : "online"}
+            {"online"}
           </div>
         </div>
       </div>
@@ -68,13 +87,13 @@ export default function ChatPage() {
       <div ref={listRef} className="messages">
         <DayDivider label="Today" />
         {messages.map((m) => (
-          <MessageBubble key={m.id} mine={m.mine} time={m.time}>
+          <MessageBubble key={m.id} mine={m.mine} time={m.createdAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}>
             {m.text}
           </MessageBubble>
         ))}
       </div>
 
-      <Composer onSend={send} onTyping={() => setIsTyping(true)} />
+      <Composer onSend={send} onTyping={() => {}} />
     </div>
   );
 }
