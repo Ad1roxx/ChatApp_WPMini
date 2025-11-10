@@ -1,0 +1,6 @@
+.env
+# Service account / credential files
+*.json
+serviceAccountKey.json
+# local VSCode settings
+.vscode/

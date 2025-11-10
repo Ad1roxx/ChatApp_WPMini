@@ -1,24 +1,91 @@
-# Logs
-logs
-*.log
+# ========================
+# Node / npm
+# ========================
+node_modules/
+server/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+package-lock.json
 
-node_modules
-dist
-dist-ssr
-*.local
+# ========================
+# Build output
+# ========================
+dist/
+dist-ssr/
+build/
+.cache/
+.vite/
+out/
 
+# ========================
+# Environment files
+# ========================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Keep example env files tracked
+!.env.example
+!server/.env.example
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+debug.log
+error.log
+*.pid
+*.seed
+*.pid.lock
+
+# ========================
 # Editor directories and files
+# ========================
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
+
+# ========================
+# Testing / Coverage
+# ========================
+coverage/
+*.lcov
+
+# ========================
+# Firebase / Hosting
+# ========================
+.firebase/
+.firebaserc.backup
+storage-debug.log
+firebase-debug.log
+serviceAccountKey.json
+
+# ========================
+# Misc / Temporary
+# ========================
+tmp/
+temp/
+*.swp
+*.swo
+*.bak
+*.orig
+*.tmp
+
+# ========================
+# Local configs / docs
+# ========================
+README_ENV.md
+blueprint.md

@@ -1,18 +1,40 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Anyone can read user profiles (needed for showing displayNames)
+      allow read: if isSignedIn();
+      // Users can only write their own profile
+      allow write: if isOwner(userId);
+    }
+
+    // Chats collection
+    match /chats/{chatId} {
+      // Users can read/write chats they're a participant in
+      allow read, write: if isSignedIn() && 
+        resource.data.users.hasAny([request.auth.uid]);
+      
+      // Allow access to messages subcollection for chat participants
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn() &&
+          get(/databases/$(database)/documents/chats/$(chatId)).data.users.hasAny([request.auth.uid]);
+      }
+    }
+
+    // Default: deny all other access
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2025, 11, 7);
+      allow read, write: if false;
     }
   }
 }

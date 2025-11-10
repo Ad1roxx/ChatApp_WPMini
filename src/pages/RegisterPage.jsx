@@ -25,6 +25,7 @@ export default function RegisterPage() {
         displayName: username,
         email: user.email,
         role: role,
+        bio: "Let's Connect!"
       });
 
       if (role === "mentor") {

@@ -198,6 +198,23 @@ input[type="text"] {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.error-message {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
 }
 .brand {
   font-weight: 700;
@@ -289,6 +306,30 @@ input[type="text"] {
   font-size: 12px;
   color: #6b7280;
   margin: 0;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: calc(100% - 70px);
+}
+
+.typing-indicator-bar {
+  margin-left: -8px !important;
+}
+
+.unread-count {
+  background: #06145e;
+  color: white;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  font-weight: 600;
 }
 
 .avatar {
@@ -338,6 +379,78 @@ input[type="text"] {
   color: white;
 }
 
+.typing-indicator {
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  margin: 4px 12px;
+  display: inline-block;
+  align-self: flex-start;
+}
+
+.typing-indicator-chat {
+  align-self: flex-start;
+  background: #f0f0f0;
+  padding: 12px 16px;
+  border-radius: 18px;
+  margin: 4px 12px;
+  max-width: 70px;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #666;
+  display: inline-block;
+  animation: typingAnimation 1.4s infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingAnimation {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.typing-indicator-bar {
+  font-size: 13px;
+  color: #06145e;
+  margin-right: 8px;
+  font-style: italic;
+}
+
+.unread-indicator {
+  background: #06145e;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 13px;
+  margin-left: 8px;
+  font-weight: 500;
+}
+
 .peer .title {
   font-weight: 600;
 }
@@ -385,6 +498,40 @@ input[type="text"] {
   color: #6a7178;
   align-self: flex-end;
   margin-top: 4px;
+}
+
+/* New chat modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  width: 420px;
+  max-width: calc(100% - 24px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+/* Recent chat bar: reuse announcement styling but smaller */
+.recent-chat-bar, .announcements-section {
+  margin-bottom: 12px;
+}
+.recent-chat-bar .announcement-info, .announcements-bar .announcement-info {
+  display:flex; gap:12px; align-items:center
+}
+
+/* small button styles used inside modal */
+.btn.small {
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 8px;
 }
 
 
@@ -700,4 +847,160 @@ body.dark .card-title {
 .topbar-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
+}
+
+.profile-section {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.user-info:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.display-name {
+    color: white;
+    font-weight: 500;
+    margin-right: 4px;
+}
+
+.dropdown-arrow {
+    color: white;
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.dropdown-arrow.open {
+    transform: rotate(180deg);
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  min-width: 240px;
+  z-index: 1000;
+  margin-top: 4px;
+}
+
+.user-text {
+  display: flex;
+  flex-direction: column;
+  margin-right: 8px;
+}
+
+.user-bio {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: -2px;
+  opacity: 0;
+  height: 0;
+  transition: all 0.2s ease;
+}
+
+.user-bio.visible {
+  opacity: 1;
+  height: auto;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.user-info:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Toast Styles */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 24px;
+  background: #4caf50;
+  color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+.toast .tick {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}.dropdown-item {
+    display: block;
+    padding: 12px 16px;
+    color: #333;
+    text-decoration: none;
+    transition: background-color 0.2s;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.dropdown-item:hover {
+    background-color: #f5f5f5;
+}
+
+.logout-item {
+    color: #ff4444;
+}
+
+.logout-item:hover {
+    background-color: #fff1f1;
+}
+
+.edit-profile-btn {
+    padding: 6px 12px;
+    font-size: 14px;
+}
+
+.logout-btn {
+    padding: 6px 12px;
+    font-size: 14px;
+    background-color: transparent;
+    color: #ff4444;
+    border: 1px solid #ff4444;
+}
+
+.logout-btn:hover {
+    background-color: #ff4444;
+    color: white;
 }
