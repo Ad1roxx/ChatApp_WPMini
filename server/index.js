@@ -1,349 +1,441 @@
+/**
+ * CHAT SERVER - Express + Socket.IO + MongoDB
+ * 
+ * This is the backend for our 1-to-1 chat application.
+ * 
+ * How it works:
+ * 1. User logs in with Google (handled by Firebase Auth on frontend)
+ * 2. Frontend sends user info to our server
+ * 3. We save/update user in MongoDB
+ * 4. User connects to Socket.IO for real-time messaging
+ * 5. When user sends a message, we save to MongoDB AND broadcast to receiver
+ * 
+ * Key concepts:
+ * - REST API (Express): For getting data (users list, message history)
+ * - WebSocket (Socket.IO): For real-time events (new messages, typing indicators)
+ */
+
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const admin = require('firebase-admin');
-const path = require('path');
+const { Server } = require('socket.io');
+
+// Import our models
+const User = require('./models/User');
+const Message = require('./models/Message');
+
+// ============================================
+// SERVER SETUP
+// ============================================
 
 const app = express();
-const port = process.env.PORT || 3001;
+const server = http.createServer(app);  // Create HTTP server from Express app
 
-// Track all SSE clients and state
-const sseClients = new Set();
-const chatClients = new Map(); // chatId -> Set of clients
-const activeUsers = new Map(); // userId -> Set of chatIds they're viewing
-const typingUsers = new Map(); // chatId -> Set of userIds typing
+// Socket.IO setup with CORS (allows frontend on different port to connect)
+const io = new Server(server, {
+  cors: {
+    origin: ["http://localhost:5173", "http://localhost:3000"],  // Vite and CRA default ports
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
-// Enable CORS with credentials
+const PORT = process.env.PORT || 3001;
+
+// ============================================
+// MIDDLEWARE
+// ============================================
+
+// CORS - allows frontend to make requests to this server
 app.use(cors({
   origin: true,
   credentials: true
 }));
+
+// Parse JSON bodies (when frontend sends JSON data)
 app.use(express.json());
 
-// Initialize Firebase Admin SDK if service account provided
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+// ============================================
+// DATABASE CONNECTION
+// ============================================
+
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp';
+
+mongoose.connect(mongoUri)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch((err) => console.error('❌ MongoDB connection error:', err));
+
+// ============================================
+// TRACK ONLINE USERS
+// ============================================
+
+/**
+ * Map to track which socket belongs to which user
+ * Key: visitorId (from MongoDB User._id)
+ * Value: socket.id
+ * 
+ * When user A wants to send message to user B:
+ * 1. Look up B's socket.id from this map
+ * 2. If found, B is online - send message directly
+ * 3. If not found, B is offline - message is still saved to DB
+ */
+const onlineUsers = new Map();  // visitorId -> socketId
+
+// ============================================
+// REST API ENDPOINTS
+// ============================================
+
+/**
+ * POST /api/auth/login
+ * 
+ * Called when user logs in with Google.
+ * Creates a new user in our DB or returns existing one.
+ * 
+ * Why do we need this?
+ * Firebase only handles AUTH (who is this person?).
+ * Our MongoDB handles DATA (messages, online status, etc.)
+ * This endpoint links the two.
+ */
+app.post('/api/auth/login', async (req, res) => {
   try {
-    const serviceAccount = require(path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS));
-    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-    console.log('Firebase Admin initialized');
-  } catch (err) {
-    console.error('Failed to initialize Firebase Admin:', err);
-  }
-} else {
-  console.warn('GOOGLE_APPLICATION_CREDENTIALS not set — protected endpoints disabled');
-}
+    const { firebaseUid, email, displayName, photoURL } = req.body;
 
-// Connect to MongoDB (optional: if MONGODB_URI not set, server falls back to in-memory behavior)
-const mongoUri = process.env.MONGODB_URI;
-if (mongoUri) {
-  mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log('Connected to MongoDB'))
-    .catch((err) => console.error('MongoDB connection error:', err));
-} else {
-  console.warn('MONGODB_URI not set — announcements will use in-memory fallback');
-}
-
-// Announcement model (used when Mongo is connected)
-const announcementSchema = new mongoose.Schema({
-  text: { type: String, required: true },
-  time: { type: String },
-  authorId: { type: String },
-  authorDisplayName: { type: String },
-  createdAt: { type: Date, default: Date.now }
-});
-const Announcement = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);
-
-// Simple in-memory fallback announcements
-let fallbackAnnouncements = [
-  { text: 'Welcome to MentorConnect!', time: '10:00 AM', authorId: null, authorDisplayName: null },
-  { text: 'Please be respectful to your mentors and peers.', time: '11:30 AM', authorId: null, authorDisplayName: null },
-];
-
-// Middleware: verify Firebase ID token and role 'mentor'
-async function verifyMentor(req, res, next) {
-  if (!admin.apps.length) return res.status(500).json({ error: 'Server not configured to verify tokens' });
-
-  const authHeader = req.headers.authorization || '';
-  if (!authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'No token provided' });
-  const idToken = authHeader.split('Bearer ')[1];
-
-  try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    const userDoc = await admin.firestore().doc(`users/${decoded.uid}`).get();
-    const userData = userDoc.exists ? userDoc.data() : null;
-    if (userData && userData.role === 'mentor') {
-      req.user = decoded;
-      return next();
+    // Validate required fields
+    if (!firebaseUid || !email) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
-    return res.status(403).json({ error: 'Insufficient permissions' });
-  } catch (err) {
-    console.error('Token verification failed', err);
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
 
-// GET announcements
-app.get('/api/announcements', async (req, res) => {
-  try {
-    if (mongoose.connection.readyState === 1) {
-      const items = await Announcement.find().sort({ createdAt: 1 }).limit(100).lean();
-      return res.json(items.map(it => ({ 
-        text: it.text, 
-        time: it.time || '', 
-        authorId: it.authorId || null, 
-        authorDisplayName: it.authorDisplayName || null, 
-        _id: it._id 
-      })));
-    }
-    return res.json([...fallbackAnnouncements].reverse());
-  } catch (err) {
-    console.error('Failed to fetch announcements:', err);
-    res.status(500).json({ error: 'Failed to fetch announcements' });
-  }
-});
-
-// POST update activity status
-app.post('/api/activity/update', (req, res) => {
-  const { userId, chatId, isActive } = req.body;
-  if (!userId) return res.status(400).json({ error: 'Missing userId' });
-
-  if (isActive) {
-    if (!activeUsers.has(userId)) activeUsers.set(userId, new Set());
-    if (chatId) activeUsers.get(userId).add(chatId);
-  } else {
-    if (chatId && activeUsers.has(userId)) activeUsers.get(userId).delete(chatId);
-    if (activeUsers.has(userId) && activeUsers.get(userId).size === 0) activeUsers.delete(userId);
-  }
-
-  // Notify all clients about the activity update
-  const eventData = JSON.stringify({ userId, chatId, isActive });
-  for (const client of sseClients) {
-    client.write(`event: activity\n`);
-    client.write(`data: ${eventData}\n\n`);
-  }
-
-  res.json({ success: true });
-});
-
-// POST update typing status
-app.post('/api/typing/update', (req, res) => {
-  const { userId, chatId, isTyping } = req.body;
-  if (!userId || !chatId) return res.status(400).json({ error: 'Missing userId or chatId' });
-
-  try {
-    if (isTyping) {
-      if (!typingUsers.has(chatId)) typingUsers.set(chatId, new Set());
-      typingUsers.get(chatId).add(userId);
-    } else {
-      if (typingUsers.has(chatId)) {
-        typingUsers.get(chatId).delete(userId);
-        if (typingUsers.get(chatId).size === 0) typingUsers.delete(chatId);
+    // findOneAndUpdate with upsert:true means:
+    // - If user exists: UPDATE their info (name, photo might have changed)
+    // - If user doesn't exist: CREATE new user
+    // This is called an "upsert" (update + insert)
+    const user = await User.findOneAndUpdate(
+      { firebaseUid },  // Find by Firebase UID
+      { 
+        firebaseUid,
+        email,
+        displayName: displayName || email.split('@')[0],  // Fallback to email prefix
+        photoURL: photoURL || '',
+        isOnline: true,
+        lastSeen: new Date()
+      },
+      { 
+        upsert: true,     // Create if doesn't exist
+        new: true,        // Return the updated document
+        setDefaultsOnInsert: true  // Apply schema defaults on insert
       }
-    }
+    );
 
-    // Notify all clients about the typing update
-    const eventData = JSON.stringify({ userId, chatId, isTyping });
+    console.log(`👤 User logged in: ${user.displayName}`);
+    res.json(user);
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/users
+ * 
+ * Get all users except the current user.
+ * Used to show "who can I chat with?" list.
+ * 
+ * Query params:
+ * - exclude: Firebase UID to exclude from results (the logged-in user)
+ */
+app.get('/api/users', async (req, res) => {
+  try {
+    const { exclude } = req.query;
     
-    // First notify specific chat clients
-    if (chatClients.has(chatId)) {
-      for (const client of chatClients.get(chatId)) {
-        client.write(`event: typing\n`);
-        client.write(`data: ${eventData}\n\n`);
-      }
-    }
+    // Find all users except the one making the request
+    const query = exclude ? { firebaseUid: { $ne: exclude } } : {};
+    const users = await User.find(query)
+      .select('-__v')  // Exclude Mongoose version key
+      .sort({ displayName: 1 });  // Sort alphabetically
     
-    // Then notify general SSE clients
-    for (const client of sseClients) {
-      client.write(`event: typing\n`);
-      client.write(`data: ${eventData}\n\n`);
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error updating typing status:', error);
-    res.status(500).json({ error: 'Failed to update typing status' });
+    res.json(users);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Server-Sent Events endpoint for live announcements
-app.get('/api/announcements/live', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
+/**
+ * GET /api/messages/:visitorId/:peerId
+ * 
+ * Get conversation history between two users.
+ * 
+ * Why two params?
+ * - visitorId: The logged-in user's MongoDB _id
+ * - peerId: The other user's MongoDB _id
+ * 
+ * We find messages where:
+ * (sender=visitor AND receiver=peer) OR (sender=peer AND receiver=visitor)
+ */
+app.get('/api/messages/:visitorId/:peerId', async (req, res) => {
+  try {
+    const { visitorId, peerId } = req.params;
+    const { limit = 50, before } = req.query;  // Optional pagination
 
-  res.write('event: connected\n');
-  res.write('data: connected\n\n');
+    // Build query: messages between these two users
+    let query = {
+      $or: [
+        { sender: visitorId, receiver: peerId },
+        { sender: peerId, receiver: visitorId }
+      ]
+    };
 
-  sseClients.add(res);
+    // If "before" timestamp provided, get older messages (for "load more")
+    if (before) {
+      query.timestamp = { $lt: new Date(before) };
+    }
 
-  req.on('close', () => {
-    sseClients.delete(res);
-  });
+    const messages = await Message.find(query)
+      .sort({ timestamp: 1 })  // Oldest first
+      .limit(parseInt(limit))
+      .populate('sender', 'displayName photoURL')  // Include sender info
+      .populate('receiver', 'displayName photoURL');
+
+    res.json(messages);
+  } catch (err) {
+    console.error('Error fetching messages:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-// POST new announcement (mentor-only)
-app.post('/api/announcements', verifyMentor, async (req, res) => {
+/**
+ * GET /api/user/:visitorId
+ * 
+ * Get a single user by their MongoDB _id.
+ * Used when opening a chat to get the other person's info.
+ */
+app.get('/api/user/:visitorId', async (req, res) => {
   try {
-    const { text, time } = req.body;
-    if (!text || !text.trim()) return res.status(400).json({ error: 'Text required' });
+    const user = await User.findById(req.params.visitorId).select('-__v');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (err) {
+    console.error('Error fetching user:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-    if (mongoose.connection.readyState === 1) {
-      let authorDisplayName = null;
-      try {
-        if (admin.apps.length) {
-          const udoc = await admin.firestore().doc(`users/${req.user.uid}`).get();
-          if (udoc.exists) {
-            const ud = udoc.data();
-            authorDisplayName = ud && ud.displayName ? ud.displayName : null;
-          }
-        }
-      } catch (e) {
-        console.warn('Could not read author displayName from Firestore', e);
-      }
+// ============================================
+// SOCKET.IO - REAL-TIME EVENTS
+// ============================================
 
-      const a = new Announcement({
-        text: text.trim(),
-        time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        authorId: req.user.uid,
-        authorDisplayName: authorDisplayName || null,
+/**
+ * Socket.IO Connection Handler
+ * 
+ * This runs when a client connects via WebSocket.
+ * Each connected client has a unique socket.id
+ * 
+ * Events we handle:
+ * - 'user-online': User just logged in, track their socket
+ * - 'send-message': User wants to send a message
+ * - 'typing': User is typing
+ * - 'stop-typing': User stopped typing
+ * - 'disconnect': User closed the app/tab
+ */
+io.on('connection', (socket) => {
+  console.log(`🔌 New socket connection: ${socket.id}`);
+
+  /**
+   * USER-ONLINE Event
+   * 
+   * When user logs in, frontend sends their MongoDB _id.
+   * We store the mapping: visitorId -> socketId
+   * Then broadcast to everyone that this user is online.
+   */
+  socket.on('user-online', async (visitorId) => {
+    try {
+      // Store the mapping
+      onlineUsers.set(visitorId, socket.id);
+      
+      // Store visitorId on the socket for later use (disconnect)
+      socket.visitorId = visitorId;
+
+      // Update user's online status in DB
+      await User.findByIdAndUpdate(visitorId, { 
+        isOnline: true, 
+        lastSeen: new Date() 
       });
-      await a.save();
 
-      const announcement = { 
-        text: a.text, 
-        time: a.time, 
-        _id: a._id, 
-        authorId: a.authorId, 
-        authorDisplayName: a.authorDisplayName 
+      // Broadcast to ALL connected clients that this user is online
+      // Everyone can update their UI to show green dot
+      io.emit('user-status-change', { 
+        visitorId, 
+        isOnline: true 
+      });
+
+      // Send the new user a list of who's currently online
+      socket.emit('online-users', Array.from(onlineUsers.keys()));
+
+      console.log(`👤 User online: ${visitorId}`);
+    } catch (err) {
+      console.error('Error in user-online:', err);
+    }
+  });
+
+  /**
+   * SEND-MESSAGE Event
+   * 
+   * The heart of the chat app!
+   * 
+   * Flow:
+   * 1. Receive message from sender
+   * 2. Save to MongoDB (permanent storage)
+   * 3. Send to receiver if they're online
+   * 4. Confirm to sender that message was sent
+   */
+  socket.on('send-message', async (data) => {
+    try {
+      const { senderId, receiverId, text } = data;
+
+      // Validate
+      if (!senderId || !receiverId || !text?.trim()) {
+        socket.emit('error', { message: 'Invalid message data' });
+        return;
+      }
+
+      // Create message in database
+      const message = await Message.create({
+        sender: senderId,
+        receiver: receiverId,
+        text: text.trim(),
+        timestamp: new Date()
+      });
+
+      // Populate sender info for the response
+      await message.populate('sender', 'displayName photoURL');
+      await message.populate('receiver', 'displayName photoURL');
+
+      // Prepare message object to send to clients
+      const messageToSend = {
+        _id: message._id,
+        sender: message.sender,
+        receiver: message.receiver,
+        text: message.text,
+        timestamp: message.timestamp,
+        read: message.read
       };
 
-      const payload = `event: announcement\ndata: ${JSON.stringify(announcement)}\n\n`;
-      for (const client of sseClients) {
-        try {
-          client.write(payload);
-        } catch (e) {
-          sseClients.delete(client);
-        }
+      // Send to RECEIVER if online
+      const receiverSocketId = onlineUsers.get(receiverId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit('new-message', messageToSend);
       }
 
-      return res.status(201).json(announcement);
+      // Confirm to SENDER
+      socket.emit('message-sent', messageToSend);
+
+      console.log(`✉️ Message sent: ${senderId} -> ${receiverId}`);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      socket.emit('error', { message: 'Failed to send message' });
     }
+  });
 
-    const newAnn = { 
-      text: text.trim(), 
-      time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-    };
-    fallbackAnnouncements.push(newAnn);
-
-    const payload = `event: announcement\ndata: ${JSON.stringify(newAnn)}\n\n`;
-    for (const client of sseClients) {
-      try {
-        client.write(payload);
-      } catch (e) {
-        sseClients.delete(client);
-      }
-    }
-
-    return res.status(201).json(newAnn);
-  } catch (err) {
-    console.error('Failed to create announcement:', err);
-    res.status(500).json({ error: 'Failed to create announcement' });
-  }
-});
-
-// For live chat messages
-app.get('/api/chats/:chatId/messages/live', (req, res) => {
-  const chatId = req.params.chatId;
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  
-  // Send initial connection event
-  res.write('event: connected\ndata: {}\n\n');
-  
-  if (!chatClients.has(chatId)) {
-    chatClients.set(chatId, new Set());
-  }
-  chatClients.get(chatId).add(res);
-  
-  const unsubscribe = admin.firestore()
-    .collection('chats').doc(chatId)
-    .collection('messages')
-    .orderBy('createdAt', 'desc')
-    .limit(1)
-    .onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          const message = { id: change.doc.id, ...change.doc.data() };
-          const data = JSON.stringify(message);
-          for (const client of chatClients.get(chatId)) {
-            client.write(`event: message\ndata: ${data}\n\n`);
-          }
-        }
-      });
-    }, error => {
-      console.error(`Chat ${chatId} message listener error:`, error);
-    });
+  /**
+   * TYPING Event
+   * 
+   * When user starts typing, notify the other person.
+   * Creates that "John is typing..." indicator.
+   */
+  socket.on('typing', (data) => {
+    const { senderId, receiverId } = data;
+    const receiverSocketId = onlineUsers.get(receiverId);
     
-  req.on('close', () => {
-    unsubscribe();
-    chatClients.get(chatId)?.delete(res);
-    if (chatClients.get(chatId)?.size === 0) {
-      chatClients.delete(chatId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('user-typing', { senderId });
+    }
+  });
+
+  /**
+   * STOP-TYPING Event
+   * 
+   * When user stops typing (or sends message), clear the indicator.
+   */
+  socket.on('stop-typing', (data) => {
+    const { senderId, receiverId } = data;
+    const receiverSocketId = onlineUsers.get(receiverId);
+    
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('user-stop-typing', { senderId });
+    }
+  });
+
+  /**
+   * MARK-READ Event
+   * 
+   * Mark messages as read (for read receipts).
+   */
+  socket.on('mark-read', async (data) => {
+    try {
+      const { visitorId, peerId } = data;
+      
+      // Mark all messages from peer to visitor as read
+      await Message.updateMany(
+        { sender: peerId, receiver: visitorId, read: false },
+        { read: true }
+      );
+
+      // Notify the peer that their messages were read
+      const peerSocketId = onlineUsers.get(peerId);
+      if (peerSocketId) {
+        io.to(peerSocketId).emit('messages-read', { byVisitor: visitorId });
+      }
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
+    }
+  });
+
+  /**
+   * DISCONNECT Event
+   * 
+   * When socket disconnects (user closed tab, lost internet, etc.)
+   * Update their status to offline.
+   */
+  socket.on('disconnect', async () => {
+    try {
+      const visitorId = socket.visitorId;
+      
+      if (visitorId) {
+        // Remove from online users map
+        onlineUsers.delete(visitorId);
+
+        // Update database
+        await User.findByIdAndUpdate(visitorId, { 
+          isOnline: false, 
+          lastSeen: new Date() 
+        });
+
+        // Broadcast to everyone that this user is offline
+        io.emit('user-status-change', { 
+          visitorId, 
+          isOnline: false 
+        });
+
+        console.log(`👋 User disconnected: ${visitorId}`);
+      }
+    } catch (err) {
+      console.error('Error in disconnect:', err);
     }
   });
 });
 
-// For live chat updates (new chats)
-app.get('/api/chats/live', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  
-  res.write('event: connected\ndata: {}\n\n');
-  
-  sseClients.add(res);
-  
-  const unsubscribe = admin.firestore()
-    .collection('chats')
-    .onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          const chat = { id: change.doc.id, ...change.doc.data() };
-          res.write(`event: chat\ndata: ${JSON.stringify(chat)}\n\n`);
-        }
-      });
-    }, error => {
-      console.error('Chats listener error:', error);
-    });
-  
-  // Send initial active users and typing status
-  for (const [userId, chatIds] of activeUsers.entries()) {
-    chatIds.forEach(chatId => {
-      res.write(`event: activity\ndata: ${JSON.stringify({ userId, chatId, isActive: true })}\n\n`);
-    });
-  }
+// ============================================
+// START SERVER
+// ============================================
 
-  for (const [chatId, users] of typingUsers.entries()) {
-    users.forEach(userId => {
-      res.write(`event: typing\ndata: ${JSON.stringify({ userId, chatId, isTyping: true })}\n\n`);
-    });
-  }
-  
-  req.on('close', () => {
-    unsubscribe();
-    sseClients.delete(res);
-  });
+server.listen(PORT, () => {
+  console.log(`
+  🚀 Server running on http://localhost:${PORT}
+  📡 Socket.IO ready for connections
+  💾 MongoDB: ${mongoUri}
+  `);
 });
-
-// For marking messages as read
-app.post('/api/chats/:chatId/markAsRead', async (req, res) => {
-  const chatId = req.params.chatId;
-  res.json({ success: true });
-});
-
-app.listen(port, () => console.log(`Server listening at http://localhost:${port}`));

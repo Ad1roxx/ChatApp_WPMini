@@ -1,49 +1,85 @@
+/**
+ * App Component - Main routing
+ * 
+ * This sets up all the pages/routes in our app.
+ * Uses our custom useAuth hook to check if user is logged in.
+ * 
+ * Routes:
+ * - /         -> Home (redirects to /users if logged in)
+ * - /login    -> Google sign-in page
+ * - /users    -> List of users to chat with
+ * - /chat/:id -> Chat with a specific user
+ */
+
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "./firebase";
+import { useAuth } from "./context/AuthContext";
 
 import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import UsersPage from "./pages/UsersPage";
 import ChatPage from "./pages/ChatPage";
-import ChatsListPage from "./pages/ChatsListPage";
-import AnnouncementsPage from "./pages/AnnouncementsPage";
-import MentorDashboard from "./pages/MentorDashboard";
-import Home from "./pages/Home";
-import EditProfilePage from "./pages/EditProfilePage";
-import TopBar from "./components/TopBar";
-import Footer from "./components/Footer";
 
 function App() {
-  const [user, loading] = useAuthState(auth);
+  // Get auth state from our context
+  const { user, loading } = useAuth();
 
-  // Prevent rendering routes while Firebase auth is initializing to avoid
-  // a flash of the login page on refresh. Show an empty fullscreen loader.
+  // Show loading spinner while checking auth
+  // Without this, user would briefly see login page even if logged in
   if (loading) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {/* small blank loader; replace with spinner if desired */}
+      <div style={{ 
+        height: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: '#f5f5f5'
+      }}>
+        <div style={{ 
+          width: '40px', 
+          height: '40px', 
+          border: '3px solid #e0e0e0',
+          borderTopColor: '#3b82f6',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
     <BrowserRouter>
-      <div className="flex flex-col min-h-screen">
-        <TopBar />
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={user ? <Navigate to="/chats" /> : <Home />} />
-            <Route path="/login" element={user ? <Navigate to="/chats" /> : <LoginPage />} />
-            <Route path="/register" element={user ? <Navigate to="/chats" /> : <RegisterPage />} />
-            <Route path="/chats" element={user ? <ChatsListPage /> : <Navigate to="/login" />} />
-            <Route path="/chat/:id" element={user ? <ChatPage /> : <Navigate to="/login" />} />
-            <Route path="/announcements" element={user ? <AnnouncementsPage /> : <Navigate to="/login" />} />
-            <Route path="/mentor-dashboard" element={user ? <MentorDashboard /> : <Navigate to="/login" />} />
-            <Route path="/edit-profile" element={user ? <EditProfilePage /> : <Navigate to="/login" />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+      <Routes>
+        {/* Home - redirect based on auth status */}
+        <Route 
+          path="/" 
+          element={user ? <Navigate to="/users" /> : <Navigate to="/login" />} 
+        />
+        
+        {/* Login page - redirect to users if already logged in */}
+        <Route 
+          path="/login" 
+          element={user ? <Navigate to="/users" /> : <LoginPage />} 
+        />
+        
+        {/* Users list - protected route (needs login) */}
+        <Route 
+          path="/users" 
+          element={user ? <UsersPage /> : <Navigate to="/login" />} 
+        />
+        
+        {/* Chat page - protected route */}
+        <Route 
+          path="/chat/:peerId" 
+          element={user ? <ChatPage /> : <Navigate to="/login" />} 
+        />
+        
+        {/* Catch-all - redirect to home */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
     </BrowserRouter>
   );
 }

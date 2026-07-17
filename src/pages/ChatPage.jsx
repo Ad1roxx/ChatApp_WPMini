@@ -1,353 +1,490 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { doc, collection, addDoc, serverTimestamp, query, orderBy, getDoc, getDocs } from 'firebase/firestore';
-import { db, auth } from "../firebase";
-import Avatar from "../components/Avatar";
-import MessageBubble from "../components/MessageBubble";
-import Composer from "../components/Composer";
-import DayDivider from "../components/DayDivider";
-import RecordsList from "../components/RecordsList";
+/**
+ * ChatPage - The actual chat interface
+ * 
+ * This is where the real-time messaging happens!
+ * 
+ * How it works:
+ * 1. Load message history from server (REST API)
+ * 2. Listen for new messages via Socket.IO
+ * 3. When user sends a message, emit via Socket.IO
+ * 4. Server saves to MongoDB and forwards to receiver
+ * 
+ * Socket.IO events used:
+ * - send-message: Send a new message
+ * - new-message: Receive a new message
+ * - message-sent: Confirmation that our message was saved
+ * - typing / stop-typing: Typing indicators
+ */
 
-const formatMessageTime = (timestamp) => {
-  if (!timestamp) return '';
-  
-  try {
-    // Handle Firestore Timestamp
-    if (timestamp.toDate) {
-      return timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    // Handle ISO string from SSE
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch (err) {
-    console.error('Failed to format message time:', err);
-    return '';
-  }
-};
+import { useState, useRef, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function ChatPage() {
-  const { id } = useParams();
-  const nav = useNavigate();
+  const { peerId } = useParams();  // MongoDB _id of the person we're chatting with
+  const navigate = useNavigate();
+  const { dbUser, socket, SERVER_URL } = useAuth();
+  
+  // State
   const [messages, setMessages] = useState([]);
-  const [chat, setChat] = useState(null);
-  const listRef = useRef(null);
+  const [peer, setPeer] = useState(null);  // The other user's info
+  const [newMessage, setNewMessage] = useState("");
   const [peerTyping, setPeerTyping] = useState(false);
-  const [showRecordsModal, setShowRecordsModal] = useState(false);
-  const [peerRecords, setPeerRecords] = useState([]);
-  const [isComposing, setIsComposing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  // Refs
+  const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-  const [activeUsers, setActiveUsers] = useState(new Set());
 
-  useEffect(() => {
-    listRef.current?.scrollTo({
-      top: listRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages]);
-
-  // Update activity status
-  useEffect(() => {
-    if (!auth.currentUser) return;
-
-    const updateActivity = async (isActive) => {
-      try {
-        const response = await fetch('http://localhost:3001/api/activity/update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: auth.currentUser.uid,
-            chatId: id,
-            isActive
-          })
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-      } catch (err) {
-        console.error('Failed to update activity:', err);
-      }
-    };
-
-    console.log('Updating activity to active');
-    updateActivity(true);
-    
-    return () => {
-      console.log('Updating activity to inactive');
-      updateActivity(false);
-      // Also ensure typing state is cleared on leaving the chat
-      try {
-        fetch('http://localhost:3001/api/typing/update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: auth.currentUser.uid, chatId: id, isTyping: false })
-        }).catch(() => {});
-      } catch (e) {
-        // ignore
-      }
-    };
-  }, [id, auth.currentUser]);
-
-  // Typing helpers: expose functions the Composer can call on each keystroke
-  const updateTyping = async (isTyping) => {
-    if (!auth.currentUser || !id) return;
-    try {
-      console.log(`[typing] sending update isTyping=${isTyping} for chat ${id}`);
-      const response = await fetch('http://localhost:3001/api/typing/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: auth.currentUser.uid,
-          chatId: id,
-          isTyping
-        })
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-    } catch (err) {
-      console.error('Failed to update typing status:', err);
-    }
+  /**
+   * Scroll to bottom of messages
+   */
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const startOrRefreshTimer = () => {
+  // Scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  /**
+   * Effect: Fetch peer info and message history
+   */
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!dbUser) return;
+      
+      try {
+        // Fetch peer info
+        const peerRes = await fetch(`${SERVER_URL}/api/user/${peerId}`);
+        if (peerRes.ok) {
+          const peerData = await peerRes.json();
+          setPeer(peerData);
+        }
+
+        // Fetch message history
+        const msgRes = await fetch(
+          `${SERVER_URL}/api/messages/${dbUser._id}/${peerId}`
+        );
+        if (msgRes.ok) {
+          const msgData = await msgRes.json();
+          setMessages(msgData);
+        }
+      } catch (err) {
+        console.error("Error fetching chat data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [dbUser, peerId, SERVER_URL]);
+
+  /**
+   * Effect: Listen for real-time Socket.IO events
+   */
+  useEffect(() => {
+    if (!socket || !dbUser) return;
+
+    /**
+     * Handle incoming message
+     * 
+     * This fires when the OTHER person sends us a message.
+     * We check if it's from/to us before adding to the list.
+     */
+    const handleNewMessage = (message) => {
+      // Only add if it's part of THIS conversation
+      const isRelevant = 
+        (message.sender._id === peerId && message.receiver._id === dbUser._id) ||
+        (message.sender._id === dbUser._id && message.receiver._id === peerId);
+      
+      if (isRelevant) {
+        setMessages(prev => {
+          // Avoid duplicates
+          if (prev.some(m => m._id === message._id)) return prev;
+          return [...prev, message];
+        });
+        
+        // Clear typing indicator when message received
+        setPeerTyping(false);
+      }
+    };
+
+    /**
+     * Handle our own message confirmation
+     * 
+     * This fires after we send a message and server confirms it was saved.
+     */
+    const handleMessageSent = (message) => {
+      setMessages(prev => {
+        // Avoid duplicates
+        if (prev.some(m => m._id === message._id)) return prev;
+        return [...prev, message];
+      });
+    };
+
+    /**
+     * Handle typing indicator
+     */
+    const handlePeerTyping = ({ senderId }) => {
+      if (senderId === peerId) {
+        setPeerTyping(true);
+      }
+    };
+
+    const handlePeerStopTyping = ({ senderId }) => {
+      if (senderId === peerId) {
+        setPeerTyping(false);
+      }
+    };
+
+    // Register listeners
+    socket.on('new-message', handleNewMessage);
+    socket.on('message-sent', handleMessageSent);
+    socket.on('user-typing', handlePeerTyping);
+    socket.on('user-stop-typing', handlePeerStopTyping);
+
+    // Cleanup on unmount
+    return () => {
+      socket.off('new-message', handleNewMessage);
+      socket.off('message-sent', handleMessageSent);
+      socket.off('user-typing', handlePeerTyping);
+      socket.off('user-stop-typing', handlePeerStopTyping);
+      
+      // Clear typing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [socket, dbUser, peerId]);
+
+  /**
+   * Send a message
+   */
+  const sendMessage = (e) => {
+    e.preventDefault();
+    
+    if (!newMessage.trim() || !socket || !dbUser) return;
+
+    // Emit message via Socket.IO
+    socket.emit('send-message', {
+      senderId: dbUser._id,
+      receiverId: peerId,
+      text: newMessage.trim()
+    });
+
+    // Clear input
+    setNewMessage("");
+    
+    // Stop typing indicator
+    socket.emit('stop-typing', {
+      senderId: dbUser._id,
+      receiverId: peerId
+    });
+  };
+
+  /**
+   * Handle typing in input field
+   */
+  const handleInputChange = (e) => {
+    setNewMessage(e.target.value);
+    
+    if (!socket || !dbUser) return;
+
+    // Send typing indicator
+    socket.emit('typing', {
+      senderId: dbUser._id,
+      receiverId: peerId
+    });
+
+    // Clear previous timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
+
+    // Set new timeout to stop typing indicator after 2 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
-      console.log('[typing] inactivity timer elapsed, clearing typing');
-      updateTyping(false);
-      typingTimeoutRef.current = null;
-    }, 5000);
+      socket.emit('stop-typing', {
+        senderId: dbUser._id,
+        receiverId: peerId
+      });
+    }, 2000);
   };
 
-  // Called by Composer on each change/keydown. This will immediately send
-  // a typing=true and refresh the inactivity timer so repeated typing after
-  // a pause will re-trigger the indicator even if the boolean state didn't change.
-  const handleComposerTyping = (isTypingSignal) => {
-    setIsComposing(isTypingSignal);
-    if (isTypingSignal) {
-      updateTyping(true);
-      startOrRefreshTimer();
-    } else {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = null;
-      }
-      updateTyping(false);
-    }
-  };
-
-  // Ensure any pending timer is cleared when the component unmounts
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  const send = async (text) => {
-    const { uid, displayName } = auth.currentUser;
-    const now = new Date().toISOString();
-    await addDoc(collection(db, "chats", id, "messages"), {
-      text: text,
-      from: displayName,
-      createdAt: now, // Use ISO string instead of serverTimestamp
-      uid,
-      chatId: id
+  /**
+   * Format timestamp for display
+   */
+  const formatTime = (timestamp) => {
+    if (!timestamp) return '';
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
     });
   };
 
-  // Mark messages as read when entering chat
-  useEffect(() => {
-    if (auth.currentUser) {
-      fetch(`http://localhost:3001/api/chats/${id}/markAsRead`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }).catch(err => console.error('Failed to mark messages as read:', err));
-    }
-  }, [id]);
-
-  useEffect(() => {
-    // Connect to server-sent events for live chat updates
-    const es = new EventSource(`http://localhost:3001/api/chats/${id}/messages/live`);
-    
-    es.addEventListener('connected', () => {
-      console.log('Connected to chat stream');
-    });
-    
-    es.addEventListener('message', (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        setMessages(current => {
-          // Don't add duplicate messages
-          if (current.some(m => m.id === msg.id)) return current;
-          return [...current, {
-            id: msg.id,
-            text: msg.text,
-            from: msg.from,
-            uid: msg.uid,
-            createdAt: msg.createdAt,
-            mine: msg.uid === auth.currentUser?.uid
-          }];
-        });
-      } catch (err) {
-        console.error('Failed to parse chat message event:', err);
-      }
-    });
-    
-    es.addEventListener('error', (ev) => {
-      console.error('Messages stream error:', ev);
-    });
-
-    es.addEventListener('typing', (e) => {
-      try {
-        const { userId, chatId, isTyping } = JSON.parse(e.data);
-        console.log(`[typing event] received for chat ${chatId}: user=${userId} isTyping=${isTyping}`);
-        if (chatId === id && userId !== auth.currentUser.uid) {
-          setPeerTyping(isTyping);
-        }
-      } catch (err) {
-        console.error('Failed to parse typing event:', err);
-      }
-    });
-
-    es.addEventListener('activity', (e) => {
-      try {
-        const { userId, chatId, isActive } = JSON.parse(e.data);
-        // Update active users set regardless of chatId to track global user status
-        setActiveUsers(current => {
-          const newSet = new Set(current);
-          if (isActive) {
-            newSet.add(userId);
-          } else {
-            newSet.delete(userId);
-          }
-          return newSet;
-        });
-      } catch (err) {
-        console.error('Failed to parse activity event:', err);
-      }
-    });
-
-    // Also get initial chat data and messages
-    const fetchInitialData = async () => {
-      try {
-        const chatDoc = await getDoc(doc(db, "chats", id));
-        if (chatDoc.exists()) {
-          setChat(chatDoc.data());
-        }
-        
-        const q = query(collection(db, "chats", id, "messages"), orderBy("createdAt"));
-        const msgSnap = await getDocs(q);
-        const msgs = [];
-        msgSnap.forEach(doc => {
-          const data = doc.data();
-          msgs.push({
-            id: doc.id,
-            ...data,
-            mine: data.uid === auth.currentUser.uid
-          });
-        });
-        setMessages(msgs);
-      } catch (err) {
-        console.error('Failed to fetch initial chat data:', err);
-      }
-    };
-    
-    fetchInitialData();
-
-    return () => es.close();
-  }, [id]);
-
-  const getPeerName = () => {
-    if (chat) {
-      const { uid } = auth.currentUser;
-      const peerIndex = chat.users.findIndex(u => u !== uid);
-      return chat.userNames[peerIndex];
-    }
-    return "";
+  // Loading state
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.loading}>Loading chat...</div>
+      </div>
+    );
   }
 
-  const peerName = getPeerName();
-  const peerId = chat?.users?.find(uid => uid !== auth.currentUser?.uid);
-
-  const openPeerRecords = async () => {
-    if (!peerId) return;
-    try {
-  const userDoc = await getDoc(doc(db, 'users', peerId));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setPeerRecords(data.records || []);
-      } else {
-        setPeerRecords([]);
-      }
-      setShowRecordsModal(true);
-    } catch (err) {
-      console.error('Failed to fetch peer records:', err);
-      setPeerRecords([]);
-      setShowRecordsModal(true);
-    }
-  };
-
   return (
-    <div className="chat-page">
-      <div className="chat-header">
-        <button className="icon-btn" onClick={() => nav(-1)}>
-          ←
+    <div style={styles.container}>
+      {/* Header */}
+      <div style={styles.header}>
+        <button onClick={() => navigate('/users')} style={styles.backBtn}>
+          ← Back
         </button>
-        <Avatar label={peerName ? peerName[0] : "?"} />
-        <div className="peer">
-          <div className="title" style={{ cursor: 'pointer' }} onClick={openPeerRecords}>{peerName}</div>
-          {chat && peerTyping && (
-            <div className="typing-indicator">
-              <div className="typing-dots small">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
+        <div style={styles.peerInfo}>
+          {peer?.photoURL ? (
+            <img src={peer.photoURL} alt="" style={styles.headerAvatar} />
+          ) : (
+            <div style={styles.headerAvatarPlaceholder}>
+              {peer?.displayName?.charAt(0)?.toUpperCase() || '?'}
             </div>
           )}
+          <div>
+            <div style={styles.peerName}>{peer?.displayName || 'Unknown'}</div>
+            {peerTyping && (
+              <div style={styles.typingText}>typing...</div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div ref={listRef} className="messages">
-        <DayDivider label="Today" />
-        {messages.map((m) => (
-          <MessageBubble 
-            key={m.id} 
-            mine={m.mine} 
-            time={formatMessageTime(m.createdAt)}
-          >
-            {m.text}
-          </MessageBubble>
-        ))}
-        {peerTyping && (
-          <div className="typing-indicator-chat">
-            <div className="typing-dots">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
+      {/* Messages */}
+      <div style={styles.messagesContainer}>
+        {messages.length === 0 ? (
+          <div style={styles.emptyChat}>
+            <p>No messages yet</p>
+            <p style={styles.emptyHint}>Say hello! 👋</p>
           </div>
-        )}
-
-        {showRecordsModal && (
-          <div className="modal" style={{ position: 'fixed', left: 0, top: 0, right:0, bottom:0, background: 'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex: 60 }} onClick={() => setShowRecordsModal(false)}>
-            <div style={{ width: 560, maxHeight: '70vh', overflowY: 'auto', background: 'white', padding: 18, borderRadius: 8 }} onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h3 style={{ margin:0 }}>{peerName}'s Records</h3>
-                <button className="btn small" onClick={() => setShowRecordsModal(false)}>Close</button>
+        ) : (
+          messages.map((msg, index) => {
+            const isMine = msg.sender._id === dbUser._id || msg.sender === dbUser._id;
+            return (
+              <div
+                key={msg._id || index}
+                style={{
+                  ...styles.messageRow,
+                  justifyContent: isMine ? 'flex-end' : 'flex-start'
+                }}
+              >
+                <div
+                  style={{
+                    ...styles.messageBubble,
+                    ...(isMine ? styles.myMessage : styles.theirMessage)
+                  }}
+                >
+                  <div style={styles.messageText}>{msg.text}</div>
+                  <div style={{
+                    ...styles.messageTime,
+                    color: isMine ? 'rgba(255,255,255,0.7)' : '#9ca3af'
+                  }}>
+                    {formatTime(msg.timestamp)}
+                  </div>
+                </div>
               </div>
-              <RecordsList records={peerRecords} />
+            );
+          })
+        )}
+        
+        {/* Typing indicator */}
+        {peerTyping && (
+          <div style={styles.messageRow}>
+            <div style={{...styles.messageBubble, ...styles.theirMessage, ...styles.typingBubble}}>
+              <div style={styles.typingDots}>
+                <span style={styles.dot}></span>
+                <span style={{...styles.dot, animationDelay: '0.2s'}}></span>
+                <span style={{...styles.dot, animationDelay: '0.4s'}}></span>
+              </div>
             </div>
           </div>
         )}
+        
+        <div ref={messagesEndRef} />
       </div>
 
-      <Composer onSend={send} onTyping={handleComposerTyping} />
+      {/* Input */}
+      <form onSubmit={sendMessage} style={styles.inputContainer}>
+        <input
+          type="text"
+          value={newMessage}
+          onChange={handleInputChange}
+          placeholder="Type a message..."
+          style={styles.input}
+        />
+        <button 
+          type="submit" 
+          style={styles.sendBtn}
+          disabled={!newMessage.trim()}
+        >
+          Send
+        </button>
+      </form>
+
+      {/* Typing animation CSS */}
+      <style>{`
+        @keyframes bounce {
+          0%, 60%, 100% { transform: translateY(0); }
+          30% { transform: translateY(-4px); }
+        }
+      `}</style>
     </div>
   );
 }
+
+// Styles
+const styles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100vh',
+    backgroundColor: '#f5f5f5'
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '12px 16px',
+    backgroundColor: '#3b82f6',
+    color: '#fff',
+    gap: '12px'
+  },
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#fff',
+    fontSize: '16px',
+    cursor: 'pointer',
+    padding: '8px'
+  },
+  peerInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  headerAvatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    objectFit: 'cover'
+  },
+  headerAvatarPlaceholder: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '18px',
+    fontWeight: '600'
+  },
+  peerName: {
+    fontWeight: '600',
+    fontSize: '16px'
+  },
+  typingText: {
+    fontSize: '12px',
+    opacity: 0.8,
+    fontStyle: 'italic'
+  },
+  messagesContainer: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px'
+  },
+  messageRow: {
+    display: 'flex',
+    width: '100%'
+  },
+  messageBubble: {
+    maxWidth: '70%',
+    padding: '10px 14px',
+    borderRadius: '16px',
+    wordWrap: 'break-word'
+  },
+  myMessage: {
+    backgroundColor: '#3b82f6',
+    color: '#fff',
+    borderBottomRightRadius: '4px'
+  },
+  theirMessage: {
+    backgroundColor: '#fff',
+    color: '#1f2937',
+    borderBottomLeftRadius: '4px',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+  },
+  messageText: {
+    fontSize: '15px',
+    lineHeight: '1.4'
+  },
+  messageTime: {
+    fontSize: '11px',
+    marginTop: '4px',
+    textAlign: 'right'
+  },
+  inputContainer: {
+    display: 'flex',
+    padding: '12px 16px',
+    backgroundColor: '#fff',
+    gap: '12px',
+    borderTop: '1px solid #e5e7eb'
+  },
+  input: {
+    flex: 1,
+    padding: '12px 16px',
+    borderRadius: '24px',
+    border: '1px solid #e5e7eb',
+    fontSize: '15px',
+    outline: 'none'
+  },
+  sendBtn: {
+    padding: '12px 24px',
+    backgroundColor: '#3b82f6',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '24px',
+    fontSize: '15px',
+    fontWeight: '500',
+    cursor: 'pointer'
+  },
+  loading: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    fontSize: '16px',
+    color: '#6b7280'
+  },
+  emptyChat: {
+    textAlign: 'center',
+    color: '#6b7280',
+    marginTop: '40%'
+  },
+  emptyHint: {
+    fontSize: '24px',
+    marginTop: '8px'
+  },
+  typingBubble: {
+    padding: '14px 18px'
+  },
+  typingDots: {
+    display: 'flex',
+    gap: '4px'
+  },
+  dot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    backgroundColor: '#9ca3af',
+    animation: 'bounce 1s infinite'
+  }
+};
