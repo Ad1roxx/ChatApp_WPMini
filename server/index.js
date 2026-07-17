@@ -25,6 +25,8 @@ const { Server } = require('socket.io');
 // Import our models
 const User = require('./models/User');
 const Message = require('./models/Message');
+const Group = require('./models/Group');
+const GroupMessage = require('./models/GroupMessage');
 
 // ============================================
 // SERVER SETUP
@@ -225,6 +227,140 @@ app.get('/api/user/:visitorId', async (req, res) => {
 });
 
 // ============================================
+// GROUP REST API ENDPOINTS
+// ============================================
+
+/**
+ * POST /api/groups
+ *
+ * Create a new group chat.
+ *
+ * Body:
+ * - name: group display name
+ * - createdBy: MongoDB _id of the creator
+ * - memberIds: array of MongoDB _ids to add (the creator is added automatically)
+ */
+app.post('/api/groups', async (req, res) => {
+  try {
+    const { name, createdBy, memberIds = [] } = req.body;
+
+    // Validate required fields
+    if (!name?.trim() || !createdBy) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Always include the creator in the members list, and de-duplicate.
+    // (A Set of string ids removes accidental repeats before we store them.)
+    const uniqueMembers = [...new Set([createdBy, ...memberIds].map(String))];
+
+    const group = await Group.create({
+      name: name.trim(),
+      createdBy,
+      members: uniqueMembers
+    });
+
+    // Return the group with member info populated (handy for the client)
+    await group.populate('members', 'displayName photoURL');
+
+    console.log(`👥 Group created: ${group.name} (${uniqueMembers.length} members)`);
+    res.json(group);
+  } catch (err) {
+    console.error('Error creating group:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/groups/:groupId/join
+ *
+ * Add a user to an existing group.
+ *
+ * Body:
+ * - visitorId: MongoDB _id of the user joining
+ *
+ * We use $addToSet so joining twice does not create duplicate entries.
+ */
+app.post('/api/groups/:groupId/join', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { visitorId } = req.body;
+
+    if (!visitorId) {
+      return res.status(400).json({ error: 'Missing visitorId' });
+    }
+
+    const group = await Group.findByIdAndUpdate(
+      groupId,
+      { $addToSet: { members: visitorId } },  // add only if not already present
+      { new: true }                           // return the updated group
+    ).populate('members', 'displayName photoURL');
+
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    console.log(`➕ User ${visitorId} joined group ${group.name}`);
+    res.json(group);
+  } catch (err) {
+    console.error('Error joining group:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/groups?userId=<mongoId>
+ *
+ * List all groups a user belongs to (for their group list).
+ * If no userId is provided, returns all groups.
+ */
+app.get('/api/groups', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    // If userId given, only groups where they are a member
+    const query = userId ? { members: userId } : {};
+    const groups = await Group.find(query)
+      .populate('members', 'displayName photoURL')
+      .sort({ createdAt: -1 });  // newest groups first
+
+    res.json(groups);
+  } catch (err) {
+    console.error('Error fetching groups:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/groups/:groupId/messages
+ *
+ * Get a group's message history (oldest first).
+ * Mirrors the 1-to-1 GET /api/messages endpoint.
+ */
+app.get('/api/groups/:groupId/messages', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { limit = 50, before } = req.query;  // optional pagination
+
+    let query = { group: groupId };
+
+    // "before" lets the client load older messages ("load more")
+    if (before) {
+      query.timestamp = { $lt: new Date(before) };
+    }
+
+    const messages = await GroupMessage.find(query)
+      .sort({ timestamp: 1 })  // oldest first
+      .limit(parseInt(limit))
+      .populate('sender', 'displayName photoURL');
+
+    res.json(messages);
+  } catch (err) {
+    console.error('Error fetching group messages:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
 // SOCKET.IO - REAL-TIME EVENTS
 // ============================================
 
@@ -394,9 +530,107 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ------------------------------------------
+  // GROUP CHAT EVENTS (Socket.IO rooms)
+  //
+  // Unlike 1-to-1 chat (which targets a single socketId), groups use
+  // Socket.IO "rooms". A room is just a named channel: sockets that
+  // join 'group:<groupId>' all receive anything broadcast to it.
+  // ------------------------------------------
+
+  /**
+   * JOIN-GROUP Event
+   *
+   * Client calls this when it opens a group chat.
+   * The socket joins that group's room so it receives live messages.
+   */
+  socket.on('join-group', (groupId) => {
+    if (!groupId) return;
+    socket.join(`group:${groupId}`);
+    console.log(`👥 Socket ${socket.id} joined room group:${groupId}`);
+  });
+
+  /**
+   * LEAVE-GROUP Event
+   *
+   * Client calls this when it leaves/closes a group chat.
+   */
+  socket.on('leave-group', (groupId) => {
+    if (!groupId) return;
+    socket.leave(`group:${groupId}`);
+    console.log(`👋 Socket ${socket.id} left room group:${groupId}`);
+  });
+
+  /**
+   * SEND-GROUP-MESSAGE Event
+   *
+   * Flow (parallels 1-to-1 send-message):
+   * 1. Receive message from sender
+   * 2. Save to MongoDB (GroupMessage collection)
+   * 3. Broadcast to everyone currently in the group's room
+   *
+   * We broadcast to the whole room INCLUDING the sender, so the sender's
+   * own UI adds the confirmed, DB-saved message the same way everyone
+   * else receives it (no separate confirmation event needed).
+   */
+  socket.on('send-group-message', async (data) => {
+    try {
+      const { groupId, senderId, text } = data;
+
+      // Validate
+      if (!groupId || !senderId || !text?.trim()) {
+        socket.emit('error', { message: 'Invalid group message data' });
+        return;
+      }
+
+      // Save to database
+      const message = await GroupMessage.create({
+        group: groupId,
+        sender: senderId,
+        text: text.trim(),
+        timestamp: new Date()
+      });
+
+      // Populate sender info for the clients
+      await message.populate('sender', 'displayName photoURL');
+
+      const messageToSend = {
+        _id: message._id,
+        group: message.group,
+        sender: message.sender,
+        text: message.text,
+        timestamp: message.timestamp
+      };
+
+      // Broadcast to every socket in this group's room (sender included)
+      io.to(`group:${groupId}`).emit('new-group-message', messageToSend);
+
+      console.log(`✉️ Group message: ${senderId} -> group ${groupId}`);
+    } catch (err) {
+      console.error('Error sending group message:', err);
+      socket.emit('error', { message: 'Failed to send group message' });
+    }
+  });
+
+  /**
+   * GROUP-TYPING / GROUP-STOP-TYPING Events
+   *
+   * Relay typing indicators to the rest of the room.
+   * socket.to(room) sends to everyone in the room EXCEPT the sender.
+   */
+  socket.on('group-typing', ({ groupId, senderId }) => {
+    if (!groupId) return;
+    socket.to(`group:${groupId}`).emit('group-user-typing', { groupId, senderId });
+  });
+
+  socket.on('group-stop-typing', ({ groupId, senderId }) => {
+    if (!groupId) return;
+    socket.to(`group:${groupId}`).emit('group-user-stop-typing', { groupId, senderId });
+  });
+
   /**
    * DISCONNECT Event
-   * 
+   *
    * When socket disconnects (user closed tab, lost internet, etc.)
    * Update their status to offline.
    */
