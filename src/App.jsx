@@ -17,6 +17,8 @@ import { useAuth } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import UsersPage from "./pages/UsersPage";
 import ChatPage from "./pages/ChatPage";
+import GroupsPage from "./pages/GroupsPage";
+import GroupChatPage from "./pages/GroupChatPage";
 
 function App() {
   // Get auth state from our context
@@ -72,11 +74,23 @@ function App() {
         />
         
         {/* Chat page - protected route */}
-        <Route 
-          path="/chat/:peerId" 
-          element={user ? <ChatPage /> : <Navigate to="/login" />} 
+        <Route
+          path="/chat/:peerId"
+          element={user ? <ChatPage /> : <Navigate to="/login" />}
         />
-        
+
+        {/* Groups list / create - protected route */}
+        <Route
+          path="/groups"
+          element={user ? <GroupsPage /> : <Navigate to="/login" />}
+        />
+
+        {/* Group chat - protected route */}
+        <Route
+          path="/group/:groupId"
+          element={user ? <GroupChatPage /> : <Navigate to="/login" />}
+        />
+
         {/* Catch-all - redirect to home */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

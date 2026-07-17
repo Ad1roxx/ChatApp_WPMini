@@ -123,9 +123,14 @@ export default function UsersPage() {
             Logged in as {dbUser?.displayName}
           </p>
         </div>
-        <button onClick={logout} style={styles.logoutBtn}>
-          Logout
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => navigate('/groups')} style={styles.logoutBtn}>
+            Groups
+          </button>
+          <button onClick={logout} style={styles.logoutBtn}>
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Users List */}
