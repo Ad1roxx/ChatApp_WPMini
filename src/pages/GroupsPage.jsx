@@ -22,6 +22,7 @@ export default function GroupsPage() {
   const [users, setUsers] = useState([]);              // other users to pick from
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false); // collapse/expand the create form
 
   // Browse state
   const [groups, setGroups] = useState([]);
@@ -153,45 +154,7 @@ export default function GroupsPage() {
       </div>
 
       <div style={styles.body}>
-        {/* Create group */}
-        <form onSubmit={handleCreate} style={styles.createCard}>
-          <h2 style={styles.sectionTitle}>Create a group</h2>
-          <input
-            type="text"
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            placeholder="Group name"
-            style={styles.input}
-          />
-
-          <p style={styles.memberLabel}>Add members</p>
-          <div style={styles.memberList}>
-            {users.length === 0 ? (
-              <p style={styles.emptyHint}>No other users to add yet.</p>
-            ) : (
-              users.map((u) => (
-                <label key={u._id} style={styles.memberRow}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(u._id)}
-                    onChange={() => toggleMember(u._id)}
-                  />
-                  <span style={styles.memberName}>{u.displayName}</span>
-                </label>
-              ))
-            )}
-          </div>
-
-          <button
-            type="submit"
-            style={styles.createBtn}
-            disabled={creating || !groupName.trim()}
-          >
-            {creating ? 'Creating...' : 'Create Group'}
-          </button>
-        </form>
-
-        {/* Browse groups */}
+        {/* Browse groups (now above the create form) */}
         <div style={styles.browseCard}>
           <h2 style={styles.sectionTitle}>All groups</h2>
           {loading ? (
@@ -225,6 +188,67 @@ export default function GroupsPage() {
                 )}
               </div>
             ))
+          )}
+        </div>
+
+        {/* Create group (collapsible) */}
+        <div style={styles.createCard}>
+          <button
+            type="button"
+            onClick={() => setCreateOpen((o) => !o)}
+            style={styles.createHeader}
+          >
+            <h2 style={styles.sectionTitleInline}>Create a group</h2>
+            <span style={styles.chevron}>{createOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {createOpen && (
+            <form onSubmit={handleCreate} style={styles.createForm}>
+              <input
+                type="text"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder="Group name"
+                style={styles.input}
+              />
+
+              <p style={styles.memberLabel}>Add members</p>
+              <div style={styles.memberList}>
+                {users.length === 0 ? (
+                  <p style={styles.emptyHint}>No other users to add yet.</p>
+                ) : (
+                  users.map((u) => (
+                    <label key={u._id} style={styles.memberRow}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(u._id)}
+                        onChange={() => toggleMember(u._id)}
+                      />
+                      {u.photoURL ? (
+                        <img
+                          src={u.photoURL}
+                          alt={u.displayName}
+                          style={styles.memberAvatar}
+                        />
+                      ) : (
+                        <div style={styles.memberAvatarPlaceholder}>
+                          {u.displayName?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                      )}
+                      <span style={styles.memberName}>{u.displayName}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+
+              <button
+                type="submit"
+                style={styles.createBtn}
+                disabled={creating || !groupName.trim()}
+              >
+                {creating ? 'Creating...' : 'Create Group'}
+              </button>
+            </form>
           )}
         </div>
       </div>
@@ -283,6 +307,29 @@ const styles = {
     fontWeight: '600',
     color: '#1f2937'
   },
+  sectionTitleInline: {
+    margin: 0,
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#1f2937'
+  },
+  createHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer'
+  },
+  chevron: {
+    fontSize: '12px',
+    color: '#6b7280'
+  },
+  createForm: {
+    marginTop: '16px'
+  },
   input: {
     width: '100%',
     padding: '12px 16px',
@@ -311,6 +358,24 @@ const styles = {
     gap: '10px',
     padding: '8px',
     cursor: 'pointer'
+  },
+  memberAvatar: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    objectFit: 'cover'
+  },
+  memberAvatarPlaceholder: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    backgroundColor: '#3b82f6',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '13px',
+    fontWeight: '600'
   },
   memberName: { fontSize: '15px', color: '#1f2937' },
   createBtn: {
