@@ -108,6 +108,13 @@ export default function ChatPage() {
         
         // Clear typing indicator when message received
         setPeerTyping(false);
+
+        // If this message came FROM the peer, we've now seen it —
+        // tell the server to mark the peer's messages as read.
+        const fromPeer = (message.sender._id || message.sender) === peerId;
+        if (fromPeer) {
+          socket.emit('mark-read', { visitorId: dbUser._id, peerId });
+        }
       }
     };
 
@@ -139,11 +146,33 @@ export default function ChatPage() {
       }
     };
 
+    /**
+     * Handle read receipt: the peer has read our messages.
+     *
+     * byVisitor is whoever did the reading. If that's the peer we're
+     * chatting with, flip all of OUR sent messages to read = true so
+     * the UI can show "Seen".
+     */
+    const handleMessagesRead = ({ byVisitor }) => {
+      if (byVisitor !== peerId) return;
+      setMessages(prev =>
+        prev.map(m => {
+          const senderId = m.sender._id || m.sender;
+          return senderId === dbUser._id ? { ...m, read: true } : m;
+        })
+      );
+    };
+
     // Register listeners
     socket.on('new-message', handleNewMessage);
     socket.on('message-sent', handleMessageSent);
     socket.on('user-typing', handlePeerTyping);
     socket.on('user-stop-typing', handlePeerStopTyping);
+    socket.on('messages-read', handleMessagesRead);
+
+    // On opening the chat, mark any already-unread messages from the
+    // peer as read (covers history that arrived before we opened it).
+    socket.emit('mark-read', { visitorId: dbUser._id, peerId });
 
     // Cleanup on unmount
     return () => {
@@ -151,7 +180,8 @@ export default function ChatPage() {
       socket.off('message-sent', handleMessageSent);
       socket.off('user-typing', handlePeerTyping);
       socket.off('user-stop-typing', handlePeerStopTyping);
-      
+      socket.off('messages-read', handleMessagesRead);
+
       // Clear typing timeout
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
@@ -286,6 +316,12 @@ export default function ChatPage() {
                     color: isMine ? 'rgba(255,255,255,0.7)' : '#9ca3af'
                   }}>
                     {formatTime(msg.timestamp)}
+                    {/* Read receipt on our own messages only */}
+                    {isMine && (
+                      <span style={styles.readStatus}>
+                        {msg.read ? ' ✓✓ Seen' : ' ✓ Sent'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -430,6 +466,11 @@ const styles = {
     fontSize: '11px',
     marginTop: '4px',
     textAlign: 'right'
+  },
+  readStatus: {
+    marginLeft: '4px',
+    fontSize: '11px',
+    fontWeight: '500'
   },
   inputContainer: {
     display: 'flex',
