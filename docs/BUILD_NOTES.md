@@ -402,12 +402,99 @@ project (also saved to persistent memory).
 
 ---
 
+### Entry 7 — User roles (student / mentor)
+
+**What I built.** The first piece of turning this into a mentor-student
+platform: a `role` field on every user (`'student'` or `'mentor'`), a way for
+users to choose it, and exposure of that role everywhere user data is returned.
+This entry stores and surfaces role — it does **not** yet enforce any
+permissions (see the design flag below).
+
+**Files added:**
+
+- `src/pages/RoleSelectPage.jsx` — the first-login role picker (a full-screen
+  "Student or Mentor?" card with two big buttons).
+
+**Files changed:**
+
+- `server/models/User.js` — added `role: { type: String, enum: ['student','mentor'] }`
+  with **no default**.
+- `server/index.js` — added `POST /api/users/:id/role`; added role to all nine
+  user `populate()` selects (message sender/receiver, group members, group-message
+  sender), i.e. `'displayName photoURL'` → `'displayName photoURL role'`; added a
+  clarifying comment on `/api/auth/login`.
+- `src/context/AuthContext.jsx` — added a `chooseRole()` helper and exposed it on
+  the context; `dbUser` already carries `role`.
+- `src/App.jsx` — added a gate that shows the picker when a signed-in user has no
+  role yet, plus the import.
+
+**Design decision 1 — where the user chooses their role.** With Google-only
+sign-in there is nowhere to ask during login (you can't customise Google's
+consent screen) and there's no registration form (we deleted it). So the only
+natural moment is **immediately after the first sign-in.** I show a one-time,
+full-screen picker, gated in `App.jsx`: if `user && dbUser && !dbUser.role`,
+render `RoleSelectPage` instead of the routes. Pick once → stored → never asked
+again. The gate deliberately waits for `dbUser` to load (it's null for a beat
+after login) so it never flashes prematurely.
+
+**Design decision 2 — role is set separately from the upsert, on purpose.** The
+instinct is to store role "wherever users are created/upserted" — which is
+`POST /api/auth/login`. But that endpoint runs on **every** login and re-writes
+the user document, so putting `role` there would **overwrite the user's choice
+every time they signed in.** Instead, `/api/auth/login` never touches `role`
+(preserving whatever is stored), and role is written once through the dedicated
+`POST /api/users/:id/role` endpoint. This is the key subtlety of the feature.
+
+**Design decision 3 — nothing enforces the role (yet).** This is important to be
+explicit about: role is **stored and displayed only.** No endpoint or UI checks
+it; a mentor and a student can currently do exactly the same things. Real
+authorization (mentor-only actions, gating group creation, etc.) is separate,
+deferred work. What's done here is the *foundation* it will build on.
+
+**Why no default on the schema.** If `role` defaulted to `'student'`, every new
+user would silently be a student and the picker would be meaningless. Leaving it
+unset means "hasn't chosen yet" is a real, detectable state (`!dbUser.role`),
+which is exactly what the first-login gate keys on. Existing accounts created
+before this change also have no role, so they'll simply be prompted once on their
+next login — no migration needed.
+
+**End-to-end walkthrough.**
+
+1. A user signs in with Google. `AuthContext` calls `POST /api/auth/login`, which
+   upserts their user doc. For a brand-new (or pre-existing role-less) user, the
+   returned `dbUser` has **no `role`**.
+2. `App.jsx` sees `user && dbUser && !dbUser.role` and renders `RoleSelectPage`
+   instead of any route — the app is effectively blocked on this choice.
+3. The user clicks **Student** or **Mentor**. That calls `chooseRole(role)` from
+   the context, which `POST`s to `/api/users/:id/role`.
+4. The server validates the value is one of the two allowed roles, writes it with
+   `findByIdAndUpdate`, and returns the updated user.
+5. `chooseRole` puts that updated user into `dbUser` state. Now `dbUser.role` is
+   set, so `App.jsx` re-renders — the gate condition is false — and the user lands
+   in the normal app (the Users page).
+6. On every later login, `/api/auth/login` returns the stored role untouched, so
+   the picker never appears again.
+7. **Exposure:** because role is now in the schema and in every user `populate`,
+   any user object the API returns — the logged-in user, the users list, a chat
+   peer, a group member, a message's sender — carries its `role`. Nothing in the
+   UI reads it yet, but it's available the moment we want to (badges, mentor-only
+   buttons, filtered lists, etc.).
+
+**Note on scope.** An earlier framing of this task said "don't touch chat or
+group functionality," which would have kept role out of the message/group
+populates. That constraint was lifted once the project scope was settled, so role
+is now threaded through **all** user-data returns, chat and group included.
+
+---
+
 ### Open items / "later" list
 
-- **Roles** — a student/teacher hierarchy plus authorization. Not started; the
-  current `User` model has no `role` field, and none of the group/chat endpoints
-  enforce permissions. Design questions (what roles gate, how a role is assigned
-  given Google-only sign-in) are still open.
+- **Role enforcement** — the `role` field now exists and is exposed everywhere
+  (Entry 7), but nothing acts on it yet. Next steps: decide what mentors can do
+  that students can't (e.g. only mentors create groups, or post announcements),
+  then enforce it in the relevant REST/socket handlers **and** reflect it in the
+  UI (badges, hidden buttons). Also: there's currently no way to *change* a role
+  after the first pick — a settings toggle or admin action would be needed.
 - **New-user live refresh** — the Users list only updates online/offline status
   live; a brand-new signup doesn't appear until a manual refresh (no "new user"
   broadcast yet).

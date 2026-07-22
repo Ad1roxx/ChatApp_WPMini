@@ -150,13 +150,39 @@ export function AuthProvider({ children }) {
     }
   };
 
+  /**
+   * Set the current user's role ('student' or 'mentor').
+   *
+   * Called by the first-login role picker. On success we update dbUser in
+   * state, which makes App re-render out of the picker and into the normal
+   * routes (since dbUser.role is now set).
+   */
+  const chooseRole = async (role) => {
+    if (!dbUser) return;
+    try {
+      const response = await fetch(`${SERVER_URL}/api/users/${dbUser._id}/role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+      if (response.ok) {
+        setDbUser(await response.json());
+      } else {
+        console.error('Failed to set role');
+      }
+    } catch (err) {
+      console.error('Error choosing role:', err);
+    }
+  };
+
   // The value object that will be available to all children
   const value = {
     user,       // Firebase user (has uid, email from Google)
-    dbUser,     // MongoDB user (has _id, isOnline, etc.)
+    dbUser,     // MongoDB user (has _id, isOnline, role, etc.)
     socket,     // Socket.IO connection
     loading,    // True while checking auth state
     logout,     // Function to sign out
+    chooseRole, // Set role on first login
     SERVER_URL  // So components can make API calls
   };
 

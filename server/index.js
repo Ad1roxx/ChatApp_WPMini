@@ -113,6 +113,9 @@ app.post('/api/auth/login', async (req, res) => {
     // - If user exists: UPDATE their info (name, photo might have changed)
     // - If user doesn't exist: CREATE new user
     // This is called an "upsert" (update + insert)
+    // NOTE: `role` is intentionally NOT in the update below. This runs on
+    // EVERY login, so setting role here would clobber the user's choice.
+    // Role is set once via POST /api/users/:id/role and preserved thereafter.
     const user = await User.findOneAndUpdate(
       { firebaseUid },  // Find by Firebase UID
       { 
@@ -197,8 +200,8 @@ app.get('/api/messages/:visitorId/:peerId', async (req, res) => {
     const messages = await Message.find(query)
       .sort({ timestamp: 1 })  // Oldest first
       .limit(parseInt(limit))
-      .populate('sender', 'displayName photoURL')  // Include sender info
-      .populate('receiver', 'displayName photoURL');
+      .populate('sender', 'displayName photoURL role')  // Include sender info
+      .populate('receiver', 'displayName photoURL role');
 
     res.json(messages);
   } catch (err) {
@@ -222,6 +225,41 @@ app.get('/api/user/:visitorId', async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error('Error fetching user:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/users/:id/role
+ *
+ * Set a user's role ('student' or 'mentor'). Used by the first-login role
+ * picker. Kept separate from /api/auth/login on purpose: that endpoint
+ * upserts on EVERY login, so putting role there would overwrite the user's
+ * choice each time they sign in. Setting it here, once, preserves it.
+ */
+app.post('/api/users/:id/role', async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    // Only these two roles are valid
+    if (!['student', 'mentor'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      { new: true }        // return the updated document
+    ).select('-__v');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`🎓 Role set: ${user.displayName} -> ${role}`);
+    res.json(user);
+  } catch (err) {
+    console.error('Error setting role:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -260,7 +298,7 @@ app.post('/api/groups', async (req, res) => {
     });
 
     // Return the group with member info populated (handy for the client)
-    await group.populate('members', 'displayName photoURL');
+    await group.populate('members', 'displayName photoURL role');
 
     console.log(`👥 Group created: ${group.name} (${uniqueMembers.length} members)`);
     res.json(group);
@@ -293,7 +331,7 @@ app.post('/api/groups/:groupId/join', async (req, res) => {
       groupId,
       { $addToSet: { members: visitorId } },  // add only if not already present
       { new: true }                           // return the updated group
-    ).populate('members', 'displayName photoURL');
+    ).populate('members', 'displayName photoURL role');
 
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
@@ -320,7 +358,7 @@ app.get('/api/groups', async (req, res) => {
     // If userId given, only groups where they are a member
     const query = userId ? { members: userId } : {};
     const groups = await Group.find(query)
-      .populate('members', 'displayName photoURL')
+      .populate('members', 'displayName photoURL role')
       .sort({ createdAt: -1 });  // newest groups first
 
     res.json(groups);
@@ -351,7 +389,7 @@ app.get('/api/groups/:groupId/messages', async (req, res) => {
     const messages = await GroupMessage.find(query)
       .sort({ timestamp: 1 })  // oldest first
       .limit(parseInt(limit))
-      .populate('sender', 'displayName photoURL');
+      .populate('sender', 'displayName photoURL role');
 
     res.json(messages);
   } catch (err) {
@@ -447,8 +485,8 @@ io.on('connection', (socket) => {
       });
 
       // Populate sender info for the response
-      await message.populate('sender', 'displayName photoURL');
-      await message.populate('receiver', 'displayName photoURL');
+      await message.populate('sender', 'displayName photoURL role');
+      await message.populate('receiver', 'displayName photoURL role');
 
       // Prepare message object to send to clients
       const messageToSend = {
@@ -592,7 +630,7 @@ io.on('connection', (socket) => {
       });
 
       // Populate sender info for the clients
-      await message.populate('sender', 'displayName photoURL');
+      await message.populate('sender', 'displayName photoURL role');
 
       const messageToSend = {
         _id: message._id,

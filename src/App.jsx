@@ -19,10 +19,12 @@ import UsersPage from "./pages/UsersPage";
 import ChatPage from "./pages/ChatPage";
 import GroupsPage from "./pages/GroupsPage";
 import GroupChatPage from "./pages/GroupChatPage";
+import RoleSelectPage from "./pages/RoleSelectPage";
 
 function App() {
   // Get auth state from our context
-  const { user, loading } = useAuth();
+  // dbUser is needed for the first-login role gate below
+  const { user, dbUser, loading } = useAuth();
 
   // Show loading spinner while checking auth
   // Without this, user would briefly see login page even if logged in
@@ -50,6 +52,14 @@ function App() {
         `}</style>
       </div>
     );
+  }
+
+  // First-login role selection. A signed-in user whose account has no role
+  // yet must pick one before using the app. dbUser is null for a moment right
+  // after login while we fetch it, so we only gate once it has loaded AND
+  // confirms no role — this never blocks prematurely.
+  if (user && dbUser && !dbUser.role) {
+    return <RoleSelectPage />;
   }
 
   return (

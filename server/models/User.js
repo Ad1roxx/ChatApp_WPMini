@@ -59,6 +59,15 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   },
 
+  // Role in the mentor-student platform: 'student' or 'mentor'.
+  // No default on purpose — a freshly created user has NO role until they
+  // pick one on first login (Google sign-in gives us nowhere to ask, and
+  // there is no registration form). The enum still validates any value set.
+  role: {
+    type: String,
+    enum: ['student', 'mentor']
+  },
+
   // When was this user record created?
   createdAt: {
     type: Date,
