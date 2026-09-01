@@ -49,8 +49,19 @@ export default defineConfig([
       },
     },
     rules: {
-      // Allow intentionally-unused capitalised bindings (constants, components)
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Allow intentionally-unused capitalised bindings (constants, components).
+      //
+      // `argsIgnorePattern` matters for the same reason `varsIgnorePattern`
+      // already did: core ESLint has no JSX awareness, so a component used
+      // ONLY as a JSX element name (`<NavIcon />`) is not counted as a
+      // reference and gets reported as unused. That's what
+      // eslint-plugin-react's `jsx-uses-vars` exists for; rather than add a
+      // dependency for one rule, both patterns exempt capitalised names —
+      // which is the convention JSX components already follow.
+      'no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }
+      ],
 
       // Advisory, not an error, in this codebase.
       //

@@ -1,0 +1,86 @@
+.viewport {
+  position: fixed;
+  z-index: 100;
+  bottom: var(--space-5);
+  right: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* The container spans the corner but must not swallow clicks on the page
+     behind it; individual toasts re-enable pointer events. */
+  pointer-events: none;
+  max-width: min(380px, calc(100vw - var(--space-8)));
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-left-width: 3px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-base);
+  animation: slide-in 160ms ease-out;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success {
+  border-left-color: var(--color-success);
+}
+
+.error {
+  border-left-color: var(--color-danger);
+}
+
+.info {
+  border-left-color: var(--color-accent);
+}
+
+.message {
+  flex: 1;
+  color: var(--color-text);
+  line-height: var(--leading-normal);
+}
+
+.dismiss {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-subtle);
+  font-size: 18px;
+  line-height: 1;
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.dismiss:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+/* On a phone, span the width at the bottom rather than floating in a corner */
+@media (max-width: 640px) {
+  .viewport {
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-4);
+    max-width: none;
+  }
+}

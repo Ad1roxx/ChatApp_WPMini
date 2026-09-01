@@ -25,6 +25,7 @@ import RoleSelectPage from "./pages/RoleSelectPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
+import { PageLoader } from "./components/Loading";
 
 function App() {
   // Get auth state from our context
@@ -34,29 +35,7 @@ function App() {
   // Show loading spinner while checking auth
   // Without this, user would briefly see login page even if logged in
   if (loading) {
-    return (
-      <div style={{ 
-        height: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: '#f5f5f5'
-      }}>
-        <div style={{ 
-          width: '40px', 
-          height: '40px', 
-          border: '3px solid #e0e0e0',
-          borderTopColor: '#3b82f6',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }} />
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
+    return <PageLoader label="Signing you in" />;
   }
 
   // First-login role selection. A signed-in user whose account has no role

@@ -1,52 +1,65 @@
 /**
  * UsersPage - List of users to chat with
- * 
- * This page shows all registered users (except yourself).
- * Click on a user to start chatting with them.
- * 
+ *
+ * Shows all registered users except yourself.
+ *
  * Features:
- * - Shows online/offline status (green dot)
- * - Real-time status updates via Socket.IO
- * - Click to navigate to chat
+ * - Online/offline presence, live via Socket.IO
  * - Role badge (student/mentor) so mentors are identifiable at a glance
- * - "Profile" button opens that person's read-only profile
+ * - Row opens the chat; a separate button opens that person's profile
+ * - New signups appear without a refresh ('user-added' / 'user-updated')
+ *
+ * Accessibility note on the row: the whole row used to be a `<div onClick>`,
+ * which is invisible to the keyboard. It's now a real `<button>` that fills
+ * the row, with the Profile button as its SIBLING rather than a child. That
+ * removes the nested-interactive-element problem and the `stopPropagation`
+ * it needed, and both controls are now tabbable.
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppShell from '../components/AppShell';
+import Card from '../components/Card';
+import Avatar from '../components/Avatar';
+import { RoleBadge } from '../components/Badge';
+import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
+import { InlineLoader } from '../components/Loading';
+import { MessagesIcon } from '../components/Icons';
+import styles from './UsersPage.module.css';
 
 export default function UsersPage() {
   const navigate = useNavigate();
-  const { dbUser, socket, logout, SERVER_URL } = useAuth();
-  
+  const { dbUser, socket, SERVER_URL } = useAuth();
+
   // List of all users
   const [users, setUsers] = useState([]);
-  
+
   // Set of online user IDs (for quick lookup)
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
-  
+
   // Loading state
   const [loading, setLoading] = useState(true);
 
   /**
    * Effect: Fetch all users from server
-   * 
+   *
    * We exclude the current user (you can't chat with yourself!)
    */
   useEffect(() => {
     const fetchUsers = async () => {
       if (!dbUser) return;
-      
+
       try {
         const response = await fetch(
           `${SERVER_URL}/api/users?exclude=${dbUser.firebaseUid}`
         );
-        
+
         if (response.ok) {
           const data = await response.json();
           setUsers(data);
-          
+
           // Initialize online status from fetched data
           const onlineIds = new Set(
             data.filter(u => u.isOnline).map(u => u._id)
@@ -65,7 +78,7 @@ export default function UsersPage() {
 
   /**
    * Effect: Listen for real-time status changes
-   * 
+   *
    * When someone comes online/offline, server broadcasts 'user-status-change'.
    * We update our onlineUserIds set accordingly.
    */
@@ -138,271 +151,69 @@ export default function UsersPage() {
     };
   }, [socket, dbUser]);
 
-  /**
-   * Navigate to chat with specific user
-   */
-  const openChat = (peerId) => {
-    navigate(`/chat/${peerId}`);
-  };
-
-  // Loading state
-  if (loading) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.loading}>Loading users...</div>
-      </div>
-    );
-  }
+  const onlineCount = users.filter(u => onlineUserIds.has(u._id)).length;
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Messages</h1>
-          <p style={styles.subtitle}>
-            Logged in as {dbUser?.displayName}
-          </p>
-        </div>
-        {/* flexWrap: four buttons no longer fit on one line on a phone */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button onClick={() => navigate('/profile')} style={styles.logoutBtn}>
-            Profile
-          </button>
-          <button onClick={() => navigate('/announcements')} style={styles.logoutBtn}>
-            Notices
-          </button>
-          <button onClick={() => navigate('/groups')} style={styles.logoutBtn}>
-            Groups
-          </button>
-          <button onClick={logout} style={styles.logoutBtn}>
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Users List */}
-      <div style={styles.usersList}>
-        {users.length === 0 ? (
-          <div style={styles.emptyState}>
-            <p>No other users yet.</p>
-            <p style={styles.emptyHint}>
-              Ask a friend to sign in to start chatting!
-            </p>
-          </div>
+    <AppShell
+      title="Messages"
+      subtitle={
+        loading
+          ? undefined
+          : `${users.length} ${users.length === 1 ? 'person' : 'people'}` +
+            (onlineCount > 0 ? ` · ${onlineCount} online` : '')
+      }
+    >
+      <Card padded={false}>
+        {loading ? (
+          <InlineLoader label="Loading people" />
+        ) : users.length === 0 ? (
+          <EmptyState
+            icon={<MessagesIcon size={20} />}
+            title="No one else here yet"
+            description="Once someone else signs in they'll appear here and you can start a conversation."
+          />
         ) : (
-          users.map(user => (
-            <div
-              key={user._id}
-              onClick={() => openChat(user._id)}
-              style={styles.userCard}
-            >
-              {/* Avatar */}
-              <div style={styles.avatarWrapper}>
-                {user.photoURL ? (
-                  <img 
-                    src={user.photoURL} 
-                    alt={user.displayName}
-                    style={styles.avatar}
-                  />
-                ) : (
-                  <div style={styles.avatarPlaceholder}>
-                    {user.displayName?.charAt(0)?.toUpperCase() || '?'}
-                  </div>
-                )}
-                {/* Online indicator dot */}
-                <div 
-                  style={{
-                    ...styles.statusDot,
-                    backgroundColor: onlineUserIds.has(user._id) ? '#22c55e' : '#9ca3af'
-                  }}
-                />
-              </div>
+          <ul className={styles.list}>
+            {users.map(user => {
+              const isOnline = onlineUserIds.has(user._id);
 
-              {/* User info */}
-              <div style={styles.userInfo}>
-                <div style={styles.nameRow}>
-                  <span style={styles.userName}>{user.displayName}</span>
-                  {/* Guard: accounts created before roles existed have none */}
-                  {user.role && (
-                    <span style={styles.roleBadge}>
-                      {user.role === 'mentor' ? '🧑‍🏫 Mentor' : '🎓 Student'}
+              return (
+                <li key={user._id} className={styles.row}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/chat/${user._id}`)}
+                    className={styles.rowMain}
+                  >
+                    <Avatar
+                      src={user.photoURL}
+                      name={user.displayName}
+                      presence={isOnline}
+                    />
+                    <span className={styles.rowText}>
+                      <span className={styles.rowName}>
+                        {user.displayName}
+                        <RoleBadge role={user.role} />
+                      </span>
+                      <span className={styles.rowStatus}>
+                        {isOnline ? 'Online' : 'Offline'}
+                      </span>
                     </span>
-                  )}
-                </div>
-                <span style={styles.userStatus}>
-                  {onlineUserIds.has(user._id) ? 'Online' : 'Offline'}
-                </span>
-              </div>
+                  </button>
 
-              {/* Profile button.
-                  stopPropagation matters: this button sits inside the card,
-                  and without it the card's onClick would also fire and drop
-                  us into the chat instead. */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/users/${user._id}`);
-                }}
-                style={styles.profileBtn}
-              >
-                Profile
-              </button>
-
-              {/* Arrow */}
-              <svg 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="#9ca3af"
-                strokeWidth="2"
-              >
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-            </div>
-          ))
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => navigate(`/users/${user._id}`)}
+                    className={styles.profileButton}
+                  >
+                    Profile
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </div>
-    </div>
+      </Card>
+    </AppShell>
   );
 }
-
-// Styles object (CSS-in-JS)
-// In a real app, you might use CSS Modules, Tailwind, or styled-components
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-    padding: '0'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '20px 24px',
-    backgroundColor: '#3b82f6',
-    color: '#fff'
-  },
-  title: {
-    margin: 0,
-    fontSize: '24px',
-    fontWeight: '600'
-  },
-  subtitle: {
-    margin: '4px 0 0',
-    fontSize: '14px',
-    opacity: 0.9
-  },
-  logoutBtn: {
-    padding: '8px 16px',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px'
-  },
-  usersList: {
-    padding: '16px'
-  },
-  userCard: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '16px',
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    marginBottom: '12px',
-    cursor: 'pointer',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    transition: 'transform 0.15s ease, box-shadow 0.15s ease'
-  },
-  avatarWrapper: {
-    position: 'relative',
-    marginRight: '16px'
-  },
-  avatar: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '50%',
-    objectFit: 'cover'
-  },
-  avatarPlaceholder: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '50%',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '20px',
-    fontWeight: '600'
-  },
-  statusDot: {
-    position: 'absolute',
-    bottom: '2px',
-    right: '2px',
-    width: '12px',
-    height: '12px',
-    borderRadius: '50%',
-    border: '2px solid #fff'
-  },
-  userInfo: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  nameRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    flexWrap: 'wrap'
-  },
-  userName: {
-    fontSize: '16px',
-    fontWeight: '500',
-    color: '#1f2937'
-  },
-  roleBadge: {
-    padding: '2px 8px',
-    backgroundColor: '#eef2ff',
-    color: '#3b82f6',
-    borderRadius: '999px',
-    fontSize: '12px',
-    fontWeight: '500'
-  },
-  profileBtn: {
-    padding: '6px 12px',
-    marginRight: '8px',
-    backgroundColor: '#f3f4f6',
-    color: '#374151',
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
-    fontSize: '13px',
-    cursor: 'pointer'
-  },
-  userStatus: {
-    fontSize: '13px',
-    color: '#6b7280',
-    marginTop: '2px'
-  },
-  loading: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    fontSize: '16px',
-    color: '#6b7280'
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '60px 20px',
-    color: '#6b7280'
-  },
-  emptyHint: {
-    marginTop: '8px',
-    fontSize: '14px',
-    opacity: 0.7
-  }
-};

@@ -1,0 +1,80 @@
+.wrapper {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.image,
+.fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+}
+
+.fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Muted, not the accent colour — a wall of accent-coloured circles in a
+     list is loud and reads as decoration rather than identity. */
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  user-select: none;
+}
+
+/* ---- Sizes ---- */
+.xs {
+  width: 24px;
+  height: 24px;
+  font-size: var(--text-xs);
+}
+
+.sm {
+  width: 32px;
+  height: 32px;
+  font-size: var(--text-sm);
+}
+
+.md {
+  width: 40px;
+  height: 40px;
+  font-size: var(--text-base);
+}
+
+.lg {
+  width: 56px;
+  height: 56px;
+  font-size: var(--text-lg);
+}
+
+.xl {
+  width: 72px;
+  height: 72px;
+  font-size: var(--text-2xl);
+}
+
+/* ---- Presence dot ---- */
+.dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 30%;
+  height: 30%;
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: var(--radius-full);
+  /* Ring in the page background so the dot reads as separate from the photo */
+  border: 2px solid var(--color-surface);
+}
+
+.online {
+  background-color: var(--color-online);
+}
+
+.offline {
+  background-color: var(--color-offline);
+}

@@ -1,0 +1,124 @@
+/**
+ * Design tokens
+ *
+ * Every colour, space, radius and type size in the app resolves to one of
+ * these variables. Nothing else should hardcode a hex value.
+ *
+ * Before this file there were eight copies of a `const styles = {}` object,
+ * one per page, and `#3b82f6` appeared 34 times — changing the accent colour
+ * meant 34 edits across 8 files.
+ *
+ * Deliberate choices, since the brief was "stop looking like a generated
+ * template":
+ *
+ * - **Warm neutrals, not cool grey.** The greys below have a slight brown
+ *   cast (stone rather than slate). It reads as considered rather than
+ *   default-Tailwind.
+ * - **Charcoal primary buttons, not accent-coloured ones.** Near-black
+ *   actions with the accent reserved for state (active nav, links, progress)
+ *   is what Linear, Vercel and GitHub do. Accent-coloured primary buttons
+ *   everywhere is the tell of a template.
+ * - **A deeper, desaturated blue** than the `#3b82f6` this replaces. That
+ *   exact blue is the default in every generated UI.
+ * - **Small radii and borders instead of shadows.** Big pill shapes and soft
+ *   glows are the other tell.
+ *
+ * Structured so a dark theme can later be added by redefining this same set
+ * under a `[data-theme="dark"]` selector, with no component changes.
+ */
+
+:root {
+  /* ---- Neutrals (warm) ---- */
+  --color-bg: #faf9f7;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f5f4f1;
+  --color-surface-hover: #f0efec;
+
+  --color-border: #e7e5e0;
+  --color-border-strong: #d6d3cc;
+
+  --color-text: #1c1a17;
+  --color-text-muted: #6f6a62;
+  --color-text-subtle: #9c968c;
+  --color-text-inverse: #ffffff;
+
+  /* ---- Accent: state, links, progress. NOT primary buttons ---- */
+  --color-accent: #1d4ed8;
+  --color-accent-hover: #1a43ba;
+  --color-accent-soft: #eef2ff;
+  --color-accent-border: #c7d2fe;
+
+  /* ---- Primary action: charcoal ---- */
+  --color-primary: #1c1a17;
+  --color-primary-hover: #35312b;
+
+  /* ---- Semantic ---- */
+  --color-success: #15803d;
+  --color-success-soft: #f0fdf4;
+  --color-danger: #b91c1c;
+  --color-danger-hover: #991b1b;
+  --color-danger-soft: #fef2f2;
+  --color-warning: #b45309;
+  --color-warning-soft: #fffbeb;
+
+  --color-online: #16a34a;
+  --color-offline: #b8b2a8;
+
+  /* ---- Spacing ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---- Radii: small. Pills only for badges and dots ---- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 999px;
+
+  /* ---- Type ---- */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* ---- Elevation: restrained. Borders do most of the work ---- */
+  --shadow-sm: 0 1px 2px rgba(28, 26, 23, 0.05);
+  --shadow-md: 0 2px 8px rgba(28, 26, 23, 0.06);
+  --shadow-lg: 0 8px 24px rgba(28, 26, 23, 0.1);
+
+  /* ---- Layout ---- */
+  --sidebar-width: 232px;
+  --header-height: 56px;
+  --content-max: 880px;
+
+  /* ---- Motion ---- */
+  --transition: 120ms ease;
+
+  /* ---- Focus: one ring definition, used everywhere ---- */
+  --focus-ring: 0 0 0 3px var(--color-accent-soft),
+    0 0 0 1px var(--color-accent);
+}
