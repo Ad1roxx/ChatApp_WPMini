@@ -153,12 +153,16 @@ export function AuthProvider({ children }) {
   /**
    * Set the current user's role ('student' or 'mentor').
    *
-   * Called by the first-login role picker. On success we update dbUser in
-   * state, which makes App re-render out of the picker and into the normal
-   * routes (since dbUser.role is now set).
+   * Two callers, same operation:
+   * - the first-login picker. On success dbUser gains a role, so App
+   *   re-renders out of the picker and into the normal routes.
+   * - the role switcher on the profile page, for changing it later.
+   *
+   * Returns true/false so the caller can report failure instead of looking
+   * like nothing happened.
    */
   const chooseRole = async (role) => {
-    if (!dbUser) return;
+    if (!dbUser) return false;
     try {
       const response = await fetch(`${SERVER_URL}/api/users/${dbUser._id}/role`, {
         method: 'POST',
@@ -167,11 +171,13 @@ export function AuthProvider({ children }) {
       });
       if (response.ok) {
         setDbUser(await response.json());
-      } else {
-        console.error('Failed to set role');
+        return true;
       }
+      console.error('Failed to set role');
+      return false;
     } catch (err) {
       console.error('Error choosing role:', err);
+      return false;
     }
   };
 
@@ -209,7 +215,7 @@ export function AuthProvider({ children }) {
     socket,     // Socket.IO connection
     loading,    // True while checking auth state
     logout,        // Function to sign out
-    chooseRole,    // Set role on first login
+    chooseRole,    // Set role at first login, or change it later
     updateProfile, // Save profile fields (bio / expertise / availability)
     SERVER_URL     // So components can make API calls
   };

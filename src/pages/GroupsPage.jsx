@@ -3,7 +3,9 @@
  *
  * Two sections:
  * 1. Create a group: pick a name + select members from the user list
+ *    — MENTORS ONLY. Students get an explanatory note instead of the form.
  * 2. Browse groups: see all groups; Open the ones you're in, Join the rest
+ *    — everyone, students included.
  *
  * Reuses the same REST + Socket.IO backend patterns as UsersPage/ChatPage
  * and the existing #3b82f6 styling.
@@ -16,6 +18,11 @@ import { useAuth } from '../context/AuthContext';
 export default function GroupsPage() {
   const navigate = useNavigate();
   const { dbUser, logout, SERVER_URL } = useAuth();
+
+  // Only mentors may create groups. The server enforces this independently
+  // in POST /api/groups; hiding the form here is just so students aren't
+  // shown a button that would only ever fail.
+  const isMentor = dbUser?.role === 'mentor';
 
   // Create-form state
   const [groupName, setGroupName] = useState('');
@@ -99,7 +106,10 @@ export default function GroupsPage() {
         const group = await res.json();
         navigate(`/group/${group._id}`);
       } else {
-        alert('Failed to create group');
+        // Show the server's reason (e.g. the 403 for non-mentors) rather
+        // than a generic failure, so the gate is self-explanatory.
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || 'Failed to create group');
       }
     } catch (err) {
       console.error('Error creating group:', err);
@@ -141,7 +151,11 @@ export default function GroupsPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Groups</h1>
-          <p style={styles.subtitle}>Create a group or join an existing one</p>
+          <p style={styles.subtitle}>
+            {isMentor
+              ? 'Create a group or join an existing one'
+              : 'Join a group to start chatting'}
+          </p>
         </div>
         <div style={styles.headerActions}>
           <button onClick={() => navigate('/users')} style={styles.navBtn}>
@@ -191,7 +205,25 @@ export default function GroupsPage() {
           )}
         </div>
 
-        {/* Create group (collapsible) */}
+        {/*
+          Create group (collapsible) — mentors only. Students see a short
+          note in its place so the absence is explained rather than just
+          being a missing feature.
+        */}
+        {!isMentor && (
+          <div style={styles.noticeCard}>
+            <span style={styles.noticeIcon}>ℹ️</span>
+            <div>
+              <p style={styles.noticeTitle}>Only mentors can create groups</p>
+              <p style={styles.noticeText}>
+                You can join and chat in any group above. Switch your role to
+                Mentor from your profile if you mentor others.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isMentor && (
         <div style={styles.createCard}>
           <button
             type="button"
@@ -251,6 +283,7 @@ export default function GroupsPage() {
             </form>
           )}
         </div>
+        )}
       </div>
     </div>
   );
@@ -430,5 +463,27 @@ const styles = {
     cursor: 'pointer',
     fontSize: '14px'
   },
-  emptyHint: { color: '#6b7280', fontSize: '14px', margin: 0 }
+  emptyHint: { color: '#6b7280', fontSize: '14px', margin: 0 },
+  noticeCard: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'flex-start',
+    backgroundColor: '#eef2ff',
+    border: '1px solid #dbeafe',
+    borderRadius: '12px',
+    padding: '16px 20px'
+  },
+  noticeIcon: { fontSize: '18px', lineHeight: 1.4 },
+  noticeTitle: {
+    margin: 0,
+    fontSize: '15px',
+    fontWeight: '600',
+    color: '#1f2937'
+  },
+  noticeText: {
+    margin: '4px 0 0',
+    fontSize: '14px',
+    color: '#4b5563',
+    lineHeight: 1.5
+  }
 };

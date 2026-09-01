@@ -232,10 +232,16 @@ app.get('/api/user/:visitorId', async (req, res) => {
 /**
  * POST /api/users/:id/role
  *
- * Set a user's role ('student' or 'mentor'). Used by the first-login role
- * picker. Kept separate from /api/auth/login on purpose: that endpoint
- * upserts on EVERY login, so putting role there would overwrite the user's
- * choice each time they sign in. Setting it here, once, preserves it.
+ * Set a user's role ('student' or 'mentor'). Used both by the first-login
+ * picker and by the role switcher on the profile page — the operation is
+ * identical either way, so there is no reason for a second endpoint.
+ *
+ * Kept separate from /api/auth/login on purpose: that endpoint upserts on
+ * EVERY login, so putting role there would overwrite the user's choice each
+ * time they sign in. Setting it only here preserves it.
+ *
+ * Demoting a mentor to student leaves the groups they already created
+ * intact — the gate is on *creating* groups, not on owning them.
  */
 app.post('/api/users/:id/role', async (req, res) => {
   try {
@@ -317,6 +323,11 @@ app.put('/api/users/:id/profile', async (req, res) => {
  *
  * Create a new group chat.
  *
+ * MENTOR-ONLY. Students can join and chat in any group, they just cannot
+ * open new ones. Same principle as the profile endpoint: we read the
+ * creator's role from the DATABASE, never from the request body, so a
+ * student cannot promote themselves by editing the payload.
+ *
  * Body:
  * - name: group display name
  * - createdBy: MongoDB _id of the creator
@@ -329,6 +340,16 @@ app.post('/api/groups', async (req, res) => {
     // Validate required fields
     if (!name?.trim() || !createdBy) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // AUTHORIZATION: only mentors may create groups.
+    const creator = await User.findById(createdBy).select('role displayName');
+    if (!creator) {
+      return res.status(404).json({ error: 'Creator not found' });
+    }
+    if (creator.role !== 'mentor') {
+      console.log(`⛔ Group create refused: ${creator.displayName} is not a mentor`);
+      return res.status(403).json({ error: 'Only mentors can create groups' });
     }
 
     // Always include the creator in the members list, and de-duplicate.

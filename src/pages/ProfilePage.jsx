@@ -5,6 +5,11 @@
  * an availability note — those inputs only render when role === 'mentor'
  * (and the server independently refuses to store them for students).
  *
+ * Also where you CHANGE your role. It's chosen at first login, and before
+ * this the pick was permanent — one mis-tap and the only way out was a new
+ * Google account. Now that roles actually gate things (mentors create
+ * groups and post announcements), being stuck in the wrong one matters.
+ *
  * Reuses the same patterns as GroupsPage/UsersPage: useAuth() for data,
  * inline style objects, #3b82f6 header.
  */
@@ -15,7 +20,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { dbUser, updateProfile } = useAuth();
+  const { dbUser, updateProfile, chooseRole } = useAuth();
 
   const isMentor = dbUser?.role === 'mentor';
 
@@ -25,6 +30,7 @@ export default function ProfilePage() {
   const [availability, setAvailability] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);   // 'success' | 'error' | null
+  const [switchingRole, setSwitchingRole] = useState(false);
 
   /**
    * Seed the form from dbUser. Runs again after a save (dbUser is replaced
@@ -36,6 +42,33 @@ export default function ProfilePage() {
     setExpertise(dbUser.expertise || '');
     setAvailability(dbUser.availability || '');
   }, [dbUser]);
+
+  /**
+   * Switch between student and mentor.
+   *
+   * Confirmed first, because this is not a cosmetic label: it changes what
+   * you can do (create groups, post announcements) and which profile fields
+   * you can fill in. Reuses chooseRole(), which is the same POST the
+   * first-login picker makes and keeps dbUser in sync app-wide.
+   */
+  const handleRoleSwitch = async (newRole) => {
+    if (newRole === dbUser?.role || switchingRole) return;
+
+    const confirmed = window.confirm(
+      newRole === 'mentor'
+        ? 'Switch to Mentor? You will be able to create groups and post ' +
+          'announcements, and you can fill in your expertise and availability.'
+        : 'Switch to Student? You will no longer be able to create groups or ' +
+          'post announcements. Groups you already made stay where they are.'
+    );
+    if (!confirmed) return;
+
+    setSwitchingRole(true);
+    const ok = await chooseRole(newRole);
+    setSwitchingRole(false);
+
+    if (!ok) alert('Could not change your role. Please try again.');
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -89,6 +122,40 @@ export default function ProfilePage() {
           </div>
           <p style={styles.identityNote}>
             Name, photo and email come from your Google account.
+          </p>
+        </div>
+
+        {/* Role switcher */}
+        <div style={styles.card}>
+          <h2 style={styles.sectionTitle}>Role</h2>
+          <div style={styles.roleOptions}>
+            {[
+              { value: 'student', label: '🎓 Student' },
+              { value: 'mentor', label: '🧑‍🏫 Mentor' }
+            ].map((option) => {
+              const selected = dbUser.role === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleRoleSwitch(option.value)}
+                  disabled={switchingRole}
+                  style={{
+                    ...styles.roleOption,
+                    ...(selected ? styles.roleOptionSelected : {})
+                  }}
+                >
+                  {option.label}
+                  {selected && <span style={styles.roleCheck}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+          <p style={styles.roleNote}>
+            {isMentor
+              ? 'As a mentor you can create groups and post announcements.'
+              : 'Students can join groups and read announcements. Switch to ' +
+                'Mentor if you mentor others.'}
           </p>
         </div>
 
@@ -220,6 +287,34 @@ const styles = {
     fontWeight: '500'
   },
   identityNote: { margin: '12px 0 0', fontSize: '12px', color: '#9ca3af' },
+  roleOptions: { display: 'flex', gap: '12px' },
+  roleOption: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '14px',
+    backgroundColor: '#fff',
+    color: '#374151',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    fontSize: '15px',
+    fontWeight: '500',
+    cursor: 'pointer'
+  },
+  roleOptionSelected: {
+    backgroundColor: '#eef2ff',
+    borderColor: '#3b82f6',
+    color: '#3b82f6'
+  },
+  roleCheck: { fontSize: '14px' },
+  roleNote: {
+    margin: '12px 0 0',
+    fontSize: '13px',
+    color: '#6b7280',
+    lineHeight: 1.5
+  },
   sectionTitle: {
     margin: '0 0 16px',
     fontSize: '18px',
