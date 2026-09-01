@@ -90,6 +90,12 @@ export const SendIcon = (p) => (
   </Icon>
 );
 
+export const ShieldIcon = (p) => (
+  <Icon {...p}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </Icon>
+);
+
 export const InboxIcon = (p) => (
   <Icon {...p}>
     <path d="M22 12h-6l-2 3h-4l-2-3H2" />

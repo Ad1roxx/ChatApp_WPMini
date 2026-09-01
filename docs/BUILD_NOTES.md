@@ -1192,6 +1192,108 @@ presence.
 
 ---
 
+### Entry 16 — Visual verification, and the admin role
+
+Two things in one session: a browser that can actually look at the app, and a
+third role.
+
+#### Part 1 — Playwright
+
+The whole UI foundation (Entry 14) shipped **unverified**, because there was
+no browser in the environment. There is now, and looking at the result found
+two bugs that reading the CSS had not.
+
+`scripts/screenshot.mjs` drives the running app and captures every route at a
+desktop and a mobile width. It also fails on an unexpected redirect or any
+console error — a screenshot can look perfect while the console is full of
+failures, and only checking the picture would miss that.
+
+**The obstacle worth recording:** Google sign-in cannot be automated. The
+popup needs a real person, which makes every signed-in screen unreachable to a
+test browser. Two dev switches solve it — `ALLOW_DEV_AUTH` on the server
+(accepts an `X-Dev-User-Id` header) and `VITE_DEV_USER_ID` on the frontend
+(skips Google and sends it). Both are off by default and must be set in two
+different places, and the frontend half is guarded by `import.meta.env.DEV`,
+which Vite replaces with a literal `false` in a production build. **Verified:
+zero occurrences of `X-Dev-User-Id`, `devUserId` or the dev sign-in path in
+the built bundle.** It cannot be enabled in production because it is not there.
+
+**What looking found:**
+
+- **The page title was 24px out of line with the cards beneath it.** The
+  topbar's inner box centred inside the bar's *own padding*, while the content
+  column centred inside the full width — so the two columns never agreed. The
+  inner box now mirrors `.content` exactly: same max-width, same centring, same
+  inline padding, with the padding moved off the bar itself. Measured
+  afterwards rather than eyeballed: title and card share a left edge on all
+  four default routes.
+- **The login page's white panel floated mid-column on wide screens**, because
+  the max-width sat on the panel rather than on an inner wrapper. The surface
+  now fills its grid column with the copy held to a readable measure inside it.
+
+Neither was visible in the code. Both were obvious in a picture.
+
+#### Part 2 — The admin role
+
+**Design decision 1 — admin is granted, never chosen.** Student and mentor are
+self-service. Admin is not in that set: it comes from the server's
+`ADMIN_EMAILS` allowlist, applied at every login. The first-login picker and
+the profile switcher offer only two options, `POST /api/users/:id/role` already
+validated against exactly `['student','mentor']` so it rejected admin without
+any change, and **the admin endpoint cannot grant admin either** — otherwise
+one compromised admin account would be enough to mint more. The principle:
+**a role a user can assign to themselves is not an access control.**
+
+*Deliberate asymmetry:* adding an address promotes on next sign-in; removing
+one does **not** automatically demote. Demoting would need a read of the
+current role before the upsert, and silently stripping someone's access on a
+config edit is worse than doing it explicitly from the dashboard.
+
+**Design decision 2 — admin is a superset of mentor, not a sibling.** The
+mentor gates now accept `['mentor','admin']`. Without that an admin could not
+use the very features they oversee, which would be a strange product and an
+irritating one to test. On the frontend this became `canMentor(role)` in
+`src/lib/roles.js`, because `role === 'mentor'` had been written in four
+separate pages and four places is exactly where an inconsistency hides.
+
+**Design decision 3 — every number on the dashboard is counted live.** No
+placeholder figures. With a three-user database the dashboard reads "3 users,
+0 groups, 0 messages", and that is the honest answer. A dashboard showing
+"1,284 students" screenshots well and collapses the first time somebody asks
+what it means.
+
+**Design decision 4 — two guards on the admin role endpoint.** It refuses to
+set `admin` (above), refuses to touch another admin, and refuses to change
+**your own** role — which would otherwise let an admin demote themselves out of
+the page they are standing in. Self-service role changes stay on the other
+endpoint, which refuses to touch anyone *but* you. The two endpoints have
+exactly opposite ownership rules, which is the point.
+
+**Verified — 8 checks against the running server:** the allowlist promoted an
+account to admin on login; `/api/admin/stats` and `/api/admin/users` returned
+**403** to a student and **200** to the admin; `PATCH … role` → `admin` was
+refused **400**; changing one's own role was refused **400**; changing someone
+else's succeeded **200**; and the same PATCH from a student was refused
+**403**. Then the dashboard was screenshotted as an admin: real counts, the
+role split, the user table with per-row controls, "You" on your own row, and
+the Administration section appearing in the sidebar.
+
+**Test data restored.** These checks changed two roles in the real database
+(one promotion to admin, one student→mentor). Both were set back afterwards
+and the three users are as they were.
+
+**One thing that was NOT restored, and should be recorded.** An earlier
+auth check in Entry 15 called `POST /api/auth/login` with a made-up
+`email`/`displayName` against an existing `firebaseUid`. Because that endpoint
+is an upsert, it **overwrote that user's real name and email** with
+"Existing User" / "existing@example.com". The originals were not captured and
+cannot be restored from here — but they self-heal: display name and email are
+re-synced from the Google token on that account's next sign-in. The lesson for
+future testing against a live database is to use a **throwaway `firebaseUid`**
+so the upsert inserts rather than updates.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

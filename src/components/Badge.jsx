@@ -6,6 +6,7 @@
  * inline versions. One definition, one appearance.
  */
 
+import { roleLabel } from '../lib/roles';
 import styles from './Badge.module.css';
 
 export default function Badge({ variant = 'neutral', className = '', children, ...rest }) {
@@ -27,13 +28,16 @@ export default function Badge({ variant = 'neutral', className = '', children, .
  * an empty badge outline would look like a bug.
  */
 export function RoleBadge({ role, className = '' }) {
-  if (!role) return null;
+  const label = roleLabel(role);
+  if (!label) return null;
 
-  const isMentor = role === 'mentor';
+  // Admin gets its own colour so it is not mistaken for a mentor at a glance —
+  // it is a different kind of thing, not a bigger mentor.
+  const variant = role === 'admin' ? 'warning' : role === 'mentor' ? 'accent' : 'neutral';
 
   return (
-    <Badge variant={isMentor ? 'accent' : 'neutral'} className={className}>
-      {isMentor ? 'Mentor' : 'Student'}
+    <Badge variant={variant} className={className}>
+      {label}
     </Badge>
   );
 }

@@ -88,6 +88,13 @@
   color: var(--color-text-muted);
 }
 
+/* Shown in place of the role switcher for admins */
+.adminNote {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+
 /* ---- Form ---- */
 .form {
   display: flex;

@@ -63,9 +63,18 @@ const userSchema = new mongoose.Schema({
   // No default on purpose — a freshly created user has NO role until they
   // pick one on first login (Google sign-in gives us nowhere to ask, and
   // there is no registration form). The enum still validates any value set.
+  // 'student' | 'mentor' | 'admin'
+  //
+  // No default, deliberately: an absent role is how "hasn't chosen yet" is
+  // detected, which is what triggers the first-login picker.
+  //
+  // 'admin' is NOT selectable. The picker and the profile switcher only ever
+  // offer student and mentor; admin is granted by the server from the
+  // ADMIN_EMAILS allowlist at login. If a role could be self-assigned, anyone
+  // could make themselves an admin by editing a request.
   role: {
     type: String,
-    enum: ['student', 'mentor']
+    enum: ['student', 'mentor', 'admin']
   },
 
   // ---- Profile fields ----

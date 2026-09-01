@@ -33,7 +33,8 @@ import {
   LogOutIcon,
   MenuIcon,
   MessagesIcon,
-  ProfileIcon
+  ProfileIcon,
+  ShieldIcon
 } from './Icons';
 import styles from './AppShell.module.css';
 
@@ -53,6 +54,12 @@ const NAV_SECTIONS = [
   {
     label: 'Account',
     items: [{ to: '/profile', label: 'Profile', icon: ProfileIcon }]
+  },
+  {
+    label: 'Administration',
+    // The `roles` key the section list was built for. Nothing else changes:
+    // the filter below already drops entries whose roles don't match.
+    items: [{ to: '/admin', label: 'Dashboard', icon: ShieldIcon, roles: ['admin'] }]
   }
 ];
 

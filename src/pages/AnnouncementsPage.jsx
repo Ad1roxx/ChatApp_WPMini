@@ -23,6 +23,7 @@ import EmptyState from '../components/EmptyState';
 import { InlineLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
 import { AnnouncementIcon } from '../components/Icons';
+import { canMentor } from '../lib/roles';
 import styles from './AnnouncementsPage.module.css';
 
 export default function AnnouncementsPage() {
@@ -30,7 +31,7 @@ export default function AnnouncementsPage() {
   const { dbUser, socket, authFetch } = useAuth();
   const toast = useToast();
 
-  const isMentor = dbUser?.role === 'mentor';
+  const isMentor = canMentor(dbUser?.role);
 
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);

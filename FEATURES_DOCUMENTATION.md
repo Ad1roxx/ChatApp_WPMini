@@ -109,7 +109,7 @@ re-checks independently:
 - Required-field checks return `400` (`server/index.js`).
 - Mongoose schema `maxlength` validators, applied on update with
   `runValidators: true`.
-- `role` is constrained by an `enum: ['student', 'mentor']`.
+- `role` is constrained by an `enum: ['student', 'mentor', 'admin']`.
 
 ## 5. API integration — CO2
 
@@ -180,7 +180,7 @@ error.
 
 | Model | Shape |
 | --- | --- |
-| `User` | `firebaseUid`, `email`, `displayName`, `photoURL`, `isOnline`, `lastSeen`, `role`, `bio`, `expertise`, `availability`, `createdAt` |
+| `User` | `firebaseUid`, `email`, `displayName`, `photoURL`, `isOnline`, `lastSeen`, `role` (student/mentor/admin), `bio`, `expertise`, `availability`, `createdAt` |
 | `Message` | `sender`, `receiver`, `text`, `timestamp`, `isRead` |
 | `Group` | `name`, `createdBy`, `members[]` |
 | `GroupMessage` | `group`, `sender`, `text`, `timestamp` |
@@ -217,18 +217,29 @@ presence all reference it. Firebase answers "who are you?"; MongoDB answers
 
 ## 10. Role-based access control
 
-The student/mentor role is set at first login (`RoleSelectPage`), changeable
-later from `ProfilePage`, and enforced on the server:
+There are three roles. Student and mentor are set at first login
+(`RoleSelectPage`) and changeable later from `ProfilePage`. **Admin is
+different in kind:** it is granted by the server's `ADMIN_EMAILS` allowlist at
+sign-in and cannot be chosen — the picker, the profile switcher and the
+self-service role endpoint all refuse it. A role a user can assign to
+themselves is not an access control.
+
+Enforcement, all server-side:
 
 - `POST /api/groups` and `POST /api/announcements` load the caller's role
-  **from MongoDB** and return `403` unless it is `mentor`.
+  **from MongoDB** and return `403` unless it is `mentor` or `admin`.
 - `PUT /api/users/:id/profile` writes `expertise` and `availability` only when
   the stored role is `mentor`, silently dropping them otherwise.
 - `DELETE /api/announcements/:id` checks **authorship**, not role — being a
   mentor lets you delete your own announcements, not everyone's.
 
+- `GET /api/admin/stats`, `GET /api/admin/users` and
+  `PATCH /api/admin/users/:id/role` are `requireRole('admin')`. The last one
+  refuses to assign `admin`, to touch another admin, or to change the caller's
+  own role.
+
 The UI hides what you cannot do (no create form or compose box for students,
-with a short note explaining why), but that is convenience only. The rule that
+no dashboard link for non-admins), but that is convenience only. The rule that
 actually holds is the server's, because it reads the database's copy of your
 role rather than anything the client sent.
 

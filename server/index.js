@@ -33,6 +33,7 @@ const Announcement = require('./models/Announcement');
 const {
   requireAuth,
   requireToken,
+  requireRole,
   socketAuth,
   devAuthEnabled
 } = require('./middleware/auth');
@@ -62,6 +63,25 @@ if (!process.env.FIREBASE_PROJECT_ID) {
     'without it.\nSee server/.env.example.\n'
   );
   process.exit(1);
+}
+
+/**
+ * The ONLY way to become an admin.
+ *
+ * Admin is deliberately not selectable: the first-login picker and the
+ * profile switcher offer student and mentor only, and POST
+ * /api/users/:id/role rejects anything else. If a role could be
+ * self-assigned, anyone could make themselves an admin by editing a
+ * request. Granting it from server config instead means the list of
+ * admins lives somewhere a user cannot reach.
+ */
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
+if (ADMIN_EMAILS.length > 0) {
+  console.log(`\u{1F512} Admin allowlist: ${ADMIN_EMAILS.length} address(es)`);
 }
 
 // Loud, because this switch turns authentication off.
@@ -158,16 +178,28 @@ app.post('/api/auth/login', requireToken, async (req, res) => {
     // we can tell an INSERT from an UPDATE. We need that distinction: a
     // first-ever login should be announced to everyone else's user list, while
     // an ordinary repeat login should not (it would just duplicate a row).
+    const update = {
+      firebaseUid,
+      email,
+      displayName: displayName || email.split('@')[0],  // Fallback to email prefix
+      photoURL: photoURL || '',
+      isOnline: true,
+      lastSeen: new Date()
+    };
+
+    // Applied on EVERY login, so the allowlist stays the source of truth:
+    // adding an address promotes that person the next time they sign in.
+    // Removing one does not automatically demote — an admin changes the
+    // role from the dashboard — because demoting would need a read of the
+    // current role before this upsert, and silently stripping access on a
+    // config edit is worse than doing it explicitly.
+    if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+      update.role = 'admin';
+    }
+
     const result = await User.findOneAndUpdate(
       { firebaseUid },  // Find by Firebase UID
-      {
-        firebaseUid,
-        email,
-        displayName: displayName || email.split('@')[0],  // Fallback to email prefix
-        photoURL: photoURL || '',
-        isOnline: true,
-        lastSeen: new Date()
-      },
+      update,
       {
         upsert: true,     // Create if doesn't exist
         new: true,        // Return the updated document
@@ -373,7 +405,7 @@ app.put('/api/users/:id/profile', requireAuth, async (req, res) => {
     const updates = {};
     if (bio !== undefined) updates.bio = bio;
 
-    if (user.role === 'mentor') {
+    if (['mentor', 'admin'].includes(user.role)) {
       if (expertise !== undefined) updates.expertise = expertise;
       if (availability !== undefined) updates.availability = availability;
     }
@@ -423,8 +455,10 @@ app.post('/api/groups', requireAuth, async (req, res) => {
     const creator = req.authUser;
     const createdBy = creator._id;
 
-    // AUTHORIZATION: only mentors may create groups.
-    if (creator.role !== 'mentor') {
+    // AUTHORIZATION: mentors (and admins, who are a superset) may create
+    // groups. Without the admin case an admin could not use the very
+    // features they oversee.
+    if (!['mentor', 'admin'].includes(creator.role)) {
       console.log(`⛔ Group create refused: ${creator.displayName} is not a mentor`);
       return res.status(403).json({ error: 'Only mentors can create groups' });
     }
@@ -598,8 +632,8 @@ app.post('/api/announcements', requireAuth, async (req, res) => {
     const author = req.authUser;
     const authorId = author._id;
 
-    // AUTHORIZATION: only mentors may post.
-    if (author.role !== 'mentor') {
+    // AUTHORIZATION: mentors and admins may post.
+    if (!['mentor', 'admin'].includes(author.role)) {
       console.log(`⛔ Announcement refused: ${author.displayName} is not a mentor`);
       return res.status(403).json({ error: 'Only mentors can post announcements' });
     }
@@ -663,6 +697,141 @@ app.delete('/api/announcements/:id', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Error deleting announcement:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
+// ADMIN REST API ENDPOINTS
+// ============================================
+//
+// Every route here is `requireAuth` + `requireRole('admin')`. The role is
+// read from the database by requireAuth, and admin cannot be self-assigned
+// (see ADMIN_EMAILS above), so there is no path from an ordinary account to
+// any of this.
+
+/**
+ * GET /api/admin/stats
+ *
+ * Platform overview. Every number is counted live from MongoDB — there are no
+ * placeholder figures here, because a dashboard showing invented numbers is
+ * worse than no dashboard.
+ */
+app.get('/api/admin/stats', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // countDocuments in parallel — they are independent
+    const [
+      users,
+      students,
+      mentors,
+      admins,
+      online,
+      newThisWeek,
+      groups,
+      messages,
+      groupMessages,
+      announcements
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ role: 'student' }),
+      User.countDocuments({ role: 'mentor' }),
+      User.countDocuments({ role: 'admin' }),
+      User.countDocuments({ isOnline: true }),
+      User.countDocuments({ createdAt: { $gte: weekAgo } }),
+      Group.countDocuments(),
+      Message.countDocuments(),
+      GroupMessage.countDocuments(),
+      Announcement.countDocuments()
+    ]);
+
+    res.json({
+      users,
+      students,
+      mentors,
+      admins,
+      // A user who has signed in but never picked a role yet
+      unassigned: users - students - mentors - admins,
+      online,
+      newThisWeek,
+      groups,
+      messages,
+      groupMessages,
+      announcements
+    });
+  } catch (err) {
+    console.error('Error building admin stats:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/admin/users
+ *
+ * Every user, newest first, for the management table.
+ */
+app.get('/api/admin/users', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const users = await User.find()
+      .select('-__v')
+      .sort({ createdAt: -1 });
+
+    res.json(users);
+  } catch (err) {
+    console.error('Error listing users for admin:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/role
+ *
+ * Change somebody else's role. Distinct from POST /api/users/:id/role, which
+ * is self-service and refuses to touch anyone but the caller.
+ *
+ * Two guards worth stating:
+ * - **'admin' is not assignable here.** Only the ADMIN_EMAILS allowlist
+ *   grants it. If this endpoint could hand out admin, one compromised admin
+ *   account would be enough to mint more.
+ * - **You cannot change your own role here.** It would let an admin
+ *   accidentally demote themselves out of the dashboard they are standing in.
+ */
+app.patch('/api/admin/users/:id/role', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    if (!['student', 'mentor'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be student or mentor' });
+    }
+
+    if (String(req.authUser._id) === String(req.params.id)) {
+      return res.status(400).json({
+        error: 'Change your own role from the ADMIN_EMAILS allowlist, not here'
+      });
+    }
+
+    const target = await User.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (target.role === 'admin') {
+      return res.status(403).json({ error: 'Another admin cannot be demoted here' });
+    }
+
+    target.role = role;
+    await target.save();
+
+    const updated = await User.findById(target._id).select('-__v');
+
+    // Same broadcast the self-service route uses, so open user lists re-badge
+    io.emit('user-updated', updated);
+
+    console.log(`\u{1F6E1} Admin ${req.authUser.displayName} set ${target.displayName} -> ${role}`);
+    res.json(updated);
+  } catch (err) {
+    console.error('Error changing role as admin:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

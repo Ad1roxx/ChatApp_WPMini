@@ -24,13 +24,21 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Group chat | Create, join, and chat with typing indicators |
 | Announcements | Mentors broadcast, everyone reads |
 | Student / mentor roles | Chosen at first login, changeable from your profile |
+| Admin dashboard | Live platform stats and role management, admins only |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
-**What roles actually gate:** mentors can create groups and post
-announcements. Students can join groups, chat in them, and read announcements.
-Nothing else differs. Both rules are enforced on the server by reading the
-caller's stored role from MongoDB — never from the request body.
+**What roles actually gate:**
+
+- **Students** join groups, chat in them, and read announcements.
+- **Mentors** additionally create groups and post announcements.
+- **Admins** can do everything a mentor can, plus see the dashboard and change
+  other people's roles.
+
+Every rule is enforced on the server by reading the caller's stored role from
+MongoDB — never from the request body. **Admin is not selectable:** it is
+granted only by the `ADMIN_EMAILS` allowlist in the server's environment, so it
+cannot be self-assigned by editing a request.
 
 ---
 
@@ -43,7 +51,8 @@ You need **Node.js** and a **MongoDB** instance (local or Atlas).
 ```bash
 cd server
 npm install
-cp .env.example .env      # set MONGODB_URI and FIREBASE_PROJECT_ID
+cp .env.example .env      # set MONGODB_URI, FIREBASE_PROJECT_ID, and
+                          # ADMIN_EMAILS if you want the dashboard
 node index.js             # http://localhost:3001
 ```
 
@@ -95,6 +104,8 @@ src/
     AnnouncementsPage.jsx    the feed; compose box for mentors
     ProfilePage.jsx          your own profile + role switcher
     UserProfilePage.jsx      someone else's profile (read-only)
+    AdminPage.jsx            platform stats + role management (admins)
+  lib/roles.js               canMentor / isAdmin — for rendering only
 
 server/
   index.js                   Express routes + all Socket.IO handlers
@@ -130,6 +141,9 @@ docs/
 | GET | `/api/announcements` | Public feed, newest first |
 | POST | `/api/announcements` | **Mentors only** |
 | DELETE | `/api/announcements/:id` | **Author only** |
+| GET | `/api/admin/stats` | **Admins only** — live platform counts |
+| GET | `/api/admin/users` | **Admins only** |
+| PATCH | `/api/admin/users/:id/role` | **Admins only** — cannot grant admin |
 
 ## Socket.IO events
 
@@ -158,6 +172,10 @@ What is actually enforced, since a chat app with roles invites the question:
   yourself to a group.
 - **Roles.** Mentor-only actions re-read the role from MongoDB rather than
   trusting anything the client sent, so a client cannot promote itself.
+- **Admin.** Granted solely by the `ADMIN_EMAILS` allowlist at sign-in. The
+  role picker, the profile switcher and the self-service role endpoint all
+  refuse it, and the admin endpoint cannot grant it either — otherwise one
+  compromised admin account would be enough to mint more.
 - **Group membership.** Both `join-group` and `send-group-message` check
   membership, as does the REST history endpoint. Joining a room you don't
   belong to is refused.

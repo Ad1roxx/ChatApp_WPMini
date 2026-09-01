@@ -22,6 +22,7 @@ import { Field, Input, Textarea } from '../components/Field';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { PageLoader } from '../components/Loading';
+import { canMentor, isAdmin } from '../lib/roles';
 import styles from './ProfilePage.module.css';
 
 const ROLES = [
@@ -33,7 +34,7 @@ export default function ProfilePage() {
   const { dbUser, updateProfile, chooseRole } = useAuth();
   const toast = useToast();
 
-  const isMentor = dbUser?.role === 'mentor';
+  const isMentor = canMentor(dbUser?.role);
 
   // Form state
   const [bio, setBio] = useState('');
@@ -118,7 +119,23 @@ export default function ProfilePage() {
         </p>
       </Card>
 
-      {/* Role */}
+      {/*
+        Role. Admins don't get the switcher: admin isn't one of the two
+        selectable roles, so every button here would demote them — and the
+        server would accept it, since it's a legitimate self-service change.
+        The allowlist would restore it at the next sign-in, but silently
+        losing the dashboard mid-session is not a good surprise.
+      */}
+      {isAdmin(dbUser.role) ? (
+        <Card title="Role">
+          <p className={styles.adminNote}>
+            You are an administrator. This role is granted by the server&rsquo;s
+            allowlist rather than chosen, so it can&rsquo;t be changed from here.
+            Admins can do everything a mentor can, plus manage other people&rsquo;s
+            roles from the dashboard.
+          </p>
+        </Card>
+      ) : (
       <Card title="Role" subtitle="Changes what you can do in the app">
         <div className={styles.roles}>
           {ROLES.map((option) => {
@@ -145,6 +162,7 @@ export default function ProfilePage() {
           })}
         </div>
       </Card>
+      )}
 
       {/* Editable profile */}
       <Card

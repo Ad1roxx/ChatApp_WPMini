@@ -98,6 +98,13 @@ explaining why — but **UI hiding is convenience; the server check is
 enforcement.** Both exist on purpose, and they are not redundant: one is for
 usability, the other for correctness.
 
+**Admin is granted, never chosen.** Student and mentor are self-service, so a
+user picks freely between them. Admin is not in that set: it comes from the
+server's `ADMIN_EMAILS` allowlist, and every path that sets a role rejects it —
+including the admin endpoint itself, so one compromised admin account cannot
+mint more. The principle underneath: **a role a user can assign to themselves
+is not an access control.**
+
 **Role checks and ownership checks are different.** Deleting an announcement
 checks *authorship*, not role. A role check alone would let any mentor delete
 another mentor's notices.

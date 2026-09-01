@@ -25,6 +25,7 @@ import RoleSelectPage from "./pages/RoleSelectPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
+import AdminPage from "./pages/AdminPage";
 import { PageLoader } from "./components/Loading";
 
 function App() {
@@ -85,6 +86,14 @@ function App() {
         <Route
           path="/profile"
           element={user ? <ProfilePage /> : <Navigate to="/login" />}
+        />
+
+        {/* Admin dashboard - protected route.
+            Admin-gated in the page and, more importantly, on the server:
+            both endpoints behind it are requireRole('admin'). */}
+        <Route
+          path="/admin"
+          element={user ? <AdminPage /> : <Navigate to="/login" />}
         />
 
         {/* Announcements feed - protected route.

@@ -22,6 +22,7 @@ import EmptyState from '../components/EmptyState';
 import { InlineLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
 import { GroupsIcon } from '../components/Icons';
+import { canMentor } from '../lib/roles';
 import styles from './GroupsPage.module.css';
 
 export default function GroupsPage() {
@@ -29,10 +30,10 @@ export default function GroupsPage() {
   const { dbUser, socket, authFetch } = useAuth();
   const toast = useToast();
 
-  // Only mentors may create groups. The server enforces this independently
-  // in POST /api/groups; hiding the form here is just so students aren't
-  // shown a button that would only ever fail.
-  const isMentor = dbUser?.role === 'mentor';
+  // Mentors and admins may create groups. The server enforces this
+  // independently in POST /api/groups; hiding the form here is just so
+  // students aren't shown a button that would only ever fail.
+  const isMentor = canMentor(dbUser?.role);
 
   // Create-form state
   const [groupName, setGroupName] = useState('');

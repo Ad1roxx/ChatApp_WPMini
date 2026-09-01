@@ -22,6 +22,7 @@ import { RoleBadge } from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import { PageLoader } from '../components/Loading';
 import { ProfileIcon } from '../components/Icons';
+import { canMentor } from '../lib/roles';
 import styles from './UserProfilePage.module.css';
 
 export default function UserProfilePage() {
@@ -108,7 +109,7 @@ export default function UserProfilePage() {
     );
   }
 
-  const isMentor = profile.role === 'mentor';
+  const isMentor = canMentor(profile.role);
   const firstName = profile.displayName?.split(' ')[0] || 'user';
 
   return (
