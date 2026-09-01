@@ -978,6 +978,103 @@ afterwards; the database was left with the same three users it started with.
 
 ---
 
+### Entry 14 — UI foundation: design system, app shell, responsive layout
+
+**What I built.** The app's first shared UI layer. This is the largest single
+change in the log, and it was sequenced *before* the next round of features on
+purpose — see the reasoning below.
+
+**Files added:** `src/styles/tokens.css`, `src/styles/base.css`, ten components
+in `src/components/` (AppShell, Button, Card, Avatar, Badge, Field,
+EmptyState, Loading, Toast, ConfirmDialog, Icons) and a `.module.css` for each
+page.
+
+**Files deleted:** `src/App.css` (1006 lines), `src/index.css` (empty).
+
+**The starting state, measured.** Worth recording because it's the
+justification:
+
+| | Before | After |
+| --- | --- | --- |
+| Shared components | **0** (no `src/components/` at all) | 11 |
+| Per-page `const styles = {}` objects | 8 | 0 |
+| Hardcoded `#3b82f6` | 34 | 0 (2 mentions in comments) |
+| `alert()` calls | 9 | 0 |
+| `@media` queries | **0** | responsive throughout |
+| Dead CSS shipping in the bundle | 1006 lines | 0 |
+
+`App.css` deserves its own note: 1006 lines defining `.topbar`, `.login-page`,
+`.pwd-wrapper` and `.toggle-btn` — the **password-login UI deleted back in
+Entry 1**. Only `LoginPage` used `className` at all. It was still imported in
+`main.jsx` and still shipping to every visitor.
+
+**Why this came before the next features.** The plan after this is a
+mentorship relationship model, goals, and mentor discovery — several new
+screens. Adding them on top of eight copy-pasted style objects would have
+meant eight more, and a design pass afterwards would have had to touch every
+one. Doing the foundation first makes each new screen cheaper instead of
+adding to the debt. The rule of thumb: fix the thing that multiplies before
+you multiply.
+
+**Design decision 1 — the accent colour is for state, not for buttons.**
+Primary actions are charcoal; the accent (a deeper, desaturated blue than the
+`#3b82f6` it replaces) marks the active nav item, links and progress. This is
+what Linear, Vercel and GitHub do. Accent-coloured buttons on every screen,
+soft glows, big pill radii and gradients are the specific tells that make an
+interface read as generated — which was the stated problem. The neutrals are
+warm (a slight brown cast) rather than default cool grey for the same reason.
+
+**Design decision 2 — CSS Modules over a framework.** Vite supports them
+natively, so this adds **no dependency**, and the scoping means the
+duplication that caused the problem can't come back: a class in
+`ChatPage.module.css` cannot leak into `GroupsPage`. Tailwind would have been
+faster for this particular look but changes how every component is written.
+
+**Design decision 3 — a sidebar instead of the per-page header bar.** Every
+page previously had its own blue bar with "Profile / Notices / Groups /
+Logout" buttons. That tells a visitor some pages exist. A sidebar that names
+the sections tells them what the product *is*. The nav is a role-filtered
+array, so the mentor-only entries this app will grow are one key
+(`roles: ['mentor']`) rather than another branch in the JSX.
+
+**Design decision 4 — `alert()` and `confirm()` both had to go.** They block
+the page, cannot be styled, and on some browsers announce
+"localhost:5173 says", which instantly reads as unfinished. Toasts replace
+`alert()` with an `aria-live` region so messages are still announced to screen
+readers — something `alert()` got for free and a custom toast has to ask for.
+`ConfirmDialog` is built on the native `<dialog>` element, which provides
+focus trapping, Escape-to-close and an inert background; a hand-rolled overlay
+usually gets at least one of those wrong.
+
+**Accessibility fixed along the way, not as a separate pass.** The user rows
+were `<div onClick>` — invisible to the keyboard. They're now real `<button>`s
+with the Profile button as a **sibling** rather than a child, which also
+removed the `stopPropagation` the nested version needed. Form fields get
+generated ids via `useId` so labels are properly associated. Loading states
+carry `role="status"`. Focus rings use `:focus-visible`, so they appear for
+keyboard users and not on mouse clicks — the reason people used to wrongly set
+`outline: none`.
+
+**A linter gap this surfaced.** Core ESLint has no JSX awareness, so a
+component used *only* as a JSX element name (`<NavIcon />`) is reported as
+unused. `varsIgnorePattern` already worked around this for imports;
+`argsIgnorePattern` now does the same for destructured ones. The alternative
+was adding `eslint-plugin-react` for a single rule.
+
+**Verified.** Production build; `npm run lint` (0 errors, 1 documented
+warning — and the GroupsPage `set-state-in-effect` warning disappeared, since
+moving the fetch inside its effect removed the cause rather than suppressing
+it); a script confirming all **208** `styles.*` references across 19 files
+resolve to a class that actually exists (a typo there fails silently and just
+renders unstyled); and all **23** source modules fetched through the Vite dev
+server, which returns a 500 with the error for anything it can't transform.
+
+**Not verified:** the rendered result. There's no browser driver in this
+environment and installing one would mean downloading a browser onto the
+machine, so the visual check is a manual one.
+
+---
+
 ### Open items / "later" list
 
 - **Server-side auth on mutating endpoints** — nothing verifies that a caller is
