@@ -576,12 +576,87 @@ view. That's the natural next step for making mentor discovery useful.
 
 ---
 
+### Entry 9 — Public profile view
+
+**What I built.** The read-only counterpart to Entry 8. You can now look at
+*someone else's* profile — their bio, and for mentors their expertise and
+availability. Until now those fields were **write-only**: a mentor could fill
+them in and nobody could ever read them, which made the whole profile feature
+decorative.
+
+**Files added:**
+
+- `src/pages/UserProfilePage.jsx` — read-only profile at `/users/:userId`.
+
+**Files changed:**
+
+- `src/App.jsx` — added the protected `/users/:userId` route + import.
+- `src/pages/UsersPage.jsx` — role badge on each card + a "Profile" button.
+- `src/pages/ChatPage.jsx` — the peer's name/photo in the header now opens
+  their profile.
+
+**Design decision 1 — no new endpoint.** `GET /api/user/:id` already returned
+the entire user document (it uses `.select('-__v')`, so bio/expertise/
+availability came along for free the moment Entry 8 added them to the schema).
+The whole feature is frontend. *Tradeoff:* that endpoint returns everything,
+including the email, to any caller. That's already true of `GET /api/users`,
+which the users list calls on every load — so this exposes nothing new. If
+field-level privacy ever matters, both endpoints need a `.select()`, not just
+this one.
+
+**Design decision 2 — the card still opens the chat; a separate button opens
+the profile.** The obvious alternative was making a tap on the user card open
+the profile instead. I kept the tap on chat: this is a chat app, opening the
+conversation is the action people want 95% of the time, and it was already
+working. The profile gets its own explicit button. *The catch:* that button
+lives **inside** a card that has its own `onClick`, so it calls
+`e.stopPropagation()` — without it, tapping "Profile" would fire the card
+handler too and dump you into the chat instead. That's the standard
+nested-clickable trap.
+
+**Design decision 3 — role badges in the list.** A profile view for mentors is
+only useful if you can tell who the mentors *are* before tapping. `GET
+/api/users` already returns `role`, so the badge costs one conditional. It's
+guarded on `user.role` being present, because accounts created before Entry 7
+have no role until their owner next logs in and hits the picker.
+
+**Design decision 4 — the online dot listens to the socket.** The profile page
+fetches `isOnline` once, which would then be frozen — leave the page open and
+it would claim someone is offline long after they came back. It subscribes to
+the same `user-status-change` broadcast the users list uses, filtered to the
+one id being viewed.
+
+**Empty states matter here.** A brand-new mentor has an empty bio, expertise
+and availability. Rather than render three blank cards, each field falls back
+to a muted "Not specified yet." and the bio to "This user hasn't written a bio
+yet." The mentoring card doesn't render at all for students, mirroring how
+ProfilePage hides those inputs for them.
+
+**End-to-end walkthrough.**
+
+1. On the users list each card now shows a 🎓/🧑‍🏫 badge next to the name, so
+   mentors are identifiable without opening anything.
+2. Tap **Profile** on a card (or the person's name in a chat header) →
+   `/users/:userId`.
+3. `UserProfilePage` reads `userId` from the URL and fetches
+   `GET /api/user/:id`. A 404 and a malformed-id 500 are shown identically —
+   "This user could not be found" — because the distinction means nothing to
+   the reader.
+4. The identity card renders name, photo, email, a role badge and a live
+   status dot, then a primary button: **Message <first name>** → `/chat/:id`.
+   If you somehow land on your own id by typing the URL, it offers **Edit my
+   profile** → `/profile` instead, since messaging yourself isn't a thing.
+5. **About** shows the bio, with `whiteSpace: 'pre-wrap'` so paragraph breaks
+   someone typed into the textarea survive.
+6. **Mentoring** renders only when `profile.role === 'mentor'`, showing
+   expertise and availability.
+
+**Verified:** production build clean.
+
+---
+
 ### Open items / "later" list
 
-- **Public profile view** — you can edit your own profile (Entry 8) but not view
-  anyone else's. Tapping a mentor in the users list should show their bio,
-  expertise and availability. Data and endpoint already exist; needs a read-only
-  page.
 - **Server-side auth on mutating endpoints** — nothing verifies that a caller is
   who they claim to be (see Entry 8's known gap). Verifying the Firebase ID token
   on the server would close this across the role, profile, chat and group routes

@@ -8,6 +8,8 @@
  * - Shows online/offline status (green dot)
  * - Real-time status updates via Socket.IO
  * - Click to navigate to chat
+ * - Role badge (student/mentor) so mentors are identifiable at a glance
+ * - "Profile" button opens that person's read-only profile
  */
 
 import { useState, useEffect } from 'react';
@@ -176,11 +178,33 @@ export default function UsersPage() {
 
               {/* User info */}
               <div style={styles.userInfo}>
-                <span style={styles.userName}>{user.displayName}</span>
+                <div style={styles.nameRow}>
+                  <span style={styles.userName}>{user.displayName}</span>
+                  {/* Guard: accounts created before roles existed have none */}
+                  {user.role && (
+                    <span style={styles.roleBadge}>
+                      {user.role === 'mentor' ? '🧑‍🏫 Mentor' : '🎓 Student'}
+                    </span>
+                  )}
+                </div>
                 <span style={styles.userStatus}>
                   {onlineUserIds.has(user._id) ? 'Online' : 'Offline'}
                 </span>
               </div>
+
+              {/* Profile button.
+                  stopPropagation matters: this button sits inside the card,
+                  and without it the card's onClick would also fire and drop
+                  us into the chat instead. */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/users/${user._id}`);
+                }}
+                style={styles.profileBtn}
+              >
+                Profile
+              </button>
 
               {/* Arrow */}
               <svg 
@@ -286,10 +310,34 @@ const styles = {
     display: 'flex',
     flexDirection: 'column'
   },
+  nameRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexWrap: 'wrap'
+  },
   userName: {
     fontSize: '16px',
     fontWeight: '500',
     color: '#1f2937'
+  },
+  roleBadge: {
+    padding: '2px 8px',
+    backgroundColor: '#eef2ff',
+    color: '#3b82f6',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: '500'
+  },
+  profileBtn: {
+    padding: '6px 12px',
+    marginRight: '8px',
+    backgroundColor: '#f3f4f6',
+    color: '#374151',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    fontSize: '13px',
+    cursor: 'pointer'
   },
   userStatus: {
     fontSize: '13px',

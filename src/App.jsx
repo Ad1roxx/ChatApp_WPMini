@@ -9,6 +9,8 @@
  * - /login    -> Google sign-in page
  * - /users    -> List of users to chat with
  * - /chat/:id -> Chat with a specific user
+ * - /users/:id -> Read-only profile of another user
+ * - /profile   -> View and edit your own profile
  */
 
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -21,6 +23,7 @@ import GroupsPage from "./pages/GroupsPage";
 import GroupChatPage from "./pages/GroupChatPage";
 import RoleSelectPage from "./pages/RoleSelectPage";
 import ProfilePage from "./pages/ProfilePage";
+import UserProfilePage from "./pages/UserProfilePage";
 
 function App() {
   // Get auth state from our context
@@ -84,6 +87,14 @@ function App() {
           element={user ? <UsersPage /> : <Navigate to="/login" />} 
         />
         
+        {/* Someone else's profile (read-only) - protected route.
+            Declared after /users; React Router matches the static
+            segment first, so /users and /users/:id never collide. */}
+        <Route
+          path="/users/:userId"
+          element={user ? <UserProfilePage /> : <Navigate to="/login" />}
+        />
+
         {/* Chat page - protected route */}
         <Route
           path="/chat/:peerId"

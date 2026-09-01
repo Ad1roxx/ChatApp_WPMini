@@ -269,7 +269,14 @@ export default function ChatPage() {
         <button onClick={() => navigate('/users')} style={styles.backBtn}>
           ← Back
         </button>
-        <div style={styles.peerInfo}>
+        {/* Tapping the peer's name/photo opens their read-only profile —
+            the usual chat-app gesture, and the quickest way to check a
+            mentor's expertise mid-conversation. */}
+        <div
+          style={styles.peerInfo}
+          onClick={() => navigate(`/users/${peerId}`)}
+          title="View profile"
+        >
           {peer?.photoURL ? (
             <img src={peer.photoURL} alt="" style={styles.headerAvatar} />
           ) : (
@@ -401,7 +408,8 @@ const styles = {
   peerInfo: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px'
+    gap: '12px',
+    cursor: 'pointer'   // it opens the profile
   },
   headerAvatar: {
     width: '40px',
