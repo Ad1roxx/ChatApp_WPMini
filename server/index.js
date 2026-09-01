@@ -27,6 +27,7 @@ const User = require('./models/User');
 const Message = require('./models/Message');
 const Group = require('./models/Group');
 const GroupMessage = require('./models/GroupMessage');
+const Announcement = require('./models/Announcement');
 
 // ============================================
 // SERVER SETUP
@@ -459,6 +460,130 @@ app.get('/api/groups/:groupId/messages', async (req, res) => {
     res.json(messages);
   } catch (err) {
     console.error('Error fetching group messages:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
+// ANNOUNCEMENT REST API ENDPOINTS
+// ============================================
+
+/**
+ * GET /api/announcements
+ *
+ * The announcement feed, newest first. Readable by everyone — the whole
+ * point is that students see what mentors post.
+ *
+ * `limit` caps the response (default 50) so the feed cannot grow into an
+ * unbounded payload as the term goes on.
+ */
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+
+    const announcements = await Announcement.find()
+      .sort({ timestamp: -1 })                        // newest first
+      .limit(parseInt(limit))
+      .populate('author', 'displayName photoURL role');
+
+    res.json(announcements);
+  } catch (err) {
+    console.error('Error fetching announcements:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/announcements
+ *
+ * MENTOR-ONLY. Same gate as group creation: the author's role is read from
+ * the database, so the client cannot claim to be a mentor.
+ *
+ * Body:
+ * - authorId: MongoDB _id of the poster
+ * - text: the announcement body
+ */
+app.post('/api/announcements', async (req, res) => {
+  try {
+    const { authorId, text } = req.body;
+
+    if (!authorId || !text?.trim()) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // AUTHORIZATION: only mentors may post.
+    const author = await User.findById(authorId).select('role displayName');
+    if (!author) {
+      return res.status(404).json({ error: 'Author not found' });
+    }
+    if (author.role !== 'mentor') {
+      console.log(`⛔ Announcement refused: ${author.displayName} is not a mentor`);
+      return res.status(403).json({ error: 'Only mentors can post announcements' });
+    }
+
+    const announcement = await Announcement.create({
+      author: authorId,
+      text: text.trim(),
+      timestamp: new Date()
+    });
+
+    await announcement.populate('author', 'displayName photoURL role');
+
+    // Push it to everyone connected, so open feeds update without a refresh.
+    // Announcements are public, so a plain io.emit is correct here — there is
+    // no room to scope it to, unlike group messages.
+    io.emit('new-announcement', announcement);
+
+    console.log(`📢 Announcement by ${author.displayName}`);
+    res.json(announcement);
+  } catch (err) {
+    console.error('Error posting announcement:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * DELETE /api/announcements/:id
+ *
+ * Delete an announcement you posted. Two checks, both needed:
+ * - the announcement must exist
+ * - you must be its AUTHOR
+ *
+ * The ownership check is the interesting one — it's the app's first, as
+ * opposed to a role check. Being a mentor lets you delete *your* own
+ * announcements, not everyone's; a role check alone would let any mentor
+ * wipe another mentor's notices.
+ *
+ * Body:
+ * - visitorId: MongoDB _id of whoever is asking
+ */
+app.delete('/api/announcements/:id', async (req, res) => {
+  try {
+    const { visitorId } = req.body;
+
+    if (!visitorId) {
+      return res.status(400).json({ error: 'Missing visitorId' });
+    }
+
+    const announcement = await Announcement.findById(req.params.id);
+    if (!announcement) {
+      return res.status(404).json({ error: 'Announcement not found' });
+    }
+
+    // Compare as strings: author is an ObjectId, visitorId arrives as text
+    if (String(announcement.author) !== String(visitorId)) {
+      return res.status(403).json({ error: 'You can only delete your own announcements' });
+    }
+
+    await announcement.deleteOne();
+
+    // Tell open feeds to drop it
+    io.emit('announcement-deleted', { _id: req.params.id });
+
+    console.log(`🗑️ Announcement ${req.params.id} deleted`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting announcement:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

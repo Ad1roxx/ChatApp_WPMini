@@ -161,6 +161,9 @@ export default function GroupsPage() {
           <button onClick={() => navigate('/users')} style={styles.navBtn}>
             Messages
           </button>
+          <button onClick={() => navigate('/announcements')} style={styles.navBtn}>
+            Notices
+          </button>
           <button onClick={logout} style={styles.navBtn}>
             Logout
           </button>

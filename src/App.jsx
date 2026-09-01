@@ -24,6 +24,7 @@ import GroupChatPage from "./pages/GroupChatPage";
 import RoleSelectPage from "./pages/RoleSelectPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
+import AnnouncementsPage from "./pages/AnnouncementsPage";
 
 function App() {
   // Get auth state from our context
@@ -105,6 +106,13 @@ function App() {
         <Route
           path="/profile"
           element={user ? <ProfilePage /> : <Navigate to="/login" />}
+        />
+
+        {/* Announcements feed - protected route.
+            Everyone can read it; only mentors see the compose box. */}
+        <Route
+          path="/announcements"
+          element={user ? <AnnouncementsPage /> : <Navigate to="/login" />}
         />
 
         {/* Groups list / create - protected route */}

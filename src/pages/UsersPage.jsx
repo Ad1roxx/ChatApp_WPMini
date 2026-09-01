@@ -125,9 +125,13 @@ export default function UsersPage() {
             Logged in as {dbUser?.displayName}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        {/* flexWrap: four buttons no longer fit on one line on a phone */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button onClick={() => navigate('/profile')} style={styles.logoutBtn}>
             Profile
+          </button>
+          <button onClick={() => navigate('/announcements')} style={styles.logoutBtn}>
+            Notices
           </button>
           <button onClick={() => navigate('/groups')} style={styles.logoutBtn}>
             Groups

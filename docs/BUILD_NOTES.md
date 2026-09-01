@@ -655,6 +655,112 @@ ProfilePage hides those inputs for them.
 
 ---
 
+### Entry 10 — Role enforcement (groups + announcements)
+
+**What I built.** The role field finally *does* something. Since Entry 7 it had
+been stored, badged and populated everywhere while changing nothing — a label,
+not a permission. Two mentor-only capabilities now hang off it, plus a way to
+change your role, which mattered much more once the role started gating things.
+
+**Files added:**
+
+- `server/models/Announcement.js` — the broadcast model.
+- `src/pages/AnnouncementsPage.jsx` — the feed, with a mentor-only compose box.
+
+**Files changed:**
+
+- `server/index.js` — mentor gate on `POST /api/groups`; three new
+  announcement routes (`GET`, `POST`, `DELETE /api/announcements`).
+- `src/pages/GroupsPage.jsx` — create form hidden for students; "Notices" nav.
+- `src/pages/ProfilePage.jsx` — role switcher.
+- `src/context/AuthContext.jsx` — `chooseRole()` now returns a boolean.
+- `src/App.jsx` — `/announcements` route.
+- `src/pages/UsersPage.jsx` — "Notices" nav button.
+
+**The rule, stated once:** mentors can create groups and post announcements.
+Students can join groups, chat in them, and read announcements. Nothing else
+differs.
+
+**Design decision 1 — the gate reads the role from the database, every time.**
+Both `POST /api/groups` and `POST /api/announcements` do a `findById` on the
+caller and check `role !== 'mentor'` before writing anything. They deliberately
+do *not* trust a role sent in the request body, and they do not cache it. This
+is the same principle Entry 8 established for the profile endpoint, now applied
+consistently: **the client's copy of who you are is a hint; the database's copy
+is the fact.**
+
+**Design decision 2 — a role check and an ownership check are different
+things.** `DELETE /api/announcements/:id` needs both ideas but uses only the
+second: it compares `announcement.author` against the caller's id. A role check
+alone would have been wrong in an interesting way — every mentor would be able
+to delete every *other* mentor's notices. Being a mentor earns you the ability
+to delete **your own** announcements. This is the app's first ownership check,
+as opposed to a role check, and the distinction is worth keeping straight.
+
+**Design decision 3 — announcements broadcast with `io.emit`, not to a room.**
+Group messages go to `io.to('group:<id>')` because a group has a membership.
+Announcements are public, so there is no room that means "everyone" — a plain
+`io.emit` to every connected socket is the correct shape, not laziness. The
+poster receives their own announcement back through the same broadcast, so
+`AnnouncementsPage` never has to merge a local copy with the server's.
+
+**Design decision 4 — no `role` snapshot on the Announcement.** It would have
+been easy to store `authorRole: 'mentor'` alongside each announcement. I didn't:
+that copy goes stale the instant someone switches role, and then the record
+disagrees with the user document. The author is a `ref` and the role is read
+through the populate.
+
+**Design decision 5 — roles are now changeable, and that is a consequence of
+enforcement, not a separate feature.** When role was decorative, a permanent
+first-login pick was fine. Now that it gates two features, a mis-tap would lock
+someone out with no recovery short of a new Google account. The switcher on
+ProfilePage reuses `POST /api/users/:id/role` unchanged — the first-login picker
+and the switcher are the same operation, so a second endpoint would have been
+duplication. It confirms first, because the consequences are real.
+*Deliberate non-consequence:* demoting a mentor leaves the groups and
+announcements they already created intact. The gate is on **creating**, not on
+owning.
+
+**Design decision 6 — students are told, not just denied.** Where the create
+form and compose box used to be, students see a short note explaining that the
+feature is mentor-only and how to change that. A silently missing button reads
+as a bug; an explained absence reads as a rule.
+
+**A frontend detail worth recording.** The create/post failure paths now surface
+`body.error` from the server rather than a generic "Failed to…". That turns the
+403 into an explanation. It also means the gate is demonstrable without opening
+devtools: post as a student via any HTTP client and the server tells you why it
+refused.
+
+**End-to-end walkthrough (announcements).**
+
+1. **Notices** from the Messages or Groups header → `/announcements`.
+2. The page fetches `GET /api/announcements` once — newest first, capped at 50
+   so the feed can't grow into an unbounded payload over a term.
+3. A mentor sees a compose box; a student sees the explanatory note instead.
+4. Posting sends `{ authorId, text }`. The server looks up the author, confirms
+   `role === 'mentor'`, saves, populates the author, and `io.emit`s
+   `new-announcement`.
+5. **Every** open feed — the poster's included — prepends it via the socket
+   listener. Nobody refreshes.
+6. On your own announcements a Delete button appears. It calls
+   `DELETE /api/announcements/:id` with your id; the server re-checks
+   authorship, deletes, and emits `announcement-deleted`, which every feed
+   filters out of its list.
+7. Tapping an author's name opens their profile (Entry 9), so a student can
+   read a mentor's expertise straight from a notice.
+
+**Verified.** Production build, server syntax check, and ten live HTTP checks
+against the running server and real MongoDB: public read; 400 on missing text;
+404 on unknown author; **403 for a student posting an announcement**; **403 for
+a student creating a group**; confirmed nothing was written by any rejected
+call; mentor posts successfully; **403 when a student tries to delete a
+mentor's announcement**; author deletes their own successfully; feed empty
+again afterwards. The test announcement was removed by the delete it was
+testing, so no test data was left behind.
+
+---
+
 ### Open items / "later" list
 
 - **Server-side auth on mutating endpoints** — nothing verifies that a caller is
@@ -666,12 +772,11 @@ ProfilePage hides those inputs for them.
   fails. Worth fixing: a green Vite build does **not** catch undefined-variable
   bugs (proved during Entry 7, where a missing `dbUser` destructure compiled fine
   and crashed at runtime). ESLint's `no-undef` would have caught it.
-- **Role enforcement** — the `role` field now exists and is exposed everywhere
-  (Entry 7), but nothing acts on it yet. Next steps: decide what mentors can do
-  that students can't (e.g. only mentors create groups, or post announcements),
-  then enforce it in the relevant REST/socket handlers **and** reflect it in the
-  UI (badges, hidden buttons). Also: there's currently no way to *change* a role
-  after the first pick — a settings toggle or admin action would be needed.
+- **Role enforcement, remaining edges** — done for groups and announcements
+  (Entry 10). Still open: the `join-group` socket event and `send-group-message`
+  don't check membership, so role/membership rules hold at the REST layer but
+  not over the socket (see Entry 2's deferred item). Announcement editing
+  doesn't exist either — only post and delete.
 - **New-user live refresh** — the Users list only updates online/offline status
   live; a brand-new signup doesn't appear until a manual refresh (no "new user"
   broadcast yet).
