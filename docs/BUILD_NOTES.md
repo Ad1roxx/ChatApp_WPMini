@@ -761,17 +761,104 @@ testing, so no test data was left behind.
 
 ---
 
+### Entry 11 — Getting ESLint to actually run
+
+**What I did.** Made linting work for the first time. Before this, **not a
+single file in the repo had ever been linted** — and the reason was a stack of
+three separate problems that each hid the next.
+
+**Files changed:**
+
+- `eslint.config.js` — rewritten to cover frontend *and* backend.
+- `package.json` — added the missing devDependencies and a `lint` script.
+- `.eslintrc.json`, `server/.eslintrc.json` — **deleted**.
+- `src/context/AuthContext.jsx` — one real bug fixed (below).
+- `src/pages/GroupChatPage.jsx` — `memberName` moved above its caller.
+
+**The three problems.**
+
+1. `eslint.config.js` was written in flat-config style and imports
+   `eslint/config`, a subpath that only exists in **ESLint 9**. The installed
+   ESLint was **8.57**, which doesn't export it, so every run died with
+   `ERR_PACKAGE_PATH_NOT_EXPORTED` before linting anything.
+2. ESLint 8.57 was only present *transitively* — neither `eslint` nor
+   `@eslint/js`, `globals`, `eslint-plugin-react-hooks` or
+   `eslint-plugin-react-refresh` was declared in `package.json`. A clean
+   `npm install` on another machine wouldn't have had them at all.
+3. Two legacy `.eslintrc.json` files (root and `server/`) sat alongside the
+   flat config. ESLint 9 ignores `.eslintrc` entirely, so they were dead
+   weight that *looked* like working configuration.
+
+There was also no `lint` script, so nothing invoked it in the normal course of
+work.
+
+**Why this was worth fixing rather than deleting.** `vite build` compiles
+undefined variables perfectly happily — Entry 7 shipped a missing `dbUser`
+destructure that built green and crashed in the browser. I re-ran that
+experiment deliberately: a file referencing an undeclared `dbUser` **builds
+successfully** and ESLint reports `'dbUser' is not defined  no-undef`. That is
+the entire justification for the config declaring per-environment globals
+instead of turning `no-undef` off.
+
+**Design decision 1 — one config, two environments.** The old setup had a
+separate `.eslintrc.json` per environment. The new flat config does it in one
+file with `files:` blocks: `src/**` gets browser globals, ES modules and JSX;
+`server/**` gets Node globals and `sourceType: 'commonjs'`; root `*.config.js`
+gets Node plus ES modules. Splitting them matters — `require` and `process` are
+undefined in a browser and `window` is undefined in Node, so a single shared
+set of globals would either miss real typos or invent fake ones. The server had
+never been linted at all before this; it is now.
+
+**Design decision 2 — a plugin API trap worth recording.** In
+`eslint-plugin-react-hooks` **v7**, `configs.recommended` and
+`configs['recommended-latest']` are still the **legacy eslintrc shape** (with
+`plugins` as an array of strings), which flat config rejects outright with a
+confusing error about converting your config. The flat versions live under
+`configs.flat.recommended`. The old config referenced
+`configs['recommended-latest']` — correct for the v5 it was written against,
+wrong now.
+
+**Two real findings, fixed.**
+
+- **`AuthContext` never disconnected the socket on logout.** The mount effect's
+  Firebase callback checked `if (socket)` — but that variable is captured from
+  the render the effect ran in, and since the effect runs once on mount it is
+  captured as `null` **forever**. The branch could never fire. Fixed by reading
+  through the state updater (`setSocket(current => …)`), which always sees the
+  latest value and needs no dependency, so the run-once-on-mount contract
+  survives. The explicit `logout()` was never affected — it's recreated each
+  render and sees the current socket — which is exactly why the bug stayed
+  invisible: the normal logout path worked.
+- **`GroupChatPage` used `memberName` before declaring it.** The typing handler
+  inside an effect called a `const` arrow function declared *after* that
+  effect. It worked at runtime (the handler only fires on socket events, long
+  after render) but reads as a use-before-declare. Moved above its caller.
+
+**Design decision 3 — one rule downgraded to a warning, with reasons.** v7 of
+the hooks plugin ships the React Compiler rule set, stricter than the code was
+written against. `react-hooks/set-state-in-effect` fires twice, and neither is
+a defect: `ProfilePage` seeds its form from `dbUser` in an effect (the standard
+"reset the form when the record changes" pattern; React's suggested
+alternative is remounting via `key`, which means extracting the form into a
+child component for no behavioural gain), and `GroupsPage` calls an `async`
+fetch whose `setState` runs in a promise callback — not synchronously — which
+the rule can't see through. Set to `'warn'` rather than `'off'`, so new
+occurrences still surface. I deliberately did **not** restructure working,
+manually-tested code to satisfy a rule that arrived with a plugin upgrade.
+
+**Result.** `npm run lint` covers **21 files** — all of `src/` and all of
+`server/` — and reports **0 errors, 2 documented warnings**, exiting 0.
+
+---
+
 ### Open items / "later" list
 
 - **Server-side auth on mutating endpoints** — nothing verifies that a caller is
   who they claim to be (see Entry 8's known gap). Verifying the Firebase ID token
   on the server would close this across the role, profile, chat and group routes
   at once.
-- **ESLint is broken** — `eslint.config.js` uses a flat-config `eslint/config`
-  import that the installed ESLint 8.57 doesn't support, so `npx eslint src`
-  fails. Worth fixing: a green Vite build does **not** catch undefined-variable
-  bugs (proved during Entry 7, where a missing `dbUser` destructure compiled fine
-  and crashed at runtime). ESLint's `no-undef` would have caught it.
+- ~~**ESLint is broken**~~ — fixed in Entry 11. `npm run lint` now covers
+  `src/` and `server/`: 0 errors, 2 documented warnings.
 - **Role enforcement, remaining edges** — done for groups and announcements
   (Entry 10). Still open: the `join-group` socket event and `send-group-message`
   don't check membership, so role/membership rules hold at the REST layer but

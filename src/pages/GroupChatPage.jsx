@@ -72,6 +72,19 @@ export default function GroupChatPage() {
   }, [dbUser, groupId, SERVER_URL]);
 
   /**
+   * Look up a member's display name from the loaded group.
+   *
+   * Declared ABOVE the effect below, which calls it from its typing handler.
+   * It used to sit after that effect, which worked — the handler only runs on
+   * socket events, long after render — but it reads as a use-before-declare
+   * and the linter flags it as one. Ordering it properly costs nothing.
+   */
+  const memberName = (userId) => {
+    const m = group?.members?.find((mem) => (mem._id || mem) === userId);
+    return m?.displayName || 'Someone';
+  };
+
+  /**
    * Effect: join the room and wire up live events.
    */
   useEffect(() => {
@@ -122,14 +135,6 @@ export default function GroupChatPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, dbUser, groupId, group]);
-
-  /**
-   * Look up a member's display name from the loaded group.
-   */
-  const memberName = (userId) => {
-    const m = group?.members?.find((mem) => (mem._id || mem) === userId);
-    return m?.displayName || 'Someone';
-  };
 
   const sendMessage = (e) => {
     e.preventDefault();

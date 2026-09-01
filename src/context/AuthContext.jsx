@@ -1,6 +1,14 @@
+/* eslint-disable react-refresh/only-export-components --
+ * This file deliberately exports both the AuthProvider component and the
+ * useAuth hook. That is the standard React context pattern, and splitting the
+ * hook into its own module purely to satisfy Fast Refresh would scatter one
+ * coherent piece of the app across two files. The only cost is that editing
+ * this file does a full reload instead of a hot update.
+ */
+
 /**
  * AuthContext - Manages authentication state across the app
- * 
+ *
  * What this does:
  * 1. Listens for Firebase Auth changes (login/logout)
  * 2. When user logs in with Google, saves their info to our MongoDB
@@ -117,11 +125,23 @@ export function AuthProvider({ children }) {
         setUser(null);
         setDbUser(null);
         
-        // Disconnect socket if it exists
-        if (socket) {
-          socket.disconnect();
-          setSocket(null);
-        }
+        // Disconnect socket if it exists.
+        //
+        // This reads the socket through the state UPDATER rather than the
+        // `socket` variable. That variable is captured by this callback from
+        // the render in which the effect ran — and since the effect runs once
+        // on mount, it is captured as null forever. `if (socket)` was
+        // therefore never true here and the socket was never disconnected on
+        // this path. (The explicit logout() below was unaffected: it is
+        // recreated every render, so it sees the current value.)
+        //
+        // The updater form always receives the latest value, which is why it
+        // also needs no dependency on `socket` — keeping the effect's
+        // run-once-on-mount contract intact.
+        setSocket((current) => {
+          if (current) current.disconnect();
+          return null;
+        });
       }
       
       setLoading(false);
