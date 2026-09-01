@@ -58,7 +58,11 @@ export default function LoginPage() {
 
   return (
     <div className={styles.page}>
+      {/* The panel fills its whole grid column so the white surface reaches
+          the left edge; `inner` holds the content to a readable width and
+          keeps it beside the divider rather than floating mid-column. */}
       <div className={styles.panel}>
+        <div className={styles.panelInner}>
         <div className={styles.brand}>
           <span className={styles.brandMark} aria-hidden="true">M</span>
           <span className={styles.brandName}>MentorConnect</span>
@@ -94,6 +98,7 @@ export default function LoginPage() {
         <p className={styles.terms}>
           By continuing you agree to our Terms of Service.
         </p>
+        </div>
       </div>
 
       <div className={styles.aside} aria-label="How it works">

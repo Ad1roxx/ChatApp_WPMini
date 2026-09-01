@@ -10,11 +10,16 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-end;
   padding: var(--space-16) var(--space-12);
   background-color: var(--color-surface);
-  max-width: 560px;
+}
+
+/* Holds the copy to a readable measure and keeps it against the divider,
+   while the white surface itself fills the whole column. */
+.panelInner {
   width: 100%;
-  margin-left: auto;
+  max-width: 420px;
 }
 
 .brand {
@@ -165,10 +170,13 @@
   }
 
   .panel {
-    margin-left: 0;
-    max-width: none;
+    align-items: stretch;
     padding: var(--space-12) var(--space-6) var(--space-8);
     justify-content: flex-start;
+  }
+
+  .panelInner {
+    max-width: none;
   }
 
   .brand {

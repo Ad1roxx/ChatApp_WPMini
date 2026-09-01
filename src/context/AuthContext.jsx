@@ -41,6 +41,26 @@ const AuthContext = createContext();
 const SERVER_URL = 'http://localhost:3001';
 
 /**
+ * DEV ONLY: sign in as a given MongoDB user id, skipping Google entirely.
+ *
+ * Set `VITE_DEV_USER_ID` in a `.env.local` and run `npm run dev`. The server
+ * must also have `ALLOW_DEV_AUTH=true`, so this takes two deliberate switches
+ * in two places to turn on.
+ *
+ * It exists because an automated browser cannot complete a Google sign-in
+ * popup, which otherwise makes every signed-in screen impossible to test or
+ * screenshot. It is also the easiest way to look at the app as a student and
+ * as a mentor without a second Google account.
+ *
+ * `import.meta.env.DEV` is replaced with a literal `false` in a production
+ * build, so Vite removes this constant and every branch guarded by it from
+ * the bundle. It cannot be switched on in production, because it is not there.
+ */
+const DEV_USER_ID = import.meta.env.DEV
+  ? import.meta.env.VITE_DEV_USER_ID || null
+  : null;
+
+/**
  * Get the current Firebase ID token, or null when signed out.
  *
  * `getIdToken()` returns a cached token and refreshes it automatically when
@@ -94,11 +114,15 @@ export function AuthProvider({ children }) {
    * effect's dependency array without re-running on every render.
    */
   const authFetch = useCallback(async (path, options = {}) => {
-    const token = await getAuthToken();
-
     const headers = { ...(options.headers || {}) };
     if (options.body) headers['Content-Type'] = 'application/json';
-    if (token) headers.Authorization = `Bearer ${token}`;
+
+    if (DEV_USER_ID) {
+      headers['X-Dev-User-Id'] = DEV_USER_ID;
+    } else {
+      const token = await getAuthToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
 
     return fetch(`${SERVER_URL}${path}`, { ...options, headers });
   }, []);
@@ -115,6 +139,55 @@ export function AuthProvider({ children }) {
    * the authentication state changes.
    */
   useEffect(() => {
+    // DEV ONLY: skip Google and sign in as VITE_DEV_USER_ID. Stripped from
+    // production builds — see the DEV_USER_ID comment above.
+    if (DEV_USER_ID) {
+      const devSignIn = async () => {
+        console.warn(`Dev sign-in as ${DEV_USER_ID} — Google auth bypassed.`);
+
+        try {
+          const response = await fetch(`${SERVER_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Dev-User-Id': DEV_USER_ID
+            },
+            body: '{}'
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `dev sign-in refused (${response.status}) — is ALLOW_DEV_AUTH=true on the server?`
+            );
+          }
+
+          const userData = await response.json();
+
+          // Enough of a Firebase-shaped user for the route guards, which only
+          // check that `user` is truthy.
+          setUser({ uid: userData.firebaseUid, email: userData.email });
+          setDbUser(userData);
+
+          const devSocket = io(SERVER_URL, {
+            transports: ['websocket', 'polling'],
+            auth: { devUserId: DEV_USER_ID }
+          });
+          devSocket.on('connect', () => devSocket.emit('user-online'));
+          devSocket.on('connect_error', (err) =>
+            console.error('Dev socket refused:', err.message)
+          );
+          setSocket(devSocket);
+        } catch (err) {
+          console.error('Dev sign-in failed:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      devSignIn();
+      return;
+    }
+
     // Subscribe to auth changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('Auth state changed:', firebaseUser?.email || 'No user');

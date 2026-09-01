@@ -167,6 +167,18 @@ export default function AppShell({
 
       <div className={styles.main}>
         <header className={styles.topbar}>
+          {/*
+            Inner wrapper so the title sits in the SAME column as the cards
+            below it. Without it the header text hugs the page padding while
+            the content is centred in an 880px column, and the two visibly
+            fail to line up. The flush variant (chat) is full-width, so it
+            skips the constraint.
+          */}
+          <div
+            className={
+              variant === 'flush' ? styles.topbarInnerFlush : styles.topbarInner
+            }
+          >
           <button
             type="button"
             className={styles.menuButton}
@@ -194,6 +206,7 @@ export default function AppShell({
           </div>
 
           {actions && <div className={styles.topbarActions}>{actions}</div>}
+          </div>
         </header>
 
         <main className={variant === 'flush' ? styles.contentFlush : styles.content}>

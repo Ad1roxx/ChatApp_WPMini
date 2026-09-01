@@ -89,3 +89,9 @@ temp/
 # ========================
 README_ENV.md
 blueprint.md
+
+# Playwright screenshots (scripts/screenshot.mjs)
+screenshots/
+
+# Local dev overrides (VITE_DEV_USER_ID etc.)
+.env.local

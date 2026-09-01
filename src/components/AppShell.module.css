@@ -161,14 +161,34 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   min-height: var(--header-height);
-  padding: var(--space-3) var(--space-6);
+  padding: var(--space-3) 0;
   background-color: rgba(250, 249, 247, 0.85);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* Mirrors .content EXACTLY — same max-width, same centring, same inline
+   padding — so the page title shares a left edge with the cards beneath it.
+   Padding on the topbar itself would centre this box inside the padding and
+   leave the title 24px adrift, which is precisely the bug this fixes. */
+.topbarInner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding-inline: var(--space-6);
+}
+
+/* Full-width screens (the chat) keep the bar edge to edge. */
+.topbarInnerFlush {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding-inline: var(--space-6);
 }
 
 .backButton {
@@ -296,7 +316,8 @@
     display: flex;
   }
 
-  .topbar {
+  .topbarInner,
+  .topbarInnerFlush {
     padding-inline: var(--space-4);
   }
 
