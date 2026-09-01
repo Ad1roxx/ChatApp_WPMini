@@ -9,18 +9,29 @@
  * this the pick was permanent — one mis-tap and the only way out was a new
  * Google account. Now that roles actually gate things (mentors create
  * groups and post announcements), being stuck in the wrong one matters.
- *
- * Reuses the same patterns as GroupsPage/UsersPage: useAuth() for data,
- * inline style objects, #3b82f6 header.
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppShell from '../components/AppShell';
+import Card from '../components/Card';
+import Avatar from '../components/Avatar';
+import Button from '../components/Button';
+import { RoleBadge } from '../components/Badge';
+import { Field, Input, Textarea } from '../components/Field';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useToast } from '../components/Toast';
+import { PageLoader } from '../components/Loading';
+import styles from './ProfilePage.module.css';
+
+const ROLES = [
+  { value: 'student', label: 'Student', hint: 'Join groups and read announcements' },
+  { value: 'mentor', label: 'Mentor', hint: 'Create groups and post announcements' }
+];
 
 export default function ProfilePage() {
-  const navigate = useNavigate();
   const { dbUser, updateProfile, chooseRole } = useAuth();
+  const toast = useToast();
 
   const isMentor = dbUser?.role === 'mentor';
 
@@ -29,8 +40,10 @@ export default function ProfilePage() {
   const [expertise, setExpertise] = useState('');
   const [availability, setAvailability] = useState('');
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);   // 'success' | 'error' | null
   const [switchingRole, setSwitchingRole] = useState(false);
+
+  // Which role the confirm dialog is asking about (null = closed)
+  const [pendingRole, setPendingRole] = useState(null);
 
   /**
    * Seed the form from dbUser. Runs again after a save (dbUser is replaced
@@ -51,324 +64,158 @@ export default function ProfilePage() {
    * you can fill in. Reuses chooseRole(), which is the same POST the
    * first-login picker makes and keeps dbUser in sync app-wide.
    */
-  const handleRoleSwitch = async (newRole) => {
-    if (newRole === dbUser?.role || switchingRole) return;
-
-    const confirmed = window.confirm(
-      newRole === 'mentor'
-        ? 'Switch to Mentor? You will be able to create groups and post ' +
-          'announcements, and you can fill in your expertise and availability.'
-        : 'Switch to Student? You will no longer be able to create groups or ' +
-          'post announcements. Groups you already made stay where they are.'
-    );
-    if (!confirmed) return;
+  const confirmRoleSwitch = async () => {
+    const newRole = pendingRole;
+    setPendingRole(null);
+    if (!newRole) return;
 
     setSwitchingRole(true);
     const ok = await chooseRole(newRole);
     setSwitchingRole(false);
 
-    if (!ok) alert('Could not change your role. Please try again.');
+    if (ok) {
+      toast.success(`You are now a ${newRole}.`);
+    } else {
+      toast.error('Could not change your role. Please try again.');
+    }
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setStatus(null);
 
     // Only send mentor fields if we're a mentor
     const fields = isMentor ? { bio, expertise, availability } : { bio };
     const ok = await updateProfile(fields);
-
-    setStatus(ok ? 'success' : 'error');
     setSaving(false);
+
+    if (ok) {
+      toast.success('Profile saved');
+    } else {
+      toast.error('Could not save your profile. Please try again.');
+    }
   };
 
   if (!dbUser) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.loading}>Loading profile...</div>
-      </div>
-    );
+    return <PageLoader label="Loading your profile" />;
   }
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <button onClick={() => navigate('/users')} style={styles.backBtn}>
-          ← Back
-        </button>
-        <h1 style={styles.title}>My Profile</h1>
-      </div>
-
-      <div style={styles.body}>
-        {/* Identity card (read-only — comes from Google) */}
-        <div style={styles.card}>
-          <div style={styles.identityRow}>
-            {dbUser.photoURL ? (
-              <img src={dbUser.photoURL} alt="" style={styles.avatar} />
-            ) : (
-              <div style={styles.avatarPlaceholder}>
-                {dbUser.displayName?.charAt(0)?.toUpperCase() || '?'}
-              </div>
-            )}
-            <div style={styles.identityInfo}>
-              <span style={styles.name}>{dbUser.displayName}</span>
-              <span style={styles.email}>{dbUser.email}</span>
-              <span style={styles.roleBadge}>
-                {isMentor ? '🧑‍🏫 Mentor' : '🎓 Student'}
-              </span>
-            </div>
+    <AppShell title="Profile" subtitle="How you appear to everyone else">
+      {/* Identity — read-only, comes from Google */}
+      <Card>
+        <div className={styles.identity}>
+          <Avatar src={dbUser.photoURL} name={dbUser.displayName} size="xl" />
+          <div className={styles.identityText}>
+            <h2 className={styles.name}>{dbUser.displayName}</h2>
+            <p className={styles.email}>{dbUser.email}</p>
+            <RoleBadge role={dbUser.role} />
           </div>
-          <p style={styles.identityNote}>
-            Name, photo and email come from your Google account.
-          </p>
         </div>
+        <p className={styles.identityNote}>
+          Your name, photo and email come from your Google account and are
+          refreshed each time you sign in.
+        </p>
+      </Card>
 
-        {/* Role switcher */}
-        <div style={styles.card}>
-          <h2 style={styles.sectionTitle}>Role</h2>
-          <div style={styles.roleOptions}>
-            {[
-              { value: 'student', label: '🎓 Student' },
-              { value: 'mentor', label: '🧑‍🏫 Mentor' }
-            ].map((option) => {
-              const selected = dbUser.role === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => handleRoleSwitch(option.value)}
-                  disabled={switchingRole}
-                  style={{
-                    ...styles.roleOption,
-                    ...(selected ? styles.roleOptionSelected : {})
-                  }}
-                >
+      {/* Role */}
+      <Card title="Role" subtitle="Changes what you can do in the app">
+        <div className={styles.roles}>
+          {ROLES.map((option) => {
+            const selected = dbUser.role === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => !selected && setPendingRole(option.value)}
+                disabled={switchingRole || selected}
+                aria-pressed={selected}
+                className={[styles.role, selected ? styles.roleSelected : '']
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <span className={styles.roleLabel}>
                   {option.label}
-                  {selected && <span style={styles.roleCheck}>✓</span>}
-                </button>
-              );
-            })}
-          </div>
-          <p style={styles.roleNote}>
-            {isMentor
-              ? 'As a mentor you can create groups and post announcements.'
-              : 'Students can join groups and read announcements. Switch to ' +
-                'Mentor if you mentor others.'}
-          </p>
+                  {selected && <span className={styles.roleCheck} aria-hidden="true">✓</span>}
+                </span>
+                <span className={styles.roleHint}>{option.hint}</span>
+              </button>
+            );
+          })}
         </div>
+      </Card>
 
-        {/* Editable profile */}
-        <form onSubmit={handleSave} style={styles.card}>
-          <h2 style={styles.sectionTitle}>
-            {isMentor ? 'Mentor details' : 'About you'}
-          </h2>
+      {/* Editable profile */}
+      <Card
+        title={isMentor ? 'Mentor details' : 'About you'}
+        subtitle={
+          isMentor
+            ? 'Students see this before they reach out'
+            : 'Shown on your public profile'
+        }
+      >
+        <form onSubmit={handleSave} className={styles.form}>
+          <Field label="Bio" count={bio.length} max={500}>
+            <Textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="A short introduction — what you're working on, what you care about."
+              maxLength={500}
+              rows={4}
+            />
+          </Field>
 
-          <label style={styles.label} htmlFor="bio">Bio</label>
-          <textarea
-            id="bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Tell people a bit about yourself..."
-            rows={4}
-            maxLength={500}
-            style={styles.textarea}
-          />
-          <span style={styles.counter}>{bio.length}/500</span>
-
-          {/* Mentor-only fields */}
+          {/* Mentor-only. The server independently drops these for students. */}
           {isMentor && (
             <>
-              <label style={styles.label} htmlFor="expertise">
-                Area of expertise
-              </label>
-              <input
-                id="expertise"
-                type="text"
-                value={expertise}
-                onChange={(e) => setExpertise(e.target.value)}
-                placeholder="e.g. Data Structures, DBMS, Web Development"
-                maxLength={200}
-                style={styles.input}
-              />
+              <Field
+                label="Area of expertise"
+                hint="Comma-separated works well"
+                count={expertise.length}
+                max={200}
+              >
+                <Input
+                  type="text"
+                  value={expertise}
+                  onChange={(e) => setExpertise(e.target.value)}
+                  placeholder="e.g. Data Structures, DBMS, Web Development"
+                  maxLength={200}
+                />
+              </Field>
 
-              <label style={styles.label} htmlFor="availability">
-                Availability
-              </label>
-              <input
-                id="availability"
-                type="text"
-                value={availability}
-                onChange={(e) => setAvailability(e.target.value)}
-                placeholder="e.g. Weekday evenings, 6-9pm"
-                maxLength={200}
-                style={styles.input}
-              />
+              <Field label="Availability" count={availability.length} max={200}>
+                <Input
+                  type="text"
+                  value={availability}
+                  onChange={(e) => setAvailability(e.target.value)}
+                  placeholder="e.g. Weekday evenings, 6–9pm"
+                  maxLength={200}
+                />
+              </Field>
             </>
           )}
 
-          <button type="submit" style={styles.saveBtn} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Profile'}
-          </button>
-
-          {status === 'success' && (
-            <p style={styles.success}>✓ Profile saved</p>
-          )}
-          {status === 'error' && (
-            <p style={styles.error}>Could not save. Please try again.</p>
-          )}
+          <div className={styles.formActions}>
+            <Button type="submit" variant="primary" loading={saving}>
+              {saving ? 'Saving' : 'Save changes'}
+            </Button>
+          </div>
         </form>
-      </div>
-    </div>
+      </Card>
+
+      <ConfirmDialog
+        open={Boolean(pendingRole)}
+        title={pendingRole === 'mentor' ? 'Switch to Mentor?' : 'Switch to Student?'}
+        description={
+          pendingRole === 'mentor'
+            ? 'You will be able to create groups and post announcements, and you can fill in your expertise and availability.'
+            : 'You will no longer be able to create groups or post announcements. Anything you already created stays where it is.'
+        }
+        confirmLabel="Switch role"
+        onConfirm={confirmRoleSwitch}
+        onCancel={() => setPendingRole(null)}
+      />
+    </AppShell>
   );
 }
-
-const styles = {
-  container: { minHeight: '100vh', backgroundColor: '#f5f5f5' },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '16px 24px',
-    backgroundColor: '#3b82f6',
-    color: '#fff'
-  },
-  backBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#fff',
-    fontSize: '16px',
-    cursor: 'pointer',
-    padding: '8px'
-  },
-  title: { margin: 0, fontSize: '22px', fontWeight: '600' },
-  body: {
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    maxWidth: '640px',
-    margin: '0 auto'
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    padding: '20px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  identityRow: { display: 'flex', alignItems: 'center', gap: '16px' },
-  avatar: { width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' },
-  avatarPlaceholder: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '50%',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '26px',
-    fontWeight: '600'
-  },
-  identityInfo: { display: 'flex', flexDirection: 'column', gap: '2px' },
-  name: { fontSize: '18px', fontWeight: '600', color: '#1f2937' },
-  email: { fontSize: '14px', color: '#6b7280' },
-  roleBadge: {
-    marginTop: '6px',
-    alignSelf: 'flex-start',
-    padding: '3px 10px',
-    backgroundColor: '#eef2ff',
-    color: '#3b82f6',
-    borderRadius: '999px',
-    fontSize: '13px',
-    fontWeight: '500'
-  },
-  identityNote: { margin: '12px 0 0', fontSize: '12px', color: '#9ca3af' },
-  roleOptions: { display: 'flex', gap: '12px' },
-  roleOption: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    backgroundColor: '#fff',
-    color: '#374151',
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontWeight: '500',
-    cursor: 'pointer'
-  },
-  roleOptionSelected: {
-    backgroundColor: '#eef2ff',
-    borderColor: '#3b82f6',
-    color: '#3b82f6'
-  },
-  roleCheck: { fontSize: '14px' },
-  roleNote: {
-    margin: '12px 0 0',
-    fontSize: '13px',
-    color: '#6b7280',
-    lineHeight: 1.5
-  },
-  sectionTitle: {
-    margin: '0 0 16px',
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#1f2937'
-  },
-  label: {
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: '6px'
-  },
-  input: {
-    padding: '12px 14px',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb',
-    fontSize: '15px',
-    outline: 'none',
-    marginBottom: '16px',
-    fontFamily: 'inherit'
-  },
-  textarea: {
-    padding: '12px 14px',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb',
-    fontSize: '15px',
-    outline: 'none',
-    resize: 'vertical',
-    fontFamily: 'inherit'
-  },
-  counter: {
-    alignSelf: 'flex-end',
-    fontSize: '12px',
-    color: '#9ca3af',
-    margin: '4px 0 16px'
-  },
-  saveBtn: {
-    padding: '12px',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontWeight: '500',
-    cursor: 'pointer'
-  },
-  success: { margin: '12px 0 0', color: '#16a34a', fontSize: '14px', textAlign: 'center' },
-  error: { margin: '12px 0 0', color: '#dc2626', fontSize: '14px', textAlign: 'center' },
-  loading: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    fontSize: '16px',
-    color: '#6b7280'
-  }
-};

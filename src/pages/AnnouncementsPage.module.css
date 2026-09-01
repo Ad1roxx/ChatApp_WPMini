@@ -1,0 +1,71 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---- Student notice ---- */
+.notice {
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--color-accent-soft);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-xl);
+}
+
+.noticeTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.noticeText {
+  margin-top: var(--space-1);
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+}
+
+/* ---- Feed item ---- */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.headerText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.author {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+}
+
+.author:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.when {
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+}
+
+/* pre-wrap keeps the paragraph breaks the mentor typed */
+.body {
+  margin-top: var(--space-4);
+  font-size: var(--text-md);
+  color: var(--color-text);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+}

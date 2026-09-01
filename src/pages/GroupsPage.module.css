@@ -1,0 +1,124 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.memberList {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition);
+}
+
+.memberRow:hover {
+  background-color: var(--color-surface-sunken);
+}
+
+.checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.memberName {
+  font-size: var(--text-base);
+  color: var(--color-text);
+}
+
+.muted {
+  padding: var(--space-3);
+  font-size: var(--text-base);
+  color: var(--color-text-subtle);
+}
+
+/* ---- Student notice ---- */
+.notice {
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--color-accent-soft);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-xl);
+}
+
+.noticeTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.noticeText {
+  margin-top: var(--space-1);
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+}
+
+/* ---- Group list ---- */
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.groupAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}
+
+.rowText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.groupName {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.groupMeta {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}

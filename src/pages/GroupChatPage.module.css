@@ -1,0 +1,92 @@
+/**
+ * Group-specific chat bits. Everything shared with the 1-to-1 chat — the
+ * transcript, bubbles, composer — lives in Chat.module.css.
+ */
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.groupAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}
+
+.stripText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.groupName {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.groupMeta {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Overlapping avatars: a compact way to show who is in the room without a
+   list. Each one is ringed in the surface colour so they read as separate. */
+.members {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.memberAvatar {
+  margin-left: -6px;
+  box-shadow: 0 0 0 2px var(--color-surface);
+  border-radius: var(--radius-full);
+}
+
+.memberAvatar:first-child {
+  margin-left: 0;
+}
+
+.memberOverflow {
+  margin-left: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sender label above incoming group messages */
+.sender {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent);
+}
+
+.typingLine {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .strip {
+    padding-inline: var(--space-4);
+  }
+}

@@ -1,0 +1,99 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background-color: var(--color-bg);
+}
+
+.panel {
+  width: 100%;
+  max-width: 460px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-8);
+}
+
+.brandMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}
+
+.brandName {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.015em;
+}
+
+.title {
+  font-size: var(--text-2xl);
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  max-width: 46ch;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition), background-color var(--transition);
+}
+
+.option:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+}
+
+.option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.optionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.optionLabel {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.optionDescription {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+}

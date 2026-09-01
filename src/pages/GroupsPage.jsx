@@ -2,22 +2,32 @@
  * GroupsPage - Create and browse/join group chats
  *
  * Two sections:
- * 1. Create a group: pick a name + select members from the user list
- *    — MENTORS ONLY. Students get an explanatory note instead of the form.
- * 2. Browse groups: see all groups; Open the ones you're in, Join the rest
+ * 1. Browse groups: see all groups; Open the ones you're in, Join the rest
  *    — everyone, students included.
- *
- * Reuses the same REST + Socket.IO backend patterns as UsersPage/ChatPage
- * and the existing #3b82f6 styling.
+ * 2. Create a group — MENTORS ONLY. Students get an explanatory note
+ *    instead of the form, so the absence reads as a rule rather than a
+ *    missing feature. The server enforces this independently in
+ *    POST /api/groups.
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppShell from '../components/AppShell';
+import Card from '../components/Card';
+import Avatar from '../components/Avatar';
+import Button from '../components/Button';
+import { Field, Input } from '../components/Field';
+import EmptyState from '../components/EmptyState';
+import { InlineLoader } from '../components/Loading';
+import { useToast } from '../components/Toast';
+import { GroupsIcon } from '../components/Icons';
+import styles from './GroupsPage.module.css';
 
 export default function GroupsPage() {
   const navigate = useNavigate();
-  const { dbUser, socket, logout, SERVER_URL } = useAuth();
+  const { dbUser, socket, SERVER_URL } = useAuth();
+  const toast = useToast();
 
   // Only mentors may create groups. The server enforces this independently
   // in POST /api/groups; hiding the form here is just so students aren't
@@ -34,6 +44,7 @@ export default function GroupsPage() {
   // Browse state
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [joiningId, setJoiningId] = useState(null);
 
   /**
    * Fetch the list of other users (to choose group members from).
@@ -78,20 +89,19 @@ export default function GroupsPage() {
   /**
    * Fetch all groups (so we can show Open vs Join per group).
    */
-  const fetchGroups = async () => {
-    try {
-      const res = await fetch(`${SERVER_URL}/api/groups`);
-      if (res.ok) setGroups(await res.json());
-    } catch (err) {
-      console.error('Error fetching groups:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        const res = await fetch(`${SERVER_URL}/api/groups`);
+        if (res.ok) setGroups(await res.json());
+      } catch (err) {
+        console.error('Error fetching groups:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchGroups();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [SERVER_URL]);
 
   /**
@@ -132,11 +142,11 @@ export default function GroupsPage() {
         // Show the server's reason (e.g. the 403 for non-mentors) rather
         // than a generic failure, so the gate is self-explanatory.
         const body = await res.json().catch(() => ({}));
-        alert(body.error || 'Failed to create group');
+        toast.error(body.error || 'Failed to create group');
       }
     } catch (err) {
       console.error('Error creating group:', err);
-      alert('Failed to create group');
+      toast.error('Failed to create group');
     } finally {
       setCreating(false);
     }
@@ -147,6 +157,8 @@ export default function GroupsPage() {
    */
   const handleJoin = async (groupId) => {
     if (!dbUser) return;
+    setJoiningId(groupId);
+
     try {
       const res = await fetch(`${SERVER_URL}/api/groups/${groupId}/join`, {
         method: 'POST',
@@ -156,11 +168,14 @@ export default function GroupsPage() {
       if (res.ok) {
         navigate(`/group/${groupId}`);
       } else {
-        alert('Failed to join group');
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error || 'Failed to join group');
       }
     } catch (err) {
       console.error('Error joining group:', err);
-      alert('Failed to join group');
+      toast.error('Failed to join group');
+    } finally {
+      setJoiningId(null);
     }
   };
 
@@ -169,347 +184,142 @@ export default function GroupsPage() {
     group.members?.some((m) => (m._id || m) === dbUser?._id);
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Groups</h1>
-          <p style={styles.subtitle}>
-            {isMentor
-              ? 'Create a group or join an existing one'
-              : 'Join a group to start chatting'}
-          </p>
-        </div>
-        <div style={styles.headerActions}>
-          <button onClick={() => navigate('/users')} style={styles.navBtn}>
-            Messages
-          </button>
-          <button onClick={() => navigate('/announcements')} style={styles.navBtn}>
-            Notices
-          </button>
-          <button onClick={logout} style={styles.navBtn}>
-            Logout
-          </button>
-        </div>
-      </div>
-
-      <div style={styles.body}>
-        {/* Browse groups (now above the create form) */}
-        <div style={styles.browseCard}>
-          <h2 style={styles.sectionTitle}>All groups</h2>
-          {loading ? (
-            <p style={styles.emptyHint}>Loading groups...</p>
-          ) : groups.length === 0 ? (
-            <p style={styles.emptyHint}>No groups yet. Create the first one!</p>
-          ) : (
-            groups.map((g) => (
-              <div key={g._id} style={styles.groupRow}>
-                <div style={styles.groupAvatar}>
-                  {g.name?.charAt(0)?.toUpperCase() || 'G'}
-                </div>
-                <div style={styles.groupInfo}>
-                  <span style={styles.groupName}>{g.name}</span>
-                  <span style={styles.groupMeta}>
-                    {g.members?.length || 0} member
-                    {(g.members?.length || 0) === 1 ? '' : 's'}
-                  </span>
-                </div>
-                {isMember(g) ? (
-                  <button
-                    onClick={() => navigate(`/group/${g._id}`)}
-                    style={styles.openBtn}
-                  >
-                    Open
-                  </button>
-                ) : (
-                  <button onClick={() => handleJoin(g._id)} style={styles.joinBtn}>
-                    Join
-                  </button>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-
-        {/*
-          Create group (collapsible) — mentors only. Students see a short
-          note in its place so the absence is explained rather than just
-          being a missing feature.
-        */}
-        {!isMentor && (
-          <div style={styles.noticeCard}>
-            <span style={styles.noticeIcon}>ℹ️</span>
-            <div>
-              <p style={styles.noticeTitle}>Only mentors can create groups</p>
-              <p style={styles.noticeText}>
-                You can join and chat in any group above. Switch your role to
-                Mentor from your profile if you mentor others.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {isMentor && (
-        <div style={styles.createCard}>
-          <button
-            type="button"
-            onClick={() => setCreateOpen((o) => !o)}
-            style={styles.createHeader}
+    <AppShell
+      title="Groups"
+      subtitle={isMentor ? 'Create a group or join an existing one' : 'Join a group to start chatting'}
+      actions={
+        isMentor && (
+          <Button
+            variant={createOpen ? 'secondary' : 'primary'}
+            size="sm"
+            onClick={() => setCreateOpen((open) => !open)}
           >
-            <h2 style={styles.sectionTitleInline}>Create a group</h2>
-            <span style={styles.chevron}>{createOpen ? '▲' : '▼'}</span>
-          </button>
-
-          {createOpen && (
-            <form onSubmit={handleCreate} style={styles.createForm}>
-              <input
+            {createOpen ? 'Cancel' : 'New group'}
+          </Button>
+        )
+      }
+    >
+      {/* Create group — mentors only, revealed from the header action */}
+      {isMentor && createOpen && (
+        <Card title="Create a group">
+          <form onSubmit={handleCreate} className={styles.form}>
+            <Field label="Group name">
+              <Input
                 type="text"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                placeholder="Group name"
-                style={styles.input}
+                placeholder="e.g. DSA Doubts"
+                autoFocus
               />
+            </Field>
 
-              <p style={styles.memberLabel}>Add members</p>
-              <div style={styles.memberList}>
+            <Field
+              label="Add members"
+              hint={
+                selectedIds.size > 0
+                  ? `${selectedIds.size} selected — you're included automatically`
+                  : "You're included automatically"
+              }
+            >
+              <div className={styles.memberList}>
                 {users.length === 0 ? (
-                  <p style={styles.emptyHint}>No other users to add yet.</p>
+                  <p className={styles.muted}>No other users to add yet.</p>
                 ) : (
                   users.map((u) => (
-                    <label key={u._id} style={styles.memberRow}>
+                    <label key={u._id} className={styles.memberRow}>
                       <input
                         type="checkbox"
                         checked={selectedIds.has(u._id)}
                         onChange={() => toggleMember(u._id)}
+                        className={styles.checkbox}
                       />
-                      {u.photoURL ? (
-                        <img
-                          src={u.photoURL}
-                          alt={u.displayName}
-                          style={styles.memberAvatar}
-                        />
-                      ) : (
-                        <div style={styles.memberAvatarPlaceholder}>
-                          {u.displayName?.charAt(0)?.toUpperCase() || '?'}
-                        </div>
-                      )}
-                      <span style={styles.memberName}>{u.displayName}</span>
+                      <Avatar src={u.photoURL} name={u.displayName} size="xs" />
+                      <span className={styles.memberName}>{u.displayName}</span>
                     </label>
                   ))
                 )}
               </div>
+            </Field>
 
-              <button
+            <div className={styles.formActions}>
+              <Button
                 type="submit"
-                style={styles.createBtn}
-                disabled={creating || !groupName.trim()}
+                variant="primary"
+                loading={creating}
+                disabled={!groupName.trim()}
               >
-                {creating ? 'Creating...' : 'Create Group'}
-              </button>
-            </form>
-          )}
+                {creating ? 'Creating' : 'Create group'}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {/* Students: explain the absence rather than just omitting the button */}
+      {!isMentor && (
+        <div className={styles.notice}>
+          <p className={styles.noticeTitle}>Only mentors can create groups</p>
+          <p className={styles.noticeText}>
+            You can join and chat in any group below. If you mentor others, switch
+            your role from your profile.
+          </p>
         </div>
+      )}
+
+      {/* Browse groups */}
+      <Card padded={false}>
+        {loading ? (
+          <InlineLoader label="Loading groups" />
+        ) : groups.length === 0 ? (
+          <EmptyState
+            icon={<GroupsIcon size={20} />}
+            title="No groups yet"
+            description={
+              isMentor
+                ? 'Create the first one and add the people who should be in it.'
+                : 'Once a mentor creates a group it will show up here to join.'
+            }
+          />
+        ) : (
+          <ul className={styles.list}>
+            {groups.map((g) => {
+              const member = isMember(g);
+              const count = g.members?.length || 0;
+
+              return (
+                <li key={g._id} className={styles.row}>
+                  <span className={styles.groupAvatar} aria-hidden="true">
+                    {g.name?.charAt(0)?.toUpperCase() || 'G'}
+                  </span>
+
+                  <span className={styles.rowText}>
+                    <span className={styles.groupName}>{g.name}</span>
+                    <span className={styles.groupMeta}>
+                      {count} member{count === 1 ? '' : 's'}
+                      {member ? ' · You’re in this group' : ''}
+                    </span>
+                  </span>
+
+                  {member ? (
+                    <Button size="sm" onClick={() => navigate(`/group/${g._id}`)}>
+                      Open
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      loading={joiningId === g._id}
+                      onClick={() => handleJoin(g._id)}
+                    >
+                      Join
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </div>
-    </div>
+      </Card>
+    </AppShell>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '20px 24px',
-    backgroundColor: '#3b82f6',
-    color: '#fff'
-  },
-  title: { margin: 0, fontSize: '24px', fontWeight: '600' },
-  subtitle: { margin: '4px 0 0', fontSize: '14px', opacity: 0.9 },
-  headerActions: { display: 'flex', gap: '8px' },
-  navBtn: {
-    padding: '8px 16px',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px'
-  },
-  body: {
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    maxWidth: '640px',
-    margin: '0 auto'
-  },
-  createCard: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    padding: '20px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-  },
-  browseCard: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    padding: '20px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-  },
-  sectionTitle: {
-    margin: '0 0 16px',
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#1f2937'
-  },
-  sectionTitleInline: {
-    margin: 0,
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#1f2937'
-  },
-  createHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer'
-  },
-  chevron: {
-    fontSize: '12px',
-    color: '#6b7280'
-  },
-  createForm: {
-    marginTop: '16px'
-  },
-  input: {
-    width: '100%',
-    padding: '12px 16px',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb',
-    fontSize: '15px',
-    outline: 'none',
-    boxSizing: 'border-box'
-  },
-  memberLabel: {
-    margin: '16px 0 8px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151'
-  },
-  memberList: {
-    maxHeight: '200px',
-    overflowY: 'auto',
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    padding: '8px'
-  },
-  memberRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '8px',
-    cursor: 'pointer'
-  },
-  memberAvatar: {
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    objectFit: 'cover'
-  },
-  memberAvatarPlaceholder: {
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '13px',
-    fontWeight: '600'
-  },
-  memberName: { fontSize: '15px', color: '#1f2937' },
-  createBtn: {
-    marginTop: '16px',
-    width: '100%',
-    padding: '12px',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontWeight: '500',
-    cursor: 'pointer'
-  },
-  groupRow: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px 0',
-    borderBottom: '1px solid #f0f0f0'
-  },
-  groupAvatar: {
-    width: '44px',
-    height: '44px',
-    borderRadius: '50%',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '18px',
-    fontWeight: '600',
-    marginRight: '12px'
-  },
-  groupInfo: { flex: 1, display: 'flex', flexDirection: 'column' },
-  groupName: { fontSize: '16px', fontWeight: '500', color: '#1f2937' },
-  groupMeta: { fontSize: '13px', color: '#6b7280', marginTop: '2px' },
-  openBtn: {
-    padding: '8px 20px',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '14px'
-  },
-  joinBtn: {
-    padding: '8px 20px',
-    backgroundColor: '#fff',
-    color: '#3b82f6',
-    border: '1px solid #3b82f6',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '14px'
-  },
-  emptyHint: { color: '#6b7280', fontSize: '14px', margin: 0 },
-  noticeCard: {
-    display: 'flex',
-    gap: '12px',
-    alignItems: 'flex-start',
-    backgroundColor: '#eef2ff',
-    border: '1px solid #dbeafe',
-    borderRadius: '12px',
-    padding: '16px 20px'
-  },
-  noticeIcon: { fontSize: '18px', lineHeight: 1.4 },
-  noticeTitle: {
-    margin: 0,
-    fontSize: '15px',
-    fontWeight: '600',
-    color: '#1f2937'
-  },
-  noticeText: {
-    margin: '4px 0 0',
-    fontSize: '14px',
-    color: '#4b5563',
-    lineHeight: 1.5
-  }
-};

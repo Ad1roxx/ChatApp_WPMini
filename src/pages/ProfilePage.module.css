@@ -1,0 +1,116 @@
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.identityText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.015em;
+}
+
+.email {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+}
+
+.identityNote {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+}
+
+/* ---- Role picker ---- */
+.roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.role {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition), background-color var(--transition);
+}
+
+.role:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+}
+
+/* The selected role is disabled — there's nothing to do to it — so it must
+   not look faded the way a disabled control normally does. */
+.roleSelected,
+.roleSelected:disabled {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+  opacity: 1;
+  cursor: default;
+}
+
+.roleLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.roleSelected .roleLabel {
+  color: var(--color-accent);
+}
+
+.roleCheck {
+  font-size: var(--text-sm);
+}
+
+.roleHint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* ---- Form ---- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-1);
+}
+
+@media (max-width: 600px) {
+  .identity {
+    gap: var(--space-4);
+  }
+
+  .roles {
+    grid-template-columns: 1fr;
+  }
+
+  .formActions {
+    justify-content: stretch;
+  }
+}

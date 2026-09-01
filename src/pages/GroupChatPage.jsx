@@ -9,15 +9,24 @@
  *    do NOT optimistically add it here)
  * 4. Typing indicators via 'group-typing' / 'group-user-typing'
  * 5. Leave the room on unmount (leave-group)
+ *
+ * Shares Chat.module.css with ChatPage — the transcript, bubbles and
+ * composer are the same thing in both. Only the sender labels above
+ * incoming messages and the multi-person typing line are group-specific.
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppShell from '../components/AppShell';
+import Avatar from '../components/Avatar';
+import { PageLoader } from '../components/Loading';
+import { SendIcon } from '../components/Icons';
+import styles from './Chat.module.css';
+import groupStyles from './GroupChatPage.module.css';
 
 export default function GroupChatPage() {
   const { groupId } = useParams();
-  const navigate = useNavigate();
   const { dbUser, socket, SERVER_URL } = useAuth();
 
   const [group, setGroup] = useState(null);
@@ -176,220 +185,115 @@ export default function GroupChatPage() {
     typingNames.length === 0
       ? ''
       : typingNames.length === 1
-      ? `${typingNames[0]} is typing...`
+      ? `${typingNames[0]} is typing…`
       : `${typingNames.slice(0, 2).join(', ')}${
           typingNames.length > 2 ? ' and others' : ''
-        } are typing...`;
+        } are typing…`;
 
   if (loading) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.loading}>Loading group...</div>
-      </div>
-    );
+    return <PageLoader label="Loading group" />;
   }
 
-  return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <button onClick={() => navigate('/groups')} style={styles.backBtn}>
-          ← Back
-        </button>
-        <div style={styles.peerInfo}>
-          <div style={styles.headerAvatar}>
-            {group?.name?.charAt(0)?.toUpperCase() || 'G'}
-          </div>
-          <div>
-            <div style={styles.peerName}>{group?.name || 'Group'}</div>
-            <div style={styles.memberCount}>
-              {group?.members?.length || 0} members
-            </div>
-          </div>
-        </div>
-      </div>
+  const memberCount = group?.members?.length || 0;
 
-      {/* Messages */}
-      <div style={styles.messagesContainer}>
-        {messages.length === 0 ? (
-          <div style={styles.emptyChat}>
-            <p>No messages yet</p>
-            <p style={styles.emptyHint}>Start the conversation! 👋</p>
-          </div>
-        ) : (
-          messages.map((msg, index) => {
-            const senderId = msg.sender?._id || msg.sender;
-            const isMine = senderId === dbUser._id;
-            return (
-              <div
-                key={msg._id || index}
-                style={{
-                  ...styles.messageRow,
-                  justifyContent: isMine ? 'flex-end' : 'flex-start'
-                }}
-              >
+  return (
+    <AppShell
+      variant="flush"
+      backTo="/groups"
+      title={group?.name || 'Group'}
+      subtitle={typingLabel || `${memberCount} member${memberCount === 1 ? '' : 's'}`}
+    >
+      <div className={styles.chat}>
+        {/* Member strip — who is actually in this conversation */}
+        <div className={groupStyles.strip}>
+          <span className={groupStyles.groupAvatar} aria-hidden="true">
+            {group?.name?.charAt(0)?.toUpperCase() || 'G'}
+          </span>
+          <span className={groupStyles.stripText}>
+            <span className={groupStyles.groupName}>{group?.name || 'Group'}</span>
+            <span className={groupStyles.groupMeta}>
+              {memberCount} member{memberCount === 1 ? '' : 's'}
+            </span>
+          </span>
+
+          <span className={groupStyles.members}>
+            {group?.members?.slice(0, 5).map((m) => (
+              <Avatar
+                key={m._id || m}
+                src={m.photoURL}
+                name={m.displayName}
+                size="xs"
+                className={groupStyles.memberAvatar}
+              />
+            ))}
+            {memberCount > 5 && (
+              <span className={groupStyles.memberOverflow}>+{memberCount - 5}</span>
+            )}
+          </span>
+        </div>
+
+        {/* Transcript */}
+        <div className={styles.transcript}>
+          {messages.length === 0 ? (
+            <div className={styles.emptyChat}>
+              <p className={styles.emptyTitle}>No messages yet</p>
+              <p className={styles.emptyHint}>Start the conversation.</p>
+            </div>
+          ) : (
+            messages.map((msg, index) => {
+              const senderId = msg.sender?._id || msg.sender;
+              const isMine = senderId === dbUser._id;
+
+              return (
                 <div
-                  style={{
-                    ...styles.messageBubble,
-                    ...(isMine ? styles.myMessage : styles.theirMessage)
-                  }}
+                  key={msg._id || index}
+                  className={[styles.row, isMine ? styles.rowMine : styles.rowTheirs].join(' ')}
                 >
-                  {/* Show sender name above incoming (not mine) messages */}
-                  {!isMine && (
-                    <div style={styles.senderName}>
-                      {msg.sender?.displayName || 'Unknown'}
-                    </div>
-                  )}
-                  <div style={styles.messageText}>{msg.text}</div>
                   <div
-                    style={{
-                      ...styles.messageTime,
-                      color: isMine ? 'rgba(255,255,255,0.7)' : '#9ca3af'
-                    }}
+                    className={[styles.bubble, isMine ? styles.mine : styles.theirs].join(' ')}
                   >
-                    {formatTime(msg.timestamp)}
+                    {/* Sender name above incoming messages only — on your own
+                        messages it would just repeat who you are. */}
+                    {!isMine && (
+                      <span className={groupStyles.sender}>
+                        {msg.sender?.displayName || 'Unknown'}
+                      </span>
+                    )}
+                    <span className={styles.text}>{msg.text}</span>
+                    <span className={styles.meta}>
+                      <time>{formatTime(msg.timestamp)}</time>
+                    </span>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
 
-        {typingLabel && (
-          <div style={styles.typingRow}>{typingLabel}</div>
-        )}
+          {typingLabel && <p className={groupStyles.typingLine}>{typingLabel}</p>}
 
-        <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Composer */}
+        <form onSubmit={sendMessage} className={styles.composer}>
+          <input
+            type="text"
+            value={newMessage}
+            onChange={handleInputChange}
+            placeholder="Write a message…"
+            className={styles.input}
+            aria-label="Message"
+          />
+          <button
+            type="submit"
+            className={styles.send}
+            disabled={!newMessage.trim()}
+            aria-label="Send message"
+          >
+            <SendIcon size={17} />
+          </button>
+        </form>
       </div>
-
-      {/* Input */}
-      <form onSubmit={sendMessage} style={styles.inputContainer}>
-        <input
-          type="text"
-          value={newMessage}
-          onChange={handleInputChange}
-          placeholder="Type a message..."
-          style={styles.input}
-        />
-        <button type="submit" style={styles.sendBtn} disabled={!newMessage.trim()}>
-          Send
-        </button>
-      </form>
-    </div>
+    </AppShell>
   );
 }
-
-// Styles — same visual language as ChatPage
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: '#f5f5f5'
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px 16px',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    gap: '12px'
-  },
-  backBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#fff',
-    fontSize: '16px',
-    cursor: 'pointer',
-    padding: '8px'
-  },
-  peerInfo: { display: 'flex', alignItems: 'center', gap: '12px' },
-  headerAvatar: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '50%',
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '18px',
-    fontWeight: '600'
-  },
-  peerName: { fontWeight: '600', fontSize: '16px' },
-  memberCount: { fontSize: '12px', opacity: 0.8 },
-  messagesContainer: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px'
-  },
-  messageRow: { display: 'flex', width: '100%' },
-  messageBubble: {
-    maxWidth: '70%',
-    padding: '10px 14px',
-    borderRadius: '16px',
-    wordWrap: 'break-word'
-  },
-  myMessage: {
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    borderBottomRightRadius: '4px'
-  },
-  theirMessage: {
-    backgroundColor: '#fff',
-    color: '#1f2937',
-    borderBottomLeftRadius: '4px',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-  },
-  senderName: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#3b82f6',
-    marginBottom: '2px'
-  },
-  messageText: { fontSize: '15px', lineHeight: '1.4' },
-  messageTime: { fontSize: '11px', marginTop: '4px', textAlign: 'right' },
-  typingRow: {
-    fontSize: '13px',
-    color: '#6b7280',
-    fontStyle: 'italic',
-    padding: '4px 8px'
-  },
-  inputContainer: {
-    display: 'flex',
-    padding: '12px 16px',
-    backgroundColor: '#fff',
-    gap: '12px',
-    borderTop: '1px solid #e5e7eb'
-  },
-  input: {
-    flex: 1,
-    padding: '12px 16px',
-    borderRadius: '24px',
-    border: '1px solid #e5e7eb',
-    fontSize: '15px',
-    outline: 'none'
-  },
-  sendBtn: {
-    padding: '12px 24px',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '24px',
-    fontSize: '15px',
-    fontWeight: '500',
-    cursor: 'pointer'
-  },
-  loading: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    fontSize: '16px',
-    color: '#6b7280'
-  },
-  emptyChat: { textAlign: 'center', color: '#6b7280', marginTop: '40%' },
-  emptyHint: { fontSize: '24px', marginTop: '8px' }
-};

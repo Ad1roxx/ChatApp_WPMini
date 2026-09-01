@@ -27,6 +27,7 @@ import Avatar from './Avatar';
 import { RoleBadge } from './Badge';
 import {
   AnnouncementIcon,
+  ChevronLeftIcon,
   CloseIcon,
   GroupsIcon,
   LogOutIcon,
@@ -55,7 +56,17 @@ const NAV_SECTIONS = [
   }
 ];
 
-export default function AppShell({ title, subtitle, actions, variant = 'default', children }) {
+export default function AppShell({
+  title,
+  subtitle,
+  actions,
+  // Detail screens (a chat, someone's profile) pass the route to return to.
+  // The sidebar shows where you are among the top-level sections but not how
+  // you got to a nested screen, so those still need an explicit way back.
+  backTo,
+  variant = 'default',
+  children
+}) {
   const { dbUser, logout } = useAuth();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -165,6 +176,17 @@ export default function AppShell({ title, subtitle, actions, variant = 'default'
           >
             {drawerOpen ? <CloseIcon size={20} /> : <MenuIcon size={20} />}
           </button>
+
+          {backTo && (
+            <button
+              type="button"
+              onClick={() => navigate(backTo)}
+              className={styles.backButton}
+              aria-label="Go back"
+            >
+              <ChevronLeftIcon size={18} />
+            </button>
+          )}
 
           <div className={styles.titleGroup}>
             <h1 className={styles.title}>{title}</h1>

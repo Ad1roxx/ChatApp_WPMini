@@ -5,14 +5,24 @@
  * makes mentor profiles worth filling in — before this page, expertise and
  * availability were write-only, since nobody could read them.
  *
- * Reached from the users list ("Profile" button on each card) at
- * /users/:userId. The data comes from GET /api/user/:id, which already
- * returns the whole document including bio/expertise/availability.
+ * Reached from the users list ("Profile" button on each row) and from the
+ * chat header, at /users/:userId. The data comes from GET /api/user/:id,
+ * which already returns the whole document including bio/expertise/
+ * availability.
  */
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppShell from '../components/AppShell';
+import Card from '../components/Card';
+import Avatar from '../components/Avatar';
+import Button from '../components/Button';
+import { RoleBadge } from '../components/Badge';
+import EmptyState from '../components/EmptyState';
+import { PageLoader } from '../components/Loading';
+import { ProfileIcon } from '../components/Icons';
+import styles from './UserProfilePage.module.css';
 
 export default function UserProfilePage() {
   const { userId } = useParams();
@@ -76,239 +86,104 @@ export default function UserProfilePage() {
   }, [socket, userId]);
 
   if (loading) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.loading}>Loading profile...</div>
-      </div>
-    );
+    return <PageLoader label="Loading profile" />;
   }
 
   if (notFound || !profile) {
     return (
-      <div style={styles.container}>
-        <div style={styles.header}>
-          <button onClick={() => navigate('/users')} style={styles.backBtn}>
-            ← Back
-          </button>
-          <h1 style={styles.title}>Profile</h1>
-        </div>
-        <div style={styles.body}>
-          <div style={styles.card}>
-            <p style={styles.emptyMsg}>This user could not be found.</p>
-          </div>
-        </div>
-      </div>
+      <AppShell title="Profile" backTo="/users">
+        <Card>
+          <EmptyState
+            icon={<ProfileIcon size={20} />}
+            title="This user could not be found"
+            description="The link may be wrong, or the account may no longer exist."
+            action={
+              <Button variant="secondary" onClick={() => navigate('/users')}>
+                Back to messages
+              </Button>
+            }
+          />
+        </Card>
+      </AppShell>
     );
   }
 
   const isMentor = profile.role === 'mentor';
+  const firstName = profile.displayName?.split(' ')[0] || 'user';
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <button onClick={() => navigate('/users')} style={styles.backBtn}>
-          ← Back
-        </button>
-        <h1 style={styles.title}>Profile</h1>
-      </div>
-
-      <div style={styles.body}>
-        {/* Identity card */}
-        <div style={styles.card}>
-          <div style={styles.identityRow}>
-            <div style={styles.avatarWrapper}>
-              {profile.photoURL ? (
-                <img src={profile.photoURL} alt="" style={styles.avatar} />
-              ) : (
-                <div style={styles.avatarPlaceholder}>
-                  {profile.displayName?.charAt(0)?.toUpperCase() || '?'}
-                </div>
-              )}
-              <div
-                style={{
-                  ...styles.statusDot,
-                  backgroundColor: profile.isOnline ? '#22c55e' : '#9ca3af'
-                }}
-              />
-            </div>
-            <div style={styles.identityInfo}>
-              <span style={styles.name}>{profile.displayName}</span>
-              <span style={styles.email}>{profile.email}</span>
-              <span style={styles.roleBadge}>
-                {isMentor ? '🧑‍🏫 Mentor' : '🎓 Student'}
+    <AppShell title={profile.displayName || 'Profile'} backTo="/users">
+      {/* Identity */}
+      <Card>
+        <div className={styles.identity}>
+          <Avatar
+            src={profile.photoURL}
+            name={profile.displayName}
+            size="xl"
+            presence={profile.isOnline}
+          />
+          <div className={styles.identityText}>
+            <h2 className={styles.name}>{profile.displayName}</h2>
+            <p className={styles.email}>{profile.email}</p>
+            <div className={styles.badges}>
+              <RoleBadge role={profile.role} />
+              <span className={styles.status}>
+                {profile.isOnline ? 'Online now' : 'Offline'}
               </span>
             </div>
           </div>
+        </div>
 
+        <div className={styles.actions}>
           {isSelf ? (
-            <button onClick={() => navigate('/profile')} style={styles.actionBtn}>
+            <Button variant="primary" onClick={() => navigate('/profile')}>
               Edit my profile
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={() => navigate(`/chat/${profile._id}`)}
-              style={styles.actionBtn}
-            >
-              Message {profile.displayName?.split(' ')[0] || 'user'}
-            </button>
+            <Button variant="primary" onClick={() => navigate(`/chat/${profile._id}`)}>
+              Message {firstName}
+            </Button>
           )}
         </div>
+      </Card>
 
-        {/* About */}
-        <div style={styles.card}>
-          <h2 style={styles.sectionTitle}>About</h2>
-          {profile.bio ? (
-            <p style={styles.bodyText}>{profile.bio}</p>
-          ) : (
-            <p style={styles.emptyMsg}>
-              {isSelf
-                ? "You haven't written a bio yet."
-                : "This user hasn't written a bio yet."}
-            </p>
-          )}
-        </div>
-
-        {/*
-          Mentor-only section. Mirrors ProfilePage: students never had these
-          fields to fill in, so rendering an empty "Expertise" card for them
-          would just be noise.
-        */}
-        {isMentor && (
-          <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>Mentoring</h2>
-
-            <span style={styles.fieldLabel}>Area of expertise</span>
-            {profile.expertise ? (
-              <p style={styles.bodyText}>{profile.expertise}</p>
-            ) : (
-              <p style={styles.emptyMsg}>Not specified yet.</p>
-            )}
-
-            <span style={{ ...styles.fieldLabel, marginTop: '16px' }}>
-              Availability
-            </span>
-            {profile.availability ? (
-              <p style={styles.bodyText}>{profile.availability}</p>
-            ) : (
-              <p style={styles.emptyMsg}>Not specified yet.</p>
-            )}
-          </div>
+      {/* About */}
+      <Card title="About">
+        {profile.bio ? (
+          <p className={styles.prose}>{profile.bio}</p>
+        ) : (
+          <p className={styles.muted}>
+            {isSelf
+              ? "You haven't written a bio yet."
+              : "This user hasn't written a bio yet."}
+          </p>
         )}
-      </div>
-    </div>
+      </Card>
+
+      {/*
+        Mentor-only section. Mirrors ProfilePage: students never had these
+        fields to fill in, so rendering an empty "Expertise" card for them
+        would just be noise.
+      */}
+      {isMentor && (
+        <Card title="Mentoring">
+          <dl className={styles.details}>
+            <div className={styles.detail}>
+              <dt className={styles.detailLabel}>Area of expertise</dt>
+              <dd className={profile.expertise ? styles.prose : styles.muted}>
+                {profile.expertise || 'Not specified yet.'}
+              </dd>
+            </div>
+
+            <div className={styles.detail}>
+              <dt className={styles.detailLabel}>Availability</dt>
+              <dd className={profile.availability ? styles.prose : styles.muted}>
+                {profile.availability || 'Not specified yet.'}
+              </dd>
+            </div>
+          </dl>
+        </Card>
+      )}
+    </AppShell>
   );
 }
-
-const styles = {
-  container: { minHeight: '100vh', backgroundColor: '#f5f5f5' },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '16px 24px',
-    backgroundColor: '#3b82f6',
-    color: '#fff'
-  },
-  backBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#fff',
-    fontSize: '16px',
-    cursor: 'pointer',
-    padding: '8px'
-  },
-  title: { margin: 0, fontSize: '22px', fontWeight: '600' },
-  body: {
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    maxWidth: '640px',
-    margin: '0 auto'
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    padding: '20px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  identityRow: { display: 'flex', alignItems: 'center', gap: '16px' },
-  avatarWrapper: { position: 'relative' },
-  avatar: { width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' },
-  avatarPlaceholder: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '50%',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '26px',
-    fontWeight: '600'
-  },
-  statusDot: {
-    position: 'absolute',
-    bottom: '2px',
-    right: '2px',
-    width: '14px',
-    height: '14px',
-    borderRadius: '50%',
-    border: '2px solid #fff'
-  },
-  identityInfo: { display: 'flex', flexDirection: 'column', gap: '2px' },
-  name: { fontSize: '18px', fontWeight: '600', color: '#1f2937' },
-  email: { fontSize: '14px', color: '#6b7280' },
-  roleBadge: {
-    marginTop: '6px',
-    alignSelf: 'flex-start',
-    padding: '3px 10px',
-    backgroundColor: '#eef2ff',
-    color: '#3b82f6',
-    borderRadius: '999px',
-    fontSize: '13px',
-    fontWeight: '500'
-  },
-  actionBtn: {
-    marginTop: '20px',
-    padding: '12px',
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontWeight: '500',
-    cursor: 'pointer'
-  },
-  sectionTitle: {
-    margin: '0 0 12px',
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#1f2937'
-  },
-  fieldLabel: {
-    fontSize: '13px',
-    fontWeight: '500',
-    color: '#6b7280',
-    marginBottom: '4px'
-  },
-  bodyText: {
-    margin: 0,
-    fontSize: '15px',
-    color: '#1f2937',
-    lineHeight: 1.6,
-    whiteSpace: 'pre-wrap'   // keep the line breaks people typed into the bio
-  },
-  emptyMsg: { margin: 0, fontSize: '15px', color: '#9ca3af', fontStyle: 'italic' },
-  loading: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    fontSize: '16px',
-    color: '#6b7280'
-  }
-};

@@ -171,6 +171,23 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.backButton:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
 .titleGroup {
   flex: 1;
   min-width: 0;
