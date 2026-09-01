@@ -1,120 +1,249 @@
-
 # Project Feature Documentation
 
-This document maps course outcomes / feature requirements to where and how they are implemented in this repository (MentorConnect).
+This document maps the course outcomes to where and how each one is
+implemented in this repository. Paths are relative to the project root.
 
-Paths referenced are relative to the project root.
+**Architecture in one line:** Firebase Authentication handles identity (Google
+Sign-In only); a custom Express + Socket.IO + MongoDB server handles all data —
+users, messages, groups, announcements and presence. See `README.md` for the
+full picture and `docs/BUILD_NOTES.md` for the reasoning behind each feature.
 
 ---
 
 ## 1. Basic React Web Page Design (JSX, Components and props) — CO1
 
-- Files / folders:
-  - `src/main.jsx`, `src/App.jsx`, `src/index.css`, `src/App.css`
-  - Reusable components in `src/components/` (examples: `Avatar.jsx`, `Composer.jsx`, `MessageBubble.jsx`, `TopBar.jsx`, `Footer.jsx`, `RecordsList.jsx`)
-  - Page-level components in `src/pages/` (examples: `ChatPage.jsx`, `ChatsListPage.jsx`, `EditProfilePage.jsx`, `LoginPage.jsx`, `RegisterPage.jsx`)
+**Files:** `src/main.jsx`, `src/App.jsx`, `src/index.css`, `src/App.css`,
+and nine page components in `src/pages/`.
 
-- Notes: Each component uses JSX and props to receive data (e.g., `Avatar` accepts `uid`/`label` props; `MessageBubble` accepts `mine` and `time` props). The `App.jsx` composes routes and top-level layout.
+- `src/App.jsx` composes the whole route table and holds the first-login role
+  gate that renders `RoleSelectPage` in place of everything else when a
+  signed-in user has no role yet.
+- Page components: `LoginPage`, `RoleSelectPage`, `UsersPage`, `ChatPage`,
+  `GroupsPage`, `GroupChatPage`, `AnnouncementsPage`, `ProfilePage`,
+  `UserProfilePage`.
+- Styling is CSS-in-JS: each page exports a `styles` object of plain objects
+  applied via the `style` prop, sharing a `#3b82f6` header treatment.
+
+**Props in practice.** State is shared through React Context rather than long
+prop chains (see item 2), so props mostly carry per-item data into repeated
+markup — for example each user card in `UsersPage` and each announcement card
+in `AnnouncementsPage` is rendered from a `.map()` over fetched data, keyed by
+its MongoDB `_id`. Conditional rendering off props/state is used throughout:
+`UserProfilePage` renders a mentoring section only when
+`profile.role === 'mentor'`.
 
 ## 2. Demonstrate the use of React hooks (useState and useEffect) — CO1
 
-- Examples in the repo:
-  - `src/pages/EditProfilePage.jsx`: uses `useState` for form fields and `useEffect` to load user data from Firestore.
-  - `src/pages/ChatPage.jsx`: `useState` for messages/typing state; `useEffect` to subscribe to server-sent events and to fetch initial messages/chat info.
-  - `src/pages/ChatsListPage.jsx`: `useState` for recent chats and typing statuses; `useEffect` to connect to SSE for live chat updates.
-  - `src/components/TopBar.jsx`: uses `useEffect` for auth state and snapshot listeners.
+Across `src/`: **50** `useState`, **24** `useEffect`, plus `useContext`,
+`useRef`, `useNavigate` and `useParams`.
+
+- **`useState`** — `ProfilePage` holds every form field (`bio`, `expertise`,
+  `availability`, `saving`, `status`); `UsersPage` holds the user list and a
+  `Set` of online user ids; `AnnouncementsPage` holds the feed and compose box.
+- **`useEffect` for data fetching** — `UsersPage` fetches `/api/users` on
+  mount; `UserProfilePage` re-fetches whenever the `:userId` in the URL
+  changes; `ChatPage` loads peer info and message history together.
+- **`useEffect` for subscriptions, with cleanup** — the important pattern here.
+  Every page that listens to Socket.IO registers handlers and returns a cleanup
+  function that calls `socket.off(...)`. `GroupChatPage` additionally emits
+  `leave-group` on cleanup and clears its typing timeout. Without this, handlers
+  would stack up on every re-render.
+- **`useRef`** — `ChatPage` and `GroupChatPage` use refs for the
+  scroll-to-bottom anchor and for the typing-indicator debounce timeout, i.e.
+  values that must survive re-renders without causing one.
+- **`useContext` + a custom hook** — `src/context/AuthContext.jsx` defines
+  `AuthProvider` and the `useAuth()` hook that wraps `useContext`. It also
+  throws a clear error when used outside the provider.
 
 ## 3. Form Handling using React — CO1
 
-- Implementations:
-  - `src/pages/EditProfilePage.jsx`: edit profile form (display name, bio) and file input for uploading records. Handles validation and submission via `handleSave`.
-  - `src/pages/RegisterPage.jsx` and `src/pages/LoginPage.jsx`: form handling for authentication (email/password), with basic error handling and input state management.
+Five controlled forms, each with `onSubmit` and `value`/`onChange` bindings:
+
+| Form | File | Handler |
+| --- | --- | --- |
+| Edit profile | `src/pages/ProfilePage.jsx` | `handleSave` |
+| Create group | `src/pages/GroupsPage.jsx` | `handleCreate` |
+| Post announcement | `src/pages/AnnouncementsPage.jsx` | `handlePost` |
+| Send message | `src/pages/ChatPage.jsx` | `sendMessage` |
+| Send group message | `src/pages/GroupChatPage.jsx` | `sendMessage` |
+
+Every one calls `e.preventDefault()` and drives its inputs from state.
+`GroupsPage` also manages a checkbox group as a `Set` of selected member ids,
+toggled immutably. `ProfilePage` seeds its fields from the logged-in user with
+a `useEffect` keyed on `dbUser`, so after a save the form re-fills from the
+server's authoritative copy.
 
 ## 4. Navigation and Form Validation — CO2
 
-- Routing / navigation:
-  - React Router v6 used: `src/main.jsx` registers routes; pages use `useNavigate` for programmatic navigation (examples: `EditProfilePage.jsx`, `ChatsListPage.jsx`, `TopBar.jsx`).
+**Navigation** — React Router v6 (`react-router-dom`):
 
-- Form validation:
-  - Basic client-side validation is performed in registration/login flows and in `EditProfilePage.jsx` (required fields, network errors are surfaced to the user). For stricter validation, the project shows where to add checks before `setDoc` / `updateProfile` calls.
+- Routes declared in `src/App.jsx`; `useNavigate()` for programmatic navigation
+  (14 uses); `useParams()` to read `:peerId`, `:groupId` and `:userId`.
+- **Protected routes:** every route renders its page only `if (user)` and
+  otherwise `<Navigate to="/login" />`.
+- **Route gating on state:** while auth is resolving, `App` renders a spinner
+  rather than briefly flashing the login page; and a signed-in user with no
+  role gets `RoleSelectPage` instead of any route at all.
+- A catch-all `path="*"` redirects unknown URLs home.
+
+**Validation — client side:**
+
+- `maxLength` on every free-text input, matching the database limits exactly:
+  bio 500, expertise/availability 200, announcement 2000. Live character
+  counters show the remaining budget.
+- Submit buttons are `disabled` while a request is in flight and when the
+  required field is empty (`!groupName.trim()`, `!text.trim()`), so empty
+  submissions cannot be sent.
+- Failed requests surface the server's own error message rather than a generic
+  failure, and destructive or consequential actions confirm first (deleting an
+  announcement, switching role).
+
+**Validation — server side.** The client checks are convenience; the server
+re-checks independently:
+
+- Required-field checks return `400` (`server/index.js`).
+- Mongoose schema `maxlength` validators, applied on update with
+  `runValidators: true`.
+- `role` is constrained by an `enum: ['student', 'mentor']`.
 
 ## 5. API integration — CO2
 
-- Server-Sent Events (SSE):
-  - Frontend listens to SSE endpoints for real-time updates:
-    - `src/pages/ChatPage.jsx` connects to `GET /api/chats/:chatId/messages/live` for live chat messages and typing/activity events.
-    - `src/pages/ChatsListPage.jsx` connects to `GET /api/chats/live` for new chats and typing/activity.
+Two complementary transports:
 
-- REST calls:
-  - Client-side `fetch` calls to server endpoints for actions such as typing/activity updates, marking messages read, and posting announcements (examples in `ChatPage.jsx`).
+- **REST over `fetch`** for request/response work — loading users, history,
+  groups, profiles; saving a profile; creating a group; posting an
+  announcement. All calls go through `SERVER_URL` supplied by `AuthContext`.
+- **WebSockets via Socket.IO** for anything live — messages, typing
+  indicators, read receipts, presence, and announcements.
+
+Responses are checked with `res.ok` before use, `try/catch/finally` wraps every
+call, and loading and empty states are rendered explicitly.
 
 ## 6. Demonstrate use of Node.js (server) — CO2
 
-- Server app located in `server/index.js`.
-  - Implements an Express application, CORS setup, SSE endpoints, and endpoints for typing/activity/announcements.
-  - Uses `firebase-admin` (optional, initialized when service account is provided via environment variable). Also integrates with optional MongoDB (mongoose) for announcements.
+`server/index.js` — an Express application that also hosts the Socket.IO
+server on the same HTTP server (`http.createServer(app)`), with:
+
+- `cors` configured for the Vite dev origin
+- `dotenv` for configuration (`MONGODB_URI`, `PORT`)
+- `mongoose` for MongoDB
+- an in-memory map of `userId → socket.id` for routing direct messages
+- graceful shutdown handling and startup logging
+
+**Socket.IO events handled:** `user-online`, `send-message`, `typing`,
+`stop-typing`, `mark-read`, `join-group`, `leave-group`,
+`send-group-message`, `group-typing`, `group-stop-typing`, `disconnect`.
+
+**Events emitted:** `online-users`, `user-status-change`, `new-message`,
+`message-sent`, `user-typing`, `user-stop-typing`, `messages-read`,
+`new-group-message`, `group-user-typing`, `group-user-stop-typing`,
+`new-announcement`, `announcement-deleted`, `error`.
+
+Note the three different broadcast shapes, which is the interesting part:
+direct messages go to one socket id, group messages go to a room
+(`io.to('group:<id>')`), and announcements go to **everyone** (`io.emit`),
+because a public broadcast has no room that means "all users".
 
 ## 7. Routing using Express.js — CO2
 
-- Routes implemented in `server/index.js` include:
-  - `GET /api/announcements`, `GET /api/announcements/live`, `POST /api/announcements` (mentor-only)
-  - `GET /api/chats/live`, `GET /api/chats/:chatId/messages/live` (SSE)
-  - `POST /api/activity/update`, `POST /api/typing/update`, `POST /api/chats/:chatId/markAsRead` (behavioral endpoints)
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/api/auth/login` | Upsert the Mongo user after Firebase sign-in |
+| GET | `/api/users` | List users (`?exclude=<firebaseUid>`) |
+| GET | `/api/user/:visitorId` | One user, including profile fields |
+| POST | `/api/users/:id/role` | Set or change role |
+| PUT | `/api/users/:id/profile` | Update profile |
+| GET | `/api/messages/:visitorId/:peerId` | 1-to-1 history |
+| GET | `/api/groups` | List groups |
+| POST | `/api/groups` | Create a group — **mentors only** |
+| POST | `/api/groups/:groupId/join` | Join a group |
+| GET | `/api/groups/:groupId/messages` | Group history (supports `?limit`/`?before`) |
+| GET | `/api/announcements` | Public feed |
+| POST | `/api/announcements` | Post — **mentors only** |
+| DELETE | `/api/announcements/:id` | Delete — **author only** |
+
+Demonstrated along the way: route parameters (`:id`), query strings
+(`?exclude=`, `?limit=`), `express.json()` body parsing, and meaningful status
+codes — `400` invalid input, `403` not allowed, `404` not found, `500` server
+error.
 
 ## 8. Database Integration — CO3
 
-- Firebase (Firestore):
-  - `src/firebase.js` initializes Firebase SDK and exports `db`, `auth`, `storage` (storage export added). Firestore is used across page components via modular SDK calls (`getDoc`, `getDocs`, `addDoc`, `setDoc`, `updateDoc`, `query`, `orderBy`).
-  - Example reads/writes: `chats/*` collections (messages), `users/{uid}` documents (profile, records metadata), `announcements` (server may use Mongo or Firestore depending on configuration).
+**MongoDB via Mongoose.** Five schemas in `server/models/`:
 
-- Optional: MongoDB (mongoose) is supported by the server for announcements when `MONGODB_URI` is provided (check `server/index.js`).
+| Model | Shape |
+| --- | --- |
+| `User` | `firebaseUid`, `email`, `displayName`, `photoURL`, `isOnline`, `lastSeen`, `role`, `bio`, `expertise`, `availability`, `createdAt` |
+| `Message` | `sender`, `receiver`, `text`, `timestamp`, `isRead` |
+| `Group` | `name`, `createdBy`, `members[]` |
+| `GroupMessage` | `group`, `sender`, `text`, `timestamp` |
+| `Announcement` | `author`, `text`, `timestamp` |
+
+Techniques used: `ObjectId` references with `.populate()` to join user data
+onto messages; compound indexes for the common query orders (e.g.
+`{ group: 1, timestamp: 1 }`); `findByIdAndUpdate` with `{ new: true }` and
+`runValidators: true`; `$addToSet` so joining a group twice cannot duplicate a
+member; `upsert` on login; schema-level `enum`, `maxlength`, `trim` and
+`default` validation.
+
+**Firebase** is used for **Authentication only** (`src/firebase.js` exports
+`auth` and `googleProvider`, with `browserLocalPersistence` so sessions survive
+a browser restart). Firestore is *not* used — all data lives in MongoDB.
 
 ## 9. Integrating React with Node.js using REST API
 
-- Integration points:
-  - Frontend `fetch` calls to Express REST endpoints for typing/activity and announcement operations (`ChatPage.jsx`, `ChatsListPage.jsx`).
-  - SSE endpoints implemented by the Node server are consumed by the frontend to drive real-time UI updates.
+The integration point is `src/context/AuthContext.jsx`, which is where the two
+halves of the system are stitched together:
 
-## 10. Onscreen test / online course certification
+1. Firebase reports a Google sign-in via `onAuthStateChanged`.
+2. The context immediately `POST`s the Firebase profile to `/api/auth/login`.
+3. The server upserts a MongoDB user and returns the document.
+4. That document is stored as `dbUser`, and a Socket.IO connection opens with
+   `user-online` carrying its `_id`.
+5. Every other page reads `dbUser`, `socket` and `SERVER_URL` from
+   `useAuth()`.
 
-- The current project does not include a built-in online certification/test subsystem. Recommended next steps if you want to add this feature:
-  - Create a `tests` or `courses` sub-system in Firestore where tests/quizzes are stored and results are recorded.
-  - Create frontend pages to take tests and a serverless function or server endpoint to grade/issue certificates (PDFs) and flag completion.
-  - Use the existing authentication and role model to gate mentor-only certification issuance.
+**The key design point:** the Mongo `_id`, not the Firebase `uid`, is the
+identity every feature keys off — messages, group membership, announcements and
+presence all reference it. Firebase answers "who are you?"; MongoDB answers
+"what is your data?".
 
-## Other Firebase features used
+## 10. Role-based access control
 
-- Authentication: `src/firebase.js` exports `auth` and client pages use Firebase Auth to sign in/up (`RegisterPage.jsx`, `LoginPage.jsx`).
-- Firestore: used for chats, messages, users, and announcements.
-- Storage: SDK export added; client upload flow scaffolding exists in `EditProfilePage.jsx` but Firebase Storage requires enabling & CORS/rules in the console to work. A server-side fallback (uploads via Express) is available as an alternative.
-- Offline persistence: `enableIndexedDbPersistence` is configured in `src/firebase.js`.
-- Admin SDK: `server/index.js` can initialize `firebase-admin` when `GOOGLE_APPLICATION_CREDENTIALS` env var is provided; admin SDK is used to verify tokens and read Firestore on the server.
+The student/mentor role is set at first login (`RoleSelectPage`), changeable
+later from `ProfilePage`, and enforced on the server:
 
-## Where records/achievements were implemented (summary)
-- UI: `src/pages/EditProfilePage.jsx` (file input & uploaded records list) and `src/components/RecordsList.jsx`.
-- Viewing: `src/pages/ChatPage.jsx` — click the peer name to open a modal showing that user's records (reads `users/{uid}` document and shows `records`).
-- Storage & metadata: client code uploads to Firebase Storage path `users/{uid}/records/{fileId}_{name}` and writes metadata into the user doc (`records` array). Note: this requires Firebase Storage to be enabled and properly configured (CORS & rules). A server-based upload alternative is suggested in the README.
+- `POST /api/groups` and `POST /api/announcements` load the caller's role
+  **from MongoDB** and return `403` unless it is `mentor`.
+- `PUT /api/users/:id/profile` writes `expertise` and `availability` only when
+  the stored role is `mentor`, silently dropping them otherwise.
+- `DELETE /api/announcements/:id` checks **authorship**, not role — being a
+  mentor lets you delete your own announcements, not everyone's.
 
-## How to run the project locally
-
-1. Install frontend deps and start dev server:
-   - `npm install`
-   - `npm run dev` (runs Vite dev server, default at http://localhost:5173)
-
-2. Start the server (optional, for SSE and REST endpoints):
-   - `cd server`
-   - `npm install` (installs server deps)
-   - `node index.js` (server listens on port 3001 by default)
-
-3. Environment notes:
-   - `src/firebase.js` contains Firebase config. Ensure the project in the Firebase Console matches these credentials.
-   - To enable admin features on the server provide `GOOGLE_APPLICATION_CREDENTIALS` env var pointing to a service account JSON.
-
-## Next steps / recommendations
-- If you plan to enable uploads in production, configure Firebase Storage in the Console and set CORS + security rules as described in code comments and earlier notes.
-- For production-grade file handling, prefer storing records metadata in a subcollection `users/{uid}/records/{recordId}` (more robust than arrays) and keep blobs in object storage (Firebase Storage / S3).
-- Consider adding deletion and moderation workflows (Cloud Functions or server-side scanning) before exposing download URLs.
+The UI hides what you cannot do (no create form or compose box for students,
+with a short note explaining why), but that is convenience only. The rule that
+actually holds is the server's, because it reads the database's copy of your
+role rather than anything the client sent.
 
 ---
 
-If you want, I can turn this into a `docs/FEATURES.md` with screenshots and code snippets for teachers or reviewers. Tell me if you want more detail on any CO item.
+## How to run the project locally
+
+See `README.md`. In short: start MongoDB, then `cd server && npm install &&
+node index.js` (port 3001), then `npm install && npm run dev` in the project
+root (port 5173). `npm run lint` runs ESLint over both `src/` and `server/`.
+
+## Known limitations
+
+Stated deliberately rather than left to be discovered:
+
+- **No server-side token verification.** No endpoint proves a caller is who
+  they claim to be; they trust the Mongo `_id` in the request. The role rules
+  above are still meaningful — a client cannot promote itself by editing a
+  payload, because the role is read from the database — but a crafted request
+  could act as another user. Fixing this means verifying the Firebase ID token
+  on every mutating route.
+- **Group sockets don't check membership.** `join-group` will place any socket
+  into any group room; the REST layer is gated, the socket layer is not.
+- **No live refresh for new signups.** Presence updates live, but a brand-new
+  account only appears in the users list after a refresh.

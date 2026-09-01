@@ -64,7 +64,12 @@ app.use(express.json());
 // DATABASE CONNECTION
 // ============================================
 
-const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp';
+// NOTE: 127.0.0.1, not localhost — deliberately.
+// On Windows, `localhost` resolves to IPv6 (::1) first, but a default local
+// MongoDB install listens only on IPv4. Using `localhost` here fails with
+// `ECONNREFUSED ::1:27017` on a fresh clone, which looks like MongoDB isn't
+// running when it is.
+const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/chatapp';
 
 mongoose.connect(mongoUri)
   .then(() => console.log('✅ Connected to MongoDB'))

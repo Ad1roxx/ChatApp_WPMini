@@ -851,6 +851,72 @@ manually-tested code to satisfy a rule that arrived with a plugin upgrade.
 
 ---
 
+### Entry 12 — Documentation cleanup
+
+**What I did.** Made every document in the repo describe the application that
+actually exists. All three were describing a system that had been deleted
+months of commits ago, which is worse than having no documentation: a reader
+trusts them and is misled.
+
+**Files changed:**
+
+- `README.md` — was the **stock Vite template**. Never touched since
+  `npm create vite`.
+- `FEATURES_DOCUMENTATION.md` — rewritten against the real code.
+- `blueprint.md` — rewritten as an architecture document.
+- `server/index.js`, `server/.env.example` — `localhost` → `127.0.0.1`.
+
+**Files deleted:** `firebase.json`, `.firebaserc`, `firestore.rules`,
+`firestore.indexes.json`.
+
+**How stale they were.** `FEATURES_DOCUMENTATION.md` is the graded artifact —
+it maps course outcomes to implementations — and it referenced
+`src/components/Avatar.jsx`, `ChatsListPage.jsx`, `EditProfilePage.jsx`,
+`RegisterPage.jsx`, `RecordsList.jsx` and a `src/components/` directory,
+**none of which exist**. It described Firestore as the database, Server-Sent
+Events as the transport, `firebase-admin` on the server, and a file-upload
+feature built on Firebase Storage. Every one of those was removed in Entry 1.
+`blueprint.md` described the project as a "front-end only prototype" and laid
+out a plan to build a backend that has since been built twice.
+
+**Design decision 1 — rewrite, don't delete.** The obvious alternative was to
+delete `blueprint.md` and `FEATURES_DOCUMENTATION.md` outright, since
+`README.md` and these build notes now cover the ground. I rewrote them instead:
+they're submission artifacts, and a missing course-outcome mapping is a real
+loss where a stale one is merely a fixable problem. They now have distinct
+jobs — README says *what exists and how to run it*, FEATURES_DOCUMENTATION maps
+*course outcomes to code*, blueprint explains *why the architecture is shaped
+this way*, and BUILD_NOTES logs *what changed and when*.
+
+**Design decision 2 — document the limitations in all three.** README,
+FEATURES_DOCUMENTATION and blueprint each end with the same three honest gaps:
+no server-side token verification, ungated group sockets, and no live refresh
+for new signups. Stating them turns them into acknowledged decisions rather
+than things a reader discovers and assumes nobody noticed.
+
+**On the deleted Firebase files.** `firebase.json` configured Firestore rules
+and indexes; `firestore.rules` held a full rule set for collections that no
+longer exist; `firestore.indexes.json` was an untouched commented-out template;
+`.firebaserc` pinned a CLI project alias. Firestore has not been used since
+Entry 1 — I verified with a repo-wide grep that nothing imports it, and
+`src/firebase.js` initialises **Auth only**. Firebase Auth needs no local
+config files (its config is inline in `src/firebase.js`), so all four were
+dead. `src/firebase.js` obviously stays. They remain in git history if ever
+needed.
+
+**The `localhost` → `127.0.0.1` follow-up, finally done.** Noted back in the
+local-environment section as the one machine-specific fix that *should* be
+committed. On Windows `localhost` resolves to IPv6 (`::1`) first while a
+default MongoDB install listens only on IPv4, so a fresh clone hits
+`ECONNREFUSED ::1:27017` — which reads as "MongoDB isn't running" when it is.
+Changed the fallback in `server/index.js` and the commented example in
+`.env.example`, both with the reason written next to them so nobody
+"simplifies" it back.
+
+**Verified:** server syntax check, `npm run lint` (0 errors), production build.
+
+---
+
 ### Open items / "later" list
 
 - **Server-side auth on mutating endpoints** — nothing verifies that a caller is
@@ -867,10 +933,7 @@ manually-tested code to satisfy a rule that arrived with a plugin upgrade.
 - **New-user live refresh** — the Users list only updates online/offline status
   live; a brand-new signup doesn't appear until a manual refresh (no "new user"
   broadcast yet).
-- **Final cleanup pass** — stale docs (`README.md` is still the Vite boilerplate;
-  `FEATURES_DOCUMENTATION.md` and `blueprint.md` describe the deleted
-  architecture) and the unused Firebase config files (`firestore.rules`,
-  `firestore.indexes.json`, `firebase.json`, `.firebaserc`); plus the
-  `localhost → 127.0.0.1` server default noted above.
+- ~~**Final cleanup pass**~~ — done in Entry 12. Docs rewritten, dead Firebase
+  config files deleted, `localhost → 127.0.0.1` default committed.
 - **Group read receipts & socket membership enforcement** — deferred from the
   group backend (see Entry 2).
