@@ -1075,22 +1075,136 @@ machine, so the visual check is a manual one.
 
 ---
 
+### Entry 15 — Server-side authentication
+
+**What I built.** Identity. Until now every endpoint trusted a MongoDB `_id`
+sent in the request body, and every socket event trusted a `senderId` in its
+payload. The role gates were real — they read the stored role from the
+database, so a client could not *promote* itself — but identity was not: anyone
+who knew your id could **be** you. Edit your profile, read your conversations,
+send messages as you.
+
+This was the largest open item in this log, carried since Entry 8. It is
+closed, and it took the group-socket gap (open since Entry 2) with it.
+
+**Files added:** `server/middleware/auth.js`.
+
+**Files changed:** `server/index.js` (25 edits), `server/.env.example`,
+`server/package.json`, `src/context/AuthContext.jsx`, and the six pages that
+call the server (33 edits).
+
+**Design decision 1 — no service-account key.** The standard way to verify a
+Firebase ID token is `firebase-admin`, which wants a **service account JSON**
+downloaded from the Firebase Console and kept secret. I deliberately did not
+use it. Verifying an ID token only needs Google's **public** signing
+certificates: fetch them, match the token's `kid`, check the signature. So
+there is no secret to distribute, nothing to leak, and no console step before
+a fresh clone will run — you set `FIREBASE_PROJECT_ID` (which is already
+public, it ships in the frontend bundle) and the server works. The cost is
+about sixty lines we own instead of a dependency.
+
+**What is actually checked**, and why each one matters:
+
+- **signature** against Google's current cert for the token's `kid` — proves
+  Google issued it and it has not been altered.
+- **audience** equals our project id — without this, a valid token from
+  *somebody else's* Firebase project would be accepted here. This is the check
+  people most often forget.
+- **issuer** is `https://securetoken.google.com/<projectId>` — same reason.
+- **expiry**, enforced by `jsonwebtoken`. Tokens last an hour and the client
+  SDK refreshes them, which is why `authFetch` calls `getIdToken()` before
+  every request rather than caching one.
+- **`sub` is non-empty** — that field *is* the Firebase uid, and everything
+  downstream keys off it.
+
+The certs are cached for exactly as long as Google's `Cache-Control: max-age`
+says. Ignoring that header would mean either refetching on every request or
+serving a stale set after a rotation.
+
+**Design decision 2 — the token replaces the id, it does not sit beside it.**
+The tempting half-measure is to verify the token and *also* keep reading
+`req.body.visitorId`. That fixes nothing: the body is still what decides who
+you are. So the ids were **removed from the requests entirely**. `POST
+/api/announcements` no longer takes an `authorId`; `POST /api/groups` no
+longer takes a `createdBy`; `join` takes no body at all; the socket events
+carry no `senderId`. There is no longer a field to lie in.
+
+**Design decision 3 — `/api/auth/login` needed a different middleware.** That
+endpoint is what *creates* the Mongo user, so on a genuinely first-ever
+sign-in there is nothing for `requireAuth` to find and it would 401 every new
+user forever. `requireToken` verifies the token but tolerates a missing
+account. Its uid and email now come from the token; only the display name and
+photo still come from the body, because those are cosmetic and the token's
+copies can lag behind a Google profile change.
+
+**Design decision 4 — the socket is authenticated once, at the handshake.**
+`io.use(socketAuth)` runs before any handler, and pins the user to
+`socket.data.user` for the connection's whole life. Every handler reads the
+sender from there. This is what makes the spoofing test below fail to spoof.
+
+**The group-membership gap, finally closable.** Entry 2 deferred it and Entry
+10 still listed it, because it *could not* be done: refusing to let you join a
+group you don't belong to requires knowing who you are. With identity in
+place, `join-group`, `send-group-message` and the REST history endpoint all
+check membership. `send-group-message` re-checks rather than relying on
+`join-group`, because a client can emit it without ever joining the room.
+
+**Design decision 5 — a dev escape hatch, behind two locks.** An automated
+browser cannot complete a Google sign-in popup, so without something the app
+could never be driven end-to-end by a test. `ALLOW_DEV_AUTH=true` lets an
+`X-Dev-User-Id` header stand in for a token. It is ignored when
+`NODE_ENV=production`, unset by default, and the server prints a loud warning
+at startup whenever it is on. It bypasses authentication completely, so it is
+worth being suspicious of — that is exactly why it announces itself.
+
+**Verified: 15 checks against the running server and real MongoDB.**
+
+*Identity is required (4):* unauthenticated request → **401**; garbage bearer
+token → **401**; dev identity → **200**; socket connection with no credentials
+and with a garbage token → **both refused**.
+
+*You cannot act as someone else (4):* reading another user's conversation →
+**403**; editing another user's profile → **403**; changing another user's
+role → **403**; reading your own conversation → **200**.
+
+*Role gates still hold on top of identity (2):* student posting an
+announcement → **403**; student creating a group → **403**.
+
+*Group membership (3):* `join-group` on a group you are not in → **refused**;
+`send-group-message` to it → **refused**; REST history for it → **403**.
+
+*Spoofing (1), the important one:* a student emitted `send-message` with
+`senderId` set to the **mentor's** id. The stored message came back attributed
+to the **student** — the server ignored the claim entirely.
+
+*Cleanup (1):* the test group and messages were deleted; the database was left
+with the three users and zero groups it started with.
+
+Plus: production build, `npm run lint` (0 errors), server syntax check.
+
+**Docs corrected in the same commit.** README, FEATURES_DOCUMENTATION and
+blueprint each listed "no server-side token verification" and "group sockets
+don't check membership" under known limitations. Both are now false. Leaving
+them would have recreated exactly the staleness Entry 12 existed to fix. The
+README gained a **Security** section stating what is enforced, and the
+remaining honest gaps are now rate limiting, pagination and connection-based
+presence.
+
+---
+
 ### Open items / "later" list
 
-- **Server-side auth on mutating endpoints** — nothing verifies that a caller is
-  who they claim to be (see Entry 8's known gap). Verifying the Firebase ID token
-  on the server would close this across the role, profile, chat and group routes
-  at once.
+- ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
+  ID tokens are verified on every REST route and at the socket handshake.
 - ~~**ESLint is broken**~~ — fixed in Entry 11. `npm run lint` now covers
   `src/` and `server/`: 0 errors, 2 documented warnings.
 - **Role enforcement, remaining edges** — done for groups and announcements
-  (Entry 10). Still open: the `join-group` socket event and `send-group-message`
-  don't check membership, so role/membership rules hold at the REST layer but
-  not over the socket (see Entry 2's deferred item). Announcement editing
-  doesn't exist either — only post and delete.
+  (Entry 10), and the socket layer was closed in Entry 15. Still open:
+  announcement editing doesn't exist — only post and delete.
 - ~~**New-user live refresh**~~ — done in Entry 13 via `user-added` /
   `user-updated` broadcasts.
 - ~~**Final cleanup pass**~~ — done in Entry 12. Docs rewritten, dead Firebase
   config files deleted, `localhost → 127.0.0.1` default committed.
-- **Group read receipts & socket membership enforcement** — deferred from the
-  group backend (see Entry 2).
+- **Group read receipts** — 1-to-1 chat has them (Entry 5), groups do not.
+  (Socket membership enforcement, the other half of this item, was done in
+  Entry 15.)

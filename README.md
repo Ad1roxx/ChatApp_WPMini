@@ -43,7 +43,7 @@ You need **Node.js** and a **MongoDB** instance (local or Atlas).
 ```bash
 cd server
 npm install
-cp .env.example .env      # then set MONGODB_URI
+cp .env.example .env      # set MONGODB_URI and FIREBASE_PROJECT_ID
 node index.js             # http://localhost:3001
 ```
 
@@ -76,7 +76,15 @@ Sign in with Google. On your first login you'll be asked to pick a role.
 src/
   App.jsx                    routes + the first-login role gate
   firebase.js                Firebase Auth setup (auth only — no Firestore)
-  context/AuthContext.jsx    auth state, the socket, and dbUser
+  context/AuthContext.jsx    auth state, the socket, dbUser, authFetch
+  styles/
+    tokens.css               design tokens — every colour, space, type size
+    base.css                 reset + element defaults
+  components/
+    AppShell.jsx             role-aware sidebar frame + responsive drawer
+    Button/Card/Avatar/…     shared UI primitives (CSS Modules)
+    Toast.jsx                replaces alert()
+    ConfirmDialog.jsx        replaces window.confirm()
   pages/
     LoginPage.jsx            Google sign-in
     RoleSelectPage.jsx       one-time first-login role picker
@@ -90,6 +98,8 @@ src/
 
 server/
   index.js                   Express routes + all Socket.IO handlers
+  middleware/
+    auth.js                  Firebase ID token verification + role gates
   models/
     User.js                  identity, presence, role, profile fields
     Message.js               1-to-1 messages
@@ -134,20 +144,39 @@ docs/
 
 ---
 
+## Security
+
+What is actually enforced, since a chat app with roles invites the question:
+
+- **Identity.** Every REST request carries the caller's Firebase ID token;
+  every socket carries it in the handshake. The server verifies the signature
+  against Google's public certificates and checks the audience and issuer
+  match this Firebase project. Handlers then read the caller from the verified
+  token — **never** from an id in the request body.
+- **Ownership.** You can only edit your own profile, change your own role,
+  read conversations you are part of, delete announcements you wrote, and add
+  yourself to a group.
+- **Roles.** Mentor-only actions re-read the role from MongoDB rather than
+  trusting anything the client sent, so a client cannot promote itself.
+- **Group membership.** Both `join-group` and `send-group-message` check
+  membership, as does the REST history endpoint. Joining a room you don't
+  belong to is refused.
+
+No service-account key is needed: verifying an ID token only requires Google's
+public certificates. Set `FIREBASE_PROJECT_ID` and the server runs.
+
 ## Known limitations
 
 Worth stating plainly rather than discovering later:
 
-- **No server-side token verification.** No endpoint checks that a caller is
-  who they claim to be — they trust the Mongo `_id` in the request. The
-  mentor-only and author-only rules above are enforced against the *database's*
-  copy of your role, so a client can't promote itself by editing a payload, but
-  it could act as another user by sending their id. Closing this properly means
-  verifying the Firebase ID token server-side on every mutating route.
-- **Group sockets don't check membership.** `join-group` will put any socket
-  into any group room. The REST layer is gated; the socket layer isn't yet.
-- **The users list doesn't live-update on new signups.** Only online/offline
-  status is pushed; a brand-new account appears after a refresh.
+- **Presence is connection-based.** "Online" means "has a live socket", so a
+  half-closed connection can leave a stale green dot until the socket times
+  out.
+- **No pagination in the UI.** The group history endpoint supports `?limit`
+  and `?before`, but no page uses them; the announcement feed is capped at 50
+  server-side. Fine at project scale, the first thing to revisit beyond it.
+- **No rate limiting.** Nothing stops a signed-in client from flooding
+  messages or announcements.
 
 `docs/BUILD_NOTES.md` keeps a running log of every meaningful change — what was
 built, which files moved, the design decisions and their tradeoffs.

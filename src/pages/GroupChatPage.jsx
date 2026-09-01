@@ -27,7 +27,7 @@ import groupStyles from './GroupChatPage.module.css';
 
 export default function GroupChatPage() {
   const { groupId } = useParams();
-  const { dbUser, socket, SERVER_URL } = useAuth();
+  const { dbUser, socket, authFetch } = useAuth();
 
   const [group, setGroup] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -57,8 +57,8 @@ export default function GroupChatPage() {
       if (!dbUser) return;
       try {
         // Group info (name + members) — find it among the user's groups
-        const groupsRes = await fetch(
-          `${SERVER_URL}/api/groups?userId=${dbUser._id}`
+        const groupsRes = await authFetch(
+          `/api/groups?userId=${dbUser._id}`
         );
         if (groupsRes.ok) {
           const myGroups = await groupsRes.json();
@@ -66,8 +66,8 @@ export default function GroupChatPage() {
         }
 
         // Message history
-        const msgRes = await fetch(
-          `${SERVER_URL}/api/groups/${groupId}/messages`
+        const msgRes = await authFetch(
+          `/api/groups/${groupId}/messages`
         );
         if (msgRes.ok) setMessages(await msgRes.json());
       } catch (err) {
@@ -78,7 +78,7 @@ export default function GroupChatPage() {
     };
 
     fetchData();
-  }, [dbUser, groupId, SERVER_URL]);
+  }, [dbUser, groupId, authFetch]);
 
   /**
    * Look up a member's display name from the loaded group.
@@ -149,25 +149,25 @@ export default function GroupChatPage() {
     e.preventDefault();
     if (!newMessage.trim() || !socket || !dbUser) return;
 
+    // No senderId — the server knows who this socket is.
     socket.emit('send-group-message', {
       groupId,
-      senderId: dbUser._id,
       text: newMessage.trim()
     });
 
     setNewMessage('');
-    socket.emit('group-stop-typing', { groupId, senderId: dbUser._id });
+    socket.emit('group-stop-typing', { groupId });
   };
 
   const handleInputChange = (e) => {
     setNewMessage(e.target.value);
     if (!socket || !dbUser) return;
 
-    socket.emit('group-typing', { groupId, senderId: dbUser._id });
+    socket.emit('group-typing', { groupId });
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('group-stop-typing', { groupId, senderId: dbUser._id });
+      socket.emit('group-stop-typing', { groupId });
     }, 2000);
   };
 

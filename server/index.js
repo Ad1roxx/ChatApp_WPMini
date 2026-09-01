@@ -29,6 +29,14 @@ const Group = require('./models/Group');
 const GroupMessage = require('./models/GroupMessage');
 const Announcement = require('./models/Announcement');
 
+// Authentication
+const {
+  requireAuth,
+  requireToken,
+  socketAuth,
+  devAuthEnabled
+} = require('./middleware/auth');
+
 // ============================================
 // SERVER SETUP
 // ============================================
@@ -46,6 +54,23 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3001;
+
+// Fail fast rather than starting a server that will 401 every request.
+if (!process.env.FIREBASE_PROJECT_ID) {
+  console.error(
+    '\nFIREBASE_PROJECT_ID is not set. The server cannot verify sign-ins ' +
+    'without it.\nSee server/.env.example.\n'
+  );
+  process.exit(1);
+}
+
+// Loud, because this switch turns authentication off.
+if (devAuthEnabled()) {
+  console.warn(
+    '\n*** ALLOW_DEV_AUTH is on: an X-Dev-User-Id header can stand in for ' +
+    'a real sign-in.\n*** Never enable this on a deployed server.\n'
+  );
+}
 
 // ============================================
 // MIDDLEWARE
@@ -106,13 +131,20 @@ const onlineUsers = new Map();  // visitorId -> socketId
  * Our MongoDB handles DATA (messages, online status, etc.)
  * This endpoint links the two.
  */
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', requireToken, async (req, res) => {
   try {
-    const { firebaseUid, email, displayName, photoURL } = req.body;
+    // Identity comes from the VERIFIED token, never from the body. The body
+    // is still consulted for display name and photo, which are cosmetic —
+    // but uid and email decide WHICH ACCOUNT THIS IS, so letting the client
+    // choose them meant anyone could sign in as anyone.
+    const { uid: firebaseUid, email: tokenEmail, name, picture } = req.firebaseUser;
 
-    // Validate required fields
+    const email = tokenEmail || req.body.email;
+    const displayName = req.body.displayName || name;
+    const photoURL = req.body.photoURL || picture;
+
     if (!firebaseUid || !email) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Token is missing uid or email' });
     }
 
     // findOneAndUpdate with upsert:true means:
@@ -171,7 +203,7 @@ app.post('/api/auth/login', async (req, res) => {
  * Query params:
  * - exclude: Firebase UID to exclude from results (the logged-in user)
  */
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', requireAuth, async (req, res) => {
   try {
     const { exclude } = req.query;
     
@@ -200,8 +232,14 @@ app.get('/api/users', async (req, res) => {
  * We find messages where:
  * (sender=visitor AND receiver=peer) OR (sender=peer AND receiver=visitor)
  */
-app.get('/api/messages/:visitorId/:peerId', async (req, res) => {
+app.get('/api/messages/:visitorId/:peerId', requireAuth, async (req, res) => {
   try {
+    // You may only read a conversation you are part of. Without this any
+    // signed-in user could read anybody's messages given two ids.
+    if (String(req.authUser._id) !== String(req.params.visitorId)) {
+      return res.status(403).json({ error: 'You can only read your own conversations' });
+    }
+
     const { visitorId, peerId } = req.params;
     const { limit = 50, before } = req.query;  // Optional pagination
 
@@ -237,7 +275,7 @@ app.get('/api/messages/:visitorId/:peerId', async (req, res) => {
  * Get a single user by their MongoDB _id.
  * Used when opening a chat to get the other person's info.
  */
-app.get('/api/user/:visitorId', async (req, res) => {
+app.get('/api/user/:visitorId', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.params.visitorId).select('-__v');
     if (!user) {
@@ -264,9 +302,14 @@ app.get('/api/user/:visitorId', async (req, res) => {
  * Demoting a mentor to student leaves the groups they already created
  * intact — the gate is on *creating* groups, not on owning them.
  */
-app.post('/api/users/:id/role', async (req, res) => {
+app.post('/api/users/:id/role', requireAuth, async (req, res) => {
   try {
     const { role } = req.body;
+
+    // You may only set your OWN role.
+    if (String(req.authUser._id) !== String(req.params.id)) {
+      return res.status(403).json({ error: 'You can only change your own role' });
+    }
 
     // Only these two roles are valid
     if (!['student', 'mentor'].includes(role)) {
@@ -311,9 +354,15 @@ app.post('/api/users/:id/role', async (req, res) => {
  * NOTE: like every other endpoint here, there is no token check proving the
  * caller *is* this user. Consistent with the app's current trust model.
  */
-app.put('/api/users/:id/profile', async (req, res) => {
+app.put('/api/users/:id/profile', requireAuth, async (req, res) => {
   try {
     const { bio, expertise, availability } = req.body;
+
+    // You may only edit your OWN profile. This is the gap Entry 8 recorded
+    // as known and deliberately unfixed; it is fixed now.
+    if (String(req.authUser._id) !== String(req.params.id)) {
+      return res.status(403).json({ error: 'You can only edit your own profile' });
+    }
 
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -362,20 +411,19 @@ app.put('/api/users/:id/profile', async (req, res) => {
  * - createdBy: MongoDB _id of the creator
  * - memberIds: array of MongoDB _ids to add (the creator is added automatically)
  */
-app.post('/api/groups', async (req, res) => {
+app.post('/api/groups', requireAuth, async (req, res) => {
   try {
-    const { name, createdBy, memberIds = [] } = req.body;
+    const { name, memberIds = [] } = req.body;
 
-    // Validate required fields
-    if (!name?.trim() || !createdBy) {
+    if (!name?.trim()) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // The creator is whoever is signed in, not whoever the body claims.
+    const creator = req.authUser;
+    const createdBy = creator._id;
+
     // AUTHORIZATION: only mentors may create groups.
-    const creator = await User.findById(createdBy).select('role displayName');
-    if (!creator) {
-      return res.status(404).json({ error: 'Creator not found' });
-    }
     if (creator.role !== 'mentor') {
       console.log(`⛔ Group create refused: ${creator.displayName} is not a mentor`);
       return res.status(403).json({ error: 'Only mentors can create groups' });
@@ -412,14 +460,12 @@ app.post('/api/groups', async (req, res) => {
  *
  * We use $addToSet so joining twice does not create duplicate entries.
  */
-app.post('/api/groups/:groupId/join', async (req, res) => {
+app.post('/api/groups/:groupId/join', requireAuth, async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { visitorId } = req.body;
 
-    if (!visitorId) {
-      return res.status(400).json({ error: 'Missing visitorId' });
-    }
+    // You can only add YOURSELF to a group.
+    const visitorId = req.authUser._id;
 
     const group = await Group.findByIdAndUpdate(
       groupId,
@@ -445,7 +491,7 @@ app.post('/api/groups/:groupId/join', async (req, res) => {
  * List all groups a user belongs to (for their group list).
  * If no userId is provided, returns all groups.
  */
-app.get('/api/groups', async (req, res) => {
+app.get('/api/groups', requireAuth, async (req, res) => {
   try {
     const { userId } = req.query;
 
@@ -468,9 +514,18 @@ app.get('/api/groups', async (req, res) => {
  * Get a group's message history (oldest first).
  * Mirrors the 1-to-1 GET /api/messages endpoint.
  */
-app.get('/api/groups/:groupId/messages', async (req, res) => {
+app.get('/api/groups/:groupId/messages', requireAuth, async (req, res) => {
   try {
     const { groupId } = req.params;
+
+    // MEMBERSHIP: only members can read a group's history.
+    const membership = await Group.findById(groupId).select('members');
+    if (!membership) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+    if (!membership.members.some((m) => String(m) === String(req.authUser._id))) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
+    }
     const { limit = 50, before } = req.query;  // optional pagination
 
     let query = { group: groupId };
@@ -505,7 +560,7 @@ app.get('/api/groups/:groupId/messages', async (req, res) => {
  * `limit` caps the response (default 50) so the feed cannot grow into an
  * unbounded payload as the term goes on.
  */
-app.get('/api/announcements', async (req, res) => {
+app.get('/api/announcements', requireAuth, async (req, res) => {
   try {
     const { limit = 50 } = req.query;
 
@@ -531,19 +586,19 @@ app.get('/api/announcements', async (req, res) => {
  * - authorId: MongoDB _id of the poster
  * - text: the announcement body
  */
-app.post('/api/announcements', async (req, res) => {
+app.post('/api/announcements', requireAuth, async (req, res) => {
   try {
-    const { authorId, text } = req.body;
+    const { text } = req.body;
 
-    if (!authorId || !text?.trim()) {
+    if (!text?.trim()) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // The author is whoever is signed in.
+    const author = req.authUser;
+    const authorId = author._id;
+
     // AUTHORIZATION: only mentors may post.
-    const author = await User.findById(authorId).select('role displayName');
-    if (!author) {
-      return res.status(404).json({ error: 'Author not found' });
-    }
     if (author.role !== 'mentor') {
       console.log(`⛔ Announcement refused: ${author.displayName} is not a mentor`);
       return res.status(403).json({ error: 'Only mentors can post announcements' });
@@ -585,13 +640,9 @@ app.post('/api/announcements', async (req, res) => {
  * Body:
  * - visitorId: MongoDB _id of whoever is asking
  */
-app.delete('/api/announcements/:id', async (req, res) => {
+app.delete('/api/announcements/:id', requireAuth, async (req, res) => {
   try {
-    const { visitorId } = req.body;
-
-    if (!visitorId) {
-      return res.status(400).json({ error: 'Missing visitorId' });
-    }
+    const visitorId = req.authUser._id;
 
     const announcement = await Announcement.findById(req.params.id);
     if (!announcement) {
@@ -633,6 +684,11 @@ app.delete('/api/announcements/:id', async (req, res) => {
  * - 'stop-typing': User stopped typing
  * - 'disconnect': User closed the app/tab
  */
+// Every socket must prove who it is BEFORE any handler runs. Handlers
+// then read the identity from socket.data.user rather than trusting a
+// senderId in the event payload.
+io.use(socketAuth);
+
 io.on('connection', (socket) => {
   console.log(`🔌 New socket connection: ${socket.id}`);
 
@@ -643,8 +699,11 @@ io.on('connection', (socket) => {
    * We store the mapping: visitorId -> socketId
    * Then broadcast to everyone that this user is online.
    */
-  socket.on('user-online', async (visitorId) => {
+  socket.on('user-online', async () => {
     try {
+      // Identity comes from the authenticated handshake, not the payload.
+      const visitorId = String(socket.data.user._id);
+
       // Store the mapping
       onlineUsers.set(visitorId, socket.id);
       
@@ -686,10 +745,14 @@ io.on('connection', (socket) => {
    */
   socket.on('send-message', async (data) => {
     try {
-      const { senderId, receiverId, text } = data;
+      const { receiverId, text } = data;
+
+      // The sender is the authenticated socket. A client can no longer
+      // send messages as somebody else by changing a field.
+      const senderId = String(socket.data.user._id);
 
       // Validate
-      if (!senderId || !receiverId || !text?.trim()) {
+      if (!receiverId || !text?.trim()) {
         socket.emit('error', { message: 'Invalid message data' });
         return;
       }
@@ -739,7 +802,8 @@ io.on('connection', (socket) => {
    * Creates that "John is typing..." indicator.
    */
   socket.on('typing', (data) => {
-    const { senderId, receiverId } = data;
+    const { receiverId } = data;
+    const senderId = String(socket.data.user._id);
     const receiverSocketId = onlineUsers.get(receiverId);
     
     if (receiverSocketId) {
@@ -753,7 +817,8 @@ io.on('connection', (socket) => {
    * When user stops typing (or sends message), clear the indicator.
    */
   socket.on('stop-typing', (data) => {
-    const { senderId, receiverId } = data;
+    const { receiverId } = data;
+    const senderId = String(socket.data.user._id);
     const receiverSocketId = onlineUsers.get(receiverId);
     
     if (receiverSocketId) {
@@ -768,7 +833,8 @@ io.on('connection', (socket) => {
    */
   socket.on('mark-read', async (data) => {
     try {
-      const { visitorId, peerId } = data;
+      const { peerId } = data;
+      const visitorId = String(socket.data.user._id);
       
       // Mark all messages from peer to visitor as read
       await Message.updateMany(
@@ -800,8 +866,19 @@ io.on('connection', (socket) => {
    * Client calls this when it opens a group chat.
    * The socket joins that group's room so it receives live messages.
    */
-  socket.on('join-group', (groupId) => {
+  socket.on('join-group', async (groupId) => {
     if (!groupId) return;
+
+    // MEMBERSHIP: a socket may only join the room of a group it belongs
+    // to. Without this, any client could join any group by id and receive
+    // every message posted to it. This is the gap deferred in Entry 2 — it
+    // could not be closed before the socket had a verified identity.
+    const group = await Group.findById(groupId).select('members');
+    if (!group?.members?.some((m) => String(m) === String(socket.data.user._id))) {
+      socket.emit('error', { message: 'You are not a member of that group' });
+      return;
+    }
+
     socket.join(`group:${groupId}`);
     console.log(`👥 Socket ${socket.id} joined room group:${groupId}`);
   });
@@ -831,11 +908,22 @@ io.on('connection', (socket) => {
    */
   socket.on('send-group-message', async (data) => {
     try {
-      const { groupId, senderId, text } = data;
+      const { groupId, text } = data;
+
+      // Sender is the authenticated socket, as in 1-to-1 chat.
+      const senderId = String(socket.data.user._id);
 
       // Validate
-      if (!groupId || !senderId || !text?.trim()) {
+      if (!groupId || !text?.trim()) {
         socket.emit('error', { message: 'Invalid group message data' });
+        return;
+      }
+
+      // MEMBERSHIP re-checked here, not just in 'join-group': a client can
+      // emit this event without ever having joined the room.
+      const group = await Group.findById(groupId).select('members');
+      if (!group?.members?.some((m) => String(m) === String(senderId))) {
+        socket.emit('error', { message: 'You are not a member of that group' });
         return;
       }
 
@@ -874,13 +962,15 @@ io.on('connection', (socket) => {
    * Relay typing indicators to the rest of the room.
    * socket.to(room) sends to everyone in the room EXCEPT the sender.
    */
-  socket.on('group-typing', ({ groupId, senderId }) => {
+  socket.on('group-typing', ({ groupId }) => {
     if (!groupId) return;
+    const senderId = String(socket.data.user._id);
     socket.to(`group:${groupId}`).emit('group-user-typing', { groupId, senderId });
   });
 
-  socket.on('group-stop-typing', ({ groupId, senderId }) => {
+  socket.on('group-stop-typing', ({ groupId }) => {
     if (!groupId) return;
+    const senderId = String(socket.data.user._id);
     socket.to(`group:${groupId}`).emit('group-user-stop-typing', { groupId, senderId });
   });
 

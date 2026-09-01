@@ -138,15 +138,9 @@ Design choices worth naming:
 
 Honest limits, so they are decisions rather than oversights:
 
-- **No server-side token verification.** No route proves a caller is who they
-  claim to be. This is the single largest gap, and it is uniform rather than
-  patchy — which is why the fix is one piece of work (verify the Firebase ID
-  token in middleware on every mutating route) rather than a scatter of
-  patches. Section 3 still holds under it: a client cannot *promote* itself,
-  but it could *impersonate* another user by sending their id.
-- **Socket handlers are not gated.** `join-group` places any socket in any
-  room, and `send-group-message` trusts the `senderId` it is given. The REST
-  layer is authorized; the socket layer is not yet.
+- **No rate limiting.** Nothing stops a signed-in client from flooding
+  messages or announcements. Identity is established, so the hook for it
+  exists; the limiter itself does not.
 - **No pagination in the UI.** The group history endpoint supports `?limit` and
   `?before`, but no page uses them; the announcement feed is capped at 50
   server-side. Fine at project scale, the first thing to revisit at real scale.

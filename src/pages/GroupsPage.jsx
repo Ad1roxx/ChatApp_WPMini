@@ -26,7 +26,7 @@ import styles from './GroupsPage.module.css';
 
 export default function GroupsPage() {
   const navigate = useNavigate();
-  const { dbUser, socket, SERVER_URL } = useAuth();
+  const { dbUser, socket, authFetch } = useAuth();
   const toast = useToast();
 
   // Only mentors may create groups. The server enforces this independently
@@ -54,14 +54,14 @@ export default function GroupsPage() {
     const fetchUsers = async () => {
       if (!dbUser) return;
       try {
-        const res = await fetch(`${SERVER_URL}/api/users?exclude=${dbUser.firebaseUid}`);
+        const res = await authFetch(`/api/users?exclude=${dbUser.firebaseUid}`);
         if (res.ok) setUsers(await res.json());
       } catch (err) {
         console.error('Error fetching users:', err);
       }
     };
     fetchUsers();
-  }, [dbUser, SERVER_URL]);
+  }, [dbUser, authFetch]);
 
   /**
    * Keep the member picker current when someone signs up.
@@ -92,7 +92,7 @@ export default function GroupsPage() {
   useEffect(() => {
     const fetchGroups = async () => {
       try {
-        const res = await fetch(`${SERVER_URL}/api/groups`);
+        const res = await authFetch('/api/groups');
         if (res.ok) setGroups(await res.json());
       } catch (err) {
         console.error('Error fetching groups:', err);
@@ -102,7 +102,7 @@ export default function GroupsPage() {
     };
 
     fetchGroups();
-  }, [SERVER_URL]);
+  }, [authFetch]);
 
   /**
    * Toggle a user in/out of the selected-members set.
@@ -125,12 +125,11 @@ export default function GroupsPage() {
 
     setCreating(true);
     try {
-      const res = await fetch(`${SERVER_URL}/api/groups`, {
+      // No createdBy: the server takes the creator from the token.
+      const res = await authFetch('/api/groups', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: groupName.trim(),
-          createdBy: dbUser._id,
           memberIds: Array.from(selectedIds)
         })
       });
@@ -160,10 +159,10 @@ export default function GroupsPage() {
     setJoiningId(groupId);
 
     try {
-      const res = await fetch(`${SERVER_URL}/api/groups/${groupId}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitorId: dbUser._id })
+      // No body: you can only ever add yourself, so the server uses
+      // the identity on the token.
+      const res = await authFetch(`/api/groups/${groupId}/join`, {
+        method: 'POST'
       });
       if (res.ok) {
         navigate(`/group/${groupId}`);

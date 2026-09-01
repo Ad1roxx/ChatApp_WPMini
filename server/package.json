@@ -7,13 +7,18 @@
     "start": "node index.js",
     "dev": "node --watch index.js"
   },
-  "keywords": ["chat", "socket.io", "mongodb"],
+  "keywords": [
+    "chat",
+    "socket.io",
+    "mongodb"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.19.2",
     "socket.io": "^4.8.3"
   }

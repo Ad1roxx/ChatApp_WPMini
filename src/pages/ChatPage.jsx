@@ -35,7 +35,7 @@ import styles from './Chat.module.css';
 export default function ChatPage() {
   const { peerId } = useParams();  // MongoDB _id of the person we're chatting with
   const navigate = useNavigate();
-  const { dbUser, socket, SERVER_URL } = useAuth();
+  const { dbUser, socket, authFetch } = useAuth();
 
   // State
   const [messages, setMessages] = useState([]);
@@ -70,15 +70,15 @@ export default function ChatPage() {
 
       try {
         // Fetch peer info
-        const peerRes = await fetch(`${SERVER_URL}/api/user/${peerId}`);
+        const peerRes = await authFetch(`/api/user/${peerId}`);
         if (peerRes.ok) {
           const peerData = await peerRes.json();
           setPeer(peerData);
         }
 
         // Fetch message history
-        const msgRes = await fetch(
-          `${SERVER_URL}/api/messages/${dbUser._id}/${peerId}`
+        const msgRes = await authFetch(
+          `/api/messages/${dbUser._id}/${peerId}`
         );
         if (msgRes.ok) {
           const msgData = await msgRes.json();
@@ -92,7 +92,7 @@ export default function ChatPage() {
     };
 
     fetchData();
-  }, [dbUser, peerId, SERVER_URL]);
+  }, [dbUser, peerId, authFetch]);
 
   /**
    * Effect: Listen for real-time Socket.IO events
@@ -210,9 +210,9 @@ export default function ChatPage() {
 
     if (!newMessage.trim() || !socket || !dbUser) return;
 
-    // Emit message via Socket.IO
+    // Emit message via Socket.IO.
+    // No senderId — the server knows who this socket is.
     socket.emit('send-message', {
-      senderId: dbUser._id,
       receiverId: peerId,
       text: newMessage.trim()
     });
@@ -221,10 +221,7 @@ export default function ChatPage() {
     setNewMessage('');
 
     // Stop typing indicator
-    socket.emit('stop-typing', {
-      senderId: dbUser._id,
-      receiverId: peerId
-    });
+    socket.emit('stop-typing', { receiverId: peerId });
   };
 
   /**
@@ -236,10 +233,7 @@ export default function ChatPage() {
     if (!socket || !dbUser) return;
 
     // Send typing indicator
-    socket.emit('typing', {
-      senderId: dbUser._id,
-      receiverId: peerId
-    });
+    socket.emit('typing', { receiverId: peerId });
 
     // Clear previous timeout
     if (typingTimeoutRef.current) {
@@ -248,10 +242,7 @@ export default function ChatPage() {
 
     // Set new timeout to stop typing indicator after 2 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('stop-typing', {
-        senderId: dbUser._id,
-        receiverId: peerId
-      });
+      socket.emit('stop-typing', { receiverId: peerId });
     }, 2000);
   };
 

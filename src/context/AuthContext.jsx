@@ -29,7 +29,7 @@
  *   }
  */
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { io } from 'socket.io-client';
 import { auth } from '../firebase';
@@ -39,6 +39,25 @@ const AuthContext = createContext();
 
 // Server URL - where our backend is running
 const SERVER_URL = 'http://localhost:3001';
+
+/**
+ * Get the current Firebase ID token, or null when signed out.
+ *
+ * `getIdToken()` returns a cached token and refreshes it automatically when
+ * it is close to expiring, so calling this before every request is cheap and
+ * means a long session never starts failing with 401s an hour in.
+ */
+async function getAuthToken() {
+  const current = auth.currentUser;
+  if (!current) return null;
+
+  try {
+    return await current.getIdToken();
+  } catch (err) {
+    console.error('Could not get auth token:', err);
+    return null;
+  }
+}
 
 /**
  * AuthProvider Component
@@ -58,6 +77,31 @@ export function AuthProvider({ children }) {
   
   // Loading state (while checking if user is logged in)
   const [loading, setLoading] = useState(true);
+
+  /**
+   * The one way this app talks to the server.
+   *
+   * Every request carries the Firebase ID token, which the server verifies
+   * and turns into an identity. Because of that, callers no longer send their
+   * own `_id` to say who they are — the server reads it from the token, so a
+   * request cannot claim to be someone else.
+   *
+   * Takes a PATH ('/api/users'), not a full URL, so no page has to know where
+   * the server lives. JSON bodies get their Content-Type set automatically.
+   *
+   * Wrapped in useCallback with no dependencies beyond the constant
+   * SERVER_URL, so its identity is stable and pages can safely list it in an
+   * effect's dependency array without re-running on every render.
+   */
+  const authFetch = useCallback(async (path, options = {}) => {
+    const token = await getAuthToken();
+
+    const headers = { ...(options.headers || {}) };
+    if (options.body) headers['Content-Type'] = 'application/json';
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    return fetch(`${SERVER_URL}${path}`, { ...options, headers });
+  }, []);
 
   /**
    * Effect: Listen for Firebase Auth changes
@@ -80,13 +124,21 @@ export function AuthProvider({ children }) {
         setUser(firebaseUser);
         
         try {
-          // Register/update user in our MongoDB database
+          // Register/update user in our MongoDB database.
+          //
+          // The uid and email are no longer sent: the server takes those from
+          // the verified token. Name and photo are still sent because they are
+          // cosmetic and the token's copies can lag behind a Google profile
+          // change.
+          const token = await firebaseUser.getIdToken();
+
           const response = await fetch(`${SERVER_URL}/api/auth/login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
             body: JSON.stringify({
-              firebaseUid: firebaseUser.uid,
-              email: firebaseUser.email,
               displayName: firebaseUser.displayName,
               photoURL: firebaseUser.photoURL
             })
@@ -97,16 +149,29 @@ export function AuthProvider({ children }) {
             setDbUser(userData);
             console.log('User registered in DB:', userData.displayName);
 
-            // Connect to Socket.IO
-            // We pass the MongoDB _id so the server knows who this socket belongs to
+            // Connect to Socket.IO, authenticated at the handshake.
+            //
+            // The token goes in `auth`, which Socket.IO sends once when the
+            // connection opens. The server verifies it there and pins the
+            // identity to the socket for its whole life, which is why the
+            // events below no longer carry a senderId — a client can't claim
+            // to be someone else on a connection that already knows who it is.
             const newSocket = io(SERVER_URL, {
-              transports: ['websocket', 'polling']  // Try WebSocket first, fallback to polling
+              transports: ['websocket', 'polling'],  // WebSocket first, fallback to polling
+              auth: { token }
             });
 
             newSocket.on('connect', () => {
               console.log('Socket connected:', newSocket.id);
-              // Tell server this user is online
-              newSocket.emit('user-online', userData._id);
+              // Server reads our identity from the handshake, so this carries
+              // no payload — it just says "I'm here".
+              newSocket.emit('user-online');
+            });
+
+            newSocket.on('connect_error', (err) => {
+              // Most likely an expired token: the page has been open longer
+              // than the token's hour. Reconnecting mints a fresh one.
+              console.error('Socket connection refused:', err.message);
             });
 
             newSocket.on('disconnect', () => {
@@ -184,9 +249,8 @@ export function AuthProvider({ children }) {
   const chooseRole = async (role) => {
     if (!dbUser) return false;
     try {
-      const response = await fetch(`${SERVER_URL}/api/users/${dbUser._id}/role`, {
+      const response = await authFetch(`/api/users/${dbUser._id}/role`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role })
       });
       if (response.ok) {
@@ -211,9 +275,8 @@ export function AuthProvider({ children }) {
   const updateProfile = async (fields) => {
     if (!dbUser) return false;
     try {
-      const response = await fetch(`${SERVER_URL}/api/users/${dbUser._id}/profile`, {
+      const response = await authFetch(`/api/users/${dbUser._id}/profile`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fields)
       });
       if (response.ok) {
@@ -235,9 +298,10 @@ export function AuthProvider({ children }) {
     socket,     // Socket.IO connection
     loading,    // True while checking auth state
     logout,        // Function to sign out
+    authFetch,     // Authenticated fetch — the only way to call the server
     chooseRole,    // Set role at first login, or change it later
     updateProfile, // Save profile fields (bio / expertise / availability)
-    SERVER_URL     // So components can make API calls
+    SERVER_URL     // Kept for anything that needs the raw origin
   };
 
   return (

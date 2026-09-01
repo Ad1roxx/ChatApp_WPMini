@@ -27,7 +27,7 @@ import styles from './UserProfilePage.module.css';
 export default function UserProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const { dbUser, socket, SERVER_URL } = useAuth();
+  const { dbUser, socket, authFetch } = useAuth();
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ export default function UserProfilePage() {
       setNotFound(false);
 
       try {
-        const response = await fetch(`${SERVER_URL}/api/user/${userId}`);
+        const response = await authFetch(`/api/user/${userId}`);
 
         if (response.ok) {
           setProfile(await response.json());
@@ -64,7 +64,7 @@ export default function UserProfilePage() {
     };
 
     fetchProfile();
-  }, [userId, SERVER_URL]);
+  }, [userId, authFetch]);
 
   /**
    * Effect: keep the online dot honest.

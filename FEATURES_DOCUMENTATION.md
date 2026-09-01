@@ -12,8 +12,9 @@ full picture and `docs/BUILD_NOTES.md` for the reasoning behind each feature.
 
 ## 1. Basic React Web Page Design (JSX, Components and props) — CO1
 
-**Files:** `src/main.jsx`, `src/App.jsx`, `src/index.css`, `src/App.css`,
-and nine page components in `src/pages/`.
+**Files:** `src/main.jsx`, `src/App.jsx`, `src/styles/` (design tokens and
+base styles), eleven reusable components in `src/components/`, and nine page
+components in `src/pages/`.
 
 - `src/App.jsx` composes the whole route table and holds the first-login role
   gate that renders `RoleSelectPage` in place of everything else when a
@@ -21,8 +22,12 @@ and nine page components in `src/pages/`.
 - Page components: `LoginPage`, `RoleSelectPage`, `UsersPage`, `ChatPage`,
   `GroupsPage`, `GroupChatPage`, `AnnouncementsPage`, `ProfilePage`,
   `UserProfilePage`.
-- Styling is CSS-in-JS: each page exports a `styles` object of plain objects
-  applied via the `style` prop, sharing a `#3b82f6` header treatment.
+- Reusable components in `src/components/`: `AppShell` (the role-aware sidebar
+  frame every signed-in page renders inside), plus `Button`, `Card`, `Avatar`,
+  `Badge`, `Field`, `EmptyState`, `Loading`, `Toast`, `ConfirmDialog`, `Icons`.
+- Styling is **CSS Modules** with design tokens as CSS custom properties in
+  `src/styles/tokens.css`. Every colour, space and type size resolves to one
+  token, so nothing hardcodes a hex value.
 
 **Props in practice.** State is shared through React Context rather than long
 prop chains (see item 2), so props mostly carry per-item data into repeated
@@ -112,7 +117,8 @@ Two complementary transports:
 
 - **REST over `fetch`** for request/response work — loading users, history,
   groups, profiles; saving a profile; creating a group; posting an
-  announcement. All calls go through `SERVER_URL` supplied by `AuthContext`.
+  announcement. Every call goes through `authFetch()` from `AuthContext`,
+  which attaches the caller's Firebase ID token.
 - **WebSockets via Socket.IO** for anything live — messages, typing
   indicators, read receipts, presence, and announcements.
 
@@ -125,7 +131,8 @@ call, and loading and empty states are rendered explicitly.
 server on the same HTTP server (`http.createServer(app)`), with:
 
 - `cors` configured for the Vite dev origin
-- `dotenv` for configuration (`MONGODB_URI`, `PORT`)
+- `dotenv` for configuration (`MONGODB_URI`, `PORT`, `FIREBASE_PROJECT_ID`)
+- `jsonwebtoken` to verify Firebase ID tokens against Google's public certs
 - `mongoose` for MongoDB
 - an in-memory map of `userId → socket.id` for routing direct messages
 - graceful shutdown handling and startup logging
@@ -237,13 +244,9 @@ root (port 5173). `npm run lint` runs ESLint over both `src/` and `server/`.
 
 Stated deliberately rather than left to be discovered:
 
-- **No server-side token verification.** No endpoint proves a caller is who
-  they claim to be; they trust the Mongo `_id` in the request. The role rules
-  above are still meaningful — a client cannot promote itself by editing a
-  payload, because the role is read from the database — but a crafted request
-  could act as another user. Fixing this means verifying the Firebase ID token
-  on every mutating route.
-- **Group sockets don't check membership.** `join-group` will place any socket
-  into any group room; the REST layer is gated, the socket layer is not.
-- **No live refresh for new signups.** Presence updates live, but a brand-new
-  account only appears in the users list after a refresh.
+- **Presence is connection-based.** "Online" means "has a live socket", so a
+  half-closed connection can leave a stale green dot until it times out.
+- **No pagination in the UI.** The group history endpoint supports `?limit`
+  and `?before`, but no page uses them.
+- **No rate limiting.** Nothing stops a signed-in client from flooding
+  messages or announcements.

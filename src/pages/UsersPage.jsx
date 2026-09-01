@@ -31,7 +31,7 @@ import styles from './UsersPage.module.css';
 
 export default function UsersPage() {
   const navigate = useNavigate();
-  const { dbUser, socket, SERVER_URL } = useAuth();
+  const { dbUser, socket, authFetch } = useAuth();
 
   // List of all users
   const [users, setUsers] = useState([]);
@@ -52,8 +52,8 @@ export default function UsersPage() {
       if (!dbUser) return;
 
       try {
-        const response = await fetch(
-          `${SERVER_URL}/api/users?exclude=${dbUser.firebaseUid}`
+        const response = await authFetch(
+          `/api/users?exclude=${dbUser.firebaseUid}`
         );
 
         if (response.ok) {
@@ -74,7 +74,7 @@ export default function UsersPage() {
     };
 
     fetchUsers();
-  }, [dbUser, SERVER_URL]);
+  }, [dbUser, authFetch]);
 
   /**
    * Effect: Listen for real-time status changes

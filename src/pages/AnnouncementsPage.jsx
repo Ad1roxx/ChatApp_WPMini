@@ -27,7 +27,7 @@ import styles from './AnnouncementsPage.module.css';
 
 export default function AnnouncementsPage() {
   const navigate = useNavigate();
-  const { dbUser, socket, SERVER_URL } = useAuth();
+  const { dbUser, socket, authFetch } = useAuth();
   const toast = useToast();
 
   const isMentor = dbUser?.role === 'mentor';
@@ -50,7 +50,7 @@ export default function AnnouncementsPage() {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const res = await fetch(`${SERVER_URL}/api/announcements`);
+        const res = await authFetch('/api/announcements');
         if (res.ok) setAnnouncements(await res.json());
       } catch (err) {
         console.error('Error fetching announcements:', err);
@@ -60,7 +60,7 @@ export default function AnnouncementsPage() {
     };
 
     fetchAnnouncements();
-  }, [SERVER_URL]);
+  }, [authFetch]);
 
   /**
    * Effect: live updates.
@@ -100,10 +100,10 @@ export default function AnnouncementsPage() {
 
     setPosting(true);
     try {
-      const res = await fetch(`${SERVER_URL}/api/announcements`, {
+      // No authorId: the server takes the author from the token.
+      const res = await authFetch('/api/announcements', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ authorId: dbUser._id, text: text.trim() })
+        body: JSON.stringify({ text: text.trim() })
       });
 
       if (res.ok) {
@@ -131,10 +131,8 @@ export default function AnnouncementsPage() {
     if (!id) return;
 
     try {
-      const res = await fetch(`${SERVER_URL}/api/announcements/${id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitorId: dbUser._id })
+      const res = await authFetch(`/api/announcements/${id}`, {
+        method: 'DELETE'
       });
 
       if (!res.ok) {
