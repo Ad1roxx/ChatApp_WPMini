@@ -264,6 +264,50 @@ app.post('/api/users/:id/role', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/users/:id/profile
+ *
+ * Update a user's profile.
+ * - `bio` applies to everyone.
+ * - `expertise` and `availability` are MENTOR-ONLY. We check the role stored
+ *   in the database (not anything the client sends), so a student cannot
+ *   acquire mentor-only fields by crafting a request.
+ *
+ * NOTE: like every other endpoint here, there is no token check proving the
+ * caller *is* this user. Consistent with the app's current trust model.
+ */
+app.put('/api/users/:id/profile', async (req, res) => {
+  try {
+    const { bio, expertise, availability } = req.body;
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Build the update from only the fields this user is allowed to set
+    const updates = {};
+    if (bio !== undefined) updates.bio = bio;
+
+    if (user.role === 'mentor') {
+      if (expertise !== undefined) updates.expertise = expertise;
+      if (availability !== undefined) updates.availability = availability;
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }  // enforce maxlength etc.
+    ).select('-__v');
+
+    console.log(`📝 Profile updated: ${updated.displayName}`);
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ============================================
 // GROUP REST API ENDPOINTS
 // ============================================

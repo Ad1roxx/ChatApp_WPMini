@@ -175,15 +175,43 @@ export function AuthProvider({ children }) {
     }
   };
 
+  /**
+   * Update the current user's profile.
+   *
+   * `fields` may contain bio (everyone) and, for mentors, expertise and
+   * availability. The server ignores mentor-only fields for students.
+   * Returns true/false so the page can show success or error feedback.
+   */
+  const updateProfile = async (fields) => {
+    if (!dbUser) return false;
+    try {
+      const response = await fetch(`${SERVER_URL}/api/users/${dbUser._id}/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields)
+      });
+      if (response.ok) {
+        setDbUser(await response.json());
+        return true;
+      }
+      console.error('Failed to update profile');
+      return false;
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      return false;
+    }
+  };
+
   // The value object that will be available to all children
   const value = {
     user,       // Firebase user (has uid, email from Google)
     dbUser,     // MongoDB user (has _id, isOnline, role, etc.)
     socket,     // Socket.IO connection
     loading,    // True while checking auth state
-    logout,     // Function to sign out
-    chooseRole, // Set role on first login
-    SERVER_URL  // So components can make API calls
+    logout,        // Function to sign out
+    chooseRole,    // Set role on first login
+    updateProfile, // Save profile fields (bio / expertise / availability)
+    SERVER_URL     // So components can make API calls
   };
 
   return (

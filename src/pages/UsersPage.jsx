@@ -124,6 +124,9 @@ export default function UsersPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => navigate('/profile')} style={styles.logoutBtn}>
+            Profile
+          </button>
           <button onClick={() => navigate('/groups')} style={styles.logoutBtn}>
             Groups
           </button>

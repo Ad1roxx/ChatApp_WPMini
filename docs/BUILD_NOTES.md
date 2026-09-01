@@ -487,8 +487,110 @@ is now threaded through **all** user-data returns, chat and group included.
 
 ---
 
+### Entry 8 — User profiles (role-aware)
+
+**What I built.** Profiles layered on top of the role field from Entry 7. Every
+user gets a **bio**; mentors additionally get an **area of expertise** and an
+**availability note**. Plus a `/profile` page where you view and edit your own.
+
+**Files added:**
+
+- `src/pages/ProfilePage.jsx` — the profile screen: a read-only identity card
+  (Google name/photo/email + a role badge) above an editable form.
+
+**Files changed:**
+
+- `server/models/User.js` — added `bio` (max 500), `expertise` (max 200),
+  `availability` (max 200), all defaulting to `''`.
+- `server/index.js` — added `PUT /api/users/:id/profile`.
+- `src/context/AuthContext.jsx` — added `updateProfile()` and exposed it.
+- `src/App.jsx` — added the protected `/profile` route + import.
+- `src/pages/UsersPage.jsx` — added a "Profile" button to the header.
+
+**Design decision 1 — one User document, not a separate MentorProfile
+collection.** Mentor-only fields live on the same user document as everyone
+else's, just left empty for students. With three small fields, a second
+collection would mean a join for no real benefit. *Tradeoff:* every student
+document carries two unused empty strings. If mentor profiles later grow
+(credentials, hourly rates, session history), splitting them into their own
+collection becomes the better call — worth revisiting then, not now.
+
+**Design decision 2 — the server decides what a role may store, not the
+client.** `PUT /api/users/:id/profile` reads the user's **stored** role from
+MongoDB and only writes `expertise`/`availability` if that role is `'mentor'`.
+So even if a student's browser sent those fields, they'd be silently dropped.
+The frontend also hides those inputs for students — but the frontend check is
+*convenience*, the server check is the one that actually holds. That's the
+general principle: **UI hiding is not enforcement; the server must re-check.**
+
+**Design decision 3 — defaults of `''` rather than leaving fields unset.** This
+differs deliberately from `role`, which has *no* default so that "hasn't chosen
+yet" is detectable. For profile text there's no such state to detect — an empty
+bio and an absent bio mean the same thing — and defaulting to `''` means the
+React form inputs always have a defined value, avoiding the "controlled input
+changed to uncontrolled" warning.
+
+**Design decision 4 — populates stay lean.** I did *not* add bio/expertise to
+the message and group `populate()` selects (unlike `role` in Entry 7). Those
+populates exist to render message bubbles and member lists; attaching a 500-char
+bio to every message in a conversation would bloat payloads for no benefit. The
+full profile is fetched on demand from `GET /api/user/:id`, which returns the
+whole document anyway.
+
+**Known gap (deliberately not fixed).** There is no check that the caller *is*
+the user whose profile they're editing — anyone who knows a user id could `PUT`
+their profile. This is consistent with every other endpoint in the app (no token
+verification anywhere, including the role endpoint), so I kept it consistent
+rather than half-securing one route. Fixing it properly means verifying the
+Firebase ID token server-side on all mutating endpoints — a single, separate
+piece of work.
+
+**End-to-end walkthrough.**
+
+1. From the Users page you tap **Profile** → `/profile`.
+2. `ProfilePage` reads `dbUser` straight from context — no fetch needed, because
+   the logged-in user's full document (now including bio/expertise/availability)
+   is already in memory from `/api/auth/login`.
+3. A `useEffect` seeds the form fields from `dbUser`. The identity card shows the
+   Google-sourced name, photo and email (read-only — those belong to Google) plus
+   a 🎓 Student / 🧑‍🏫 Mentor badge.
+4. **The role-specific part:** `isMentor = dbUser.role === 'mentor'`. The bio
+   textarea always renders; the expertise and availability inputs render only
+   when `isMentor` is true. A student simply never sees them.
+5. On save, the page sends `{ bio }` for a student or
+   `{ bio, expertise, availability }` for a mentor to `updateProfile()`.
+6. `updateProfile()` PUTs to `/api/users/:id/profile`. The server re-checks the
+   role, builds an update containing only permitted fields, saves with
+   `runValidators: true` (so the maxlengths are enforced), and returns the
+   updated user.
+7. The context replaces `dbUser` with that response, so the whole app
+   immediately has the fresh profile. The page shows "✓ Profile saved".
+8. Because `dbUser` changed, the seeding `useEffect` re-runs and re-fills the
+   form from the server's authoritative copy — a free confirmation that what's on
+   screen is what's actually stored.
+
+**Not built yet:** viewing *other* people's profiles (e.g. tapping a mentor in
+the users list to see their expertise before starting a chat). The data is all
+there and `GET /api/user/:id` already returns it — it just needs a read-only
+view. That's the natural next step for making mentor discovery useful.
+
+---
+
 ### Open items / "later" list
 
+- **Public profile view** — you can edit your own profile (Entry 8) but not view
+  anyone else's. Tapping a mentor in the users list should show their bio,
+  expertise and availability. Data and endpoint already exist; needs a read-only
+  page.
+- **Server-side auth on mutating endpoints** — nothing verifies that a caller is
+  who they claim to be (see Entry 8's known gap). Verifying the Firebase ID token
+  on the server would close this across the role, profile, chat and group routes
+  at once.
+- **ESLint is broken** — `eslint.config.js` uses a flat-config `eslint/config`
+  import that the installed ESLint 8.57 doesn't support, so `npx eslint src`
+  fails. Worth fixing: a green Vite build does **not** catch undefined-variable
+  bugs (proved during Entry 7, where a missing `dbUser` destructure compiled fine
+  and crashed at runtime). ESLint's `no-undef` would have caught it.
 - **Role enforcement** — the `role` field now exists and is exposed everywhere
   (Entry 7), but nothing acts on it yet. Next steps: decide what mentors can do
   that students can't (e.g. only mentors create groups, or post announcements),

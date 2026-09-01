@@ -68,6 +68,35 @@ const userSchema = new mongoose.Schema({
     enum: ['student', 'mentor']
   },
 
+  // ---- Profile fields ----
+
+  // Short "about me". Every user has one, student or mentor.
+  bio: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+    default: ''
+  },
+
+  // MENTOR-ONLY: subject / area of expertise (e.g. "Data Structures, DBMS").
+  // Stays empty for students — PUT /api/users/:id/profile refuses to set this
+  // unless the user's stored role is 'mentor'.
+  expertise: {
+    type: String,
+    trim: true,
+    maxlength: 200,
+    default: ''
+  },
+
+  // MENTOR-ONLY: short free-text availability note
+  // (e.g. "Weekday evenings, 6-9pm").
+  availability: {
+    type: String,
+    trim: true,
+    maxlength: 200,
+    default: ''
+  },
+
   // When was this user record created?
   createdAt: {
     type: Date,

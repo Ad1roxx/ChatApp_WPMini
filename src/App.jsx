@@ -20,6 +20,7 @@ import ChatPage from "./pages/ChatPage";
 import GroupsPage from "./pages/GroupsPage";
 import GroupChatPage from "./pages/GroupChatPage";
 import RoleSelectPage from "./pages/RoleSelectPage";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   // Get auth state from our context
@@ -87,6 +88,12 @@ function App() {
         <Route
           path="/chat/:peerId"
           element={user ? <ChatPage /> : <Navigate to="/login" />}
+        />
+
+        {/* Own profile - protected route */}
+        <Route
+          path="/profile"
+          element={user ? <ProfilePage /> : <Navigate to="/login" />}
         />
 
         {/* Groups list / create - protected route */}
