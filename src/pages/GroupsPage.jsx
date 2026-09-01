@@ -17,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function GroupsPage() {
   const navigate = useNavigate();
-  const { dbUser, logout, SERVER_URL } = useAuth();
+  const { dbUser, socket, logout, SERVER_URL } = useAuth();
 
   // Only mentors may create groups. The server enforces this independently
   // in POST /api/groups; hiding the form here is just so students aren't
@@ -51,6 +51,29 @@ export default function GroupsPage() {
     };
     fetchUsers();
   }, [dbUser, SERVER_URL]);
+
+  /**
+   * Keep the member picker current when someone signs up.
+   *
+   * Same one-fetch-on-mount staleness the users list had: without this, a new
+   * account can't be added to a group until the page is reloaded.
+   */
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleUserAdded = (newUser) => {
+      if (!newUser?._id || newUser._id === dbUser?._id) return;
+      setUsers((prev) => {
+        if (prev.some((u) => u._id === newUser._id)) return prev;
+        return [...prev, newUser].sort((a, b) =>
+          (a.displayName || '').localeCompare(b.displayName || '')
+        );
+      });
+    };
+
+    socket.on('user-added', handleUserAdded);
+    return () => socket.off('user-added', handleUserAdded);
+  }, [socket, dbUser]);
 
   /**
    * Fetch all groups (so we can show Open vs Join per group).

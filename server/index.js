@@ -122,9 +122,13 @@ app.post('/api/auth/login', async (req, res) => {
     // NOTE: `role` is intentionally NOT in the update below. This runs on
     // EVERY login, so setting role here would clobber the user's choice.
     // Role is set once via POST /api/users/:id/role and preserved thereafter.
-    const user = await User.findOneAndUpdate(
+    // `includeResultMetadata` makes Mongoose return the raw driver result, so
+    // we can tell an INSERT from an UPDATE. We need that distinction: a
+    // first-ever login should be announced to everyone else's user list, while
+    // an ordinary repeat login should not (it would just duplicate a row).
+    const result = await User.findOneAndUpdate(
       { firebaseUid },  // Find by Firebase UID
-      { 
+      {
         firebaseUid,
         email,
         displayName: displayName || email.split('@')[0],  // Fallback to email prefix
@@ -132,12 +136,23 @@ app.post('/api/auth/login', async (req, res) => {
         isOnline: true,
         lastSeen: new Date()
       },
-      { 
+      {
         upsert: true,     // Create if doesn't exist
         new: true,        // Return the updated document
-        setDefaultsOnInsert: true  // Apply schema defaults on insert
+        setDefaultsOnInsert: true,  // Apply schema defaults on insert
+        includeResultMetadata: true // Tell us whether this was an insert
       }
     );
+
+    const user = result.value;
+    const isNewUser = Boolean(result.lastErrorObject?.upserted);
+
+    // Announce brand-new accounts so open user lists gain the row without a
+    // manual refresh. Only on insert — see the comment above.
+    if (isNewUser) {
+      io.emit('user-added', user);
+      console.log(`✨ New user registered: ${user.displayName}`);
+    }
 
     console.log(`👤 User logged in: ${user.displayName}`);
     res.json(user);
@@ -267,6 +282,14 @@ app.post('/api/users/:id/role', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    // Announce the change so open user lists re-badge without a refresh.
+    //
+    // This matters most for brand-new accounts: `user-added` fires from
+    // /api/auth/login, which happens BEFORE the first-login role picker, so
+    // everyone else first sees the new person with no role at all. Without
+    // this emit their badge would stay missing until someone refreshed.
+    io.emit('user-updated', user);
 
     console.log(`🎓 Role set: ${user.displayName} -> ${role}`);
     res.json(user);

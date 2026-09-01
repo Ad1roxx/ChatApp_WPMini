@@ -89,15 +89,54 @@ export default function UsersPage() {
       setOnlineUserIds(new Set(userIds));
     };
 
+    /**
+     * A brand-new account just signed up for the first time.
+     *
+     * The list is otherwise fetched once on mount, so without this a new
+     * person stayed invisible until someone manually refreshed.
+     *
+     * Two guards: skip ourselves (the server broadcasts to everyone,
+     * including the user who just registered), and skip anyone already in
+     * the list, so a duplicate broadcast can never produce a duplicate row.
+     */
+    const handleUserAdded = (newUser) => {
+      if (!newUser?._id || newUser._id === dbUser?._id) return;
+      setUsers(prev => {
+        if (prev.some(u => u._id === newUser._id)) return prev;
+        // Re-sort rather than append: /api/users returns the list sorted by
+        // display name, and appending would put the newcomer out of order
+        // until the next reload.
+        return [...prev, newUser].sort((a, b) =>
+          (a.displayName || '').localeCompare(b.displayName || '')
+        );
+      });
+    };
+
+    /**
+     * An existing user changed something the list displays — in practice,
+     * their role. New accounts arrive via `user-added` BEFORE they reach the
+     * first-login role picker, so their badge only becomes correct here.
+     */
+    const handleUserUpdated = (updated) => {
+      if (!updated?._id) return;
+      setUsers(prev =>
+        prev.map(u => (u._id === updated._id ? { ...u, ...updated } : u))
+      );
+    };
+
     socket.on('user-status-change', handleStatusChange);
     socket.on('online-users', handleOnlineUsers);
+    socket.on('user-added', handleUserAdded);
+    socket.on('user-updated', handleUserUpdated);
 
     // Cleanup listeners on unmount
     return () => {
       socket.off('user-status-change', handleStatusChange);
       socket.off('online-users', handleOnlineUsers);
+      socket.off('user-added', handleUserAdded);
+      socket.off('user-updated', handleUserUpdated);
     };
-  }, [socket]);
+  }, [socket, dbUser]);
 
   /**
    * Navigate to chat with specific user

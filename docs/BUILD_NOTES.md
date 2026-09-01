@@ -917,6 +917,67 @@ Changed the fallback in `server/index.js` and the commented example in
 
 ---
 
+### Entry 13 — New users appear without a refresh
+
+**What I built.** The users list was fetched once on mount and then only ever
+updated online/offline dots. A brand-new signup stayed invisible to everyone
+already using the app until they manually reloaded — which, in a demo where two
+people sign in one after the other, is exactly when it's most visible.
+
+**Files changed:**
+
+- `server/index.js` — `POST /api/auth/login` now distinguishes insert from
+  update and emits `user-added`; `POST /api/users/:id/role` emits
+  `user-updated`.
+- `src/pages/UsersPage.jsx` — listens to both.
+- `src/pages/GroupsPage.jsx` — listens to `user-added` for its member picker.
+
+**Design decision 1 — telling an insert from an update.** The login endpoint is
+an *upsert*: it runs on every login and either creates or updates. Broadcasting
+unconditionally would announce a "new user" every single time anyone signed in.
+Mongoose 8's `includeResultMetadata: true` returns the raw driver result, whose
+`lastErrorObject.upserted` is set only on insert. That's one query and an exact
+answer; the alternative (a `findOne` first, then the upsert) costs a round trip
+to learn the same thing.
+
+**Design decision 2 — why a second event was necessary.** This is the part I'd
+have got wrong without thinking it through. `POST /api/auth/login` fires
+**before** the first-login role picker — a user must exist in Mongo before they
+can be given a role. So the `user-added` broadcast necessarily carries
+`role: undefined`, and everyone else would see the new person listed with **no
+badge**, permanently, until a refresh. Hence `user-updated` from the role
+endpoint. The verification below shows exactly this sequence.
+
+**Design decision 3 — two guards on the client.** `handleUserAdded` skips the
+event if it's about *us* (the server broadcasts to everyone, including the
+person who just registered) and skips anyone already in the list. Neither
+should normally trigger; both mean a stray or repeated broadcast can never
+produce a duplicate row.
+
+**Design decision 4 — re-sort rather than append.** `GET /api/users` returns
+users sorted by display name. Appending would drop the newcomer at the bottom,
+out of order, until the next reload — a small inconsistency that would look
+like a bug. The handler re-sorts.
+
+**Scope note.** `GroupsPage` fetches the same user list for its "add members"
+picker and had the identical staleness — a new account couldn't be added to a
+group without a reload. Same listener, so I fixed it there too rather than
+leave one half of the same bug.
+
+**Verified live.** A Socket.IO client connected to the server while REST calls
+drove the flow:
+
+1. First-ever login for a new account → received **`user-added`**, with
+   `role = (none)` — the situation that makes decision 2 necessary.
+2. That account picks a role → received **`user-updated`**, `role = mentor`.
+3. The same account logs in again → **silent**, no duplicate broadcast.
+
+Plus a separate check that an existing user logging in produces only
+"User logged in" and never "New user registered". The test account was deleted
+afterwards; the database was left with the same three users it started with.
+
+---
+
 ### Open items / "later" list
 
 - **Server-side auth on mutating endpoints** — nothing verifies that a caller is
@@ -930,9 +991,8 @@ Changed the fallback in `server/index.js` and the commented example in
   don't check membership, so role/membership rules hold at the REST layer but
   not over the socket (see Entry 2's deferred item). Announcement editing
   doesn't exist either — only post and delete.
-- **New-user live refresh** — the Users list only updates online/offline status
-  live; a brand-new signup doesn't appear until a manual refresh (no "new user"
-  broadcast yet).
+- ~~**New-user live refresh**~~ — done in Entry 13 via `user-added` /
+  `user-updated` broadcasts.
 - ~~**Final cleanup pass**~~ — done in Entry 12. Docs rewritten, dead Firebase
   config files deleted, `localhost → 127.0.0.1` default committed.
 - **Group read receipts & socket membership enforcement** — deferred from the
