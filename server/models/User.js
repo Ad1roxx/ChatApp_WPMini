@@ -106,6 +106,58 @@ const userSchema = new mongoose.Schema({
     default: ''
   },
 
+  // ---- Mentor verification ----
+  //
+  // Embedded rather than a separate collection: a user has exactly one
+  // verification state, the badge is read on every profile view, and a
+  // separate model would mean a join to answer "is this mentor verified?".
+  // The queue is just `find({ 'verification.status': 'pending' })`.
+  //
+  // *Tradeoff:* no history. Re-submitting after a rejection overwrites the
+  // previous attempt. If an audit trail is ever needed — who rejected whom,
+  // and how often someone re-applied — this has to move to its own model.
+  //
+  // The badge means "an administrator checked the evidence below", nothing
+  // more. It is deliberately NOT self-service: a ✓ that anyone can award
+  // themselves certifies nothing.
+  verification: {
+    status: {
+      type: String,
+      enum: ['unverified', 'pending', 'approved', 'rejected'],
+      default: 'unverified',
+      index: true          // the admin queue filters on this
+    },
+
+    // Evidence the mentor submits. Free text — nothing here is validated
+    // against an external service, and the reviewing admin is told so.
+    linkedinUrl: { type: String, trim: true, maxlength: 300, default: '' },
+    company: { type: String, trim: true, maxlength: 120, default: '' },
+    title: { type: String, trim: true, maxlength: 120, default: '' },
+    yearsExperience: { type: Number, min: 0, max: 60, default: null },
+
+    submittedAt: { type: Date, default: null },
+
+    // Who decided, when, and why. `reviewNote` is shown to the mentor, so a
+    // rejection can explain what was missing rather than just refusing.
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewNote: { type: String, trim: true, maxlength: 500, default: '' }
+  },
+
+  // ---- Suspension ----
+  //
+  // Enforced in requireAuth and socketAuth rather than per-route, so a
+  // suspended account is locked out of REST and sockets alike by one check.
+  // Anything less would leave whichever route was forgotten still open.
+  suspended: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  suspendedAt: { type: Date, default: null },
+  suspendedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  suspendedReason: { type: String, trim: true, maxlength: 500, default: '' },
+
   // When was this user record created?
   createdAt: {
     type: Date,

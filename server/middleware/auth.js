@@ -164,6 +164,19 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Not signed in' });
     }
 
+    // A suspended account is authenticated but not authorised for anything.
+    //
+    // This check lives here, once, rather than on each route — a per-route
+    // check is only as good as the route somebody forgets to add it to. 403
+    // rather than 401: the session is valid, the account is not.
+    if (user.suspended) {
+      return res.status(403).json({
+        error: 'Your account has been suspended',
+        suspended: true,
+        reason: user.suspendedReason || ''
+      });
+    }
+
     req.authUser = user;
     next();
   } catch (err) {
@@ -185,6 +198,12 @@ async function requireAuth(req, res, next) {
  *
  * Attaches `req.firebaseUser` — `{ uid, email, name, picture }` taken from the
  * verified token — and `req.authUser`, which is null on a first sign-in.
+ *
+ * NOTE: this deliberately does NOT reject suspended accounts, unlike
+ * `requireAuth`. Login has to succeed so the frontend can learn who it is and
+ * render an explanation; the returned user carries `suspended: true` and the
+ * reason. Blocking here would give a suspended person a blank failure with no
+ * way to find out why. Every other route still refuses them.
  */
 async function requireToken(req, res, next) {
   try {
@@ -261,6 +280,12 @@ async function socketAuth(socket, next) {
 
     if (!user) {
       return next(new Error('Not signed in'));
+    }
+
+    // Same rule as requireAuth: a suspended account gets no socket either,
+    // or it would keep receiving live messages while locked out of the API.
+    if (user.suspended) {
+      return next(new Error('Your account has been suspended'));
     }
 
     socket.data.user = user;
