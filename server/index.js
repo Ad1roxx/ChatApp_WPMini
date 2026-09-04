@@ -117,7 +117,20 @@ app.use(express.json());
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/chatapp';
 
 mongoose.connect(mongoUri)
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(async () => {
+    console.log('✅ Connected to MongoDB');
+
+    // Clear stale presence.
+    //
+    // Sockets do not survive a restart, so at boot nobody is connected by
+    // definition. Any `isOnline: true` still in the database was written
+    // before a crash or a kill, and without this it would show a green dot
+    // next to that person forever.
+    const stale = await User.updateMany({ isOnline: true }, { isOnline: false });
+    if (stale.modifiedCount > 0) {
+      console.log(`🧹 Cleared stale online status for ${stale.modifiedCount} user(s)`);
+    }
+  })
   .catch((err) => console.error('❌ MongoDB connection error:', err));
 
 // ============================================
@@ -125,16 +138,59 @@ mongoose.connect(mongoUri)
 // ============================================
 
 /**
- * Map to track which socket belongs to which user
- * Key: visitorId (from MongoDB User._id)
- * Value: socket.id
- * 
- * When user A wants to send message to user B:
- * 1. Look up B's socket.id from this map
- * 2. If found, B is online - send message directly
- * 3. If not found, B is offline - message is still saved to DB
+ * visitorId (MongoDB User._id) -> Set of that user's open socket ids.
+ *
+ * To reach user B, look up their set and emit to each socket in it. An empty
+ * or absent set means B is offline; the message is still saved either way.
+ *
+ * A Set rather than a single id because one person routinely has several
+ * tabs open. Storing one socket meant the newest tab silently replaced the
+ * older one, which broke two things at once: closing either tab marked the
+ * user offline while they were still sitting in the other, and only the
+ * most recent tab received messages, typing indicators and read receipts.
  */
-const onlineUsers = new Map();  // visitorId -> socketId
+const onlineUsers = new Map();  // visitorId -> Set<socketId>
+
+/**
+ * Register a socket. Returns true when it is the user's FIRST — i.e. they
+ * have just come online, as opposed to opening another tab.
+ */
+function addUserSocket(visitorId, socketId) {
+  const sockets = onlineUsers.get(visitorId);
+
+  if (sockets) {
+    sockets.add(socketId);
+    return false;
+  }
+
+  onlineUsers.set(visitorId, new Set([socketId]));
+  return true;
+}
+
+/**
+ * Unregister a socket. Returns true when it was the user's LAST — i.e. they
+ * have actually gone offline, rather than just closed one of several tabs.
+ */
+function removeUserSocket(visitorId, socketId) {
+  const sockets = onlineUsers.get(visitorId);
+  if (!sockets) return false;
+
+  sockets.delete(socketId);
+  if (sockets.size > 0) return false;
+
+  onlineUsers.delete(visitorId);
+  return true;
+}
+
+/** Emit to every tab a user has open, so their windows stay in step. */
+function emitToUser(visitorId, event, payload) {
+  const sockets = onlineUsers.get(String(visitorId));
+  if (!sockets) return;
+
+  for (const socketId of sockets) {
+    io.to(socketId).emit(event, payload);
+  }
+}
 
 // ============================================
 // REST API ENDPOINTS
@@ -183,9 +239,16 @@ app.post('/api/auth/login', requireToken, async (req, res) => {
       email,
       displayName: displayName || email.split('@')[0],  // Fallback to email prefix
       photoURL: photoURL || '',
-      isOnline: true,
       lastSeen: new Date()
     };
+
+    // NOTE: `isOnline` is deliberately NOT set here.
+    //
+    // Signing in is not the same as being connected. The socket may never
+    // open — the tab is closed straight away, the connection is refused, the
+    // network drops — and nothing would ever set the flag back, leaving a
+    // green dot next to someone who left. Presence is owned entirely by the
+    // socket lifecycle below: 'user-online' sets it, 'disconnect' clears it.
 
     // Applied on EVERY login, so the allowlist stays the source of truth:
     // adding an address promotes that person the next time they sign in.
@@ -873,24 +936,23 @@ io.on('connection', (socket) => {
       // Identity comes from the authenticated handshake, not the payload.
       const visitorId = String(socket.data.user._id);
 
-      // Store the mapping
-      onlineUsers.set(visitorId, socket.id);
-      
+      // Register this tab. Tells us whether they were already online.
+      const cameOnline = addUserSocket(visitorId, socket.id);
+
       // Store visitorId on the socket for later use (disconnect)
       socket.visitorId = visitorId;
 
-      // Update user's online status in DB
-      await User.findByIdAndUpdate(visitorId, { 
-        isOnline: true, 
-        lastSeen: new Date() 
-      });
+      // Write and broadcast only on the FIRST tab. A second tab does not
+      // change whether the person is online, and re-announcing it would make
+      // every other client redraw for nothing.
+      if (cameOnline) {
+        await User.findByIdAndUpdate(visitorId, {
+          isOnline: true,
+          lastSeen: new Date()
+        });
 
-      // Broadcast to ALL connected clients that this user is online
-      // Everyone can update their UI to show green dot
-      io.emit('user-status-change', { 
-        visitorId, 
-        isOnline: true 
-      });
+        io.emit('user-status-change', { visitorId, isOnline: true });
+      }
 
       // Send the new user a list of who's currently online
       socket.emit('online-users', Array.from(onlineUsers.keys()));
@@ -948,14 +1010,12 @@ io.on('connection', (socket) => {
         read: message.read
       };
 
-      // Send to RECEIVER if online
-      const receiverSocketId = onlineUsers.get(receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit('new-message', messageToSend);
-      }
+      // Send to every tab the RECEIVER has open
+      emitToUser(receiverId, 'new-message', messageToSend);
 
-      // Confirm to SENDER
-      socket.emit('message-sent', messageToSend);
+      // Confirm to the SENDER — also on every tab, so a message typed in one
+      // window shows up in the others instead of only where it was sent.
+      emitToUser(senderId, 'message-sent', messageToSend);
 
       console.log(`✉️ Message sent: ${senderId} -> ${receiverId}`);
     } catch (err) {
@@ -973,11 +1033,8 @@ io.on('connection', (socket) => {
   socket.on('typing', (data) => {
     const { receiverId } = data;
     const senderId = String(socket.data.user._id);
-    const receiverSocketId = onlineUsers.get(receiverId);
-    
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('user-typing', { senderId });
-    }
+
+    emitToUser(receiverId, 'user-typing', { senderId });
   });
 
   /**
@@ -988,11 +1045,8 @@ io.on('connection', (socket) => {
   socket.on('stop-typing', (data) => {
     const { receiverId } = data;
     const senderId = String(socket.data.user._id);
-    const receiverSocketId = onlineUsers.get(receiverId);
-    
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('user-stop-typing', { senderId });
-    }
+
+    emitToUser(receiverId, 'user-stop-typing', { senderId });
   });
 
   /**
@@ -1011,11 +1065,8 @@ io.on('connection', (socket) => {
         { read: true }
       );
 
-      // Notify the peer that their messages were read
-      const peerSocketId = onlineUsers.get(peerId);
-      if (peerSocketId) {
-        io.to(peerSocketId).emit('messages-read', { byVisitor: visitorId });
-      }
+      // Notify the peer, on every tab they have open
+      emitToUser(peerId, 'messages-read', { byVisitor: visitorId });
     } catch (err) {
       console.error('Error marking messages as read:', err);
     }
@@ -1154,22 +1205,20 @@ io.on('connection', (socket) => {
       const visitorId = socket.visitorId;
       
       if (visitorId) {
-        // Remove from online users map
-        onlineUsers.delete(visitorId);
+        // Only go offline when the LAST tab closes.
+        const wentOffline = removeUserSocket(visitorId, socket.id);
 
-        // Update database
-        await User.findByIdAndUpdate(visitorId, { 
-          isOnline: false, 
-          lastSeen: new Date() 
-        });
+        if (wentOffline) {
+          await User.findByIdAndUpdate(visitorId, {
+            isOnline: false,
+            lastSeen: new Date()
+          });
 
-        // Broadcast to everyone that this user is offline
-        io.emit('user-status-change', { 
-          visitorId, 
-          isOnline: false 
-        });
-
-        console.log(`👋 User disconnected: ${visitorId}`);
+          io.emit('user-status-change', { visitorId, isOnline: false });
+          console.log(`👋 User offline: ${visitorId}`);
+        } else {
+          console.log(`👋 Tab closed for ${visitorId}, still open elsewhere`);
+        }
       }
     } catch (err) {
       console.error('Error in disconnect:', err);

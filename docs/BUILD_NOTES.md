@@ -1294,6 +1294,80 @@ so the upsert inserts rather than updates.
 
 ---
 
+### Entry 17 — Presence, and the multi-tab bugs hiding behind it
+
+**What I fixed.** The known presence bug turned out to be one of four, all
+sharing a root cause. Chasing it properly was worth more than patching the
+symptom.
+
+**Files changed:** `server/index.js`.
+
+**The reported bug.** `POST /api/auth/login` set `isOnline: true`. But signing
+in is not the same as being connected: the socket may never open — the tab is
+closed straight away, the connection is refused, the network drops — and
+nothing would ever set the flag back. A green dot next to someone who left.
+
+Fixed by making presence owned **entirely** by the socket lifecycle:
+`user-online` sets it, `disconnect` clears it, and login does not touch it.
+
+**The second bug, found while fixing the first.** Sockets do not survive a
+restart, so at boot nobody is connected *by definition* — yet any
+`isOnline: true` left in the database from a crash or a kill would sit there
+forever. The server now clears stale presence once, on connect. Worth doing
+because it is the failure mode you actually hit in development, where the
+server gets killed constantly.
+
+**The third and fourth bugs, from one line.** `onlineUsers` was a
+`Map<userId, socketId>` — **one** socket per person. A second tab silently
+replaced the first, which broke two separate things:
+
+- **Closing either tab marked the user offline** while they were still sitting
+  in the other one.
+- **Only the most recent tab received anything** — messages, typing
+  indicators, read receipts. Worse, `message-sent` went only to the sending
+  socket, so your own message would not even appear in your other window.
+
+The map is now `Map<userId, Set<socketId>>`, with three small helpers:
+`addUserSocket` returns whether this was the user's *first* socket,
+`removeUserSocket` returns whether it was their *last*, and `emitToUser` fans
+an event out to every tab. The database write and the status broadcast now
+happen only on the first connect and the last disconnect, so opening a second
+tab no longer makes every other client redraw for nothing.
+
+**Design note — why a Set rather than Socket.IO rooms.** Joining a
+`user:<id>` room per socket would also fan out correctly, and the group code
+already uses rooms. I kept an explicit Set because presence needs two things
+rooms do not give cheaply: the *list* of online user ids (sent to each client
+on connect) and a reliable first/last transition. Reading those back out of
+the adapter means depending on Socket.IO internals; a Set states the intent
+directly.
+
+**Verified — and I checked the bugs were real, not theoretical.** A 9-check
+suite covering all four fixes, run twice: once against the fix, and once
+against the previous commit with the fix stashed.
+
+| | before | after |
+| --- | --- | --- |
+| Stale flag cleared at boot | ✗ | ✓ |
+| REST login alone leaves you offline | ✗ | ✓ |
+| First socket brings you online | ✓ | ✓ |
+| Second tab emits no status change | ✗ | ✓ |
+| Still online with two tabs | ✓ | ✓ |
+| Both tabs receive a message | ✗ | ✓ |
+| Closing one tab keeps you online | ✗ | ✓ |
+| Closing the last tab takes you offline | ✓ | ✓ |
+
+**4/9 before, 9/9 after.** The test created one message and set one flag; both
+were removed afterwards and the database was left as found. The suite itself
+was ad hoc and is *not* committed — same caveat as Entries 15 and 16, and
+another argument for the test-suite item still on the open list.
+
+**Confirmed live afterwards:** with the fix in place and the server restarted,
+the browser session reconnected and set `isOnline: true` on its own, with no
+stale-clear needed at boot.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -1310,3 +1384,12 @@ so the upsert inserts rather than updates.
 - **Group read receipts** — 1-to-1 chat has them (Entry 5), groups do not.
   (Socket membership enforcement, the other half of this item, was done in
   Entry 15.)
+- ~~**Presence is unreliable**~~ — fixed in Entry 17: login no longer marks you
+  online, stale flags are cleared at boot, and multi-tab is handled properly.
+- **No automated test suite** — Entries 15, 16 and 17 each ran verification by
+  hand with scripts that were not kept. Converting them into committed tests is
+  the largest remaining gap; `docs/PROJECT_BRIEF.md` has to describe all of it
+  as manual testing.
+- **No rate limiting** — a signed-in client can flood messages or announcements.
+- **Pagination built but unused** — `?limit` / `?before` exist on the group
+  history endpoint; no page calls them.
