@@ -76,6 +76,14 @@ Sign in with Google. On your first login you'll be asked to pick a role.
 | `npm run build` | Production build into `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm run lint` | ESLint across `src/` and `server/` |
+| `npm run screenshot` | Playwright screenshots of every route (app must be running) |
+
+From `server/`:
+
+| Command | What it does |
+| --- | --- |
+| `npm start` | Run the API and Socket.IO server |
+| `npm test` | 67 integration tests against a throwaway database |
 
 ---
 
@@ -111,6 +119,12 @@ server/
   index.js                   Express routes + all Socket.IO handlers
   middleware/
     auth.js                  Firebase ID token verification + role gates
+  test/
+    helpers/harness.js       spawns the server against a throwaway database
+    auth.test.js             identity, ownership, role gates
+    admin.test.js            admin role and dashboard endpoints
+    realtime.test.js         socket identity, membership, presence
+    startup.test.js          stale-presence reset on boot
   models/
     User.js                  identity, presence, role, profile fields
     Message.js               1-to-1 messages

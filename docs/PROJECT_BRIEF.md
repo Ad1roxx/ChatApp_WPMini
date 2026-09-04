@@ -7,14 +7,15 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-02 against commit `f92b95f`.
+Compiled 2026-09-04 against commit `e2970f5`, plus the test suite added in
+the same session.
 
 | | |
 | --- | --- |
-| Commits | 26 |
-| Active | 2025-08-23 → 2026-09-01 |
-| Source | 5,936 lines JS/JSX |
-| Automated tests | 0 |
+| Commits | 28 |
+| Active | 2025-08-23 → 2026-09-04 |
+| Source | 6,773 lines JS/JSX |
+| Automated tests | 67, all passing |
 | Deployed | No |
 
 ---
@@ -37,9 +38,9 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **5,936** lines of JavaScript/JSX across **36** source files, excluding lockfiles | `git ls-files '*.js' '*.jsx' '*.mjs' \| grep -v package-lock \| xargs wc -l` |
-| **26** commits, first 2025-08-23, most recent 2026-09-01; **106** distinct files touched across history | `git rev-list --count HEAD` · `git log --format="" --name-only \| sort -u \| wc -l` — counted before the commit that adds this file, which makes it 27 |
-| ESLint across frontend and backend: **36** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
+| **6,773** lines of JavaScript/JSX across **41** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
+| **28** commits, first 2025-08-23, most recent 2026-09-04 | `git rev-list --count HEAD` — counted before the commit that adds the test suite |
+| ESLint across frontend, backend and tests: **41** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
 
 ### Backend surface
 
@@ -48,7 +49,7 @@ behind an Express and Socket.IO server written for this project.
 | **16** REST endpoints, every one behind authentication; **3** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
 | **11** Socket.IO event handlers; **15** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
 | **5** Mongoose models — User, Message, Group, GroupMessage, Announcement — with **10** index declarations, **3** of them compound | `server/models/*.js` · `grep -n "index: true\|\.index(" server/models/*.js` |
-| `server/index.js` is **1,189** lines; `server/middleware/auth.js` is **281** | `wc -l server/index.js server/middleware/auth.js` |
+| `server/index.js` is **1,238** lines; `server/middleware/auth.js` is **281**; the test suite is **788** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
 
 ### Authentication
 
@@ -66,23 +67,22 @@ behind an Express and Socket.IO server written for this project.
 | Production bundle **415.19 kB** JS (**115.12 kB** gzipped) and **38.33 kB** CSS (**7.03 kB** gzipped); build completes in about **1.4 s** | `npm run build` (Vite 5.4 output) |
 | Responsive at a **900 px** breakpoint: fixed sidebar above it, overlay drawer below | `src/components/AppShell.module.css`, `@media (max-width: 900px)` |
 
-### Manual verification performed
-
-These runs happened and are recorded in `BUILD_NOTES.md`, but the scripts were
-ad hoc and **are not committed**, so a reader cannot reproduce them from the
-repository. Describe them as manual testing, **never** as a test suite.
+### Tests
 
 | Fact | Source |
 | --- | --- |
-| **15** HTTP and socket checks of authentication and ownership, including a spoofing check in which a message sent with a forged sender id was stored against the authenticated user instead | `BUILD_NOTES.md`, Entry 15 |
-| **8** checks of the admin role: allowlist promotion, 403s for non-admins, and refusal to grant admin or self-demote | `BUILD_NOTES.md`, Entry 16 |
-| A committed Playwright harness screenshots each route at two viewport widths and fails on an unexpected redirect or any console error | `scripts/screenshot.mjs` (108 lines) · `npm run screenshot` |
+| **67** integration tests across **4** files, all passing, in about **10 s** | `cd server && npm test` |
+| Runner is Node's built-in `node:test` — **no test-runner dependency**; the only devDependency added was `socket.io-client`, needed to drive the socket layer | `server/package.json` |
+| Tests spawn the **real server as a child process**, so they exercise config validation, the Mongo connection and the startup presence reset rather than an imported app object | `server/test/helpers/harness.js`, `start()` |
+| They run against a throwaway `chatapp_test` database dropped on teardown, so they cannot touch development data | `server/test/helpers/harness.js`, `TEST_DB` and `stop()` |
+| Coverage by area: authentication and ownership (21), admin role (22), sockets, group membership and presence (20), startup (4) | `server/test/*.test.js` |
+| A Playwright harness screenshots each route at two viewport widths and fails on an unexpected redirect or any console error | `scripts/screenshot.mjs` (108 lines) · `npm run screenshot` |
 
 ### Database
 
 | Fact | Source |
 | --- | --- |
-| Local development database holds **2** user records, **0** messages, **0** groups, **0** announcements | `mongodb://127.0.0.1:27017/chatapp`, `countDocuments()` per collection |
+| Local development database holds **3** user records — one per role — and **0** messages, groups or announcements | `mongodb://127.0.0.1:27017/chatapp`, `countDocuments()` per collection |
 
 ---
 
@@ -103,10 +103,17 @@ on connect and pins the user to `socket.data.user` for the connection's
 lifetime. Event payloads carry no sender id, so a client cannot act as another
 user by editing a field.
 
-**Three broadcast topologies for three message shapes.** Direct messages
-unicast through an in-memory `Map` of user id to socket id; group messages go to
-a Socket.IO room named `group:<id>`; announcements use a global `io.emit`,
-because a public broadcast has no room meaning "everyone".
+**Three broadcast topologies for three message shapes.** Direct messages fan
+out through an in-memory `Map` of user id to the **set** of that user's open
+sockets, so every tab stays in step; group messages go to a Socket.IO room
+named `group:<id>`; announcements use a global `io.emit`, because a public
+broadcast has no room meaning "everyone".
+
+**Presence derived from connection transitions, not from events.** Online
+status is written only when a user's socket set becomes non-empty and cleared
+only when it empties, so extra tabs neither re-announce nor prematurely mark
+someone offline. Stale flags left by a crash are cleared once at startup, since
+no socket can survive a restart.
 
 **Role checks and ownership checks kept distinct.** Announcement deletion checks
 authorship rather than role — a role check alone would let any mentor delete
@@ -160,10 +167,11 @@ No Python, notebooks, datasets or ML components exist in this repository.
 
 ## 5. Not implemented
 
-- **No automated tests.** No test files, no test script in either
-  `package.json`, no test-runner dependency. The 23 verification checks
-  described above were run by hand and the scripts were not kept.
-- **No CI.** No `.github/` directory or any other pipeline configuration.
+- **No CI.** No `.github/` directory or any other pipeline configuration — the
+  tests exist but nothing runs them automatically.
+- **No frontend tests.** The 67 tests cover the server. React components are
+  checked only by the Playwright screenshot harness, which catches render
+  failures and console errors but asserts nothing about behaviour.
 - **Never deployed.** No Dockerfile, Procfile, or Vercel, Netlify, Render or Fly
   configuration. It runs on localhost only.
 - **No rate limiting.** A signed-in client can flood messages or announcements
@@ -202,7 +210,8 @@ interviewer will ask you to substantiate, and none can be.
   instrumented.
 - **Concurrent connection capacity or load-test results.** Never load tested.
 - **Uptime or availability.** The application has never been hosted.
-- **Test coverage percentage.** There are no tests to cover anything.
+- **Test coverage percentage.** 67 tests exist, but no coverage tool has been
+  run, so any percentage would be invented. Cite the test count, not coverage.
 - **Lighthouse, Core Web Vitals or accessibility audit scores.** Accessibility
   work was done — keyboard-operable rows, `useId`-associated labels,
   `aria-live` announcements, `:focus-visible` rings — but never scored by a
@@ -235,6 +244,11 @@ Drawn only from section 2. Each is defensible if questioned.
 > the application's first responsive layout.
 
 > Retrofitted authentication onto an existing socket layer, moving sender
-> identity from client-supplied payloads to the verified handshake, and
-> confirmed by hand that a forged sender id is attributed to the authenticated
+> identity from client-supplied payloads to the verified handshake, covered by
+> a test asserting that a forged sender id is attributed to the authenticated
 > user instead.
+
+> Built a 67-test integration suite on Node's built-in test runner with no
+> runner dependency, spawning the real server against a throwaway database so
+> tests cannot touch development data, covering authentication, ownership,
+> role gates, socket identity, group membership and multi-tab presence.

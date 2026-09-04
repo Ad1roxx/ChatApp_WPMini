@@ -1368,6 +1368,89 @@ stale-clear needed at boot.
 
 ---
 
+### Entry 18 — An actual test suite
+
+**What I built.** 67 integration tests covering the server. This closes the
+item that had been growing through Entries 15, 16 and 17, each of which ended
+with the same admission: *verified by hand, scripts not kept*. Three suites
+written and thrown away is a habit, not an accident.
+
+**Files added:** `server/test/helpers/harness.js`, `auth.test.js`,
+`admin.test.js`, `realtime.test.js`, `startup.test.js` — 788 lines.
+
+**Files changed:** `server/package.json` (a `test` script and one
+devDependency), `README.md`, `docs/PROJECT_BRIEF.md`.
+
+**Design decision 1 — Node's built-in runner, no test framework.** `node:test`
+ships with Node, so the suite adds **no runner dependency**: no Jest, no Vitest,
+no Mocha, no config file, no transform step. The only devDependency added was
+`socket.io-client`, which is needed to actually drive the socket layer and
+can't be avoided. For a project whose whole backend is six dependencies,
+bringing in a framework with fifty would have been out of proportion.
+
+**Design decision 2 — a throwaway database, and this one matters.** Tests point
+`MONGODB_URI` at `chatapp_test` and drop it on teardown. This is a direct
+response to how badly the earlier manual runs behaved: they hit the real
+`chatapp` database, which twice meant repairing roles afterwards and once
+**overwrote a real user's name and email** (recorded in Entry 16). That class
+of mistake is now impossible rather than merely discouraged. The development
+database is untouched by a test run — verified after the fact.
+
+**Design decision 3 — spawn the real server, don't import an app object.** The
+harness runs `node index.js` as a child process with test environment
+variables. Importing an Express app would have been tidier and would have
+tested less: spawning exercises the config validation that `process.exit(1)`s
+on a missing `FIREBASE_PROJECT_ID`, the Mongo connection, and the startup
+presence reset — the last of which is a *boot-time* behaviour that an imported
+app cannot express at all. `startup.test.js` exists precisely to assert on it,
+which is why it manages its own server lifecycle rather than sharing the
+others'.
+
+**Design decision 4 — tests authenticate through the dev escape hatch.** A
+Google sign-in popup cannot be automated, which is the reason `ALLOW_DEV_AUTH`
+was built in Entry 15. It now earns its keep: the harness sets it, and every
+test acts as a fixture user via `X-Dev-User-Id`. Worth noting the shape of
+this — the feature that makes the app testable is the same one that must never
+be enabled in production, and both facts are enforced in code.
+
+**Two things that bit, worth recording.**
+
+- `node --test test/` fails: a trailing-slash directory argument is treated as
+  a *module path* and Node tries to `require` it. The working form is a quoted
+  glob, `"test/**/*.test.js"`, so Node expands it rather than the shell —
+  which also avoids the difference between `cmd` and bash globbing.
+- The suite runs with `--test-concurrency=1`. Every file spawns a server on the
+  same port and shares one database, so parallel files would fight over both.
+  Serial costs about ten seconds total, which is not worth engineering around.
+
+**What the 67 cover.**
+
+| File | Tests | Area |
+| --- | --- | --- |
+| `auth.test.js` | 21 | Identity required; ownership (own vs others' conversations, profiles, roles); role gates; mentor-only fields dropped for students; announcement delete as an *ownership* check, using an admin — who can post — to prove it is not a role check |
+| `admin.test.js` | 22 | Admin-only endpoints refused to students *and* mentors; stats counted from the database; admin unassignable by either endpoint; no self-demotion; allowlist promotion at sign-in |
+| `realtime.test.js` | 20 | Handshake rejection; **sender identity taken from the socket, not the payload**; group membership over socket and REST; presence not set by login; multi-tab behaviour end to end |
+| `startup.test.js` | 4 | Stale presence cleared at boot, asserted in the database *and* in the server log |
+
+Several assert on absence, which is the more useful half: a refused request
+must also **write nothing**, and opening a second tab must emit **no** status
+change. A check that only confirms the happy path would have missed all four
+bugs from Entry 17.
+
+**Verified:** `cd server && npm test` — 67 passing in about 10 s. ESLint now
+covers 41 files (the tests included) with 0 errors. Production build clean.
+The development database was inspected afterwards and holds the same three
+users, unchanged.
+
+**Docs corrected in the same commit.** `docs/PROJECT_BRIEF.md` led with
+"Automated tests: 0" and listed "No automated tests" under what is not
+implemented — both now false. Its stale figures were re-derived at the same
+time (commits, line count, `index.js` length, the user count, and the
+description of the presence map, which Entry 17 changed from one socket per
+user to a set).
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -1386,10 +1469,12 @@ stale-clear needed at boot.
   Entry 15.)
 - ~~**Presence is unreliable**~~ — fixed in Entry 17: login no longer marks you
   online, stale flags are cleared at boot, and multi-tab is handled properly.
-- **No automated test suite** — Entries 15, 16 and 17 each ran verification by
-  hand with scripts that were not kept. Converting them into committed tests is
-  the largest remaining gap; `docs/PROJECT_BRIEF.md` has to describe all of it
-  as manual testing.
+- ~~**No automated test suite**~~ — done in Entry 18: 67 integration tests,
+  `cd server && npm test`.
+- **No CI** — the tests exist but nothing runs them on push.
+- **No frontend tests** — the 67 cover the server. React components are only
+  checked by the Playwright screenshot harness, which catches render failures
+  and console errors but asserts nothing about behaviour.
 - **No rate limiting** — a signed-in client can flood messages or announcements.
 - **Pagination built but unused** — `?limit` / `?before` exist on the group
   history endpoint; no page calls them.
