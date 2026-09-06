@@ -117,3 +117,27 @@
     justify-content: flex-end;
   }
 }
+
+/* ---- Coming up ---- */
+
+/* A calendar glyph where the other rows have an avatar, so the two lists
+   share one grid and the eye does not have to re-learn the layout. Same
+   footprint as Avatar size="sm". */
+.sessionIcon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* The session's own title, not a person's name — so it is not a link. */
+.sessionTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}

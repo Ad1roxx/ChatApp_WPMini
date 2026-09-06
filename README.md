@@ -30,6 +30,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Reports | Anyone can report a user or content; admins resolve or dismiss |
 | Mentorships | Request → accept/decline → active → ended, with both sides on one page |
 | Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
+| Sessions | Either party proposes a time, the other confirms; reschedule, cancel, notes |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
@@ -107,6 +108,8 @@ src/
     Button/Card/Avatar/…     shared UI primitives (CSS Modules)
     Toast.jsx                replaces alert()
     ConfirmDialog.jsx        replaces window.confirm()
+    Progress.jsx             a done/total meter, not a percentage
+    Sessions.jsx             the scheduling section of a mentorship
   pages/
     LoginPage.jsx            Google sign-in
     RoleSelectPage.jsx       one-time first-login role picker
@@ -119,7 +122,7 @@ src/
     UserProfilePage.jsx      someone else's profile (read-only)
     AdminPage.jsx            stats, verification queue, reports, users
     MentorshipsPage.jsx      requests, your mentors, your students, past
-    MentorshipDetailPage.jsx one relationship and its goals
+    MentorshipDetailPage.jsx one relationship: its goals and its sessions
     SuspendedPage.jsx        shown instead of the app to a suspended account
   lib/roles.js               canMentor / isAdmin / isVerified — rendering only
 
@@ -143,6 +146,7 @@ server/
     Report.js                moderation reports
     Mentorship.js            the student–mentor relationship
     Goal.js                  goals with embedded milestones
+    Session.js               scheduled meetings, proposed and confirmed
 
 docs/
   BUILD_NOTES.md             running log: what was built and why
@@ -184,6 +188,10 @@ docs/
 | POST | `/api/mentorships/:id/goals` | **Mentor only** — set a goal |
 | PATCH | `/api/goals/:goalId` | **Mentor only** — edit or archive |
 | PATCH | `/api/goals/:goalId/milestones/:milestoneId` | Tick a milestone (either party) |
+| GET | `/api/sessions/upcoming` | Your next sessions across every mentorship |
+| GET | `/api/mentorships/:id/sessions` | Sessions of one mentorship (either party) |
+| POST | `/api/mentorships/:id/sessions` | Propose a time (either party) |
+| PATCH | `/api/sessions/:sessionId` | confirm · reschedule · cancel · complete · notes |
 
 ## Socket.IO events
 
@@ -191,10 +199,11 @@ docs/
 `mark-read`, `join-group`, `leave-group`, `send-group-message`,
 `group-typing`, `group-stop-typing`
 
-**Server → client:** `online-users`, `user-status-change`, `new-message`,
-`message-sent`, `user-typing`, `user-stop-typing`, `messages-read`,
-`new-group-message`, `group-user-typing`, `group-user-stop-typing`,
-`new-announcement`, `announcement-deleted`, `error`
+**Server → client:** `online-users`, `user-status-change`, `user-added`,
+`user-updated`, `new-message`, `message-sent`, `user-typing`,
+`user-stop-typing`, `messages-read`, `new-group-message`, `group-user-typing`,
+`group-user-stop-typing`, `new-announcement`, `announcement-deleted`,
+`mentorship-updated`, `goal-updated`, `session-updated`, `error`
 
 ---
 
@@ -242,6 +251,11 @@ Worth stating plainly rather than discovering later:
   server-side. Fine at project scale, the first thing to revisit beyond it.
 - **No rate limiting.** Nothing stops a signed-in client from flooding
   messages or announcements.
+- **Sessions do not leave the app.** There is no calendar export and no
+  reminder before one starts — you find out a session is coming by opening
+  Mentorship. Times are stored as UTC and rendered in each viewer's own
+  timezone, so two people in different places see the same moment correctly,
+  but neither gets told about it.
 
 `docs/BUILD_NOTES.md` keeps a running log of every meaningful change — what was
 built, which files moved, the design decisions and their tradeoffs.

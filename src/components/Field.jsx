@@ -1,8 +1,8 @@
 /**
  * Field / Input / Textarea
  *
- * `Field` owns the label, hint, error and character counter; `Input` and
- * `Textarea` are the bare controls. They're used together:
+ * `Field` owns the label, hint, error and character counter; `Input`,
+ * `Textarea` and `Select` are the bare controls. They're used together:
  *
  *   <Field label="Bio" hint="Shown on your profile" count={bio.length} max={500}>
  *     <Textarea value={bio} onChange={...} maxLength={500} />
@@ -85,6 +85,17 @@ export function Field({ label, hint, error, count, max, children, className = ''
 
 export function Input({ className = '', ...rest }) {
   return <input className={[styles.control, className].filter(Boolean).join(' ')} {...rest} />;
+}
+
+export function Select({ className = '', children, ...rest }) {
+  return (
+    <select
+      className={[styles.control, styles.select, className].filter(Boolean).join(' ')}
+      {...rest}
+    >
+      {children}
+    </select>
+  );
 }
 
 export function Textarea({ className = '', rows = 4, ...rest }) {

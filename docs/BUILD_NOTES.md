@@ -1701,6 +1701,132 @@ coverage.
 
 ---
 
+### Entry 22 — Scheduling
+
+**What I built.** The other half of a mentorship. Goals say what someone is
+working towards; sessions are when the work gets talked about. Either party
+proposes a time, the other confirms it, and it can be moved, called off, or
+marked done with notes afterwards.
+
+**Files added:** `server/models/Session.js`, `src/components/Sessions.jsx` +
+module.
+
+**Files changed:** `server/index.js` (four endpoints, 34 total),
+`MentorshipDetailPage.jsx`, `MentorshipsPage.jsx` + module, `Field.jsx` +
+module (a shared `Select`), `Icons.jsx` (a calendar glyph).
+
+**Design decision 1 — the permissions are the inverse of goals, on purpose.**
+Only the mentor may set a goal, because a goal is a directive. *Anyone* may
+propose a session, because asking for time is not — a student asking "can we
+meet Thursday?" is probably the most common case there is. What keeps that
+from being unilateral is that the *other* person confirms it: the proposer is
+refused with a 403 if they try to confirm their own. Two rules, opposite
+directions, each one following from what the thing actually is.
+
+**Design decision 2 — rescheduling un-confirms.** Moving a session sends it
+back to `proposed` and makes the mover the new proposer, so the other side has
+to agree again. The alternative — silently changing the time on a confirmed
+session — is the worst outcome available: both people would believe they had
+agreed on something, and only one of them would be right. `confirmedAt` is
+cleared at the same time so the record cannot claim an agreement that no
+longer exists.
+
+**Design decision 3 — the transitions live in the model, not at the call
+sites.** `ALLOWED_TRANSITIONS` is a table, and `canBecome()` reads it. Four
+actions share one PATCH route, so without the table each of them would have
+carried its own hand-written list of what it was allowed to follow, and the
+fifth one added later would have got one of them wrong. `completed` and
+`cancelled` are terminal: there is no un-cancel, because the record that a
+meeting was called off is worth keeping and proposing a new time is both
+easier and more honest than editing history.
+
+**Design decision 4 — a session cannot be marked done before it starts.**
+`hasStarted()` gates `complete`, so the history cannot claim things that have
+not happened. The mirror of it is that creation refuses a past date — mostly a
+typo guard, since the wrong year is the easiest thing to get wrong in a date
+field. A meeting that already happened gets recorded by completing it, not by
+scheduling it. Notes are gated the same way: they are a record of what
+happened, so they are refused until something has, and the agenda is the field
+for intent before that.
+
+**Design decision 5 — `GET /api/sessions/upcoming` is not scoped to one
+mentorship.** Every other session route is. This one exists because *"when am
+I next meeting anyone?"* is a question about your week, not about one
+relationship, and answering it should not mean opening three pages and
+comparing dates. It reads only `active` mentorships — a session left over from
+a relationship that has since ended is not something either person still owes
+— and only `proposed`/`confirmed`: it is a list of commitments, not history.
+
+**Design decision 6 — one compound index, not two.** `{ mentorship: 1,
+scheduledFor: -1 }` serves both reads: the per-mentorship list, by equality on
+the prefix, and the upcoming query, which is an `$in` over my mentorship ids
+plus a date range on the same prefix. A separate index on `scheduledFor` alone
+would only earn its keep for a cross-user sweep, and nothing does that.
+
+**Design decision 7 — the clock is state, not a render-time read.** ESLint's
+React-compiler rule rejected `Date.now()` during render, which was the right
+call for a reason beyond purity: the labels are relative ("in 3 days"), so a
+value read once at mount goes wrong the longer the page stays open. A `useNow`
+hook ticking once a minute fixed the lint *and* made the UI honest — "in 2
+minutes" becomes "2 minutes ago" on its own, and a session moves from Upcoming
+to Past without anyone refreshing.
+
+**UI notes.** Each session gets a date rail — weekday, day, month, in a boxed
+column to the left — because the date is what you scan a list of meetings for,
+and prose does not scan. The first version printed the full date *again* in the
+line beside it; the mobile screenshot showed that line wrapping onto three
+rows to say what the rail already said. The rail is now the only visible date,
+and the full one lives in an `sr-only` span inside the `<time>` element, since
+the rail is `aria-hidden` and screen readers would otherwise get nothing.
+
+Status labels say what is true rather than naming the field: "Awaiting
+confirmation", not "Proposed". One tells you something is owed; the other only
+names a state.
+
+Cancelling goes through a `ConfirmDialog` with an optional reason, the same
+shape as declining a mentorship request — the other person has that time set
+aside, so it should not be one click away.
+
+Sessions sit *below* the goals on the detail page, deliberately: goals are what
+the page is for. The time-sensitive question — what is coming up — is answered
+instead by a "Coming up" card on the mentorships list, which is where it
+belongs, because it spans every relationship rather than one.
+
+**A shared `Select`.** The duration picker needed a `<select>` styled like the
+existing inputs, so it went into `Field.jsx` next to `Input` and `Textarea`
+rather than being styled locally. Suppressing `appearance` also removes the
+native arrow, so it is redrawn from two CSS gradients — which inherit
+`currentColor`, and therefore follow the theme without a second asset.
+
+**Verified with 40 checks** against a throwaway `chatapp_test` database, using
+the harness the committed tests already use: the student proposing (201, and
+`proposedBy` is them), the proposer confirming their own (403), the other
+party confirming (`confirmedAt` set), an outsider on every route (403), a past
+date, a bad duration, a blank title, an unparseable date and a non-active
+mentorship (400 each), completing before the start time (400), rescheduling
+(back to `proposed`, proposer flipped, `confirmedAt` cleared), completing after
+the clock was moved back in the database (`completedAt` set), notes before and
+after completion (400 then saved), confirming and cancelling a completed
+session (400 each), cancelling with a reason (`cancelledBy` and the reason
+stored), rescheduling a cancelled one (400), and `upcoming` returning only open
+future sessions, soonest first, with names populated, empty for someone whose
+only mentorship is still pending. The existing 105 tests still pass.
+
+Screenshotted at both viewport widths against a seeded throwaway database —
+never the development one — with the preview stack torn down and
+`chatapp_test` dropped afterwards.
+
+**Not in the test suite.** Same as Entries 20 and 21: these 40 checks were run
+by hand and not committed, because tests were deferred to one pass at the end
+of this batch. Mentorships, goals and sessions are now the three server
+features without coverage.
+
+**What this unblocks.** Analytics now has two things to aggregate rather than
+one — goal completion *and* session history — which is the difference between
+a progress bar and something worth calling a dashboard.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -1725,14 +1851,19 @@ coverage.
 - **No frontend tests** — the 105 cover the server. React components are only
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour.
-- **Mentorship and goal endpoints are not in the test suite** — verified by
-  hand in Entries 20 and 21 (14 and 9 checks) that were not committed. The
-  only two server features without coverage, deferred to one test pass.
+- **Mentorship, goal and session endpoints are not in the test suite** —
+  verified by hand in Entries 20, 21 and 22 (14, 9 and 40 checks) that were
+  not committed. The three server features without coverage, deferred to one
+  test pass.
 - ~~**Goals & milestones**~~ — done in Entry 21.
-- **Scheduling, analytics, achievements** — were blocked on the mentorship
-  model and goals, both of which now exist. No longer blocked, just not built.
-  Analytics in particular now has real data to read: goal completion per
-  mentorship.
+- ~~**Scheduling**~~ — done in Entry 22.
+- **Analytics and achievements** — were blocked on the mentorship model,
+  goals and sessions, all of which now exist. No longer blocked, just not
+  built. Analytics has two things to aggregate now: goal completion and
+  session history.
+- **Sessions never leave the app** — no calendar export, no invitation, and no
+  reminder before one starts. Times are stored UTC and rendered per viewer, so
+  two timezones agree on the moment; nothing tells either person it is coming.
 - **No rate limiting** — a signed-in client can flood messages or announcements.
 - **Pagination built but unused** — `?limit` / `?before` exist on the group
   history endpoint; no page calls them.

@@ -10,6 +10,11 @@
  * **the mentor sets goals, either party ticks milestones off.** The student
  * does the work and reports it; the mentor can correct a mistake without
  * having to ask. The server enforces both halves.
+ *
+ * Sessions hang off the bottom of the same page, from their own component.
+ * They are deliberately the opposite way round — anyone may propose a time,
+ * and the other person confirms it — because asking for time is not a
+ * directive the way setting a goal is.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -22,6 +27,7 @@ import Button from '../components/Button';
 import Badge, { RoleBadge, VerifiedBadge } from '../components/Badge';
 import { Field, Input, Textarea } from '../components/Field';
 import Progress from '../components/Progress';
+import Sessions from '../components/Sessions';
 import EmptyState from '../components/EmptyState';
 import { InlineLoader, PageLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
@@ -408,6 +414,12 @@ export default function MentorshipDetailPage() {
           );
         })
       )}
+
+      {/* Below the goals on purpose. Goals are what the page is for; the
+          schedule is a detail of one relationship. "When am I next meeting
+          anyone?" is a different question and is answered on the mentorships
+          list, where it does not need this page open to see. */}
+      <Sessions mentorshipId={id} active={mentorship.status === 'active'} />
     </AppShell>
   );
 }

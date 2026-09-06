@@ -85,3 +85,19 @@
 .counterNear {
   color: var(--color-warning);
 }
+
+/* A native select, kept in the same box as the text inputs. Platform
+   defaults differ enough that a row mixing an <input> with a <select> looks
+   broken without this. Suppressing `appearance` also removes the arrow, so
+   it is redrawn from two gradients rather than an image — it inherits
+   `currentColor`, which means it follows the theme for free. */
+.select {
+  appearance: none;
+  padding-right: var(--space-6);
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 17px) calc(50% - 2px), calc(100% - 12px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}

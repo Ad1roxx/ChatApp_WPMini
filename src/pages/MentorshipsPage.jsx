@@ -8,7 +8,10 @@
  * "Students you mentor" and a pure mentor never sees an empty "Your mentors".
  *
  * Requests waiting on YOU come first — that is the only part of this page
- * that is work rather than reference.
+ * that is work rather than reference. Your next sessions come second, pulled
+ * from every mentorship at once: "when am I next meeting anyone?" is a
+ * question about your week, not about one relationship, and answering it
+ * should not mean opening three pages and comparing dates.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -24,7 +27,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { InlineLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
-import { HandshakeIcon } from '../components/Icons';
+import { HandshakeIcon, CalendarIcon } from '../components/Icons';
 import styles from './MentorshipsPage.module.css';
 
 export default function MentorshipsPage() {
@@ -33,6 +36,7 @@ export default function MentorshipsPage() {
   const toast = useToast();
 
   const [mentorships, setMentorships] = useState([]);
+  const [upcoming, setUpcoming] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
 
@@ -54,6 +58,39 @@ export default function MentorshipsPage() {
 
     load();
   }, [authFetch]);
+
+  /**
+   * Upcoming sessions, reloaded rather than patched in place.
+   *
+   * The socket payload for a session carries its mentorship as a bare id,
+   * because the detail page already knows which relationship it is looking
+   * at. This page needs the names, and it needs the list re-sorted and
+   * re-trimmed to ten whenever anything moves. Refetching does all of that
+   * and costs one small request on an event that fires a handful of times a
+   * week.
+   */
+  useEffect(() => {
+    let stale = false;
+
+    const load = async () => {
+      try {
+        const res = await authFetch('/api/sessions/upcoming');
+        if (res.ok && !stale) setUpcoming(await res.json());
+      } catch (err) {
+        console.error('Error loading upcoming sessions:', err);
+      }
+    };
+
+    load();
+    if (!socket) return undefined;
+
+    // The same loader is the socket handler: every session change reloads.
+    socket.on('session-updated', load);
+    return () => {
+      stale = true;
+      socket.off('session-updated', load);
+    };
+  }, [authFetch, socket]);
 
   /**
    * Live updates. The server emits to both parties on every transition, so a
@@ -129,6 +166,16 @@ export default function MentorshipsPage() {
 
   const formatDate = (value) =>
     value ? new Date(value).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '';
+
+  /** "Thu 12 Mar, 4:00 PM" — enough to plan around without a full date. */
+  const formatWhen = (value) => {
+    const d = new Date(value);
+    return `${d.toLocaleDateString([], {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short'
+    })}, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  };
 
   /** One person's row: avatar, name, badges, and what the relationship is about. */
   const Person = ({ user, topic, when, children }) => (
@@ -239,6 +286,56 @@ export default function MentorshipsPage() {
                     </div>
                   </li>
                 ))}
+              </ul>
+            </Card>
+          )}
+
+          {upcoming.length > 0 && (
+            <Card
+              title="Coming up"
+              subtitle="Your next sessions, across every mentorship"
+              padded={false}
+            >
+              <ul className={styles.list}>
+                {upcoming.map((s) => {
+                  const m = s.mentorship;
+                  const other = (m?.mentor?._id || m?.mentor) === me ? m?.student : m?.mentor;
+
+                  return (
+                    <li key={s._id} className={styles.row}>
+                      <span className={styles.sessionIcon} aria-hidden="true">
+                        <CalendarIcon size={16} />
+                      </span>
+
+                      <div className={styles.who}>
+                        <span className={styles.nameRow}>
+                          <span className={styles.sessionTitle}>{s.title}</span>
+                          {s.status === 'proposed' ? (
+                            <Badge variant="warning">Needs confirming</Badge>
+                          ) : (
+                            <Badge variant="success">Confirmed</Badge>
+                          )}
+                        </span>
+                        <span className={styles.topic}>
+                          {formatWhen(s.scheduledFor)}
+                          <span className={styles.when}>
+                            {' '}
+                            · with {other?.displayName || 'someone'}
+                          </span>
+                        </span>
+                      </div>
+
+                      <div className={styles.actions}>
+                        <Button
+                          size="sm"
+                          onClick={() => navigate(`/mentorships/${m?._id || m}`)}
+                        >
+                          Open
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </Card>
           )}

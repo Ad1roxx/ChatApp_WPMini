@@ -7,14 +7,14 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-06 against commit `909c1b2`, plus goals and milestones added
-in the same session. Figures counted before the commit that records them.
+Compiled 2026-09-06 against commit `3d6353a`, plus scheduling added in the
+same session. Figures counted before the commit that records them.
 
 | | |
 | --- | --- |
-| Commits | 32 |
+| Commits | 33 |
 | Active | 2025-08-23 → 2026-09-06 |
-| Source | 10,058 lines JS/JSX |
+| Source | 11,246 lines JS/JSX |
 | Automated tests | 105, all passing |
 | Deployed | No |
 
@@ -38,18 +38,18 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **10,058** lines of JavaScript/JSX across **49** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
-| **32** commits, first 2025-08-23, most recent 2026-09-06 | `git rev-list --count HEAD` |
+| **11,246** lines of JavaScript/JSX across **51** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
+| **33** commits, first 2025-08-23, most recent 2026-09-06 | `git rev-list --count HEAD` |
 | ESLint across frontend, backend and tests: **49** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
 
 ### Backend surface
 
 | Fact | Source |
 | --- | --- |
-| **30** REST endpoints, every one behind authentication; **7** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
-| **11** Socket.IO event handlers; **15** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
-| **8** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal — with **27** index declarations, **9** of them compound | `server/models/*.js` · `grep -n "index: true\|\.index(" server/models/*.js` |
-| `server/index.js` is **2,021** lines; `server/middleware/auth.js` is **306**; the test suite is **1,160** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
+| **34** REST endpoints, every one behind authentication; **8** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
+| **11** Socket.IO event handlers; **18** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
+| **9** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal, Session — with **29** index declarations, **9** of them compound | `server/models/*.js` · `grep -n "index: true\|unique: true\|\.index(" server/models/*.js` returns 30 lines; `User.firebaseUid` carries both `unique` and `index`, which is one index, hence 29 |
+| `server/index.js` is **2,323** lines; `server/middleware/auth.js` is **306**; the test suite is **1,160** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
 
 ### Authentication
 
@@ -63,8 +63,8 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **13** page components and **12** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
-| Production bundle **443.65 kB** JS (**122.41 kB** gzipped) and **46.54 kB** CSS (**7.98 kB** gzipped) | `npm run build` (Vite 5.4 output) |
+| **13** page components and **13** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
+| Production bundle **455.06 kB** JS (**125.54 kB** gzipped) and **49.90 kB** CSS (**8.51 kB** gzipped) | `npm run build` (Vite 5.4 output) |
 | Responsive at a **900 px** breakpoint: fixed sidebar above it, overlay drawer below | `src/components/AppShell.module.css`, `@media (max-width: 900px)` |
 
 ### Tests
@@ -165,6 +165,16 @@ and reports it, the mentor can correct a mistake without asking, and `doneBy`
 records which of them it was — so "the student says it's done" stays
 distinguishable from "the mentor confirmed it".
 
+**Scheduling is a two-party handshake, and the goal permissions are inverted
+for it.** Either party may propose a session; the *other* one confirms it, and
+the proposer is refused if they try to confirm their own. A goal is a directive
+so it belongs to the mentor, but asking for time is not — the student asking
+"can we meet Thursday?" is the common case. Rescheduling returns the session to
+`proposed` and makes the mover the proposer, because a confirmed time that
+changed silently would leave both people certain they had agreed on different
+things. `completed` and `cancelled` are terminal, and a session cannot be
+marked done before its start time has passed.
+
 **Insert-versus-update detection on an upsert.** The login upsert passes
 `includeResultMetadata` and reads `lastErrorObject.upserted` to tell a
 first-ever sign-in from a returning one, which drives a "new user" broadcast
@@ -211,11 +221,12 @@ No Python, notebooks, datasets or ML components exist in this repository.
 - **No frontend tests.** The 105 tests cover the server. React components are
   checked only by the Playwright screenshot harness, which catches render
   failures and console errors but asserts nothing about behaviour.
-- **The mentorship and goal endpoints are not yet in the test suite.** Both
-  were verified by hand — 14 HTTP checks on mentorships and 9 on goals,
-  covering permissions, the duplicate guard and the derived status — but those
-  checks were not committed. Every other server feature is covered; these two
-  are the exception, deferred deliberately to a single test pass.
+- **The mentorship, goal and session endpoints are not yet in the test
+  suite.** All three were verified by hand — 14 HTTP checks on mentorships, 9
+  on goals and 40 on sessions, covering permissions, the duplicate guard, the
+  derived goal status and every state transition — but those checks were not
+  committed. Every other server feature is covered; these three are the
+  exception, deferred deliberately to a single test pass.
 - **Never deployed.** No Dockerfile, Procfile, or Vercel, Netlify, Render or Fly
   configuration. It runs on localhost only.
 - **No rate limiting.** A signed-in client can flood messages or announcements
@@ -224,15 +235,19 @@ No Python, notebooks, datasets or ML components exist in this repository.
   accepts `?limit` and `?before`; no page calls either. The announcement feed is
   capped at 50 on the server.
 - **Read receipts are one-to-one only.** Group messages have no read state.
+- **Sessions never leave the app.** No calendar export, no invitations, no
+  reminder before one starts. Times are stored as UTC and rendered in each
+  viewer's own timezone, so two people in different places agree on the
+  moment — but nothing tells either of them it is coming.
 - **Announcements cannot be edited** — only posted and deleted.
 - **Presence is unreliable by construction.** "Online" means "holds a live
   socket", and `POST /api/auth/login` sets the flag before any socket connects,
   so a user who closes the tab immediately stays marked online.
 - **Presence state is in-memory.** The user-to-socket `Map` does not survive a
   restart and does not work across more than one server process.
-- **No mentorship relationships, goals, sessions, resources, matching or
-  notifications.** These were scoped and deliberately deferred; nothing about
-  them exists in code.
+- **No shared resources, matching or notifications.** Mentorships, goals and
+  sessions were built; these three were scoped alongside them and remain
+  deferred. Nothing about them exists in code.
 
 The repository's own documentation was checked against the code while compiling
 this brief: every claim in `README.md` holds, including the `?limit` / `?before`
@@ -270,7 +285,7 @@ interviewer will ask you to substantiate, and none can be.
 Drawn only from section 2. Each is defensible if questioned.
 
 > Built a real-time mentorship platform (React, Express, Socket.IO, MongoDB)
-> with 16 authenticated REST endpoints and 11 Socket.IO handlers across three
+> with 34 authenticated REST endpoints and 11 Socket.IO handlers across three
 > broadcast topologies: unicast for direct messages, rooms for groups, global
 > emit for announcements.
 
