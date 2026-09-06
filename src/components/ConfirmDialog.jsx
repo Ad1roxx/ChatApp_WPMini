@@ -24,8 +24,14 @@ export default function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   destructive = false,
+  // Set false while a required field inside `children` is empty.
+  confirmDisabled = false,
   onConfirm,
-  onCancel
+  onCancel,
+  // Extra content between the description and the buttons — a reason field,
+  // say. Moderation actions need one, and a decision recorded without a
+  // reason is not much of a record.
+  children
 }) {
   const ref = useRef(null);
 
@@ -62,11 +68,17 @@ export default function ConfirmDialog({
       </h2>
       {description && <p className={styles.description}>{description}</p>}
 
+      {children && <div className={styles.body}>{children}</div>}
+
       <div className={styles.actions}>
         <Button variant="secondary" onClick={onCancel}>
           {cancelLabel}
         </Button>
-        <Button variant={destructive ? 'danger' : 'primary'} onClick={onConfirm}>
+        <Button
+          variant={destructive ? 'danger' : 'primary'}
+          onClick={onConfirm}
+          disabled={confirmDisabled}
+        >
           {confirmLabel}
         </Button>
       </div>

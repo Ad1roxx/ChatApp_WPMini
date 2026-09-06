@@ -56,6 +56,98 @@
   font-style: italic;
 }
 
+/* ---- Queues (verification, reports) ---- */
+.queueRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.queueRow:last-child {
+  border-bottom: none;
+}
+
+.queueHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Evidence laid out as label/value pairs rather than prose, so a reviewer can
+   scan the four fields and go straight to the link. */
+.evidence {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.evidence dt {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-subtle);
+}
+
+.evidence dd {
+  margin: 2px 0 0;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.caution {
+  font-size: var(--text-sm);
+  color: var(--color-warning);
+}
+
+/* The reported content as it was, quoted so it is visibly not the app's own
+   voice — it is somebody else's text being shown for judgement. */
+.snapshot {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-surface-sunken);
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.reportDetails {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.queueActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* A suspended account stays legible but visibly set apart from active ones. */
+.rowSuspended {
+  background-color: var(--color-danger-soft);
+}
+
 /* ---- User table ---- */
 .list {
   list-style: none;

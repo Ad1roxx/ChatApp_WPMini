@@ -7,15 +7,15 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-04 against commit `e2970f5`, plus the test suite added in
-the same session.
+Compiled 2026-09-06 against commit `4b4a7ad`, plus the moderation UI added in
+the same session. Figures counted before the commit that records them.
 
 | | |
 | --- | --- |
-| Commits | 28 |
-| Active | 2025-08-23 → 2026-09-04 |
-| Source | 6,773 lines JS/JSX |
-| Automated tests | 67, all passing |
+| Commits | 30 |
+| Active | 2025-08-23 → 2026-09-06 |
+| Source | 8,399 lines JS/JSX |
+| Automated tests | 105, all passing |
 | Deployed | No |
 
 ---
@@ -38,18 +38,18 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **6,773** lines of JavaScript/JSX across **41** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
-| **28** commits, first 2025-08-23, most recent 2026-09-04 | `git rev-list --count HEAD` — counted before the commit that adds the test suite |
-| ESLint across frontend, backend and tests: **41** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
+| **8,399** lines of JavaScript/JSX across **44** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
+| **30** commits, first 2025-08-23, most recent 2026-09-06 | `git rev-list --count HEAD` |
+| ESLint across frontend, backend and tests: **44** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
 
 ### Backend surface
 
 | Fact | Source |
 | --- | --- |
-| **16** REST endpoints, every one behind authentication; **3** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
+| **23** REST endpoints, every one behind authentication; **7** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
 | **11** Socket.IO event handlers; **15** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
-| **5** Mongoose models — User, Message, Group, GroupMessage, Announcement — with **10** index declarations, **3** of them compound | `server/models/*.js` · `grep -n "index: true\|\.index(" server/models/*.js` |
-| `server/index.js` is **1,238** lines; `server/middleware/auth.js` is **281**; the test suite is **788** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
+| **6** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report — with **18** index declarations, **6** of them compound | `server/models/*.js` · `grep -n "index: true\|\.index(" server/models/*.js` |
+| `server/index.js` is **1,573** lines; `server/middleware/auth.js` is **306**; the test suite is **1,160** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
 
 ### Authentication
 
@@ -63,19 +63,19 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **10** page components and **11** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
-| Production bundle **415.19 kB** JS (**115.12 kB** gzipped) and **38.33 kB** CSS (**7.03 kB** gzipped); build completes in about **1.4 s** | `npm run build` (Vite 5.4 output) |
+| **11** page components and **11** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
+| Production bundle **427.84 kB** JS (**118.43 kB** gzipped) and **42.55 kB** CSS (**7.45 kB** gzipped) | `npm run build` (Vite 5.4 output) |
 | Responsive at a **900 px** breakpoint: fixed sidebar above it, overlay drawer below | `src/components/AppShell.module.css`, `@media (max-width: 900px)` |
 
 ### Tests
 
 | Fact | Source |
 | --- | --- |
-| **67** integration tests across **4** files, all passing, in about **10 s** | `cd server && npm test` |
+| **105** integration tests across **5** files, all passing, in about **12 s** | `cd server && npm test` |
 | Runner is Node's built-in `node:test` — **no test-runner dependency**; the only devDependency added was `socket.io-client`, needed to drive the socket layer | `server/package.json` |
 | Tests spawn the **real server as a child process**, so they exercise config validation, the Mongo connection and the startup presence reset rather than an imported app object | `server/test/helpers/harness.js`, `start()` |
 | They run against a throwaway `chatapp_test` database dropped on teardown, so they cannot touch development data | `server/test/helpers/harness.js`, `TEST_DB` and `stop()` |
-| Coverage by area: authentication and ownership (21), admin role (22), sockets, group membership and presence (20), startup (4) | `server/test/*.test.js` |
+| Coverage by area: authentication and ownership (21), admin role (22), sockets, membership and presence (20), verification, suspension and reports (38), startup (4) | `server/test/*.test.js` |
 | A Playwright harness screenshots each route at two viewport widths and fails on an unexpected redirect or any console error | `scripts/screenshot.mjs` (108 lines) · `npm run screenshot` |
 
 ### Database
@@ -125,6 +125,18 @@ opposite rules.
 is granted only from an environment allowlist at sign-in. The role picker, the
 profile switcher, the self-service endpoint and the admin endpoint all reject
 it, so a compromised admin account cannot create further admins.
+
+**Suspension enforced at the authentication layer, not per route.** One check
+in `requireAuth` and one in the socket handshake lock a suspended account out
+of everything, because a per-route check is only as good as the route somebody
+forgets to add it to. Login is the deliberate exception, so the person can be
+shown why instead of failing blankly.
+
+**Moderation records that survive their subject.** A report stores the target
+as a type plus an id rather than a Mongoose `ref`, since it can point at four
+different collections and `refPath` would break exactly when a moderator
+deletes the reported content. A `targetSnapshot` copies the text at report
+time so the queue stays readable afterwards.
 
 **Insert-versus-update detection on an upsert.** The login upsert passes
 `includeResultMetadata` and reads `lastErrorObject.upserted` to tell a

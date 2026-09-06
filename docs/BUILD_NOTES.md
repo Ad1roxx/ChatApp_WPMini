@@ -1451,6 +1451,80 @@ user to a set).
 
 ---
 
+### Entry 19 — Verification, suspension and reports (UI)
+
+**What I built.** The screens for the three admin powers whose server side
+landed in Entry 18's commit. Split deliberately: endpoints and tests first,
+then a UI rendering an interface that was already verified.
+
+**Files added:** `src/pages/SuspendedPage.jsx` + module.
+
+**Files changed:** `AdminPage.jsx` (rewritten), `ProfilePage.jsx`,
+`UserProfilePage.jsx`, `UsersPage.jsx`, `App.jsx`, `AuthContext.jsx`,
+`Badge.jsx`, `ConfirmDialog.jsx`, `lib/roles.js`, four stylesheets.
+
+**Design decision 1 — the badge says what was actually checked.** `VerifiedBadge`
+renders for `approved` and nothing else, and its tooltip reads "an
+administrator reviewed this mentor's stated credentials". The queue itself
+carries a line in warning colour: *nothing here has been checked
+automatically; approve only what you have looked at yourself*. This is the
+same feature the earlier scoping rejected — a ✓ that certifies nothing is
+worse than no ✓ — made honest by putting a person behind it and saying so.
+
+**Design decision 2 — queues above the table.** The admin page now leads with
+mentor verification and reports, then stats, then users. A pending request is
+work waiting on you; the table is reference. The subtitle counts the two
+queues, so the page says "2 items waiting on you" or "Nothing waiting on you"
+before you read anything else.
+
+**Design decision 3 — a rejection sits above the form, not instead of it.** A
+mentor whose request was rejected sees the reviewer's note *and* the form,
+pre-filled with what they last submitted. Replacing the form with an error
+would mean retyping four fields to fix one; showing them together makes
+"update the details below" literally true.
+
+**Design decision 4 — moderation actions require a reason.** `ConfirmDialog`
+gained `children` and `confirmDisabled`, so suspending and rejecting can
+demand a written reason before the button enables. The suspension reason is
+shown to the person on the screen that replaces the app for them — a lockout
+with no explanation is the worst version of this feature. Report resolutions
+take an optional note, since "nothing to answer" is a legitimate outcome that
+needs no essay.
+
+**Design decision 5 — suspension is gated before the role picker.** In
+`App.jsx` the suspended check runs *first*. A suspended account with no role
+would otherwise be shown the first-login picker, which is both useless and
+misleading, since every request it made would be refused anyway.
+
+**A small one worth keeping:** the report control is a `ghost` button next to
+the primary Message action. Reporting should be available without being the
+second thing you notice about a person.
+
+**Verified in a browser, against a throwaway database.** Rather than seed
+demo data into the development database — the mistake recorded in Entry 16 —
+the whole app was pointed at `chatapp_test`, seeded with four users, one
+pending verification and one open report, screenshotted, and the database
+dropped afterwards. The development database was confirmed unchanged: same
+three accounts, no suspensions, no reports.
+
+What the screenshots confirmed:
+
+- The admin page renders both queues with the evidence grid, the LinkedIn
+  link, the caution line, and the snapshot quoted as somebody else's text.
+- Approving through the API made the green **✓ Verified** badge appear beside
+  the mentor's role badge in the users list.
+- The rejected branch on a mentor's own profile shows the reviewer's note in a
+  red-bordered block above a form pre-filled with the previous submission.
+- Both at desktop and mobile widths, with no console errors and no unexpected
+  redirects.
+
+**Still not covered by tests:** all of the above is frontend, and there are no
+frontend tests. The 105 server tests cover the endpoints these screens call,
+but nothing asserts that the screens call them correctly. That gap is on the
+open list.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

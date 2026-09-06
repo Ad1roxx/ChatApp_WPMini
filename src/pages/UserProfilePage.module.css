@@ -83,3 +83,23 @@
     flex: 1;
   }
 }
+
+/* Native select, styled to match the Field inputs it sits beside. Kept native
+   rather than a custom dropdown: it is keyboard- and screen-reader-correct for
+   free, and this is a five-option list, not a searchable one. */
+.select {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  min-height: 36px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  color: var(--color-text);
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+}

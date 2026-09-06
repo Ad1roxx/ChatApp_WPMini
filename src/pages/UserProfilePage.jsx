@@ -18,10 +18,13 @@ import AppShell from '../components/AppShell';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
-import { RoleBadge } from '../components/Badge';
+import { RoleBadge, VerifiedBadge } from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import { PageLoader } from '../components/Loading';
 import { ProfileIcon } from '../components/Icons';
+import { Field, Textarea } from '../components/Field';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useToast } from '../components/Toast';
 import { canMentor } from '../lib/roles';
 import styles from './UserProfilePage.module.css';
 
@@ -29,8 +32,15 @@ export default function UserProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { dbUser, socket, authFetch } = useAuth();
+  const toast = useToast();
 
   const [profile, setProfile] = useState(null);
+
+  // Report dialog
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('harassment');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reporting, setReporting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -86,6 +96,42 @@ export default function UserProfilePage() {
     return () => socket.off('user-status-change', handleStatusChange);
   }, [socket, userId]);
 
+  /**
+   * File a report about this person.
+   *
+   * The server snapshots what it is about, refuses self-reports, and refuses
+   * a second OPEN report from the same person about the same target — so a
+   * repeated click gets a clear 409 rather than burying the admin queue.
+   */
+  const submitReport = async () => {
+    setReporting(true);
+
+    try {
+      const res = await authFetch('/api/reports', {
+        method: 'POST',
+        body: JSON.stringify({
+          targetType: 'user',
+          targetId: profile._id,
+          reason: reportReason,
+          details: reportDetails
+        })
+      });
+
+      if (res.ok) {
+        toast.success('Reported. An administrator will review it.');
+        setReportOpen(false);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error || 'Could not file that report');
+      }
+    } catch (err) {
+      console.error('Error filing report:', err);
+      toast.error('Could not reach the server');
+    } finally {
+      setReporting(false);
+    }
+  };
+
   if (loading) {
     return <PageLoader label="Loading profile" />;
   }
@@ -128,6 +174,7 @@ export default function UserProfilePage() {
             <p className={styles.email}>{profile.email}</p>
             <div className={styles.badges}>
               <RoleBadge role={profile.role} />
+              <VerifiedBadge user={profile} />
               <span className={styles.status}>
                 {profile.isOnline ? 'Online now' : 'Offline'}
               </span>
@@ -141,9 +188,23 @@ export default function UserProfilePage() {
               Edit my profile
             </Button>
           ) : (
-            <Button variant="primary" onClick={() => navigate(`/chat/${profile._id}`)}>
-              Message {firstName}
-            </Button>
+            <>
+              <Button variant="primary" onClick={() => navigate(`/chat/${profile._id}`)}>
+                Message {firstName}
+              </Button>
+              {/* Quiet by design. Reporting should be available without being
+                  the second thing you notice about a person. */}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setReportReason('harassment');
+                  setReportDetails('');
+                  setReportOpen(true);
+                }}
+              >
+                Report
+              </Button>
+            </>
           )}
         </div>
       </Card>
@@ -185,6 +246,40 @@ export default function UserProfilePage() {
           </dl>
         </Card>
       )}
+      <ConfirmDialog
+        open={reportOpen}
+        title={`Report ${profile.displayName}?`}
+        description="An administrator will see this along with a copy of the profile. Reports are kept whether or not action is taken."
+        confirmLabel={reporting ? 'Sending…' : 'Send report'}
+        destructive
+        confirmDisabled={reporting}
+        onConfirm={submitReport}
+        onCancel={() => setReportOpen(false)}
+      >
+        <Field label="Reason">
+          <select
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            className={styles.select}
+          >
+            <option value="harassment">Harassment</option>
+            <option value="spam">Spam</option>
+            <option value="inappropriate">Inappropriate content</option>
+            <option value="impersonation">Impersonation</option>
+            <option value="other">Something else</option>
+          </select>
+        </Field>
+
+        <Field label="Anything else?" hint="Optional">
+          <Textarea
+            value={reportDetails}
+            onChange={(e) => setReportDetails(e.target.value)}
+            placeholder="What happened, and where"
+            maxLength={1000}
+            rows={3}
+          />
+        </Field>
+      </ConfirmDialog>
     </AppShell>
   );
 }

@@ -24,7 +24,10 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Group chat | Create, join, and chat with typing indicators |
 | Announcements | Mentors broadcast, everyone reads |
 | Student / mentor roles | Chosen at first login, changeable from your profile |
-| Admin dashboard | Live platform stats and role management, admins only |
+| Admin dashboard | Live platform stats, role management, verification and moderation |
+| Mentor verification | Mentors submit credentials; an admin approves before the badge appears |
+| Suspension | Admins can suspend an account; it is locked out of REST and sockets |
+| Reports | Anyone can report a user or content; admins resolve or dismiss |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
@@ -83,7 +86,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 67 integration tests against a throwaway database |
+| `npm test` | 105 integration tests against a throwaway database |
 
 ---
 
@@ -112,8 +115,9 @@ src/
     AnnouncementsPage.jsx    the feed; compose box for mentors
     ProfilePage.jsx          your own profile + role switcher
     UserProfilePage.jsx      someone else's profile (read-only)
-    AdminPage.jsx            platform stats + role management (admins)
-  lib/roles.js               canMentor / isAdmin — for rendering only
+    AdminPage.jsx            stats, verification queue, reports, users
+    SuspendedPage.jsx        shown instead of the app to a suspended account
+  lib/roles.js               canMentor / isAdmin / isVerified — rendering only
 
 server/
   index.js                   Express routes + all Socket.IO handlers
@@ -124,6 +128,7 @@ server/
     auth.test.js             identity, ownership, role gates
     admin.test.js            admin role and dashboard endpoints
     realtime.test.js         socket identity, membership, presence
+    moderation.test.js       verification, suspension, reports
     startup.test.js          stale-presence reset on boot
   models/
     User.js                  identity, presence, role, profile fields
@@ -131,6 +136,7 @@ server/
     Group.js                 group + members
     GroupMessage.js          group messages
     Announcement.js          mentor broadcasts
+    Report.js                moderation reports
 
 docs/
   BUILD_NOTES.md             running log: what was built and why
@@ -158,6 +164,13 @@ docs/
 | GET | `/api/admin/stats` | **Admins only** — live platform counts |
 | GET | `/api/admin/users` | **Admins only** |
 | PATCH | `/api/admin/users/:id/role` | **Admins only** — cannot grant admin |
+| POST | `/api/verification` | **Mentors only** — submit credentials for review |
+| GET | `/api/admin/verifications` | **Admins only** — the review queue |
+| PATCH | `/api/admin/verifications/:userId` | **Admins only** — approve or reject |
+| PATCH | `/api/admin/users/:id/suspend` | **Admins only** — suspend or restore |
+| POST | `/api/reports` | Report a user or a message |
+| GET | `/api/admin/reports` | **Admins only** — the moderation queue |
+| PATCH | `/api/admin/reports/:id` | **Admins only** — resolve or dismiss |
 
 ## Socket.IO events
 
@@ -193,6 +206,13 @@ What is actually enforced, since a chat app with roles invites the question:
 - **Group membership.** Both `join-group` and `send-group-message` check
   membership, as does the REST history endpoint. Joining a room you don't
   belong to is refused.
+- **Suspension.** Checked once in `requireAuth` and the socket handshake, not
+  per route, so there is no endpoint left open by omission. Suspending also
+  disconnects any live socket immediately. Sign-in still succeeds, so the
+  person can be shown why rather than failing blankly.
+- **Verification.** The ✓ badge means an administrator reviewed the submitted
+  evidence — nothing more, and it cannot be self-assigned. Only a *pending*
+  request can be decided, so one admin cannot silently overturn another.
 
 No service-account key is needed: verifying an ID token only requires Google's
 public certificates. Set `FIREBASE_PROJECT_ID` and the server runs.

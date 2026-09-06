@@ -95,6 +95,50 @@
   line-height: var(--leading-relaxed);
 }
 
+/* ---- Verification ---- */
+.verifyState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.verifyNote {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* A rejection sits above the form rather than replacing it, so the note and
+   the fields being corrected are visible at the same time. */
+.rejected {
+  padding: var(--space-4);
+  background-color: var(--color-danger-soft);
+  border: 1px solid #fecaca;
+  border-left: 3px solid var(--color-danger);
+  border-radius: var(--radius-lg);
+}
+
+.rejectedTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-danger);
+}
+
+.rejectedNote {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+}
+
+.rejectedHint {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 /* ---- Form ---- */
 .form {
   display: flex;

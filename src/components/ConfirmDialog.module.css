@@ -38,6 +38,10 @@
   color: var(--color-text-muted);
 }
 
+.body {
+  margin-top: var(--space-4);
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

@@ -17,7 +17,7 @@ import AppShell from '../components/AppShell';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
-import { RoleBadge } from '../components/Badge';
+import Badge, { RoleBadge, VerifiedBadge } from '../components/Badge';
 import { Field, Input, Textarea } from '../components/Field';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
@@ -31,7 +31,7 @@ const ROLES = [
 ];
 
 export default function ProfilePage() {
-  const { dbUser, updateProfile, chooseRole } = useAuth();
+  const { dbUser, updateProfile, chooseRole, submitVerification } = useAuth();
   const toast = useToast();
 
   const isMentor = canMentor(dbUser?.role);
@@ -46,6 +46,15 @@ export default function ProfilePage() {
   // Which role the confirm dialog is asking about (null = closed)
   const [pendingRole, setPendingRole] = useState(null);
 
+  // Verification form. Missing on accounts created before the feature, so
+  // every read is optional-chained and falls back to 'unverified'.
+  const verificationStatus = dbUser?.verification?.status || 'unverified';
+  const [company, setCompany] = useState('');
+  const [title, setTitle] = useState('');
+  const [yearsExperience, setYearsExperience] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
   /**
    * Seed the form from dbUser. Runs again after a save (dbUser is replaced
    * with the server's response), which simply re-confirms the saved values.
@@ -55,6 +64,14 @@ export default function ProfilePage() {
     setBio(dbUser.bio || '');
     setExpertise(dbUser.expertise || '');
     setAvailability(dbUser.availability || '');
+
+    // Pre-fill the verification form from the last attempt, so correcting a
+    // rejection means editing what was sent rather than retyping it.
+    const v = dbUser.verification || {};
+    setCompany(v.company || '');
+    setTitle(v.title || '');
+    setYearsExperience(v.yearsExperience == null ? '' : String(v.yearsExperience));
+    setLinkedinUrl(v.linkedinUrl || '');
   }, [dbUser]);
 
   /**
@@ -78,6 +95,31 @@ export default function ProfilePage() {
       toast.success(`You are now a ${newRole}.`);
     } else {
       toast.error('Could not change your role. Please try again.');
+    }
+  };
+
+  /**
+   * Send credentials for review. The server re-checks that the caller is a
+   * mentor and that they are not already approved.
+   */
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    setVerifying(true);
+
+    const { ok, error } = await submitVerification({
+      company,
+      title,
+      // The input is a string; '' must become null rather than 0.
+      yearsExperience: yearsExperience === '' ? null : Number(yearsExperience),
+      linkedinUrl
+    });
+
+    setVerifying(false);
+
+    if (ok) {
+      toast.success('Sent for review');
+    } else {
+      toast.error(error || 'Could not submit for review');
     }
   };
 
@@ -162,6 +204,111 @@ export default function ProfilePage() {
           })}
         </div>
       </Card>
+      )}
+
+      {/*
+        Verification — mentors and admins only; there is nothing for a student
+        to be verified as. The badge this earns means "an administrator checked
+        the evidence below", which is why the form says so plainly rather than
+        implying a background check happened.
+      */}
+      {isMentor && (
+        <Card
+          title="Verification"
+          subtitle="Reviewed by an administrator before the badge appears"
+        >
+          {verificationStatus === 'approved' ? (
+            <div className={styles.verifyState}>
+              <VerifiedBadge user={dbUser} />
+              <p className={styles.verifyNote}>
+                Approved as <strong>{dbUser.verification.title}</strong> at{' '}
+                <strong>{dbUser.verification.company}</strong>. To change these
+                details, ask an administrator.
+              </p>
+            </div>
+          ) : verificationStatus === 'pending' ? (
+            <div className={styles.verifyState}>
+              <Badge variant="warning">Awaiting review</Badge>
+              <p className={styles.verifyNote}>
+                Submitted as {dbUser.verification.title} at{' '}
+                {dbUser.verification.company}. An administrator will review it.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleVerify} className={styles.form}>
+              {/* A rejection is shown above the form, not instead of it, so the
+                  note and the fields being corrected are visible together. */}
+              {verificationStatus === 'rejected' && (
+                <div className={styles.rejected}>
+                  <p className={styles.rejectedTitle}>Not approved</p>
+                  {dbUser.verification.reviewNote && (
+                    <p className={styles.rejectedNote}>
+                      {dbUser.verification.reviewNote}
+                    </p>
+                  )}
+                  <p className={styles.rejectedHint}>
+                    Update the details below and submit again.
+                  </p>
+                </div>
+              )}
+
+              <Field label="Company or organisation">
+                <Input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="e.g. Infosys, or your college"
+                  maxLength={120}
+                />
+              </Field>
+
+              <Field label="Your title">
+                <Input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Senior Software Engineer"
+                  maxLength={120}
+                />
+              </Field>
+
+              <Field label="Years of experience" hint="Optional">
+                <Input
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={yearsExperience}
+                  onChange={(e) => setYearsExperience(e.target.value)}
+                  placeholder="e.g. 8"
+                />
+              </Field>
+
+              <Field
+                label="LinkedIn profile"
+                hint="Optional, but it is the main thing a reviewer can check"
+              >
+                <Input
+                  type="url"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  placeholder="https://linkedin.com/in/…"
+                  maxLength={300}
+                />
+              </Field>
+
+              <div className={styles.formActions}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={verifying}
+                  disabled={!company.trim() || !title.trim()}
+                >
+                  {verifying ? 'Submitting' : 'Submit for review'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Card>
       )}
 
       {/* Editable profile */}

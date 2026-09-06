@@ -6,7 +6,7 @@
  * inline versions. One definition, one appearance.
  */
 
-import { roleLabel } from '../lib/roles';
+import { isVerified, roleLabel } from '../lib/roles';
 import styles from './Badge.module.css';
 
 export default function Badge({ variant = 'neutral', className = '', children, ...rest }) {
@@ -38,6 +38,28 @@ export function RoleBadge({ role, className = '' }) {
   return (
     <Badge variant={variant} className={className}>
       {label}
+    </Badge>
+  );
+}
+
+/**
+ * Shown only when an administrator has approved the mentor's credentials.
+ *
+ * The wording of the tooltip matters as much as the tick: it says what was
+ * actually checked. A badge that implies more verification than happened is
+ * worse than no badge — which is why this renders for `approved` alone, and
+ * never for a self-declared anything.
+ */
+export function VerifiedBadge({ user, className = '' }) {
+  if (!isVerified(user)) return null;
+
+  return (
+    <Badge
+      variant="success"
+      className={className}
+      title="An administrator reviewed this mentor's stated credentials"
+    >
+      <span aria-hidden="true">✓</span> Verified
     </Badge>
   );
 }

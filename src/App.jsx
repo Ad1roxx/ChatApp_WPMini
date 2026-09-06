@@ -26,6 +26,7 @@ import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import AdminPage from "./pages/AdminPage";
+import SuspendedPage from "./pages/SuspendedPage";
 import { PageLoader } from "./components/Loading";
 
 function App() {
@@ -37,6 +38,13 @@ function App() {
   // Without this, user would briefly see login page even if logged in
   if (loading) {
     return <PageLoader label="Signing you in" />;
+  }
+
+  // Suspension comes FIRST, before the role gate. A suspended account with no
+  // role would otherwise be shown the role picker, which is both useless and
+  // misleading — every request it made would be refused anyway.
+  if (user && dbUser?.suspended) {
+    return <SuspendedPage />;
   }
 
   // First-login role selection. A signed-in user whose account has no role

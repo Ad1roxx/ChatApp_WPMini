@@ -33,3 +33,20 @@ export function roleLabel(role) {
   if (role === 'student') return 'Student';
   return null;
 }
+
+/**
+ * Has an administrator approved this mentor's credentials?
+ *
+ * Takes the whole user rather than a status string, because callers have the
+ * user and the field is nested — and because a missing `verification` object
+ * (every account created before the feature) must read as "no", not crash.
+ */
+export const isVerified = (user) => user?.verification?.status === 'approved';
+
+/** Human wording for a verification state, or null when nothing to say. */
+export function verificationLabel(status) {
+  if (status === 'approved') return 'Verified';
+  if (status === 'pending') return 'Awaiting review';
+  if (status === 'rejected') return 'Not approved';
+  return null;
+}

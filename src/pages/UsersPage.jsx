@@ -22,7 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
-import { RoleBadge } from '../components/Badge';
+import { RoleBadge, VerifiedBadge } from '../components/Badge';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import { InlineLoader } from '../components/Loading';
@@ -193,6 +193,7 @@ export default function UsersPage() {
                       <span className={styles.rowName}>
                         {user.displayName}
                         <RoleBadge role={user.role} />
+                        <VerifiedBadge user={user} />
                       </span>
                       <span className={styles.rowStatus}>
                         {isOnline ? 'Online' : 'Offline'}

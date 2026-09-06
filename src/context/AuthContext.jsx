@@ -364,6 +364,39 @@ export function AuthProvider({ children }) {
     }
   };
 
+  /**
+   * Submit credentials for an administrator to review.
+   *
+   * Goes through the context rather than being called from the page directly
+   * so `dbUser` picks up the new verification state — the badge and the
+   * status shown on the profile both read from it, and a stale copy would
+   * leave a mentor staring at a form they had just submitted.
+   *
+   * Resolves to `{ ok, error }` rather than a boolean, because a rejection
+   * here has a reason the user needs to see ("You are already verified").
+   */
+  const submitVerification = async (fields) => {
+    if (!dbUser) return { ok: false, error: 'Not signed in' };
+
+    try {
+      const response = await authFetch('/api/verification', {
+        method: 'POST',
+        body: JSON.stringify(fields)
+      });
+
+      if (response.ok) {
+        setDbUser(await response.json());
+        return { ok: true };
+      }
+
+      const body = await response.json().catch(() => ({}));
+      return { ok: false, error: body.error || 'Could not submit' };
+    } catch (err) {
+      console.error('Error submitting verification:', err);
+      return { ok: false, error: 'Could not reach the server' };
+    }
+  };
+
   // The value object that will be available to all children
   const value = {
     user,       // Firebase user (has uid, email from Google)
@@ -374,6 +407,7 @@ export function AuthProvider({ children }) {
     authFetch,     // Authenticated fetch — the only way to call the server
     chooseRole,    // Set role at first login, or change it later
     updateProfile, // Save profile fields (bio / expertise / availability)
+    submitVerification, // Send credentials for admin review
     SERVER_URL     // Kept for anything that needs the raw origin
   };
 
