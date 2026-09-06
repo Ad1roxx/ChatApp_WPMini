@@ -1615,6 +1615,92 @@ users and zero mentorships.
 
 ---
 
+### Entry 21 — Goals and milestones
+
+**What I built.** The first thing in the app that produces *progress* — a
+number that means something. A mentor sets what the student is working
+towards, breaks it into milestones, and either party ticks them off.
+
+**Files added:** `server/models/Goal.js`, `src/components/Progress.jsx` +
+module, `src/pages/MentorshipDetailPage.jsx` + module.
+
+**Files changed:** `server/index.js` (four endpoints), `App.jsx`,
+`MentorshipsPage.jsx`.
+
+**Design decision 1 — a goal belongs to a mentorship, not to a person.** This
+is the whole reason the relationship had to exist first. *"Priya's goals"* is
+ambiguous the moment she has two mentors; *"the goals of this mentorship"*
+never is. It also gives every later feature — sessions, analytics, a health
+score — an unambiguous thing to aggregate over.
+
+**Design decision 2 — status is derived, and deliberately so.** `active` and
+`completed` are recomputed from the milestones every time one is toggled, by
+an explicit `refreshStatus()` call rather than a Mongoose hook. A hook doing
+it invisibly is exactly how a status ends up disagreeing with the data it
+summarises; a method makes it visible at the call site that the value is being
+derived rather than set.
+
+`archived` is the one status a person sets, because "we are not doing this any
+more" is not something the milestones can imply. Un-archiving hands the status
+back to the milestones rather than guessing at `active` — the goal may well be
+finished.
+
+**The 0-of-0 case is handled explicitly:** a goal with no milestones is never
+complete. `done === total` would be true for `0 === 0`, and 100% on an empty
+goal is a lie.
+
+**Design decision 3 — asymmetric permissions, which is the point of the
+feature.** Only the **mentor** may create or edit a goal; **either** party may
+tick a milestone. The student does the work and reports it; the mentor can
+correct a mistake without having to ask. `doneBy` records which of them it
+was, so "the student says it's done" stays distinguishable from "the mentor
+confirmed it". Letting the student set their own goals would make the mentor's
+part decorative.
+
+**Design decision 4 — milestones are embedded.** They are only ever read as
+part of their goal, they are few, and a milestone without its goal is
+meaningless. Mongoose still gives each subdocument an `_id`, so the toggle
+route addresses one directly rather than by array index — which would break
+the moment a milestone was inserted or removed. *Tradeoff, recorded in the
+model:* you cannot query across all milestones ("everything due this week")
+without unwinding. If scheduling later needs that, this becomes its own
+collection.
+
+**A small shared piece.** `Progress` takes `done` and `total` rather than a
+percentage, because only the raw counts let it tell 0-of-0 from 0-of-4. It is
+a real `progressbar` to assistive technology with a label naming what is being
+measured — a bare percentage announced alone tells a screen-reader user
+nothing. The fill is the accent while in progress and green only once
+finished, so the colour change carries information rather than decorating.
+
+**The screen this produced.** `/mentorships/:id` is the closest thing the app
+has to a signature view: the other person, overall progress across every live
+goal, then each goal with its own meter and checkable milestones. Overall
+progress counts *milestones*, not goals, so one finished goal out of four does
+not read as "done".
+
+**Verified by hand — 9 checks.** The student trying to set a goal → **403
+"Only the mentor can set goals"**; a goal with no title → **400**; the mentor
+setting one → **200**. Then the derived status, which is the part worth
+proving: the **student** ticking two milestones → allowed, status stays
+`active`; an unrelated third party ticking one → **403**; the **mentor**
+ticking the third → `active` at 3/4; the fourth → status flips itself to
+**`completed`** with `completedAt` set; un-ticking one → back to **`active`**
+with `completedAt` cleared again.
+
+Then screenshotted as the mentor with two goals at 3/4 and 0/4, showing
+overall progress at 3 of 8.
+
+**Not in the test suite.** Same as Entry 20 — these 9 checks were run by hand
+and not committed, because tests were deferred to one pass at the end of this
+batch. Mentorships and goals are now the only two server features without
+coverage.
+
+**The development database was never touched.** Everything ran against
+`chatapp_test`, dropped afterwards.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -1639,13 +1725,14 @@ users and zero mentorships.
 - **No frontend tests** — the 105 cover the server. React components are only
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour.
-- **Mentorship endpoints are not in the test suite** — verified by hand in
-  Entry 20 with 14 HTTP checks that were not committed. The only server
-  feature without coverage.
-- **Goals & milestones** — the next thing the mentorship model unblocks, and
-  the feature that makes the app visibly more than a chat app.
+- **Mentorship and goal endpoints are not in the test suite** — verified by
+  hand in Entries 20 and 21 (14 and 9 checks) that were not committed. The
+  only two server features without coverage, deferred to one test pass.
+- ~~**Goals & milestones**~~ — done in Entry 21.
 - **Scheduling, analytics, achievements** — were blocked on the mentorship
-  model, which now exists. No longer blocked, just not built.
+  model and goals, both of which now exist. No longer blocked, just not built.
+  Analytics in particular now has real data to read: goal completion per
+  mentorship.
 - **No rate limiting** — a signed-in client can flood messages or announcements.
 - **Pagination built but unused** — `?limit` / `?before` exist on the group
   history endpoint; no page calls them.

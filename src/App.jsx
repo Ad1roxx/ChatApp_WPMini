@@ -28,6 +28,7 @@ import AnnouncementsPage from "./pages/AnnouncementsPage";
 import AdminPage from "./pages/AdminPage";
 import SuspendedPage from "./pages/SuspendedPage";
 import MentorshipsPage from "./pages/MentorshipsPage";
+import MentorshipDetailPage from "./pages/MentorshipDetailPage";
 import { PageLoader } from "./components/Loading";
 
 function App() {
@@ -103,6 +104,13 @@ function App() {
         <Route
           path="/mentorships"
           element={user ? <MentorshipsPage /> : <Navigate to="/login" />}
+        />
+
+        {/* One mentorship and its goals. Declared after the static
+            /mentorships, which React Router matches first. */}
+        <Route
+          path="/mentorships/:id"
+          element={user ? <MentorshipDetailPage /> : <Navigate to="/login" />}
         />
 
         {/* Admin dashboard - protected route.

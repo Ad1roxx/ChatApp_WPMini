@@ -248,6 +248,13 @@ export default function MentorshipsPage() {
               <ul className={styles.list}>
                 {myMentors.map((m) => (
                   <Person key={m._id} user={m.mentor} topic={m.topic}>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => navigate(`/mentorships/${m._id}`)}
+                    >
+                      Open
+                    </Button>
                     <Button size="sm" onClick={() => navigate(`/chat/${m.mentor._id}`)}>
                       Message
                     </Button>
@@ -273,6 +280,13 @@ export default function MentorshipsPage() {
               <ul className={styles.list}>
                 {myStudents.map((m) => (
                   <Person key={m._id} user={m.student} topic={m.topic}>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => navigate(`/mentorships/${m._id}`)}
+                    >
+                      Open
+                    </Button>
                     <Button size="sm" onClick={() => navigate(`/chat/${m.student._id}`)}>
                       Message
                     </Button>

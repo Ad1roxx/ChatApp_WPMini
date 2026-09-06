@@ -7,14 +7,14 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-06 against commit `e8b3f54`, plus the mentorship model added
+Compiled 2026-09-06 against commit `909c1b2`, plus goals and milestones added
 in the same session. Figures counted before the commit that records them.
 
 | | |
 | --- | --- |
-| Commits | 31 |
+| Commits | 32 |
 | Active | 2025-08-23 → 2026-09-06 |
-| Source | 9,186 lines JS/JSX |
+| Source | 10,058 lines JS/JSX |
 | Automated tests | 105, all passing |
 | Deployed | No |
 
@@ -38,18 +38,18 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **9,186** lines of JavaScript/JSX across **46** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
-| **31** commits, first 2025-08-23, most recent 2026-09-06 | `git rev-list --count HEAD` |
-| ESLint across frontend, backend and tests: **46** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
+| **10,058** lines of JavaScript/JSX across **49** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
+| **32** commits, first 2025-08-23, most recent 2026-09-06 | `git rev-list --count HEAD` |
+| ESLint across frontend, backend and tests: **49** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
 
 ### Backend surface
 
 | Fact | Source |
 | --- | --- |
-| **26** REST endpoints, every one behind authentication; **7** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
+| **30** REST endpoints, every one behind authentication; **7** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
 | **11** Socket.IO event handlers; **15** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
-| **7** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship — with **24** index declarations, **8** of them compound | `server/models/*.js` · `grep -n "index: true\|\.index(" server/models/*.js` |
-| `server/index.js` is **1,764** lines; `server/middleware/auth.js` is **306**; the test suite is **1,160** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
+| **8** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal — with **27** index declarations, **9** of them compound | `server/models/*.js` · `grep -n "index: true\|\.index(" server/models/*.js` |
+| `server/index.js` is **2,021** lines; `server/middleware/auth.js` is **306**; the test suite is **1,160** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
 
 ### Authentication
 
@@ -63,8 +63,8 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **12** page components and **11** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
-| Production bundle **436.06 kB** JS (**120.41 kB** gzipped) and **44.21 kB** CSS (**7.61 kB** gzipped) | `npm run build` (Vite 5.4 output) |
+| **13** page components and **12** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
+| Production bundle **443.65 kB** JS (**122.41 kB** gzipped) and **46.54 kB** CSS (**7.98 kB** gzipped) | `npm run build` (Vite 5.4 output) |
 | Responsive at a **900 px** breakpoint: fixed sidebar above it, overlay drawer below | `src/components/AppShell.module.css`, `@media (max-width: 900px)` |
 
 ### Tests
@@ -145,6 +145,26 @@ who asked whom and what was answered stays intact. Who may make each move
 differs: only the mentor can accept or decline, but *either* party can end an
 active mentorship without the other's agreement.
 
+**Goals belong to a mentorship, not to a person.** "Priya's goals" is
+ambiguous the moment she has two mentors; "the goals of this mentorship" never
+is. Milestones are embedded subdocuments rather than their own collection —
+they are only read as part of their goal and have no independent life — and
+Mongoose still gives each an `_id`, so the toggle route can address one
+directly.
+
+**Goal status is derived, never stored independently.** `active` and
+`completed` are recomputed from the milestones on every change, so the summary
+can never disagree with the data underneath it. `archived` is the one status a
+person sets, because "we are not doing this any more" is not something the
+milestones can imply. A goal with no milestones is never complete — 0 of 0
+reading as 100% would be a lie.
+
+**The goal permissions are asymmetric on purpose.** Only the mentor may set or
+edit a goal; *either* party may tick a milestone. The student does the work
+and reports it, the mentor can correct a mistake without asking, and `doneBy`
+records which of them it was — so "the student says it's done" stays
+distinguishable from "the mentor confirmed it".
+
 **Insert-versus-update detection on an upsert.** The login upsert passes
 `includeResultMetadata` and reads `lastErrorObject.upserted` to tell a
 first-ever sign-in from a returning one, which drives a "new user" broadcast
@@ -191,11 +211,11 @@ No Python, notebooks, datasets or ML components exist in this repository.
 - **No frontend tests.** The 105 tests cover the server. React components are
   checked only by the Playwright screenshot harness, which catches render
   failures and console errors but asserts nothing about behaviour.
-- **The mentorship endpoints are not yet in the test suite.** They were
-  verified by hand — 14 HTTP checks covering the happy path, the duplicate
-  guard, self-request, non-mentor targets, who may accept or decline, who may
-  end, and re-requesting after an end — but those checks were not committed.
-  Every other server feature is covered; this one is the exception.
+- **The mentorship and goal endpoints are not yet in the test suite.** Both
+  were verified by hand — 14 HTTP checks on mentorships and 9 on goals,
+  covering permissions, the duplicate guard and the derived status — but those
+  checks were not committed. Every other server feature is covered; these two
+  are the exception, deferred deliberately to a single test pass.
 - **Never deployed.** No Dockerfile, Procfile, or Vercel, Netlify, Render or Fly
   configuration. It runs on localhost only.
 - **No rate limiting.** A signed-in client can flood messages or announcements

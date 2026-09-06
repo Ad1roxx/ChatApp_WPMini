@@ -29,6 +29,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Suspension | Admins can suspend an account; it is locked out of REST and sockets |
 | Reports | Anyone can report a user or content; admins resolve or dismiss |
 | Mentorships | Request → accept/decline → active → ended, with both sides on one page |
+| Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
@@ -118,6 +119,7 @@ src/
     UserProfilePage.jsx      someone else's profile (read-only)
     AdminPage.jsx            stats, verification queue, reports, users
     MentorshipsPage.jsx      requests, your mentors, your students, past
+    MentorshipDetailPage.jsx one relationship and its goals
     SuspendedPage.jsx        shown instead of the app to a suspended account
   lib/roles.js               canMentor / isAdmin / isVerified — rendering only
 
@@ -140,6 +142,7 @@ server/
     Announcement.js          mentor broadcasts
     Report.js                moderation reports
     Mentorship.js            the student–mentor relationship
+    Goal.js                  goals with embedded milestones
 
 docs/
   BUILD_NOTES.md             running log: what was built and why
@@ -177,6 +180,10 @@ docs/
 | POST | `/api/mentorships` | Ask someone to mentor you |
 | GET | `/api/mentorships` | Yours, on either side (`?status=` to filter) |
 | PATCH | `/api/mentorships/:id` | accept / decline (mentor) · end (either party) |
+| GET | `/api/mentorships/:id/goals` | Goals of one mentorship (either party) |
+| POST | `/api/mentorships/:id/goals` | **Mentor only** — set a goal |
+| PATCH | `/api/goals/:goalId` | **Mentor only** — edit or archive |
+| PATCH | `/api/goals/:goalId/milestones/:milestoneId` | Tick a milestone (either party) |
 
 ## Socket.IO events
 

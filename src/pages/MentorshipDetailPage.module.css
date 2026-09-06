@@ -1,0 +1,111 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.headerText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.name {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  letter-spacing: -0.015em;
+  border-radius: var(--radius-sm);
+}
+
+.name:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.relation {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.overall {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ---- New goal form ---- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---- Milestones ---- */
+.milestones {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-4) 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.milestone {
+  border-top: 1px solid var(--color-border);
+}
+
+/* The whole row is the label, so clicking anywhere on the text toggles it —
+   a 14px checkbox is a poor target on a phone. */
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-1);
+  cursor: pointer;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  line-height: var(--leading-normal);
+}
+
+.check:hover {
+  color: var(--color-accent);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.checkbox:disabled {
+  cursor: not-allowed;
+}
+
+/* Struck through AND dimmed: the strike alone is easy to miss at a glance,
+   and colour alone would not survive a greyscale print. */
+.doneText {
+  text-decoration: line-through;
+  color: var(--color-text-subtle);
+}
+
+/* An archived goal stays readable but recedes — it is history, not work. */
+.archivedCard {
+  opacity: 0.72;
+}
