@@ -22,7 +22,7 @@ import { RoleBadge, VerifiedBadge } from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import { PageLoader } from '../components/Loading';
 import { ProfileIcon } from '../components/Icons';
-import { Field, Textarea } from '../components/Field';
+import { Field, Input, Textarea } from '../components/Field';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { canMentor } from '../lib/roles';
@@ -35,6 +35,12 @@ export default function UserProfilePage() {
   const toast = useToast();
 
   const [profile, setProfile] = useState(null);
+
+  // Mentorship request dialog
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [topic, setTopic] = useState('');
+  const [requestMessage, setRequestMessage] = useState('');
+  const [requesting, setRequesting] = useState(false);
 
   // Report dialog
   const [reportOpen, setReportOpen] = useState(false);
@@ -132,6 +138,44 @@ export default function UserProfilePage() {
     }
   };
 
+  /**
+   * Ask this person to mentor you.
+   *
+   * The server decides everything that matters: that they can actually
+   * mentor, that they are not suspended, that you are not asking yourself,
+   * and that you have no live request with them already. The button is only
+   * hidden for the cases the UI can see cheaply.
+   */
+  const requestMentorship = async () => {
+    setRequesting(true);
+
+    try {
+      const res = await authFetch('/api/mentorships', {
+        method: 'POST',
+        body: JSON.stringify({
+          mentorId: profile._id,
+          topic,
+          message: requestMessage
+        })
+      });
+
+      if (res.ok) {
+        toast.success(`Request sent to ${profile.displayName}.`);
+        setRequestOpen(false);
+        setTopic('');
+        setRequestMessage('');
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error || 'Could not send that request');
+      }
+    } catch (err) {
+      console.error('Error requesting mentorship:', err);
+      toast.error('Could not reach the server');
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   if (loading) {
     return <PageLoader label="Loading profile" />;
   }
@@ -192,6 +236,20 @@ export default function UserProfilePage() {
               <Button variant="primary" onClick={() => navigate(`/chat/${profile._id}`)}>
                 Message {firstName}
               </Button>
+              {/* Only offered for people who can actually mentor. The server
+                  refuses the rest, so this is convenience, not the rule. */}
+              {isMentor && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setTopic('');
+                    setRequestMessage('');
+                    setRequestOpen(true);
+                  }}
+                >
+                  Request mentorship
+                </Button>
+              )}
               {/* Quiet by design. Reporting should be available without being
                   the second thing you notice about a person. */}
               <Button
@@ -275,6 +333,40 @@ export default function UserProfilePage() {
             value={reportDetails}
             onChange={(e) => setReportDetails(e.target.value)}
             placeholder="What happened, and where"
+            maxLength={1000}
+            rows={3}
+          />
+        </Field>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={requestOpen}
+        title={`Ask ${profile.displayName} to mentor you?`}
+        description="They will see your topic and note, and can accept or decline."
+        confirmLabel={requesting ? 'Sending…' : 'Send request'}
+        confirmDisabled={requesting || !topic.trim()}
+        onConfirm={requestMentorship}
+        onCancel={() => setRequestOpen(false)}
+      >
+        <Field
+          label="What do you want help with?"
+          hint="Required — it is what they decide on"
+        >
+          <Input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="e.g. Backend interview preparation"
+            maxLength={120}
+            autoFocus
+          />
+        </Field>
+
+        <Field label="Anything else?" hint="Optional">
+          <Textarea
+            value={requestMessage}
+            onChange={(e) => setRequestMessage(e.target.value)}
+            placeholder="Where you are now, and what you are hoping to get out of it"
             maxLength={1000}
             rows={3}
           />

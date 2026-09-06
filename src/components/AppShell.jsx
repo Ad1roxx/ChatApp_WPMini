@@ -28,6 +28,7 @@ import { RoleBadge } from './Badge';
 import {
   AnnouncementIcon,
   ChevronLeftIcon,
+  HandshakeIcon,
   CloseIcon,
   GroupsIcon,
   LogOutIcon,
@@ -47,6 +48,7 @@ const NAV_SECTIONS = [
     label: null,
     items: [
       { to: '/users', label: 'Messages', icon: MessagesIcon },
+      { to: '/mentorships', label: 'Mentorship', icon: HandshakeIcon },
       { to: '/groups', label: 'Groups', icon: GroupsIcon },
       { to: '/announcements', label: 'Announcements', icon: AnnouncementIcon }
     ]

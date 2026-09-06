@@ -7,14 +7,14 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-06 against commit `4b4a7ad`, plus the moderation UI added in
-the same session. Figures counted before the commit that records them.
+Compiled 2026-09-06 against commit `e8b3f54`, plus the mentorship model added
+in the same session. Figures counted before the commit that records them.
 
 | | |
 | --- | --- |
-| Commits | 30 |
+| Commits | 31 |
 | Active | 2025-08-23 → 2026-09-06 |
-| Source | 8,399 lines JS/JSX |
+| Source | 9,186 lines JS/JSX |
 | Automated tests | 105, all passing |
 | Deployed | No |
 
@@ -38,18 +38,18 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **8,399** lines of JavaScript/JSX across **44** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
-| **30** commits, first 2025-08-23, most recent 2026-09-06 | `git rev-list --count HEAD` |
-| ESLint across frontend, backend and tests: **44** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
+| **9,186** lines of JavaScript/JSX across **46** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
+| **31** commits, first 2025-08-23, most recent 2026-09-06 | `git rev-list --count HEAD` |
+| ESLint across frontend, backend and tests: **46** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
 
 ### Backend surface
 
 | Fact | Source |
 | --- | --- |
-| **23** REST endpoints, every one behind authentication; **7** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
+| **26** REST endpoints, every one behind authentication; **7** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
 | **11** Socket.IO event handlers; **15** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
-| **6** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report — with **18** index declarations, **6** of them compound | `server/models/*.js` · `grep -n "index: true\|\.index(" server/models/*.js` |
-| `server/index.js` is **1,573** lines; `server/middleware/auth.js` is **306**; the test suite is **1,160** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
+| **7** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship — with **24** index declarations, **8** of them compound | `server/models/*.js` · `grep -n "index: true\|\.index(" server/models/*.js` |
+| `server/index.js` is **1,764** lines; `server/middleware/auth.js` is **306**; the test suite is **1,160** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
 
 ### Authentication
 
@@ -63,8 +63,8 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **11** page components and **11** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
-| Production bundle **427.84 kB** JS (**118.43 kB** gzipped) and **42.55 kB** CSS (**7.45 kB** gzipped) | `npm run build` (Vite 5.4 output) |
+| **12** page components and **11** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
+| Production bundle **436.06 kB** JS (**120.41 kB** gzipped) and **44.21 kB** CSS (**7.61 kB** gzipped) | `npm run build` (Vite 5.4 output) |
 | Responsive at a **900 px** breakpoint: fixed sidebar above it, overlay drawer below | `src/components/AppShell.module.css`, `@media (max-width: 900px)` |
 
 ### Tests
@@ -138,6 +138,13 @@ different collections and `refPath` would break exactly when a moderator
 deletes the reported content. A `targetSnapshot` copies the text at report
 time so the queue stays readable afterwards.
 
+**A relationship with a one-way lifecycle.** `Mentorship` moves
+pending → active → ended, or pending → declined, and never backwards. Starting
+again creates a new record rather than reviving the old one, so the history of
+who asked whom and what was answered stays intact. Who may make each move
+differs: only the mentor can accept or decline, but *either* party can end an
+active mentorship without the other's agreement.
+
 **Insert-versus-update detection on an upsert.** The login upsert passes
 `includeResultMetadata` and reads `lastErrorObject.upserted` to tell a
 first-ever sign-in from a returning one, which drives a "new user" broadcast
@@ -181,9 +188,14 @@ No Python, notebooks, datasets or ML components exist in this repository.
 
 - **No CI.** No `.github/` directory or any other pipeline configuration — the
   tests exist but nothing runs them automatically.
-- **No frontend tests.** The 67 tests cover the server. React components are
+- **No frontend tests.** The 105 tests cover the server. React components are
   checked only by the Playwright screenshot harness, which catches render
   failures and console errors but asserts nothing about behaviour.
+- **The mentorship endpoints are not yet in the test suite.** They were
+  verified by hand — 14 HTTP checks covering the happy path, the duplicate
+  guard, self-request, non-mentor targets, who may accept or decline, who may
+  end, and re-requesting after an end — but those checks were not committed.
+  Every other server feature is covered; this one is the exception.
 - **Never deployed.** No Dockerfile, Procfile, or Vercel, Netlify, Render or Fly
   configuration. It runs on localhost only.
 - **No rate limiting.** A signed-in client can flood messages or announcements

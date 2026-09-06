@@ -1525,6 +1525,96 @@ open list.
 
 ---
 
+### Entry 20 — The mentorship relationship
+
+**What I built.** The entity the app has been missing. Until now "mentor" was
+an adjective on a user; there was no way to say *this person mentors that
+person*. Goals, sessions, scheduling and every progress figure need an owner,
+and this is it — which is why it came before all of them.
+
+**Files added:** `server/models/Mentorship.js`, `src/pages/MentorshipsPage.jsx`
++ module.
+
+**Files changed:** `server/index.js` (three endpoints), `App.jsx`,
+`AppShell.jsx`, `Icons.jsx`, `UserProfilePage.jsx`.
+
+**The lifecycle.**
+
+```
+pending ──accept──▶ active ──end──▶ ended
+   │
+   └──decline──▶ declined
+```
+
+One-way, deliberately. A declined or ended relationship is never revived —
+asking again creates a *new* record, so who asked whom and what was answered
+survives as history instead of being overwritten by the next attempt.
+
+**Design decision 1 — `student` means "whoever asked", not "whoever has the
+student role".** A mentor wanting mentoring in a different subject is an
+ordinary case, and requiring `role === 'student'` on the asking side would
+forbid it for no reason. The only requirement enforced is that the person
+being *asked* can actually mentor. This is why the page shows both sides at
+once rather than splitting by role: one person can be a student in one
+relationship and a mentor in another, and a role-split view would hide half
+of what they have.
+
+**Design decision 2 — three moves, three different rules about who may make
+them.** Accept and decline are the **mentor's alone**; the student cannot
+answer their own request. Ending is available to **either party**, without
+the other's agreement — a person who wants out of a mentorship should not
+need permission. Getting this wrong in either direction would be a real
+product bug, so the checks are explicit rather than a single "is this yours".
+
+**Design decision 3 — the duplicate guard is in the route, and here is why
+not an index.** The natural expression is a partial unique index on
+`{ student, mentor }` filtered to `status: { $in: ['pending', 'active'] }` —
+but `partialFilterExpression` **does not support `$in`**, only equality and
+range operators. Two separate partial indexes would not compose into the rule
+either: they would permit one pending *and* one active for the same pair. So
+the check lives in `POST /api/mentorships`, and the tradeoff is stated in the
+model: genuinely concurrent duplicate requests could slip two rows through. At
+this scale that is a nuisance, not a defect, and the alternative is a
+transaction for something a person clicks once.
+
+**Design decision 4 — `topic` is required.** A request with no stated purpose
+gives the mentor nothing to decide on. It is also the field goals will later
+be grouped under, so making it optional now would mean a migration later.
+
+**Verified by hand — 14 HTTP checks against a throwaway database.**
+
+*Happy path:* two students request the same mentor; both succeed.
+
+*Creation guards:* a duplicate request → **409**; asking a student → **400
+"That person is not a mentor"**; asking yourself → **400**; omitting the topic
+→ **400**. A suspended mentor is refused too, since the request would be one
+nobody can answer.
+
+*Who may answer:* the student trying to accept their own request → **403
+"Only the mentor can answer a request"**; an unrelated third party → **403
+"This is not your mentorship"**; the mentor → **200**; accepting a second time
+→ **400 "already been answered"**.
+
+*Ending:* the **student** ending an active mentorship → **200** (either party
+may); ending it again → **400**; re-requesting the same mentor after it ended
+→ **200**, confirming the duplicate guard covers only live relationships.
+
+Then screenshotted as the mentor: the request queue with the student's topic
+and quoted note, the active student with their topic where a status line would
+be, and the ended one under Past. Sections render only when they have content,
+so this mentor sees no empty "Your mentors".
+
+**Not in the test suite yet.** Those 14 checks were run by hand and not
+committed — the same gap Entries 15–17 had, reopened deliberately because
+tests were deferred to the end of this batch of work. Every other server
+feature is covered; this one is the exception, and it is on the open list.
+
+**The database was never touched.** Everything above ran against
+`chatapp_test`, dropped afterwards. The development database still holds three
+users and zero mentorships.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -1546,9 +1636,16 @@ open list.
 - ~~**No automated test suite**~~ — done in Entry 18: 67 integration tests,
   `cd server && npm test`.
 - **No CI** — the tests exist but nothing runs them on push.
-- **No frontend tests** — the 67 cover the server. React components are only
+- **No frontend tests** — the 105 cover the server. React components are only
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour.
+- **Mentorship endpoints are not in the test suite** — verified by hand in
+  Entry 20 with 14 HTTP checks that were not committed. The only server
+  feature without coverage.
+- **Goals & milestones** — the next thing the mentorship model unblocks, and
+  the feature that makes the app visibly more than a chat app.
+- **Scheduling, analytics, achievements** — were blocked on the mentorship
+  model, which now exists. No longer blocked, just not built.
 - **No rate limiting** — a signed-in client can flood messages or announcements.
 - **Pagination built but unused** — `?limit` / `?before` exist on the group
   history endpoint; no page calls them.

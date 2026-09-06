@@ -27,6 +27,7 @@ import UserProfilePage from "./pages/UserProfilePage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import AdminPage from "./pages/AdminPage";
 import SuspendedPage from "./pages/SuspendedPage";
+import MentorshipsPage from "./pages/MentorshipsPage";
 import { PageLoader } from "./components/Loading";
 
 function App() {
@@ -94,6 +95,14 @@ function App() {
         <Route
           path="/profile"
           element={user ? <ProfilePage /> : <Navigate to="/login" />}
+        />
+
+        {/* Mentorships - protected route. Shows both sides at once: a
+            person can be a student in one relationship and a mentor in
+            another, and the page reads whichever apply. */}
+        <Route
+          path="/mentorships"
+          element={user ? <MentorshipsPage /> : <Navigate to="/login" />}
         />
 
         {/* Admin dashboard - protected route.

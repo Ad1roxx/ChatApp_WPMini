@@ -28,6 +28,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Mentor verification | Mentors submit credentials; an admin approves before the badge appears |
 | Suspension | Admins can suspend an account; it is locked out of REST and sockets |
 | Reports | Anyone can report a user or content; admins resolve or dismiss |
+| Mentorships | Request → accept/decline → active → ended, with both sides on one page |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
@@ -116,6 +117,7 @@ src/
     ProfilePage.jsx          your own profile + role switcher
     UserProfilePage.jsx      someone else's profile (read-only)
     AdminPage.jsx            stats, verification queue, reports, users
+    MentorshipsPage.jsx      requests, your mentors, your students, past
     SuspendedPage.jsx        shown instead of the app to a suspended account
   lib/roles.js               canMentor / isAdmin / isVerified — rendering only
 
@@ -137,6 +139,7 @@ server/
     GroupMessage.js          group messages
     Announcement.js          mentor broadcasts
     Report.js                moderation reports
+    Mentorship.js            the student–mentor relationship
 
 docs/
   BUILD_NOTES.md             running log: what was built and why
@@ -171,6 +174,9 @@ docs/
 | POST | `/api/reports` | Report a user or a message |
 | GET | `/api/admin/reports` | **Admins only** — the moderation queue |
 | PATCH | `/api/admin/reports/:id` | **Admins only** — resolve or dismiss |
+| POST | `/api/mentorships` | Ask someone to mentor you |
+| GET | `/api/mentorships` | Yours, on either side (`?status=` to filter) |
+| PATCH | `/api/mentorships/:id` | accept / decline (mentor) · end (either party) |
 
 ## Socket.IO events
 

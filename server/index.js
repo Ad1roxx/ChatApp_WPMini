@@ -29,6 +29,7 @@ const Group = require('./models/Group');
 const GroupMessage = require('./models/GroupMessage');
 const Announcement = require('./models/Announcement');
 const Report = require('./models/Report');
+const Mentorship = require('./models/Mentorship');
 
 // Authentication
 const {
@@ -1230,6 +1231,196 @@ app.patch('/api/admin/reports/:id', requireAuth, requireRole('admin'), async (re
     );
   } catch (err) {
     console.error('Error reviewing report:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
+// MENTORSHIP REST API ENDPOINTS
+// ============================================
+
+/** The fields any mentorship response needs about a person. */
+const MENTORSHIP_USER_FIELDS = 'displayName photoURL role verification.status';
+
+/**
+ * POST /api/mentorships
+ *
+ * Ask someone to mentor you.
+ *
+ * The requester is always the `student` side, whatever their own role — a
+ * mentor seeking mentoring in another subject is an ordinary case. What is
+ * required is that the person being asked can actually mentor.
+ *
+ * Body:
+ * - mentorId: who to ask
+ * - topic: what you want help with (required — see the model)
+ * - message: optional opening note
+ */
+app.post('/api/mentorships', requireAuth, async (req, res) => {
+  try {
+    const { mentorId, topic, message = '' } = req.body;
+
+    if (!mentorId || !topic?.trim()) {
+      return res.status(400).json({ error: 'A mentor and a topic are required' });
+    }
+
+    if (String(mentorId) === String(req.authUser._id)) {
+      return res.status(400).json({ error: 'You cannot mentor yourself' });
+    }
+
+    const mentor = await User.findById(mentorId).select('role displayName suspended');
+    if (!mentor) {
+      return res.status(404).json({ error: 'That person no longer exists' });
+    }
+
+    if (!['mentor', 'admin'].includes(mentor.role)) {
+      return res.status(400).json({ error: 'That person is not a mentor' });
+    }
+
+    // Asking a suspended account would produce a request nobody can answer.
+    if (mentor.suspended) {
+      return res.status(400).json({ error: 'That mentor is not available' });
+    }
+
+    // One live relationship per pair. See the note in the model for why this
+    // is here rather than a partial unique index.
+    const existing = await Mentorship.findOne({
+      student: req.authUser._id,
+      mentor: mentorId,
+      status: { $in: ['pending', 'active'] }
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        error:
+          existing.status === 'pending'
+            ? 'You already have a request waiting with this mentor'
+            : 'You are already being mentored by this person'
+      });
+    }
+
+    const mentorship = await Mentorship.create({
+      student: req.authUser._id,
+      mentor: mentorId,
+      topic: topic.trim(),
+      message: String(message).trim()
+    });
+
+    const populated = await Mentorship.findById(mentorship._id)
+      .populate('student', MENTORSHIP_USER_FIELDS)
+      .populate('mentor', MENTORSHIP_USER_FIELDS);
+
+    // Tell the mentor, on every tab they have open.
+    emitToUser(mentorId, 'mentorship-updated', populated);
+
+    console.log(`🤝 Mentorship requested: ${req.authUser.displayName} → ${mentor.displayName}`);
+    res.json(populated);
+  } catch (err) {
+    console.error('Error requesting mentorship:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/mentorships
+ *
+ * Everything you are part of, on either side. `?status=` narrows it.
+ *
+ * Returns both directions in one call rather than making the client ask
+ * twice: a person can be a student in one relationship and a mentor in
+ * another, and the pages that read this want the whole picture.
+ */
+app.get('/api/mentorships', requireAuth, async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    const query = {
+      $or: [{ student: req.authUser._id }, { mentor: req.authUser._id }]
+    };
+    if (status) query.status = status;
+
+    const mentorships = await Mentorship.find(query)
+      .sort({ requestedAt: -1 })
+      .populate('student', MENTORSHIP_USER_FIELDS)
+      .populate('mentor', MENTORSHIP_USER_FIELDS);
+
+    res.json(mentorships);
+  } catch (err) {
+    console.error('Error listing mentorships:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * PATCH /api/mentorships/:id
+ *
+ * Move a mentorship along. Three moves, three different rules about who may
+ * make them:
+ *
+ * - `accept` / `decline` — the MENTOR only, and only from `pending`. The
+ *   student cannot accept on the mentor's behalf.
+ * - `end` — EITHER party, and only from `active`. Both sides can walk away;
+ *   neither needs the other's agreement.
+ *
+ * Transitions are one-way, so a declined or ended relationship stays as
+ * history. Starting again means a new request, not reviving this row.
+ */
+app.patch('/api/mentorships/:id', requireAuth, async (req, res) => {
+  try {
+    const { action, note = '' } = req.body;
+
+    if (!['accept', 'decline', 'end'].includes(action)) {
+      return res.status(400).json({ error: 'Action must be accept, decline or end' });
+    }
+
+    const mentorship = await Mentorship.findById(req.params.id);
+    if (!mentorship) {
+      return res.status(404).json({ error: 'Mentorship not found' });
+    }
+
+    const me = String(req.authUser._id);
+    const isMentor = String(mentorship.mentor) === me;
+    const isStudent = String(mentorship.student) === me;
+
+    if (!isMentor && !isStudent) {
+      return res.status(403).json({ error: 'This is not your mentorship' });
+    }
+
+    if (action === 'accept' || action === 'decline') {
+      if (!isMentor) {
+        return res.status(403).json({ error: 'Only the mentor can answer a request' });
+      }
+      if (mentorship.status !== 'pending') {
+        return res.status(400).json({ error: 'That request has already been answered' });
+      }
+
+      mentorship.status = action === 'accept' ? 'active' : 'declined';
+      mentorship.respondedAt = new Date();
+      mentorship.responseNote = String(note).trim();
+    } else {
+      if (mentorship.status !== 'active') {
+        return res.status(400).json({ error: 'Only an active mentorship can be ended' });
+      }
+
+      mentorship.status = 'ended';
+      mentorship.endedAt = new Date();
+      mentorship.endedBy = req.authUser._id;
+    }
+
+    await mentorship.save();
+
+    const populated = await Mentorship.findById(mentorship._id)
+      .populate('student', MENTORSHIP_USER_FIELDS)
+      .populate('mentor', MENTORSHIP_USER_FIELDS);
+
+    // Both sides care about every one of these transitions.
+    emitToUser(mentorship.student, 'mentorship-updated', populated);
+    emitToUser(mentorship.mentor, 'mentorship-updated', populated);
+
+    console.log(`🤝 Mentorship ${action}ed: ${mentorship._id}`);
+    res.json(populated);
+  } catch (err) {
+    console.error('Error updating mentorship:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
