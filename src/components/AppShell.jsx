@@ -18,6 +18,12 @@
  *
  * Pages that want the full viewport (the chat transcript, which manages its
  * own scrolling) pass `variant="flush"` to skip the padded content column.
+ *
+ * The top bar takes `title`, `subtitle`, a `leading` slot for the avatar of
+ * whatever the page is about, and `actions` on the right. Between them those
+ * four are meant to be the *whole* header — a page that adds a second bar of
+ * its own underneath will end up printing its title twice, which is exactly
+ * what both chat screens used to do.
  */
 
 import { useEffect, useState } from 'react';
@@ -68,6 +74,7 @@ const NAV_SECTIONS = [
 export default function AppShell({
   title,
   subtitle,
+  leading,
   actions,
   // Detail screens (a chat, someone's profile) pass the route to return to.
   // The sidebar shows where you are among the top-level sections but not how
@@ -208,6 +215,11 @@ export default function AppShell({
               <ChevronLeftIcon size={18} />
             </button>
           )}
+
+          {/* An avatar for the subject of the page, when it has one. The
+              chat screens used to repeat their title in a second bar below
+              this one purely to have somewhere to put it. */}
+          {leading && <div className={styles.leading}>{leading}</div>}
 
           <div className={styles.titleGroup}>
             <h1 className={styles.title}>{title}</h1>

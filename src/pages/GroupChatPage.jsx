@@ -202,36 +202,32 @@ export default function GroupChatPage() {
       backTo="/groups"
       title={group?.name || 'Group'}
       subtitle={typingLabel || `${memberCount} member${memberCount === 1 ? '' : 's'}`}
+      leading={
+        <span className={groupStyles.groupAvatar} aria-hidden="true">
+          {group?.name?.charAt(0)?.toUpperCase() || 'G'}
+        </span>
+      }
+      actions={
+        /* Overlapping member avatars: the one thing the title bar could not
+           already say. The name and the member count live in the bar itself,
+           so repeating them here would print both twice. */
+        <span className={groupStyles.members}>
+          {group?.members?.slice(0, 5).map((m) => (
+            <Avatar
+              key={m._id || m}
+              src={m.photoURL}
+              name={m.displayName}
+              size="xs"
+              className={groupStyles.memberAvatar}
+            />
+          ))}
+          {memberCount > 5 && (
+            <span className={groupStyles.memberOverflow}>+{memberCount - 5}</span>
+          )}
+        </span>
+      }
     >
       <div className={styles.chat}>
-        {/* Member strip — who is actually in this conversation */}
-        <div className={groupStyles.strip}>
-          <span className={groupStyles.groupAvatar} aria-hidden="true">
-            {group?.name?.charAt(0)?.toUpperCase() || 'G'}
-          </span>
-          <span className={groupStyles.stripText}>
-            <span className={groupStyles.groupName}>{group?.name || 'Group'}</span>
-            <span className={groupStyles.groupMeta}>
-              {memberCount} member{memberCount === 1 ? '' : 's'}
-            </span>
-          </span>
-
-          <span className={groupStyles.members}>
-            {group?.members?.slice(0, 5).map((m) => (
-              <Avatar
-                key={m._id || m}
-                src={m.photoURL}
-                name={m.displayName}
-                size="xs"
-                className={groupStyles.memberAvatar}
-              />
-            ))}
-            {memberCount > 5 && (
-              <span className={groupStyles.memberOverflow}>+{memberCount - 5}</span>
-            )}
-          </span>
-        </div>
-
         {/* Transcript */}
         <div className={styles.transcript}>
           {messages.length === 0 ? (

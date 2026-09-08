@@ -267,30 +267,28 @@ export default function ChatPage() {
       backTo="/users"
       title={peer?.displayName || 'Chat'}
       subtitle={peerTyping ? 'typing…' : undefined}
+      leading={
+        <Avatar
+          src={peer?.photoURL}
+          name={peer?.displayName}
+          size="sm"
+          presence={peer?.isOnline}
+        />
+      }
       actions={
-        <Button size="sm" variant="ghost" onClick={() => navigate(`/users/${peerId}`)}>
-          View profile
-        </Button>
+        /* The role badge and the way through to the profile. The name lives
+           in the bar's own title, so it is not repeated here — the quickest
+           way to check a mentor's expertise mid-conversation is still one
+           click away. */
+        <>
+          <RoleBadge role={peer?.role} />
+          <Button size="sm" variant="ghost" onClick={() => navigate(`/users/${peerId}`)}>
+            View profile
+          </Button>
+        </>
       }
     >
       <div className={styles.chat}>
-        {/* Peer strip — the quickest way to check a mentor's expertise
-            mid-conversation is to open their profile from here. */}
-        <button
-          type="button"
-          className={styles.peerStrip}
-          onClick={() => navigate(`/users/${peerId}`)}
-        >
-          <Avatar
-            src={peer?.photoURL}
-            name={peer?.displayName}
-            size="sm"
-            presence={peer?.isOnline}
-          />
-          <span className={styles.peerName}>{peer?.displayName || 'Unknown'}</span>
-          <RoleBadge role={peer?.role} />
-        </button>
-
         {/* Transcript */}
         <div className={styles.transcript}>
           {messages.length === 0 ? (

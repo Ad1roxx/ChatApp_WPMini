@@ -37,8 +37,15 @@ import { auth } from '../firebase';
 // Create the context (a container for shared data)
 const AuthContext = createContext();
 
-// Server URL - where our backend is running
-const SERVER_URL = 'http://localhost:3001';
+/**
+ * Where the backend is.
+ *
+ * Defaults to the local dev port, so nothing needs configuring to run this
+ * the usual way. `VITE_SERVER_URL` overrides it — which is what a deployed
+ * build will need, and what lets a second copy of the app run against a
+ * throwaway database without disturbing the one already on 3001.
+ */
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 /**
  * DEV ONLY: sign in as a given MongoDB user id, skipping Google entirely.

@@ -1827,6 +1827,65 @@ a progress bar and something worth calling a dashboard.
 
 ---
 
+### Entry 23 — One header per chat, not two
+
+**The bug, as reported:** *"why are there two group bars on the right? it
+appears on opening a group."* Opening a group showed the name and member
+count in the top bar, and then again in a second bar directly beneath it.
+
+**Why it happened.** `AppShell`'s top bar already renders `title` and
+`subtitle`, and `GroupChatPage` passed the group name and `3 members` into
+them. It *also* rendered its own strip below, which printed the same two
+strings — because the strip was where the group avatar and the member avatars
+lived, and there was nowhere else to put them. The duplication was not the
+point of the strip; it was the price of it.
+
+The same fault was in `ChatPage` and had gone unnoticed because it only
+repeats one string rather than two: the top bar says the peer's name, and the
+peer strip underneath said it again. Its strip existed to hold the avatar with
+its presence dot and the role badge — and it linked to the profile, which the
+"View profile" button in the top bar already did.
+
+**The fix — give the top bar somewhere to put an avatar.** `AppShell` gained a
+`leading` slot, rendered between the back button and the title. Both chat
+pages now pass their avatar there, put the extras in `actions`, and delete the
+strip entirely:
+
+- **Group:** `leading` is the group initial; `actions` is the overlapping
+  member avatars — the one thing the bar could not already say.
+- **1-to-1:** `leading` is the peer's avatar with its presence dot; `actions`
+  is the role badge next to the existing profile button.
+
+Deleting the strips also removed `.strip`, `.stripText`, `.groupName`,
+`.groupMeta`, `.peerStrip` and `.peerName`, plus two responsive rules that
+only existed to pad them.
+
+**The lesson, written into `AppShell`'s doc comment** so the next page does not
+repeat it: `title`, `subtitle`, `leading` and `actions` are meant to be the
+*whole* header. A page that adds a second bar of its own underneath will end
+up printing its title twice.
+
+**`VITE_SERVER_URL`.** Verifying this needed a browser, and the dev stack was
+already running on 3001 against the real `chatapp` database — which is exactly
+what must never be screenshotted against, after the incident in Entry 18.
+`SERVER_URL` in `AuthContext` was a hardcoded `http://localhost:3001`, so
+there was no way to stand a second copy up beside it. It now reads
+`import.meta.env.VITE_SERVER_URL` and falls back to the same literal, so the
+default path is unchanged and nothing needs configuring to run it normally.
+
+That let the preview run on 3002/5174 against a seeded `chatapp_test` while
+the real stack stayed up and untouched on 3001/5173. It also removes a
+hardcoded localhost that would have blocked deployment later — the change was
+needed for the verification, but it was worth making anyway.
+
+**Verified** by screenshotting both chat screens at desktop and mobile widths:
+one bar each, no console errors, no redirects, and the member avatars still
+fit beside the title at 390px. `chatapp_test` was dropped afterwards and the
+development database confirmed untouched. Lint 0 errors, build clean, 105
+tests still passing.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

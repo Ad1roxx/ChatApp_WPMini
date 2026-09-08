@@ -208,6 +208,12 @@
   color: var(--color-text);
 }
 
+.leading {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .titleGroup {
   flex: 1;
   min-width: 0;

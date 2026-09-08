@@ -69,6 +69,12 @@ npm install
 npm run dev               # http://localhost:5173
 ```
 
+The frontend talks to `http://localhost:3001` unless `VITE_SERVER_URL` says
+otherwise, so nothing needs configuring to run it the usual way. Set that
+variable to point a build at a deployed backend, or to run a second copy of
+the app against a throwaway database without disturbing the one already on
+3001.
+
 Sign in with Google. On your first login you'll be asked to pick a role.
 
 > To see the mentor-only features you need a mentor account. Pick Mentor at

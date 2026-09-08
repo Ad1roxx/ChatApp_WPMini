@@ -7,14 +7,14 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-06 against commit `3d6353a`, plus scheduling added in the
-same session. Figures counted before the commit that records them.
+Compiled 2026-09-08 against commit `e49c739`, plus a chat-header fix added
+afterwards. Figures counted before the commit that records them.
 
 | | |
 | --- | --- |
-| Commits | 33 |
+| Commits | 34 |
 | Active | 2025-08-23 → 2026-09-06 |
-| Source | 11,246 lines JS/JSX |
+| Source | 11,259 lines JS/JSX |
 | Automated tests | 105, all passing |
 | Deployed | No |
 
@@ -38,8 +38,8 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **11,246** lines of JavaScript/JSX across **51** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
-| **33** commits, first 2025-08-23, most recent 2026-09-06 | `git rev-list --count HEAD` |
+| **11,259** lines of JavaScript/JSX across **51** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
+| **34** commits, first 2025-08-23, most recent 2026-09-08 | `git rev-list --count HEAD` |
 | ESLint across frontend, backend and tests: **49** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
 
 ### Backend surface
@@ -64,7 +64,7 @@ behind an Express and Socket.IO server written for this project.
 | Fact | Source |
 | --- | --- |
 | **13** page components and **13** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
-| Production bundle **455.06 kB** JS (**125.54 kB** gzipped) and **49.90 kB** CSS (**8.51 kB** gzipped) | `npm run build` (Vite 5.4 output) |
+| Production bundle **454.55 kB** JS (**125.44 kB** gzipped) and **49.00 kB** CSS (**8.42 kB** gzipped) | `npm run build` (Vite 5.4 output) |
 | Responsive at a **900 px** breakpoint: fixed sidebar above it, overlay drawer below | `src/components/AppShell.module.css`, `@media (max-width: 900px)` |
 
 ### Tests
