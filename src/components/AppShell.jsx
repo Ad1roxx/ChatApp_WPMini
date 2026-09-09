@@ -33,6 +33,7 @@ import Avatar from './Avatar';
 import { RoleBadge } from './Badge';
 import {
   AnnouncementIcon,
+  ChartIcon,
   ChevronLeftIcon,
   HandshakeIcon,
   CloseIcon,
@@ -55,6 +56,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/users', label: 'Messages', icon: MessagesIcon },
       { to: '/mentorships', label: 'Mentorship', icon: HandshakeIcon },
+      { to: '/progress', label: 'Progress', icon: ChartIcon },
       { to: '/groups', label: 'Groups', icon: GroupsIcon },
       { to: '/announcements', label: 'Announcements', icon: AnnouncementIcon }
     ]

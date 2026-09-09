@@ -29,6 +29,7 @@ import AdminPage from "./pages/AdminPage";
 import SuspendedPage from "./pages/SuspendedPage";
 import MentorshipsPage from "./pages/MentorshipsPage";
 import MentorshipDetailPage from "./pages/MentorshipDetailPage";
+import ProgressPage from "./pages/ProgressPage";
 import { PageLoader } from "./components/Loading";
 
 function App() {
@@ -111,6 +112,13 @@ function App() {
         <Route
           path="/mentorships/:id"
           element={user ? <MentorshipDetailPage /> : <Navigate to="/login" />}
+        />
+
+        {/* What the mentorships add up to. Reads goals and sessions back
+            out; the server scopes every figure to the caller. */}
+        <Route
+          path="/progress"
+          element={user ? <ProgressPage /> : <Navigate to="/login" />}
         />
 
         {/* Admin dashboard - protected route.

@@ -1886,6 +1886,102 @@ tests still passing.
 
 ---
 
+### Entry 24 — Analytics, and the question it answers
+
+**What I built.** Goals and sessions had been accumulating real data for two
+entries with nothing reading it back. This is the page that reads it — plus
+the fix to the admin dashboard that was the reason to start here.
+
+**Files added:** `src/pages/ProgressPage.jsx` + module,
+`src/components/Stat.jsx` + module, `src/lib/useNow.js`.
+
+**Files changed:** `server/index.js` (one endpoint, 35 total; admin stats
+extended), `AdminPage.jsx` + module, `AppShell.jsx`, `App.jsx`, `Icons.jsx`,
+`Sessions.jsx`.
+
+**The bug that set the direction.** `GET /api/admin/stats` was counting users,
+groups, messages and announcements — and nothing else. Mentorships, goals and
+sessions did not appear anywhere on it. The dashboard's own subtitle says
+*"Counted live — no placeholder figures"*, and it was true as far as it went;
+an overview that silently omits the three largest features in the product is
+its own kind of invented number. Six `countDocuments` calls fixed it.
+
+**Design decision 1 — the page is built around a question, not a scoreboard.**
+The obvious analytics page is a wall of totals. The useful one answers the
+question a mentor with four students actually has: *which of them has gone
+quiet?* So the rows are sorted by how long it has been since a session
+actually happened, quietest first, and the row that needs acting on is the one
+at the top rather than the one you scroll to find. The totals are above it for
+context — they are not the point of the page.
+
+**Design decision 2 — aggregation, not a loop.** Counting in JavaScript would
+have meant pulling every goal document, milestone arrays and all, across the
+wire to read a boolean on each. `$group` with `$size`/`$filter` over the
+embedded milestones does the counting where the data already is and returns
+one small row per mentorship. At this project's scale either is instant; the
+pipeline is the one that stays instant.
+
+`$min` and `$max` over a `$cond` that yields `null` for non-qualifying rows
+turned out to be exactly the right tool for "the latest session that happened"
+and "the soonest one still to come" — both accumulators ignore nulls, so no
+second query was needed for either.
+
+**Design decision 3 — archived goals contribute no milestones.** A goal you
+gave up on would otherwise drag the completion figure down forever. "We
+decided not to do this" is not the same as "this is unfinished", and a
+progress number that never recovers from an abandoned goal is a number people
+learn to ignore. Archived goals still count in the *goal* total, because they
+did exist; only their milestones are excluded. Verified explicitly rather than
+assumed — a 2-milestone archived goal is in the fixture precisely to prove it
+does not appear in the 14.
+
+**Design decision 4 — the attention flag is a label first, a colour second.**
+"Quiet for 34 days", "Not met yet", "Nothing booked". A badge that means
+something only if you can see red means nothing to some readers, so the text
+carries it and the colour reinforces it. A mentorship with a session already
+booked is not flagged at all — the booking is the answer to the question.
+
+**Design decision 5 — "sessions kept" is hidden rather than shown as 0%.** The
+rate is completed over arranged, which is meaningless before anything has been
+arranged. Showing 0% to someone who has never cancelled anything would be a
+lie told by a denominator.
+
+**Two extractions rather than two copies.** The stat tile existed only inside
+`AdminPage.module.css`; the new page needed the same one, and copying thirty
+lines of CSS into a second module is how a design system starts to drift. It
+is now `Stat` / `StatGrid`, and AdminPage renders through it — the tiles look
+identical, they just have one definition. Likewise `useNow` and `relative`
+moved out of `Sessions.jsx` into `src/lib/useNow.js` when this page needed the
+same ticking clock for its "most recently" labels.
+
+**A wording bug the screenshot caught.** The facts line read *"1 session met,
+last last month"* — `relative()` returns "last month" for anything that old,
+and the template was prepending its own "last". It says "most recently" now,
+which reads correctly against both "last month" and "3 days ago". Worth
+recording because it is the second time in three entries that rendering the
+page has caught something no test would have: the first was a date printed
+twice, this one is a word.
+
+**Verified with 39 checks** against a throwaway `chatapp_test`: the totals and
+their per-row breakdown agreeing, archived milestones excluded while archived
+goals still count, minutes summed from completed sessions only, the ordering
+putting a never-met mentorship ahead of a 34-day-quiet one, `isMentor` and
+`other` resolving per viewer, a student seeing only their own row, someone
+with no mentorships getting a zeroed shape rather than a 404 or an error, an
+ended mentorship leaving the rows but staying in the totals, 401 without a
+token, and the six new admin figures with a non-admin still refused. The
+existing 105 tests still pass.
+
+Screenshotted at both widths against a seeded fixture built to contain all
+three states at once — healthy, quiet, never-met — so the sorting and the
+flags could be checked rather than assumed. `chatapp_test` dropped afterwards.
+
+**Not in the test suite.** Same standing gap: mentorships, goals, sessions and
+now analytics are the four server features whose checks were run by hand and
+not committed.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -1910,16 +2006,21 @@ tests still passing.
 - **No frontend tests** — the 105 cover the server. React components are only
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour.
-- **Mentorship, goal and session endpoints are not in the test suite** —
-  verified by hand in Entries 20, 21 and 22 (14, 9 and 40 checks) that were
-  not committed. The three server features without coverage, deferred to one
-  test pass.
+- **Mentorship, goal, session and analytics endpoints are not in the test
+  suite** — verified by hand in Entries 20, 21, 22 and 24 (14, 9, 40 and 39
+  checks) that were not committed. The four server features without coverage,
+  deferred to one test pass.
 - ~~**Goals & milestones**~~ — done in Entry 21.
 - ~~**Scheduling**~~ — done in Entry 22.
-- **Analytics and achievements** — were blocked on the mentorship model,
-  goals and sessions, all of which now exist. No longer blocked, just not
-  built. Analytics has two things to aggregate now: goal completion and
-  session history.
+- ~~**Analytics**~~ — done in Entry 24. `/api/analytics/me` plus the Progress
+  page, and the admin dashboard now counts mentorships, goals and sessions.
+- **Achievements** — the last of the originally-scoped features not built.
+  Now that goals, sessions and mentorship duration all produce real figures it
+  could be earned from data rather than invented, which is the only version
+  worth having.
+- **Resources and feedback ratings** — also still unbuilt. Ratings are the
+  natural end of the session lifecycle: a session completes, it gets rated,
+  the rating feeds the mentor's profile and this page.
 - **Sessions never leave the app** — no calendar export, no invitation, and no
   reminder before one starts. Times are stored UTC and rendered per viewer, so
   two timezones agree on the moment; nothing tells either person it is coming.

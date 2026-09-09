@@ -783,6 +783,11 @@ app.delete('/api/announcements/:id', requireAuth, async (req, res) => {
  * Platform overview. Every number is counted live from MongoDB — there are no
  * placeholder figures here, because a dashboard showing invented numbers is
  * worse than no dashboard.
+ *
+ * The mentorship, goal and session counts were added late: this endpoint had
+ * been counting users, groups and messages only, so the dashboard was blind
+ * to the three largest features in the app. An overview that omits half the
+ * product is its own kind of invented number.
  */
 app.get('/api/admin/stats', requireAuth, requireRole('admin'), async (req, res) => {
   try {
@@ -799,7 +804,13 @@ app.get('/api/admin/stats', requireAuth, requireRole('admin'), async (req, res) 
       groups,
       messages,
       groupMessages,
-      announcements
+      announcements,
+      mentorships,
+      activeMentorships,
+      goals,
+      completedGoals,
+      sessions,
+      completedSessions
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: 'student' }),
@@ -810,7 +821,13 @@ app.get('/api/admin/stats', requireAuth, requireRole('admin'), async (req, res) 
       Group.countDocuments(),
       Message.countDocuments(),
       GroupMessage.countDocuments(),
-      Announcement.countDocuments()
+      Announcement.countDocuments(),
+      Mentorship.countDocuments(),
+      Mentorship.countDocuments({ status: 'active' }),
+      Goal.countDocuments(),
+      Goal.countDocuments({ status: 'completed' }),
+      Session.countDocuments(),
+      Session.countDocuments({ status: 'completed' })
     ]);
 
     res.json({
@@ -825,7 +842,13 @@ app.get('/api/admin/stats', requireAuth, requireRole('admin'), async (req, res) 
       groups,
       messages,
       groupMessages,
-      announcements
+      announcements,
+      mentorships,
+      activeMentorships,
+      goals,
+      completedGoals,
+      sessions,
+      completedSessions
     });
   } catch (err) {
     console.error('Error building admin stats:', err);
@@ -1980,6 +2003,221 @@ app.patch('/api/sessions/:sessionId', requireAuth, async (req, res) => {
     res.json(populated);
   } catch (err) {
     console.error('Error updating session:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
+// ANALYTICS
+// ============================================
+
+/**
+ * GET /api/analytics/me
+ *
+ * What your mentorships add up to. Goals and sessions have been accumulating
+ * real data for a while now with nothing reading it back, and the question a
+ * mentor with four students actually has is not "how many goals exist" — it is
+ * **"which of them has gone quiet?"** That is what the per-mentorship rows are
+ * for, and it is the reason this endpoint returns a list rather than a
+ * scoreboard.
+ *
+ * ## Why aggregation rather than a loop
+ *
+ * Counting in JavaScript would mean pulling every goal — milestone arrays and
+ * all — over the wire to look at a boolean on each one. `$group` with `$reduce`
+ * does the counting where the data already is and returns one small row per
+ * mentorship. At this project's scale either would be instant; the pipeline is
+ * the one that stays instant.
+ *
+ * ## What is deliberately excluded
+ *
+ * - **Archived goals contribute no milestones.** A goal you gave up on would
+ *   otherwise drag the completion figure down forever, and "we decided not to
+ *   do this" is not the same as "this is unfinished".
+ * - **Ended mentorships are counted in the totals but get no row.** The rows
+ *   are a worklist; a finished relationship is not work.
+ */
+app.get('/api/analytics/me', requireAuth, async (req, res) => {
+  try {
+    const me = req.authUser._id;
+    const now = new Date();
+
+    const mentorships = await Mentorship.find({
+      $or: [{ mentor: me }, { student: me }]
+    })
+      .populate('mentor', 'displayName photoURL role verified')
+      .populate('student', 'displayName photoURL role verified');
+
+    const activeIds = mentorships
+      .filter((m) => m.status === 'active')
+      .map((m) => m._id);
+
+    // Nothing to aggregate over — return the shape anyway rather than a 404,
+    // so the page renders its empty state instead of an error.
+    const [goalRows, sessionRows] = activeIds.length
+      ? await Promise.all([
+          Goal.aggregate([
+            { $match: { mentorship: { $in: activeIds } } },
+            {
+              $group: {
+                _id: '$mentorship',
+                goals: { $sum: 1 },
+                completed: {
+                  $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+                },
+                archived: {
+                  $sum: { $cond: [{ $eq: ['$status', 'archived'] }, 1, 0] }
+                },
+                milestonesTotal: {
+                  $sum: {
+                    $cond: [
+                      { $ne: ['$status', 'archived'] },
+                      { $size: '$milestones' },
+                      0
+                    ]
+                  }
+                },
+                milestonesDone: {
+                  $sum: {
+                    $cond: [
+                      { $ne: ['$status', 'archived'] },
+                      {
+                        $size: {
+                          $filter: {
+                            input: '$milestones',
+                            cond: '$$this.done'
+                          }
+                        }
+                      },
+                      0
+                    ]
+                  }
+                }
+              }
+            }
+          ]),
+          Session.aggregate([
+            { $match: { mentorship: { $in: activeIds } } },
+            {
+              $group: {
+                _id: '$mentorship',
+                completed: {
+                  $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+                },
+                cancelled: {
+                  $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] }
+                },
+                minutesMet: {
+                  $sum: {
+                    $cond: [
+                      { $eq: ['$status', 'completed'] },
+                      '$durationMinutes',
+                      0
+                    ]
+                  }
+                },
+                // $min and $max ignore the nulls the $cond produces for rows
+                // that do not qualify, which is exactly the behaviour wanted:
+                // "the latest one that happened" and "the soonest one still to".
+                lastMetAt: {
+                  $max: {
+                    $cond: [
+                      { $eq: ['$status', 'completed'] },
+                      '$scheduledFor',
+                      null
+                    ]
+                  }
+                },
+                nextAt: {
+                  $min: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $in: ['$status', ['proposed', 'confirmed']] },
+                          { $gte: ['$scheduledFor', now] }
+                        ]
+                      },
+                      '$scheduledFor',
+                      null
+                    ]
+                  }
+                }
+              }
+            }
+          ])
+        ])
+      : [[], []];
+
+    const goalsBy = new Map(goalRows.map((r) => [String(r._id), r]));
+    const sessionsBy = new Map(sessionRows.map((r) => [String(r._id), r]));
+
+    const rows = mentorships
+      .filter((m) => m.status === 'active')
+      .map((m) => {
+        const isMentor = String(m.mentor._id) === String(me);
+        const g = goalsBy.get(String(m._id));
+        const s = sessionsBy.get(String(m._id));
+
+        return {
+          _id: m._id,
+          topic: m.topic,
+          isMentor,
+          startedAt: m.respondedAt || m.requestedAt,
+          other: isMentor ? m.student : m.mentor,
+          goals: { total: g?.goals || 0, completed: g?.completed || 0 },
+          milestones: {
+            done: g?.milestonesDone || 0,
+            total: g?.milestonesTotal || 0
+          },
+          sessions: {
+            completed: s?.completed || 0,
+            cancelled: s?.cancelled || 0,
+            minutesMet: s?.minutesMet || 0
+          },
+          lastMetAt: s?.lastMetAt || null,
+          nextAt: s?.nextAt || null
+        };
+      })
+      // Quietest first. The row you need to act on should not be the one you
+      // have to scroll to find.
+      .sort((a, b) => {
+        const at = a.lastMetAt ? new Date(a.lastMetAt).getTime() : 0;
+        const bt = b.lastMetAt ? new Date(b.lastMetAt).getTime() : 0;
+        return at - bt;
+      });
+
+    const sum = (list, pick) => list.reduce((n, x) => n + pick(x), 0);
+
+    res.json({
+      totals: {
+        mentorships: {
+          active: activeIds.length,
+          ended: mentorships.filter((m) => m.status === 'ended').length,
+          asMentor: mentorships.filter(
+            (m) => m.status === 'active' && String(m.mentor._id) === String(me)
+          ).length,
+          asStudent: mentorships.filter(
+            (m) => m.status === 'active' && String(m.student._id) === String(me)
+          ).length
+        },
+        goals: {
+          total: sum(rows, (r) => r.goals.total),
+          completed: sum(rows, (r) => r.goals.completed)
+        },
+        milestones: {
+          done: sum(rows, (r) => r.milestones.done),
+          total: sum(rows, (r) => r.milestones.total)
+        },
+        sessions: {
+          completed: sum(rows, (r) => r.sessions.completed),
+          cancelled: sum(rows, (r) => r.sessions.cancelled),
+          minutesMet: sum(rows, (r) => r.sessions.minutesMet)
+        }
+      },
+      mentorships: rows
+    });
+  } catch (err) {
+    console.error('Error building analytics:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

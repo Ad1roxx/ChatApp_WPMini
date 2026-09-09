@@ -1,34 +1,4 @@
 /* ---- Stat tiles ---- */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--space-3);
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--color-surface-sunken);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-.statValue {
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
-  letter-spacing: -0.02em;
-  /* Tabular figures so columns of numbers line up */
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text);
-}
-
-.statLabel {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 /* ---- Role split ---- */
 .roleSplit {
   display: flex;

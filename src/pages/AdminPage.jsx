@@ -27,15 +27,28 @@ import { Textarea } from '../components/Field';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { InlineLoader } from '../components/Loading';
 import EmptyState from '../components/EmptyState';
+import Stat, { StatGrid } from '../components/Stat';
 import { useToast } from '../components/Toast';
 import { ShieldIcon } from '../components/Icons';
 import { isAdmin } from '../lib/roles';
 import styles from './AdminPage.module.css';
 
+/**
+ * `sub` reads the denominator off the same payload, so a count that only
+ * means something next to another one never appears on its own — "12 goals"
+ * says far less than "12 goals, 5 complete".
+ *
+ * Mentorships, goals and sessions were missing here entirely until the
+ * progress work: the dashboard was counting messages and groups while the
+ * three largest features in the app went unmentioned.
+ */
 const STAT_TILES = [
   { key: 'users', label: 'Users' },
   { key: 'online', label: 'Online now' },
   { key: 'newThisWeek', label: 'New this week' },
+  { key: 'mentorships', label: 'Mentorships', sub: (s) => `${s.activeMentorships} active` },
+  { key: 'goals', label: 'Goals', sub: (s) => `${s.completedGoals} complete` },
+  { key: 'sessions', label: 'Sessions', sub: (s) => `${s.completedSessions} met` },
   { key: 'groups', label: 'Groups' },
   { key: 'messages', label: 'Direct messages' },
   { key: 'groupMessages', label: 'Group messages' },
@@ -425,14 +438,16 @@ export default function AdminPage() {
         {loading || !stats ? (
           <InlineLoader label="Counting" />
         ) : (
-          <div className={styles.stats}>
+          <StatGrid>
             {STAT_TILES.map((tile) => (
-              <div key={tile.key} className={styles.stat}>
-                <span className={styles.statValue}>{stats[tile.key] ?? 0}</span>
-                <span className={styles.statLabel}>{tile.label}</span>
-              </div>
+              <Stat
+                key={tile.key}
+                value={stats[tile.key] ?? 0}
+                label={tile.label}
+                sub={tile.sub ? tile.sub(stats) : undefined}
+              />
             ))}
-          </div>
+          </StatGrid>
         )}
       </Card>
 

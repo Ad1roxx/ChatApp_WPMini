@@ -107,6 +107,13 @@ export const CalendarIcon = (p) => (
   </Icon>
 );
 
+export const ChartIcon = (p) => (
+  <Icon {...p}>
+    <path d="M3 3v18h18" />
+    <path d="M7 15v2M12 10v7M17 6v11" />
+  </Icon>
+);
+
 export const ShieldIcon = (p) => (
   <Icon {...p}>
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />

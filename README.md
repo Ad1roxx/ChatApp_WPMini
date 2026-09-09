@@ -31,6 +31,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Mentorships | Request → accept/decline → active → ended, with both sides on one page |
 | Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
 | Sessions | Either party proposes a time, the other confirms; reschedule, cancel, notes |
+| Progress | What the mentorships add up to, sorted so the quiet one is at the top |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
@@ -115,6 +116,7 @@ src/
     Toast.jsx                replaces alert()
     ConfirmDialog.jsx        replaces window.confirm()
     Progress.jsx             a done/total meter, not a percentage
+    Stat.jsx                 a number worth reading on its own
     Sessions.jsx             the scheduling section of a mentorship
   pages/
     LoginPage.jsx            Google sign-in
@@ -129,8 +131,11 @@ src/
     AdminPage.jsx            stats, verification queue, reports, users
     MentorshipsPage.jsx      requests, your mentors, your students, past
     MentorshipDetailPage.jsx one relationship: its goals and its sessions
+    ProgressPage.jsx         goals and sessions read back as progress
     SuspendedPage.jsx        shown instead of the app to a suspended account
-  lib/roles.js               canMentor / isAdmin / isVerified — rendering only
+  lib/
+    roles.js                 canMentor / isAdmin / isVerified — rendering only
+    useNow.js                the clock as state, plus relative time formatting
 
 server/
   index.js                   Express routes + all Socket.IO handlers
@@ -198,6 +203,7 @@ docs/
 | GET | `/api/mentorships/:id/sessions` | Sessions of one mentorship (either party) |
 | POST | `/api/mentorships/:id/sessions` | Propose a time (either party) |
 | PATCH | `/api/sessions/:sessionId` | confirm · reschedule · cancel · complete · notes |
+| GET | `/api/analytics/me` | Your totals, and one row per active mentorship |
 
 ## Socket.IO events
 
