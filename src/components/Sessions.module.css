@@ -149,6 +149,21 @@
   white-space: pre-wrap;
 }
 
+/* Stars and who gave them on one line, with the comment quoted underneath
+   the way session notes are. The comment claims the full row rather than
+   sharing it: a long one wrapping around the stars would leave the second
+   line hanging under nothing. */
+.rated {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.rated > blockquote {
+  flex-basis: 100%;
+}
+
 .actions {
   display: flex;
   gap: var(--space-2);

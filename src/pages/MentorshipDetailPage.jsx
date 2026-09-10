@@ -419,7 +419,11 @@ export default function MentorshipDetailPage() {
           schedule is a detail of one relationship. "When am I next meeting
           anyone?" is a different question and is answered on the mentorships
           list, where it does not need this page open to see. */}
-      <Sessions mentorshipId={id} active={mentorship.status === 'active'} />
+      <Sessions
+        mentorshipId={id}
+        active={mentorship.status === 'active'}
+        isMentor={isMentor}
+      />
     </AppShell>
   );
 }

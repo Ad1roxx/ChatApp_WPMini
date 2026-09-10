@@ -26,6 +26,7 @@ import { Field, Input, Textarea } from '../components/Field';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { canMentor } from '../lib/roles';
+import Stars from '../components/Stars';
 import styles from './UserProfilePage.module.css';
 
 export default function UserProfilePage() {
@@ -35,6 +36,9 @@ export default function UserProfilePage() {
   const toast = useToast();
 
   const [profile, setProfile] = useState(null);
+
+  // A mentor's rating: how many, the average, and the recent comments.
+  const [ratings, setRatings] = useState(null);
 
   // Mentorship dialog — `addingStudent` picks the direction, since the two
   // share a form, a handler and a POST.
@@ -60,6 +64,27 @@ export default function UserProfilePage() {
   /**
    * Effect: fetch the profile whenever the id in the URL changes.
    */
+  useEffect(() => {
+    let stale = false;
+
+    // Fetched for everyone, not just mentors: role can change, and a stale
+    // `isMentor` would leave a rated account looking unrated.
+    const load = async () => {
+      try {
+        const res = await authFetch(`/api/users/${userId}/feedback`);
+        if (res.ok && !stale) setRatings(await res.json());
+      } catch {
+        // A profile that renders without its rating is fine; one that fails
+        // to render because a rating did is not.
+      }
+    };
+
+    if (userId) load();
+    return () => {
+      stale = true;
+    };
+  }, [userId, authFetch]);
+
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
@@ -307,6 +332,37 @@ export default function UserProfilePage() {
           </p>
         )}
       </Card>
+
+      {/* What their students said. Only rendered once there is something to
+          render: an empty ratings card on a new mentor reads as "nobody
+          rated them well" rather than "nobody has rated them". */}
+      {isMentor && ratings?.count > 0 && (
+        <Card
+          title="What students say"
+          subtitle={`From ${ratings.count} rated session${ratings.count === 1 ? '' : 's'}`}
+        >
+          <div className={styles.ratingSummary}>
+            <span className={styles.ratingValue}>{ratings.average.toFixed(1)}</span>
+            <Stars value={ratings.average} size="md" />
+          </div>
+
+          {ratings.recent.length > 0 && (
+            <ul className={styles.comments}>
+              {ratings.recent.map((f) => (
+                <li key={f._id} className={styles.comment}>
+                  <div className={styles.commentHead}>
+                    <Stars value={f.rating} size="sm" />
+                    <span className={styles.commentWho}>
+                      {f.from?.displayName || 'A student'}
+                    </span>
+                  </div>
+                  <p className={styles.commentText}>{f.comment}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       {/*
         Mentor-only section. Mirrors ProfilePage: students never had these

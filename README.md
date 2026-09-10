@@ -36,6 +36,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Progress | What the mentorships add up to, sorted so the quiet one is at the top |
 | Unread messages | Per-person and per-group counts, previews, and sidebar totals |
 | Group read receipts | "Seen by" under your last message, from per-member read marks |
+| Feedback ratings | Students rate a completed session; the average shows on the mentor |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
@@ -100,7 +101,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 273 integration tests against a throwaway database |
+| `npm test` | 300 integration tests against a throwaway database |
 
 ---
 
@@ -124,6 +125,7 @@ src/
     Progress.jsx             a done/total meter, not a percentage
     Stat.jsx                 a number worth reading on its own
     UnreadBadge.jsx          the count pill, capped at 99+
+    Stars.jsx                a five-point rating, read or written
     Sessions.jsx             the scheduling section of a mentorship
   pages/
     LoginPage.jsx            Google sign-in
@@ -160,6 +162,7 @@ server/
     analytics.test.js        the figures, and what they exclude
     conversations.test.js    previews, unread counts, read events
     groupreads.test.js       group previews, counts, receipts
+    feedback.test.js         who may rate, the scale, and the average
     startup.test.js          stale-presence reset on boot
   models/
     User.js                  identity, presence, role, profile fields
@@ -172,6 +175,7 @@ server/
     Goal.js                  goals with embedded milestones
     Session.js               scheduled meetings, proposed and confirmed
     GroupRead.js             per-member read marks, for group unread and receipts
+    Feedback.js              a student's rating of one completed session
 
 .github/workflows/
   ci.yml                     lint, build and the test suite on every push
@@ -224,6 +228,9 @@ docs/
 | GET | `/api/conversations` | Last message and unread count, per person |
 | GET | `/api/groups/conversations` | The same, per group |
 | GET | `/api/groups/:groupId/reads` | Every member's read mark, for receipts |
+| PUT | `/api/sessions/:sessionId/feedback` | **Student only** — rate a completed session |
+| GET | `/api/mentorships/:id/feedback` | Every rating in one mentorship |
+| GET | `/api/users/:id/feedback` | A mentor's count, average and recent comments |
 
 ## Socket.IO events
 

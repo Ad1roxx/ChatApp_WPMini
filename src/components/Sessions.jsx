@@ -25,6 +25,7 @@ import EmptyState from './EmptyState';
 import { InlineLoader } from './Loading';
 import { useToast } from './Toast';
 import { CalendarIcon } from './Icons';
+import Stars from './Stars';
 import styles from './Sessions.module.css';
 
 /** Minutes offered in the picker — the slots people actually book. */
@@ -68,7 +69,7 @@ const STATUS_BADGE = {
   cancelled: { variant: 'danger', label: 'Cancelled' }
 };
 
-export default function Sessions({ mentorshipId, active }) {
+export default function Sessions({ mentorshipId, active, isMentor }) {
   const { dbUser, socket, authFetch } = useAuth();
   const toast = useToast();
 
@@ -95,13 +96,27 @@ export default function Sessions({ mentorshipId, active }) {
   const [cancelling, setCancelling] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
 
+  // Ratings, keyed by session id. Loaded once and kept current by socket.
+  const [feedback, setFeedback] = useState({});
+  const [ratingId, setRatingId] = useState(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+
   useEffect(() => {
     let stale = false;
 
     const load = async () => {
       try {
-        const res = await authFetch(`/api/mentorships/${mentorshipId}/sessions`);
-        if (res.ok && !stale) setSessions(await res.json());
+        const [sRes, fRes] = await Promise.all([
+          authFetch(`/api/mentorships/${mentorshipId}/sessions`),
+          authFetch(`/api/mentorships/${mentorshipId}/feedback`)
+        ]);
+
+        if (sRes.ok && !stale) setSessions(await sRes.json());
+        if (fRes.ok && !stale) {
+          const rows = await fRes.json();
+          setFeedback(Object.fromEntries(rows.map((f) => [String(f.session), f])));
+        }
       } catch (err) {
         console.error('Error loading sessions:', err);
       } finally {
@@ -130,8 +145,18 @@ export default function Sessions({ mentorshipId, active }) {
       });
     };
 
+    /** A rating arrives after everyone has stopped looking at the session. */
+    const handleFeedback = (f) => {
+      if (String(f.mentorship) !== mentorshipId) return;
+      setFeedback((prev) => ({ ...prev, [String(f.session)]: f }));
+    };
+
     socket.on('session-updated', handle);
-    return () => socket.off('session-updated', handle);
+    socket.on('feedback-updated', handleFeedback);
+    return () => {
+      socket.off('session-updated', handle);
+      socket.off('feedback-updated', handleFeedback);
+    };
   }, [socket, mentorshipId]);
 
   /** Every action is the same PATCH, so they share one caller. */
@@ -165,6 +190,33 @@ export default function Sessions({ mentorshipId, active }) {
     },
     [authFetch, toast]
   );
+
+  /** Save (or replace) the student rating of a session. */
+  const saveRating = async (session) => {
+    setBusyId(session._id);
+
+    try {
+      const res = await authFetch(`/api/sessions/${session._id}/feedback`, {
+        method: 'PUT',
+        body: JSON.stringify({ rating: ratingValue, comment: ratingComment })
+      });
+
+      if (res.ok) {
+        const saved = await res.json();
+        setFeedback((prev) => ({ ...prev, [String(saved.session)]: saved }));
+        setRatingId(null);
+        toast.success('Thanks — your mentor can see this.');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Could not save that rating');
+      }
+    } catch (err) {
+      console.error('Error saving rating:', err);
+      toast.error('Could not reach the server');
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const propose = async (e) => {
     e.preventDefault();
@@ -226,6 +278,8 @@ export default function Sessions({ mentorshipId, active }) {
     const started = start.getTime() <= now;
     const moving = movingId === session._id;
     const writingNotes = notesId === session._id;
+    const rated = feedback[String(session._id)];
+    const rating = ratingId === session._id;
 
     return (
       <li key={session._id} className={styles.session}>
@@ -285,6 +339,58 @@ export default function Sessions({ mentorshipId, active }) {
           )}
 
           {session.notes && <blockquote className={styles.notes}>{session.notes}</blockquote>}
+
+          {/* The rating, once given. Both sides see the same thing: there is
+              no anonymity to protect in a room of two, so pretending
+              otherwise would only be theatre. */}
+          {rated && !rating && (
+            <div className={styles.rated}>
+              <Stars value={rated.rating} size="sm" />
+              <span className={styles.dim}>
+                {isMentor ? `from ${rated.from?.displayName || 'your student'}` : 'your rating'}
+              </span>
+              {rated.comment && (
+                <blockquote className={styles.notes}>{rated.comment}</blockquote>
+              )}
+            </div>
+          )}
+
+          {rating && (
+            <div className={styles.inlineForm}>
+              <Field label="How was it?" hint="Your mentor sees this with your name on it">
+                <Stars
+                  value={ratingValue}
+                  onChange={setRatingValue}
+                  size="lg"
+                  label="Your rating"
+                />
+              </Field>
+
+              <Field label="Anything to add?" hint="Optional">
+                <Textarea
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  placeholder="What helped, or what would have helped more"
+                  maxLength={1000}
+                  rows={3}
+                />
+              </Field>
+
+              <div className={styles.inlineActions}>
+                <Button size="sm" onClick={() => setRatingId(null)}>
+                  Never mind
+                </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={busy || ratingValue === 0}
+                  onClick={() => saveRating(session)}
+                >
+                  {rated ? 'Update rating' : 'Send rating'}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {moving && (
             <div className={styles.inlineForm}>
@@ -352,7 +458,7 @@ export default function Sessions({ mentorshipId, active }) {
             </div>
           )}
 
-          {!moving && !writingNotes && (
+          {!moving && !writingNotes && !rating && (
             <div className={styles.actions}>
               {session.status === 'proposed' && !iProposed && (
                 <Button
@@ -416,6 +522,23 @@ export default function Sessions({ mentorshipId, active }) {
                   }}
                 >
                   {session.notes ? 'Edit notes' : 'Add notes'}
+                </Button>
+              )}
+
+              {/* Students rate; mentors are rated. The server enforces it, so
+                  this only decides whether to offer the button. */}
+              {session.status === 'completed' && !isMentor && (
+                <Button
+                  size="sm"
+                  variant={rated ? 'ghost' : 'secondary'}
+                  disabled={busy}
+                  onClick={() => {
+                    setRatingValue(rated?.rating || 0);
+                    setRatingComment(rated?.comment || '');
+                    setRatingId(session._id);
+                  }}
+                >
+                  {rated ? 'Change rating' : 'Rate this session'}
                 </Button>
               )}
             </div>

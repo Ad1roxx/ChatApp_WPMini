@@ -2337,6 +2337,87 @@ locally; the first push is its real test.
 
 ---
 
+### Entry 29 — Feedback ratings
+
+**What I built.** The missing end of the session lifecycle. A session was
+proposed, confirmed and met — and then nothing came of it. Students now rate a
+completed session out of five with an optional note, and the average appears
+on the mentor's profile.
+
+**Files added:** `server/models/Feedback.js`, `src/components/Stars.jsx` +
+module, `server/test/feedback.test.js`.
+
+**Files changed:** `server/index.js` (three endpoints, 41 total),
+`Sessions.jsx` + module, `UserProfilePage.jsx` + module,
+`MentorshipDetailPage.jsx`.
+
+**Design decision 1 — per session, not per mentorship.** One rating at the end
+of a mentorship arrives months after the thing it describes, when the details
+are gone and only the last impression is left. A session that just finished is
+the one moment the person actually remembers how it went, and rating each one
+gives the mentor a trend rather than a verdict.
+
+**Design decision 2 — only the student rates.** The mentor does not rate back,
+and the asymmetry is the point. A rating that follows a mentor around is a
+record of a service they offered; a score attached to a *student* is a record
+of a person being judged while they are trying to learn, which is a different
+and worse thing. A mentor who wants to record how someone is doing already has
+session notes and goal progress — both of which describe work rather than
+worth.
+
+**Design decision 3 — it cannot be anonymous, so it does not pretend to be.**
+A mentorship has exactly two people in it. Whatever the UI said, the mentor
+would know who left the rating, so `from` is stored plainly and the hint under
+the stars reads *"Your mentor sees this with your name on it."* A promise of
+anonymity that the arithmetic breaks is worse than no promise at all.
+
+**Design decision 4 — PUT, and a unique index.** Rating again replaces rather
+than adds. The route upserts on `(session, from)` and the index enforces it,
+because a double submit from a slow connection would otherwise double-count —
+a failure that inflates a mentor's average with nothing visibly wrong on the
+page. There is a test asserting the row count stays at one.
+
+**Design decision 5 — five whole points.** A wider scale invites false
+precision: nobody can tell a 73 from a 76, and the average of a hundred of
+them looks authoritative while meaning nothing. The average *is* shown to one
+decimal, because 4.1 and 4.9 are genuinely different, and always beside the
+count — "5.0 from one session" and "4.6 from forty" are not the same claim.
+
+**Design decision 6 — comments only in the quotes.** The profile lists recent
+*comments*, not recent ratings. A list of bare numbers tells a reader nothing
+the average has not already said, and a blank quote is a row of whitespace
+pretending to be a review. Tested explicitly: two ratings, one comment, one
+quote.
+
+**`Stars` is one component for reading and writing.** Pass `onChange` and it
+becomes an input; leave it off and it is a label. They are the same scale, and
+letting them drift apart is how a 4 comes to look like a different thing on
+two pages.
+
+The input is a **real radio group** — five visually-hidden radios with the
+star as their label — so it is arrow-key operable and announced as "3 of 5
+stars, radio button" without any `role`/`tabIndex` reconstruction. Halves are
+*displayed* (a 4.7 average fills the fifth star 70% of the way, by clipping a
+second glyph) but never *entered*: a person pressing stars does not mean 3.5,
+and offering it would be false precision at the point of collection.
+
+**Written with its tests, not before them.** Six features in a row were
+verified by hand and converted later (Entry 28). This one shipped with
+`feedback.test.js` in the same commit, so it goes straight into CI. 27 tests:
+both role refusals, rating an unfinished session, the five-point bounds
+including 3.5 and `"five"`, replacement not duplication, both parties reading
+the mentorship's feedback while an outsider cannot, the average moving from
+5 to 4.5 and rounding, commentless ratings staying out of the quotes, and an
+unrated account returning zeroes rather than an error.
+
+The suite is now **300 tests across 12 files**.
+
+**A layout fix from the screenshot.** The rating comment sat inside the same
+flex row as the stars, so a long one wrapped around them and left its second
+line hanging under nothing. It claims the full row now.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2377,9 +2458,9 @@ locally; the first push is its real test.
   Now that goals, sessions and mentorship duration all produce real figures it
   could be earned from data rather than invented, which is the only version
   worth having.
-- **Resources and feedback ratings** — also still unbuilt. Ratings are the
-  natural end of the session lifecycle: a session completes, it gets rated,
-  the rating feeds the mentor's profile and this page.
+- ~~**Feedback ratings**~~ — done in Entry 29.
+- **Resources** — still unbuilt. Link sharing per mentorship is the cheapest
+  of the remaining features.
 - **Sessions never leave the app** — no calendar export, no invitation, and no
   reminder before one starts. Times are stored UTC and rendered per viewer, so
   two timezones agree on the moment; nothing tells either person it is coming.
