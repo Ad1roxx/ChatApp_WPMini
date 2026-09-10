@@ -13,6 +13,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useConversations } from '../context/ConversationsContext';
+import UnreadBadge from '../components/UnreadBadge';
 import AppShell from '../components/AppShell';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
@@ -28,6 +30,7 @@ import styles from './GroupsPage.module.css';
 export default function GroupsPage() {
   const navigate = useNavigate();
   const { dbUser, socket, authFetch } = useAuth();
+  const { byGroup, markGroupRead } = useConversations();
   const toast = useToast();
 
   // Mentors and admins may create groups. The server enforces this
@@ -183,6 +186,24 @@ export default function GroupsPage() {
   const isMember = (group) =>
     group.members?.some((m) => (m._id || m) === dbUser?._id);
 
+
+  /**
+   * Groups you are talking in, most recent first; everything else after.
+   *
+   * The same rule the messages list follows, and for the same reason: a group
+   * with three unread messages sitting below one you have never joined is a
+   * list sorted by nothing anybody cares about.
+   */
+  const ordered = [...groups].sort((a, b) => {
+    const at = byGroup[a._id]?.lastAt;
+    const bt = byGroup[b._id]?.lastAt;
+
+    if (at && bt) return new Date(bt) - new Date(at);
+    if (at) return -1;
+    if (bt) return 1;
+    return 0;
+  });
+
   return (
     <AppShell
       title="Groups"
@@ -282,9 +303,11 @@ export default function GroupsPage() {
           />
         ) : (
           <ul className={styles.list}>
-            {groups.map((g) => {
+            {ordered.map((g) => {
               const member = isMember(g);
               const count = g.members?.length || 0;
+              const convo = byGroup[g._id];
+              const unread = convo?.unread || 0;
 
               return (
                 <li key={g._id} className={styles.row}>
@@ -294,14 +317,44 @@ export default function GroupsPage() {
 
                   <span className={styles.rowText}>
                     <span className={styles.groupName}>{g.name}</span>
-                    <span className={styles.groupMeta}>
-                      {count} member{count === 1 ? '' : 's'}
-                      {member ? ' · You’re in this group' : ''}
-                    </span>
+
+                    {/* A member who has spoken here gets the last thing said,
+                        prefixed with who said it — the one thing a group
+                        preview needs that a direct-message preview does not,
+                        because "who" is not implied by the row you are on.
+                        Non-members get the member count: they have no
+                        conversation to preview, and a stranger's messages are
+                        not theirs to read. */}
+                    {member && convo ? (
+                      <span
+                        className={[
+                          styles.groupPreview,
+                          unread > 0 ? styles.groupPreviewUnread : ''
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <span className={styles.who}>
+                          {convo.lastFromMe ? 'You' : convo.lastSenderName}:{' '}
+                        </span>
+                        {convo.lastText}
+                      </span>
+                    ) : (
+                      <span className={styles.groupMeta}>
+                        {count} member{count === 1 ? '' : 's'}
+                        {member ? ' · You’re in this group' : ''}
+                      </span>
+                    )}
                   </span>
 
+                  <UnreadBadge count={unread} label="unread messages" />
+
                   {member ? (
-                    <Button size="sm" onClick={() => navigate(`/group/${g._id}`)}>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        markGroupRead(g._id);
+                        navigate(`/group/${g._id}`);
+                      }}
+                    >
                       Open
                     </Button>
                   ) : (

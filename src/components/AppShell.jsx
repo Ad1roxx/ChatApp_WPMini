@@ -61,7 +61,7 @@ const NAV_SECTIONS = [
       { to: '/users', label: 'Messages', icon: MessagesIcon, badge: 'messages' },
       { to: '/mentorships', label: 'Mentorship', icon: HandshakeIcon },
       { to: '/progress', label: 'Progress', icon: ChartIcon },
-      { to: '/groups', label: 'Groups', icon: GroupsIcon },
+      { to: '/groups', label: 'Groups', icon: GroupsIcon, badge: 'groups' },
       { to: '/announcements', label: 'Announcements', icon: AnnouncementIcon }
     ]
   },
@@ -90,7 +90,7 @@ export default function AppShell({
   children
 }) {
   const { dbUser, logout } = useAuth();
-  const { totalUnread } = useConversations();
+  const { totalUnread, totalGroupUnread } = useConversations();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -149,9 +149,9 @@ export default function AppShell({
                   <span>{label}</span>
                   {/* Pushed to the far right by .navItem's auto margin, so
                       the label stays put whether or not there is a count. */}
-                  {badge === 'messages' && (
+                  {badge && (
                     <UnreadBadge
-                      count={totalUnread}
+                      count={badge === 'messages' ? totalUnread : totalGroupUnread}
                       label="unread messages"
                       className={styles.navBadge}
                     />

@@ -32,6 +32,7 @@ const Report = require('./models/Report');
 const Mentorship = require('./models/Mentorship');
 const Goal = require('./models/Goal');
 const Session = require('./models/Session');
+const GroupRead = require('./models/GroupRead');
 
 // Authentication
 const {
@@ -685,6 +686,135 @@ app.get('/api/groups', requireAuth, async (req, res) => {
     res.json(groups);
   } catch (err) {
     console.error('Error fetching groups:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/groups/conversations
+ *
+ * The group half of `/api/conversations`: per group, what was said last, by
+ * whom, and how many messages you have not read.
+ *
+ * Kept as its own route rather than folded into the direct-message one
+ * because the two answer different questions — that one is keyed by person,
+ * this one by group — and a single endpoint returning two differently-shaped
+ * lists would only have been a merge waiting to be undone on the client.
+ *
+ * ## Two aggregations, not one
+ *
+ * The preview is a straight `$group` with `$first` over a time sort. The
+ * unread count cannot join it, because each group has its *own* cutoff — the
+ * caller's high-water mark — and one pipeline would need a `$switch` over
+ * every group to express that. An `$or` of `{ group, timestamp: { $gt } }`
+ * clauses is both clearer and a better fit for the existing
+ * `{ group: 1, timestamp: 1 }` index.
+ *
+ * Your own messages never count as unread, which is why `sender` is excluded
+ * rather than the mark simply being moved on send.
+ */
+app.get('/api/groups/conversations', requireAuth, async (req, res) => {
+  try {
+    const me = req.authUser._id;
+
+    const groups = await Group.find({ members: me }).select('_id');
+    if (groups.length === 0) return res.json([]);
+
+    const groupIds = groups.map((g) => g._id);
+
+    const marks = await GroupRead.find({ user: me, group: { $in: groupIds } });
+    const markBy = new Map(marks.map((m) => [String(m.group), m.lastReadAt]));
+
+    // A member with no mark has never opened the group, so everything in it
+    // is unread — epoch is the honest cutoff, not "now".
+    const EPOCH = new Date(0);
+
+    const [previews, unreads] = await Promise.all([
+      GroupMessage.aggregate([
+        { $match: { group: { $in: groupIds } } },
+        { $sort: { timestamp: -1 } },
+        {
+          $group: {
+            _id: '$group',
+            lastText: { $first: '$text' },
+            lastAt: { $first: '$timestamp' },
+            lastSender: { $first: '$sender' }
+          }
+        }
+      ]),
+      GroupMessage.aggregate([
+        {
+          $match: {
+            sender: { $ne: me },
+            $or: groupIds.map((id) => ({
+              group: id,
+              timestamp: { $gt: markBy.get(String(id)) || EPOCH }
+            }))
+          }
+        },
+        { $group: { _id: '$group', unread: { $sum: 1 } } }
+      ])
+    ]);
+
+    // The preview needs a name, not an id. One lookup for every sender that
+    // actually appears, rather than a populate per row.
+    const senderIds = [...new Set(previews.map((p) => String(p.lastSender)))];
+    const senders = await User.find({ _id: { $in: senderIds } }).select('displayName');
+    const nameBy = new Map(senders.map((u) => [String(u._id), u.displayName]));
+
+    const unreadBy = new Map(unreads.map((u) => [String(u._id), u.unread]));
+
+    res.json(
+      previews.map((p) => ({
+        groupId: p._id,
+        lastText: p.lastText,
+        lastAt: p.lastAt,
+        lastSenderId: p.lastSender,
+        lastSenderName: nameBy.get(String(p.lastSender)) || 'Someone',
+        lastFromMe: String(p.lastSender) === String(me),
+        unread: unreadBy.get(String(p._id)) || 0
+      }))
+    );
+  } catch (err) {
+    console.error('Error listing group conversations:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/groups/:groupId/reads
+ *
+ * Every member's high-water mark for one group — the raw material for read
+ * receipts. The client turns it into "seen by" under the last message you
+ * sent, because who has read *your* message is the only receipt anyone wants.
+ *
+ * Members only: how far other people have read is not public.
+ */
+app.get('/api/groups/:groupId/reads', requireAuth, async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.groupId).select('members');
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    const me = String(req.authUser._id);
+    if (!group.members.some((m) => String(m) === me)) {
+      return res.status(403).json({ error: 'You are not a member of that group' });
+    }
+
+    const reads = await GroupRead.find({ group: req.params.groupId })
+      .populate('user', 'displayName photoURL');
+
+    res.json(
+      reads.map((r) => ({
+        userId: r.user?._id || r.user,
+        displayName: r.user?.displayName || 'Someone',
+        photoURL: r.user?.photoURL || '',
+        lastReadAt: r.lastReadAt
+      }))
+    );
+  } catch (err) {
+    console.error('Error listing group reads:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -2626,6 +2756,49 @@ io.on('connection', (socket) => {
     }
   });
 
+  /**
+   * MARK-GROUP-READ Event
+   *
+   * The group twin of 'mark-read'. Moves this member's high-water mark to
+   * now, which is what both the unread badge and everyone else's read
+   * receipts are computed from.
+   *
+   * Upserted rather than created: a member opens a group many times, and the
+   * unique (group, user) index means a second insert would fail rather than
+   * advance the mark.
+   */
+  socket.on('mark-group-read', async (data) => {
+    try {
+      const { groupId } = data;
+      const userId = String(socket.data.user._id);
+      if (!groupId) return;
+
+      // Membership re-checked, as everywhere else in the group handlers: a
+      // read marker for a group you are not in would leak into its receipts.
+      const group = await Group.findById(groupId).select('members');
+      if (!group?.members?.some((m) => String(m) === userId)) return;
+
+      const lastReadAt = new Date();
+      await GroupRead.updateOne(
+        { group: groupId, user: userId },
+        { $set: { lastReadAt } },
+        { upsert: true }
+      );
+
+      // Your own tabs, so the badge clears in the window you left on the list.
+      emitToUser(userId, 'group-read', { groupId: String(groupId) });
+
+      // And the room, so anyone watching sees their message become seen.
+      io.to(`group:${groupId}`).emit('group-receipt', {
+        groupId: String(groupId),
+        userId,
+        lastReadAt
+      });
+    } catch (err) {
+      console.error('Error marking group read:', err);
+    }
+  });
+
   // ------------------------------------------
   // GROUP CHAT EVENTS (Socket.IO rooms)
   //
@@ -2695,7 +2868,7 @@ io.on('connection', (socket) => {
 
       // MEMBERSHIP re-checked here, not just in 'join-group': a client can
       // emit this event without ever having joined the room.
-      const group = await Group.findById(groupId).select('members');
+      const group = await Group.findById(groupId).select('members name');
       if (!group?.members?.some((m) => String(m) === String(senderId))) {
         socket.emit('error', { message: 'You are not a member of that group' });
         return;
@@ -2722,6 +2895,29 @@ io.on('connection', (socket) => {
 
       // Broadcast to every socket in this group's room (sender included)
       io.to(`group:${groupId}`).emit('new-group-message', messageToSend);
+
+      /**
+       * And separately, to every MEMBER — room or no room.
+       *
+       * The room only contains people with the group open. Everyone else is
+       * exactly who the unread badge is for: they are not in the room, so the
+       * broadcast above never reaches them, and without this their count
+       * would only move on a page load. Two events rather than one because
+       * they answer different questions — the room gets a message to render,
+       * members get "something happened in this group".
+       */
+      const activity = {
+        groupId: String(groupId),
+        groupName: group.name,
+        text: message.text,
+        timestamp: message.timestamp,
+        senderId,
+        senderName: message.sender.displayName
+      };
+
+      group.members.forEach((memberId) => {
+        emitToUser(memberId, 'group-activity', activity);
+      });
 
       console.log(`✉️ Group message: ${senderId} -> group ${groupId}`);
     } catch (err) {

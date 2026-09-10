@@ -32,7 +32,8 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
 | Sessions | Either party proposes a time, the other confirms; reschedule, cancel, notes |
 | Progress | What the mentorships add up to, sorted so the quiet one is at the top |
-| Unread messages | Per-person counts and last-message previews, plus a sidebar total |
+| Unread messages | Per-person and per-group counts, previews, and sidebar totals |
+| Group read receipts | "Seen by" under your last message, from per-member read marks |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
@@ -162,6 +163,7 @@ server/
     Mentorship.js            the student–mentor relationship
     Goal.js                  goals with embedded milestones
     Session.js               scheduled meetings, proposed and confirmed
+    GroupRead.js             per-member read marks, for group unread and receipts
 
 docs/
   BUILD_NOTES.md             running log: what was built and why
@@ -209,19 +211,21 @@ docs/
 | PATCH | `/api/sessions/:sessionId` | confirm · reschedule · cancel · complete · notes |
 | GET | `/api/analytics/me` | Your totals, and one row per active mentorship |
 | GET | `/api/conversations` | Last message and unread count, per person |
+| GET | `/api/groups/conversations` | The same, per group |
+| GET | `/api/groups/:groupId/reads` | Every member's read mark, for receipts |
 
 ## Socket.IO events
 
 **Client → server:** `user-online`, `send-message`, `typing`, `stop-typing`,
-`mark-read`, `join-group`, `leave-group`, `send-group-message`,
-`group-typing`, `group-stop-typing`
+`mark-read`, `mark-group-read`, `join-group`, `leave-group`,
+`send-group-message`, `group-typing`, `group-stop-typing`
 
 **Server → client:** `online-users`, `user-status-change`, `user-added`,
 `user-updated`, `new-message`, `message-sent`, `user-typing`,
 `user-stop-typing`, `messages-read`, `new-group-message`, `group-user-typing`,
 `group-user-stop-typing`, `new-announcement`, `announcement-deleted`,
 `mentorship-updated`, `goal-updated`, `session-updated`, `conversation-read`,
-`error`
+`group-activity`, `group-read`, `group-receipt`, `error`
 
 ---
 

@@ -2166,6 +2166,94 @@ existing tests still pass.
 
 ---
 
+### Entry 27 — Group previews, unread counts and read receipts
+
+**The ask.** *"The groups should have the message preview system and
+notification system exactly like DMs do."* Plus read receipts, which groups
+had never had in any form.
+
+**Files added:** `server/models/GroupRead.js`.
+
+**Files changed:** `server/index.js` (two endpoints, 38 total; one new socket
+handler; `send-group-message` now fans out twice), `ConversationsContext.jsx`,
+`GroupsPage.jsx` + module, `GroupChatPage.jsx` + module, `AppShell.jsx`.
+
+**Design decision 1 — a high-water mark, not a `read` flag.** A direct message
+has exactly one reader, so `read: true` on the message is the whole truth. A
+group message has as many readers as the group has members, and the equivalent
+would be a `readBy` array on every message: it grows with members × messages,
+is rewritten on every read by every member, and has to be scanned to answer
+"how many have I not read".
+
+`GroupRead` is one row per (group, member) holding the timestamp of the last
+message they have seen. One row, written once per open, and it answers both
+questions the app actually asks — unread count is "messages newer than my
+mark", and a read receipt is "whose mark is at or past this message". *It
+cannot express "read message 5 but not message 3", which nothing needs:* chat
+is read in order, and a per-message record is a large price for a distinction
+nobody makes. A member with no row has never opened the group, which reads
+correctly as "everything is unread" without a row to say so.
+
+**Design decision 2 — the room is not the audience for a badge.** Group
+messages broadcast to `group:<id>`, which contains only the people who
+currently have that group *open*. Everyone else is precisely who an unread
+badge is for. So `send-group-message` now emits twice: `new-group-message` to
+the room, which is a message to render, and `group-activity` unicast to every
+member, which is "something happened in this group". Two events because they
+answer different questions, and the second one has a different audience by
+definition.
+
+**Design decision 3 — one context, two shapes.** Groups ride in
+`ConversationsContext` beside direct messages rather than getting a provider
+of their own. The Groups list and the sidebar badge beside it need the same
+numbers, and a second provider would have meant a second socket subscription
+racing the first. `byPeer` and `byGroup` are separate maps because the two are
+keyed differently and merging them would only have been undone on the client.
+
+**Design decision 4 — a group preview needs a name, a direct one does not.**
+"Priya Nair: ah that explains the cold starts". In a one-to-one list the row
+you are on already says who; in a group it does not, so the sender is part of
+the preview — quieter than the message, because the message is what you are
+scanning for and the name is the qualifier.
+
+Non-members see the member count instead. They have no conversation to preview
+and a stranger's messages are not theirs to read.
+
+**Design decision 5 — receipts only on your own last message.** The same rule
+WhatsApp follows, for the same reason: "who has seen this" is a question you
+ask about something *you* sent. Rendering it on every message would be a wall
+of names restating the same set. It reads "Seen by everyone" when the whole
+group has caught up, names up to two, and falls back to "and N more" past
+that.
+
+**Two aggregations rather than one.** The preview is a `$group` with `$first`
+over a time sort. The unread count cannot join it, because every group has its
+*own* cutoff — the caller's mark — and one pipeline would need a `$switch` over
+every group to say so. An `$or` of `{ group, timestamp: { $gt } }` clauses is
+both clearer and a better fit for the existing `{ group: 1, timestamp: 1 }`
+index.
+
+**What the screenshot caught.** The list was rendering in whatever order
+`/api/groups` returned, so a group with three unread messages sat *below* one
+the viewer had never joined. It sorts by recency now, same as the messages
+list — the rule was already written down one page over and had simply not been
+applied here.
+
+**Verified with 32 checks** against a throwaway `chatapp_test`: an empty list
+before anything is said, previews carrying the sender's name, unread counting
+for a member who has never opened the group, own messages never counting as
+unread while still moving the preview, counts accumulating and clearing per
+member independently, `mark-group-read` notifying the reader's own tabs *and*
+broadcasting a receipt to the room, re-reading upserting rather than
+duplicating, `group-activity` reaching a member who is not in the room at all,
+non-members getting nothing and 403 on the receipts, 401 without a token, and
+404 for a group that does not exist. The 105 existing tests still pass.
+
+**Not in the test suite.** Six server features now: mentorships, goals,
+sessions, analytics, conversations and group conversations.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2179,9 +2267,8 @@ existing tests still pass.
   `user-updated` broadcasts.
 - ~~**Final cleanup pass**~~ — done in Entry 12. Docs rewritten, dead Firebase
   config files deleted, `localhost → 127.0.0.1` default committed.
-- **Group read receipts** — 1-to-1 chat has them (Entry 5), groups do not.
-  (Socket membership enforcement, the other half of this item, was done in
-  Entry 15.)
+- ~~**Group read receipts**~~ — done in Entry 27, along with group previews
+  and unread counts.
 - ~~**Presence is unreliable**~~ — fixed in Entry 17: login no longer marks you
   online, stale flags are cleared at boot, and multi-tab is handled properly.
 - ~~**No automated test suite**~~ — done in Entry 18: 67 integration tests,
@@ -2190,10 +2277,10 @@ existing tests still pass.
 - **No frontend tests** — the 105 cover the server. React components are only
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour.
-- **Mentorship, goal, session, analytics and conversation endpoints are not
-  in the test suite** — verified by hand in Entries 20, 21, 22, 24, 25 and 26
-  (14, 9, 40, 39, 23 and 44 checks) that were not committed. The five server
-  features without coverage, deferred to one test pass.
+- **Six server features are not in the test suite** — mentorships, goals,
+  sessions, analytics, conversations and group conversations, verified by hand
+  in Entries 20, 21, 22, 24, 25, 26 and 27 (14, 9, 40, 39, 23, 44 and 32
+  checks) that were not committed. Deferred to one test pass.
 - **An ignored opt-out has no way out** — a mentor who never answers leaves
   the student stuck. `optOut.requestedAt` is the seam for a sweep, an admin
   action, or auto-approval after N days. Entry 26.

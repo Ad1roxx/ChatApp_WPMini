@@ -122,3 +122,25 @@
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
+
+/* One line, clipped — same reasoning as the direct-message list: a preview
+   that wraps changes the row height with the length of whatever was last
+   said, and the list loses the rhythm that makes it scannable. */
+.groupPreview {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.groupPreviewUnread {
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+}
+
+/* Who said it. Quieter than what they said, because in a group the message
+   is the thing you are scanning for and the name is the qualifier. */
+.who {
+  color: var(--color-text-subtle);
+}

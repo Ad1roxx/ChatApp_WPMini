@@ -51,6 +51,17 @@
   color: var(--color-accent);
 }
 
+/* Mirrors the "Seen" line in the 1-to-1 transcript: right-aligned, quiet,
+   and attached to the bottom of your own last message rather than to any
+   particular bubble. */
+.seenLine {
+  align-self: flex-end;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  text-align: right;
+}
+
 .typingLine {
   padding: var(--space-1) var(--space-2);
   font-size: var(--text-sm);

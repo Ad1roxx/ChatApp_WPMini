@@ -18,6 +18,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useConversations } from '../context/ConversationsContext';
 import AppShell from '../components/AppShell';
 import Avatar from '../components/Avatar';
 import { PageLoader } from '../components/Loading';
@@ -28,6 +29,11 @@ import groupStyles from './GroupChatPage.module.css';
 export default function GroupChatPage() {
   const { groupId } = useParams();
   const { dbUser, socket, authFetch } = useAuth();
+  const { markGroupRead } = useConversations();
+
+  // Every member's high-water mark, keyed by user id — the raw material for
+  // "seen by" under your own last message.
+  const [reads, setReads] = useState({});
 
   const [group, setGroup] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -64,6 +70,16 @@ export default function GroupChatPage() {
           const myGroups = await groupsRes.json();
           setGroup(myGroups.find((g) => g._id === groupId) || null);
         }
+
+        // Who has read how far. Fetched once; kept current by `group-receipt`.
+        authFetch(`/api/groups/${groupId}/reads`)
+          .then((r) => (r.ok ? r.json() : []))
+          .then((rows) =>
+            setReads(
+              Object.fromEntries(rows.map((r) => [String(r.userId), r.lastReadAt]))
+            )
+          )
+          .catch(() => {});
 
         // Message history
         const msgRes = await authFetch(
@@ -102,12 +118,23 @@ export default function GroupChatPage() {
     // Join this group's Socket.IO room
     socket.emit('join-group', groupId);
 
+    // Opening the group is reading it. Mirrors ChatPage's `mark-read`: once
+    // on arrival for the backlog, and again per message below.
+    socket.emit('mark-group-read', { groupId });
+    markGroupRead(groupId);
+
     const handleNewMessage = (message) => {
       if (message.group !== groupId) return;  // ignore other groups
       setMessages((prev) => {
         if (prev.some((m) => m._id === message._id)) return prev;  // dedupe
         return [...prev, message];
       });
+
+      // You are looking at it, so it is read — and telling the server is what
+      // moves your mark past it and puts you in everyone else's receipts.
+      if ((message.sender?._id || message.sender) !== dbUser._id) {
+        socket.emit('mark-group-read', { groupId });
+      }
       // Clear that sender's typing indicator once their message arrives
       setTypingUsers((prev) => {
         const next = { ...prev };
@@ -131,12 +158,20 @@ export default function GroupChatPage() {
       });
     };
 
+    /** Someone else read up to here — their name joins the "seen by" line. */
+    const handleReceipt = ({ groupId: gId, userId, lastReadAt }) => {
+      if (gId !== groupId) return;
+      setReads((prev) => ({ ...prev, [String(userId)]: lastReadAt }));
+    };
+
+    socket.on('group-receipt', handleReceipt);
     socket.on('new-group-message', handleNewMessage);
     socket.on('group-user-typing', handleTyping);
     socket.on('group-user-stop-typing', handleStopTyping);
 
     return () => {
       socket.emit('leave-group', groupId);
+      socket.off('group-receipt', handleReceipt);
       socket.off('new-group-message', handleNewMessage);
       socket.off('group-user-typing', handleTyping);
       socket.off('group-user-stop-typing', handleStopTyping);
@@ -195,6 +230,39 @@ export default function GroupChatPage() {
   }
 
   const memberCount = group?.members?.length || 0;
+
+  /**
+   * Who has read your most recent message.
+   *
+   * Only your own last one carries a receipt, for the same reason WhatsApp
+   * only ticks yours: "who has seen this" is a question you ask about
+   * something you sent. Rendering it on every message would be a wall of
+   * names restating the same set.
+   */
+  const myLastMessage = [...messages]
+    .reverse()
+    .find((m) => (m.sender?._id || m.sender) === dbUser?._id);
+
+  const seenBy = myLastMessage
+    ? (group?.members || [])
+        .filter((m) => {
+          const id = String(m._id || m);
+          if (id === String(dbUser?._id)) return false;
+          const mark = reads[id];
+          return mark && new Date(mark) >= new Date(myLastMessage.timestamp);
+        })
+        .map((m) => m.displayName || 'Someone')
+    : [];
+
+  const others = memberCount - 1;
+  const seenLabel =
+    seenBy.length === 0
+      ? null
+      : seenBy.length === others
+        ? 'Seen by everyone'
+        : seenBy.length <= 2
+          ? `Seen by ${seenBy.join(' and ')}`
+          : `Seen by ${seenBy.slice(0, 2).join(', ')} and ${seenBy.length - 2} more`;
 
   return (
     <AppShell
@@ -264,6 +332,10 @@ export default function GroupChatPage() {
               );
             })
           )}
+
+          {/* Right-aligned under your own last message, where the "Sent" /
+              "Seen" line sits in the 1-to-1 chat. */}
+          {seenLabel && <p className={groupStyles.seenLine}>{seenLabel}</p>}
 
           {typingLabel && <p className={groupStyles.typingLine}>{typingLabel}</p>}
 

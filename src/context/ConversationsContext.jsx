@@ -15,11 +15,21 @@
  *
  * So the state lives here, above both, and the socket wiring exists once.
  *
+ * Groups ride along in the same context for the same reason: the Groups list
+ * and the sidebar badge beside it need the same numbers, and a second provider
+ * would have meant a second socket subscription racing the first.
+ *
  * ## What keeps it current
  *
  * - `new-message`   someone messaged you → bump their count, replace the preview
  * - `message-sent`  you messaged someone → replace the preview, count untouched
  * - `conversation-read`  you opened a chat → that count goes to zero
+ * - `group-activity`  anything said in a group you are in → same, per group
+ * - `group-read`  you opened a group → that count goes to zero
+ *
+ * `group-activity` is unicast to every member rather than broadcast to the
+ * group's room, because the room only holds people who currently have the
+ * group *open* — and everyone else is precisely who a badge is for.
  *
  * The last one is emitted to your *own* tabs by the server when it processes
  * `mark-read`. It is what makes the badge clear in the window you left open
@@ -45,6 +55,8 @@ export function ConversationsProvider({ children }) {
 
   // { [peerId]: { lastText, lastAt, lastFromMe, unread } }
   const [byPeer, setByPeer] = useState({});
+  // { [groupId]: { lastText, lastAt, lastFromMe, lastSenderName, unread } }
+  const [byGroup, setByGroup] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,9 +66,13 @@ export function ConversationsProvider({ children }) {
 
     const load = async () => {
       try {
-        const res = await authFetch('/api/conversations');
-        if (res.ok && !stale) {
-          const rows = await res.json();
+        const [dmRes, groupRes] = await Promise.all([
+          authFetch('/api/conversations'),
+          authFetch('/api/groups/conversations')
+        ]);
+
+        if (dmRes.ok && !stale) {
+          const rows = await dmRes.json();
           setByPeer(
             Object.fromEntries(
               rows.map((r) => [
@@ -65,6 +81,24 @@ export function ConversationsProvider({ children }) {
                   lastText: r.lastText,
                   lastAt: r.lastAt,
                   lastFromMe: r.lastFromMe,
+                  unread: r.unread
+                }
+              ])
+            )
+          );
+        }
+
+        if (groupRes.ok && !stale) {
+          const rows = await groupRes.json();
+          setByGroup(
+            Object.fromEntries(
+              rows.map((r) => [
+                r.groupId,
+                {
+                  lastText: r.lastText,
+                  lastAt: r.lastAt,
+                  lastFromMe: r.lastFromMe,
+                  lastSenderName: r.lastSenderName,
                   unread: r.unread
                 }
               ])
@@ -136,14 +170,53 @@ export function ConversationsProvider({ children }) {
       });
     };
 
+    /**
+     * Anything said in a group you belong to — including by you.
+     *
+     * Your own message updates the preview but never the count, which is the
+     * same rule the direct-message pair follows, just arriving on one event
+     * instead of two: a group broadcast cannot know per-recipient whether it
+     * is incoming or outgoing, so the comparison happens here.
+     */
+    const handleGroupActivity = (a) => {
+      const fromMe = String(a.senderId) === String(me);
+
+      setByGroup((prev) => {
+        const row = prev[a.groupId] || { unread: 0 };
+        return {
+          ...prev,
+          [a.groupId]: {
+            lastText: a.text,
+            lastAt: a.timestamp,
+            lastFromMe: fromMe,
+            lastSenderName: a.senderName,
+            unread: fromMe ? row.unread : (row.unread || 0) + 1
+          }
+        };
+      });
+    };
+
+    /** You opened a group, here or in another tab. */
+    const handleGroupRead = ({ groupId }) => {
+      setByGroup((prev) => {
+        const row = prev[groupId];
+        if (!row || row.unread === 0) return prev;
+        return { ...prev, [groupId]: { ...row, unread: 0 } };
+      });
+    };
+
     socket.on('new-message', handleIncoming);
     socket.on('message-sent', handleOutgoing);
     socket.on('conversation-read', handleRead);
+    socket.on('group-activity', handleGroupActivity);
+    socket.on('group-read', handleGroupRead);
 
     return () => {
       socket.off('new-message', handleIncoming);
       socket.off('message-sent', handleOutgoing);
       socket.off('conversation-read', handleRead);
+      socket.off('group-activity', handleGroupActivity);
+      socket.off('group-read', handleGroupRead);
     };
   }, [socket, dbUser]);
 
@@ -162,14 +235,36 @@ export function ConversationsProvider({ children }) {
     });
   }, []);
 
+  /** The same, for a group. GroupChatPage emits `mark-group-read` on open. */
+  const markGroupRead = useCallback((groupId) => {
+    setByGroup((prev) => {
+      const row = prev[groupId];
+      if (!row || row.unread === 0) return prev;
+      return { ...prev, [groupId]: { ...row, unread: 0 } };
+    });
+  }, []);
+
   const totalUnread = useMemo(
     () => Object.values(byPeer).reduce((n, row) => n + row.unread, 0),
     [byPeer]
   );
 
+  const totalGroupUnread = useMemo(
+    () => Object.values(byGroup).reduce((n, row) => n + (row.unread || 0), 0),
+    [byGroup]
+  );
+
   const value = useMemo(
-    () => ({ byPeer, totalUnread, loading, markRead }),
-    [byPeer, totalUnread, loading, markRead]
+    () => ({
+      byPeer,
+      byGroup,
+      totalUnread,
+      totalGroupUnread,
+      loading,
+      markRead,
+      markGroupRead
+    }),
+    [byPeer, byGroup, totalUnread, totalGroupUnread, loading, markRead, markGroupRead]
   );
 
   return (
@@ -187,9 +282,12 @@ export function useConversations() {
   return (
     useContext(ConversationsContext) || {
       byPeer: {},
+      byGroup: {},
       totalUnread: 0,
+      totalGroupUnread: 0,
       loading: false,
-      markRead: () => {}
+      markRead: () => {},
+      markGroupRead: () => {}
     }
   );
 }
