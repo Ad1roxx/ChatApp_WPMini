@@ -2618,6 +2618,120 @@ says which feature, why it is off, and what to do — which is the part a
 
 ---
 
+### Entry 33 — Assignments
+
+**The question.** *"Can we include a task or assignment system, something like
+Google Classroom scheduled for submission by the mentor — or does the goals
+feature already do that?"*
+
+It does not, and the difference is worth stating because they look adjacent. A
+goal has **no date field at all**, nothing is handed in, and *either* party
+ticks a milestone. An assignment has a deadline, the student produces
+something, and the mentor answers it.
+
+| | Goals | Assignments |
+| --- | --- | --- |
+| Deadline | none | required |
+| Marked done by | either party | student submits, mentor reviews |
+| The work | nothing stored | text and/or a link |
+| Outcome | ticked | accepted, or changes requested |
+| Late | no such concept | derived from the dates |
+
+Goals is the long game — *"Be ready for backend interviews"* with four topics.
+An assignment is *"solve five array problems by Friday"*.
+
+**Files added:** `server/models/Assignment.js`,
+`src/components/Assignments.jsx` + module, `server/test/assignments.test.js`.
+
+**Files changed:** `server/index.js` (four endpoints, 50 total),
+`MentorshipDetailPage.jsx`, `Icons.jsx`.
+
+**Design decision 1 — a separate model, not extra fields on Goal.** Bolting
+deadlines and submissions onto milestones would have made both worse: a
+milestone is a *topic*, not a task, and most goals have no sensible deadline.
+Two models, each doing one thing.
+
+**Design decision 2 — the permissions mirror goals exactly.** Mentor sets,
+student submits, and neither can do the other's half. That is the same
+asymmetry goals uses and for the same reason: setting work is a directive, and
+a student setting their own would make the mentor's part decorative.
+
+**Design decision 3 — `changes-requested` returns to `submitted`, not to
+`assigned`.** The student has already handed something in; sending it back to
+"not started" would lose that and misrepresent what happened.
+
+Resubmitting also **clears the previous review note**. A fresh answer deserves
+a fresh reading, and leaving "question three is wrong" hanging over new work
+would read as a second rejection that never happened.
+
+**Design decision 4 — lateness is derived, never stored.** It means two
+things — handed in after the deadline, *or* not handed in with the deadline
+past — and both live in one `isLate()` method rather than in whichever route
+needed it first. A stored flag would be a second source of truth that drifts
+the moment a mentor extends a deadline, which is exactly what the test asserts:
+extending the date un-lates it with nothing to keep in step.
+
+An accepted assignment submitted on time is never late even if the mentor
+reviewed it a week afterwards. The student's part was done.
+
+**Design decision 5 — accepted work cannot be withdrawn.** A mentor can pull
+an assignment they should not have set, but once accepted it is a record of
+something the student did, and deleting it would erase their work rather than
+the mentor's mistake.
+
+**The same URL allow-list as resources.** A submitted link is rendered into an
+`href` the *mentor* clicks, so a `javascript:` URL there is stored XSS aimed
+at them. It reuses `parseSharedUrl` rather than a second copy of the rule.
+
+**Every label is written twice, deliberately.** A mentor and a student want
+opposite things from the same state: "submitted" means *waiting on you* to one
+and *waiting on them* to the other. So the badge reads "To review" or "Handed
+in", the subtitle reads "1 waiting on you to review" or "2 still to hand in",
+and the quote reads "You said" or "Your mentor said" — same data, opposite
+side of the desk.
+
+**46 tests**, covering both halves of every permission, the due-date
+validation, the allow-list, the full loop (submit → changes → resubmit →
+accept), that nothing can be reviewed before it is handed in, that accepted is
+terminal for both sides, and lateness in all four directions.
+
+The suite is now **400 tests across 15 files**.
+
+---
+
+### A verification bug worth recording
+
+The first screenshot of this feature showed **no Assignments card at all** —
+and the section was mounted, the endpoint was returning data, and the build
+was clean.
+
+The cause was not in the app. Eleven preview runs over this session each
+started Vite on port 5174, and `TaskStop` kills the shell without reliably
+killing the `npx vite` child underneath it on Windows. So the orphans piled
+up: Vite silently walked to 5175, 5176, and so on — while the screenshot
+script kept requesting **5174**, an instance from hours earlier whose file
+watcher had stopped invalidating.
+
+Eight orphaned node processes were still listening.
+
+Two changes came out of it:
+
+- **`--strictPort`** on every preview from now on. Vite drifting to the next
+  free port is a convenience that turns a dead process into a silently wrong
+  screenshot; failing to start is the better outcome, and it caught the very
+  next run — where the "mentor view" screenshot was actually the student's
+  because the mentor instance had refused to start.
+- **Tear down by port, not by task.** Killing whatever is listening on the
+  preview ports is the only reliable version on this machine.
+
+The reassuring half: a stale server can only produce a **false negative**. Every
+earlier screenshot in this session was verifying that a feature *appeared*, and
+code without the feature cannot render it — so those remain trustworthy. This
+one was checking for the absence of a card, which is precisely the case where
+staleness lies.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

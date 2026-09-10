@@ -32,6 +32,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Reports | Anyone can report a user or content; admins resolve or dismiss |
 | Mentorships | Mentors add students outright; students ask and can request to opt out |
 | Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
+| Assignments | Mentor sets work with a deadline; student hands in; mentor accepts or sends back |
 | Sessions | Either party proposes a time, the other confirms; reschedule, cancel, notes |
 | Progress | What the mentorships add up to, sorted so the quiet one is at the top |
 | Unread messages | Per-person and per-group counts, previews, and sidebar totals |
@@ -103,7 +104,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 354 integration tests against a throwaway database |
+| `npm test` | 400 integration tests against a throwaway database |
 
 ---
 
@@ -130,6 +131,7 @@ src/
     Stars.jsx                a five-point rating (dormant — see features.js)
     Resources.jsx            the shared-links section of a mentorship
     Achievements.jsx         badges, earned and in progress
+    Assignments.jsx          set, hand in, review — labelled per role
     Sessions.jsx             the scheduling section of a mentorship
   pages/
     LoginPage.jsx            Google sign-in
@@ -170,6 +172,7 @@ server/
     feedback.test.js         who may rate, the scale, and the average
     resources.test.js        the URL allow-list, and who may remove
     achievements.test.js     earning badges, and un-earning them
+    assignments.test.js      the two-sided permissions and the review loop
     startup.test.js          stale-presence reset on boot
   models/
     User.js                  identity, presence, role, profile fields
@@ -184,6 +187,7 @@ server/
     GroupRead.js             per-member read marks, for group unread and receipts
     Feedback.js              a student's rating of one completed session
     Resource.js              a shared link, http(s) only
+    Assignment.js            work with a deadline, a submission and a review
 
 .github/workflows/
   ci.yml                     lint, build and the test suite on every push
@@ -243,6 +247,11 @@ docs/
 | POST | `/api/mentorships/:id/resources` | Share a link (either party, http/https only) |
 | DELETE | `/api/resources/:resourceId` | Whoever shared it, or the mentor |
 | GET | `/api/achievements/me` | Badges and their progress, derived on read |
+| GET | `/api/mentorships/:id/assignments` | Work set in one mentorship, soonest due first |
+| POST | `/api/mentorships/:id/assignments` | **Mentor only** — set work with a due date |
+| PUT | `/api/assignments/:id/submission` | **Student only** — hand it in |
+| PATCH | `/api/assignments/:id` | **Mentor only** — accept, ask for changes, or move the deadline |
+| DELETE | `/api/assignments/:id` | **Mentor only** — withdraw, unless accepted |
 
 ## Socket.IO events
 

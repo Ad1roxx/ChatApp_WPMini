@@ -27,6 +27,7 @@ import Button from '../components/Button';
 import Badge, { RoleBadge, VerifiedBadge } from '../components/Badge';
 import { Field, Input, Textarea } from '../components/Field';
 import Progress from '../components/Progress';
+import Assignments from '../components/Assignments';
 import Sessions from '../components/Sessions';
 import Resources from '../components/Resources';
 import EmptyState from '../components/EmptyState';
@@ -420,6 +421,15 @@ export default function MentorshipDetailPage() {
           schedule is a detail of one relationship. "When am I next meeting
           anyone?" is a different question and is answered on the mentorships
           list, where it does not need this page open to see. */}
+      {/* Between the goals and the schedule, which is where it sits
+          conceptually: goals are the long game, assignments are the work in
+          between, sessions are when you talk about it. */}
+      <Assignments
+        mentorshipId={id}
+        active={mentorship.status === 'active'}
+        isMentor={isMentor}
+      />
+
       <Sessions
         mentorshipId={id}
         active={mentorship.status === 'active'}
