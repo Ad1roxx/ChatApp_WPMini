@@ -28,7 +28,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Mentor verification | Mentors submit credentials; an admin approves before the badge appears |
 | Suspension | Admins can suspend an account; it is locked out of REST and sockets |
 | Reports | Anyone can report a user or content; admins resolve or dismiss |
-| Mentorships | Request → accept/decline → active → ended, with both sides on one page |
+| Mentorships | Mentors add students outright; students ask and can request to opt out |
 | Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
 | Sessions | Either party proposes a time, the other confirms; reschedule, cancel, notes |
 | Progress | What the mentorships add up to, sorted so the quiet one is at the top |
@@ -196,9 +196,9 @@ docs/
 | POST | `/api/reports` | Report a user or a message |
 | GET | `/api/admin/reports` | **Admins only** — the moderation queue |
 | PATCH | `/api/admin/reports/:id` | **Admins only** — resolve or dismiss |
-| POST | `/api/mentorships` | Ask someone to mentor you |
+| POST | `/api/mentorships` | `mentorId` to ask a mentor · `studentId` to take a student on |
 | GET | `/api/mentorships` | Yours, on either side (`?status=` to filter) |
-| PATCH | `/api/mentorships/:id` | accept / decline (mentor) · end (either party) |
+| PATCH | `/api/mentorships/:id` | accept · decline · end · request/cancel/approve/decline-optout |
 | GET | `/api/mentorships/:id/goals` | Goals of one mentorship (either party) |
 | POST | `/api/mentorships/:id/goals` | **Mentor only** — set a goal |
 | PATCH | `/api/goals/:goalId` | **Mentor only** — edit or archive |

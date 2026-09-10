@@ -35,11 +35,18 @@
   color: var(--color-text-subtle);
 }
 
+/* The gap was missing, so the three buttons sat flush against each other and
+   read as one striped block rather than three controls. `wrap` keeps them on
+   the card when the names get long; `center` stops the default `stretch`
+   from overriding each button's own height. */
 .actions {
   margin-top: var(--space-5);
   padding-top: var(--space-5);
   border-top: 1px solid var(--color-border);
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 /* `white-space: pre-wrap` keeps the line breaks people typed into the bio

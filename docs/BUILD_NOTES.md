@@ -2070,6 +2070,102 @@ conversations.
 
 ---
 
+### Entry 26 — Mentorship goes two-way, and opt-outs
+
+**The report.** *"Is mentorship not implemented yet? The mentorship page says
+find someone on the messages page and ask them to mentor you — somehow this is
+the same for both mentor and student — there is no actual option to add someone
+as a mentor."*
+
+**It was implemented** (Entry 20), and the answer was worth writing down: a
+student opens a mentor's profile and gets a **Request mentorship** button,
+which creates a `pending` mentorship the mentor accepts or declines. But two
+of the three complaints were fair:
+
+1. **The only entry point was a button on someone else's profile page** — you
+   had to already know it was there. Nothing on the Mentorship page pointed at
+   it beyond one line of prose.
+2. **The empty state said the same thing to everybody.** "Ask them to mentor
+   you" is nonsense addressed to a mentor: they take students on, they do not
+   apply for one.
+3. There genuinely was **no way for a mentor to start anything** — the model
+   only ran student → mentor.
+
+**What changed.** Mentorship is now asymmetric in both directions:
+
+| | Who | Effect |
+| --- | --- | --- |
+| Add a student | Mentor | **Immediate** — `active`, no acceptance |
+| Ask a mentor | Student | `pending` — the mentor answers |
+| Remove a student | Mentor | Immediate |
+| Opt out | Student | **Request with a reason** — the mentor answers |
+| Withdraw a request | Student | Immediate, on their own unanswered request |
+
+**Design decision 1 — why the two directions are not symmetric.** A student
+asking costs the mentor time they have not agreed to spend, so it is a request
+and it waits. A mentor adding a student costs the mentor their *own* time,
+which they have just volunteered — there is nobody left to ask, and making them
+wait for an acceptance would be ceremony.
+
+**Design decision 2 — `initiatedBy` is stored, not inferred.** Once a
+mentorship is active, who started it is the only thing that explains why one
+party never had to say yes. It is also exactly what a student needs to point at
+when opting out of something they never asked for, and it is what lets the
+rows read "you added them" or "they asked you" instead of both looking alike.
+
+**Design decision 3 — the opt-out is not a status.** A mentorship with an
+opt-out pending is *still active*: goals are still tracked, sessions still
+happen, and the mentor may yet talk them out of it. Folding it into `status`
+would have meant every query meaning "currently mentoring" growing a second
+value to check, and one of them eventually forgetting. It is an embedded
+`optOut` block instead. `declined` is kept rather than reset to `none`, so a
+student can see they were answered rather than ignored.
+
+**Design decision 4 — withdrawing a request is not opting out.** A student may
+`end` their own *pending* request outright, with no reason and no permission,
+because nobody has agreed to anything yet. Walking out of a live relationship
+is a different act and goes through the opt-out.
+
+**The tradeoff, named rather than hidden.** A mentor who ignores an opt-out
+leaves the student stuck in a mentorship they never asked for — the exact
+situation the opt-out exists to fix. Nothing expires or escalates yet. The
+seam is `optOut.requestedAt`: a sweep, an admin action, or auto-approval after
+N days all hang off it. Left deliberately rather than guessed at, and flagged
+to the user rather than quietly shipped.
+
+**A migration detail.** `initiatedBy` is `required`, and rows written before it
+existed have none — they would have failed validation on their next save. It
+carries `default: 'student'`, which is not a guess: the only direction the app
+offered until now *was* a student asking, so every pre-existing mentorship
+genuinely was student-initiated.
+
+**Two things the screenshot caught.** The mentor saw Priya in the opt-out queue
+*and* again in "You mentor" with a plain Remove button and nothing connecting
+them — she now carries a "Wants out" badge in the second list. And the
+subtitle read "1 request waiting on you" while an opt-out also sat unanswered;
+it counts both queues now, because a number that disagrees with the page under
+it is worse than no number.
+
+**Also fixed: the profile button row.** `.actions` was `display: flex` with no
+`gap`, so Message / Request mentorship / Report sat flush against each other
+and read as one striped block. It has a gap, wraps, and centres now. The
+primary button also said `Message {firstName}`, which for "The One Above All"
+rendered as **"Message The"** — it is plain "Message", which is what every
+other page in the app already says.
+
+**Verified with 44 checks** against a throwaway `chatapp_test`: both creation
+directions and their statuses, a student refused when adding a student, a
+mentor refused when "adding" another mentor, exactly-one-direction validation,
+duplicates from both sides, a student refused when ending an active mentorship
+but allowed to withdraw a pending request, opt-out requiring a reason and
+belonging to the student, double requests refused, withdrawal, the mentor
+declining (still active, answer recorded) and approving (ended, with `endedBy`
+the *student* who asked, not the mentor who agreed), opt-out on an ended
+mentorship, outsiders, unknown actions, 401, and a suspended target. The 105
+existing tests still pass.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2095,9 +2191,12 @@ conversations.
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour.
 - **Mentorship, goal, session, analytics and conversation endpoints are not
-  in the test suite** — verified by hand in Entries 20, 21, 22, 24 and 25 (14,
-  9, 40, 39 and 23 checks) that were not committed. The five server features
-  without coverage, deferred to one test pass.
+  in the test suite** — verified by hand in Entries 20, 21, 22, 24, 25 and 26
+  (14, 9, 40, 39, 23 and 44 checks) that were not committed. The five server
+  features without coverage, deferred to one test pass.
+- **An ignored opt-out has no way out** — a mentor who never answers leaves
+  the student stuck. `optOut.requestedAt` is the seam for a sweep, an admin
+  action, or auto-approval after N days. Entry 26.
 - ~~**Goals & milestones**~~ — done in Entry 21.
 - ~~**Scheduling**~~ — done in Entry 22.
 - ~~**Analytics**~~ — done in Entry 24. `/api/analytics/me` plus the Progress

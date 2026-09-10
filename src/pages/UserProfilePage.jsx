@@ -36,6 +36,9 @@ export default function UserProfilePage() {
 
   const [profile, setProfile] = useState(null);
 
+  // Mentorship dialog — `addingStudent` picks the direction, since the two
+  // share a form, a handler and a POST.
+  const [addingStudent, setAddingStudent] = useState(false);
   // Mentorship request dialog
   const [requestOpen, setRequestOpen] = useState(false);
   const [topic, setTopic] = useState('');
@@ -139,37 +142,42 @@ export default function UserProfilePage() {
   };
 
   /**
-   * Ask this person to mentor you.
+   * Start a mentorship, in whichever direction applies.
    *
-   * The server decides everything that matters: that they can actually
-   * mentor, that they are not suspended, that you are not asking yourself,
-   * and that you have no live request with them already. The button is only
+   * One handler for both because they are the same POST with a different key
+   * — `mentorId` when you are asking, `studentId` when you are taking someone
+   * on. The server decides everything that matters: the roles, suspension,
+   * asking yourself, and an existing live relationship. The buttons are only
    * hidden for the cases the UI can see cheaply.
    */
-  const requestMentorship = async () => {
+  const startMentorship = async () => {
     setRequesting(true);
 
     try {
       const res = await authFetch('/api/mentorships', {
         method: 'POST',
         body: JSON.stringify({
-          mentorId: profile._id,
+          ...(addingStudent ? { studentId: profile._id } : { mentorId: profile._id }),
           topic,
           message: requestMessage
         })
       });
 
       if (res.ok) {
-        toast.success(`Request sent to ${profile.displayName}.`);
+        toast.success(
+          addingStudent
+            ? `${profile.displayName} is now your student.`
+            : `Request sent to ${profile.displayName}.`
+        );
         setRequestOpen(false);
         setTopic('');
         setRequestMessage('');
       } else {
         const body = await res.json().catch(() => ({}));
-        toast.error(body.error || 'Could not send that request');
+        toast.error(body.error || 'Could not start that mentorship');
       }
     } catch (err) {
-      console.error('Error requesting mentorship:', err);
+      console.error('Error starting mentorship:', err);
       toast.error('Could not reach the server');
     } finally {
       setRequesting(false);
@@ -200,7 +208,10 @@ export default function UserProfilePage() {
   }
 
   const isMentor = canMentor(profile.role);
-  const firstName = profile.displayName?.split(' ')[0] || 'user';
+  // Can *I* take someone on, and is this person someone to take on? Both
+  // halves are re-checked on the server; this only decides what to render.
+  const iCanMentor = canMentor(dbUser?.role);
+  const canAddAsStudent = iCanMentor && !isMentor;
 
   return (
     <AppShell title={profile.displayName || 'Profile'} backTo="/users">
@@ -234,7 +245,7 @@ export default function UserProfilePage() {
           ) : (
             <>
               <Button variant="primary" onClick={() => navigate(`/chat/${profile._id}`)}>
-                Message {firstName}
+                Message
               </Button>
               {/* Only offered for people who can actually mentor. The server
                   refuses the rest, so this is convenience, not the rule. */}
@@ -242,12 +253,29 @@ export default function UserProfilePage() {
                 <Button
                   variant="secondary"
                   onClick={() => {
+                    setAddingStudent(false);
                     setTopic('');
                     setRequestMessage('');
                     setRequestOpen(true);
                   }}
                 >
                   Request mentorship
+                </Button>
+              )}
+
+              {/* The other direction. A mentor does not ask — they take
+                  someone on, and it is active straight away. */}
+              {canAddAsStudent && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setAddingStudent(true);
+                    setTopic('');
+                    setRequestMessage('');
+                    setRequestOpen(true);
+                  }}
+                >
+                  Mentor {profile.displayName?.split(' ')[0] || 'them'}
                 </Button>
               )}
               {/* Quiet by design. Reporting should be available without being
@@ -341,16 +369,30 @@ export default function UserProfilePage() {
 
       <ConfirmDialog
         open={requestOpen}
-        title={`Ask ${profile.displayName} to mentor you?`}
-        description="They will see your topic and note, and can accept or decline."
-        confirmLabel={requesting ? 'Sending…' : 'Send request'}
+        title={
+          addingStudent
+            ? `Take ${profile.displayName} on as a student?`
+            : `Ask ${profile.displayName} to mentor you?`
+        }
+        description={
+          addingStudent
+            ? 'This starts straight away — they do not have to accept. They can ask you to end it, and you can end it yourself at any time.'
+            : 'They will see your topic and note, and can accept or decline.'
+        }
+        confirmLabel={
+          requesting ? 'Saving…' : addingStudent ? 'Start mentoring' : 'Send request'
+        }
         confirmDisabled={requesting || !topic.trim()}
-        onConfirm={requestMentorship}
+        onConfirm={startMentorship}
         onCancel={() => setRequestOpen(false)}
       >
         <Field
-          label="What do you want help with?"
-          hint="Required — it is what they decide on"
+          label={addingStudent ? 'What will you help them with?' : 'What do you want help with?'}
+          hint={
+            addingStudent
+              ? 'Required — goals and sessions hang off this'
+              : 'Required — it is what they decide on'
+          }
         >
           <Input
             type="text"
@@ -366,7 +408,11 @@ export default function UserProfilePage() {
           <Textarea
             value={requestMessage}
             onChange={(e) => setRequestMessage(e.target.value)}
-            placeholder="Where you are now, and what you are hoping to get out of it"
+            placeholder={
+              addingStudent
+                ? 'What you noticed, and where you think they should start'
+                : 'Where you are now, and what you are hoping to get out of it'
+            }
             maxLength={1000}
             rows={3}
           />
