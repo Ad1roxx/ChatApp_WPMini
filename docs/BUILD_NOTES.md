@@ -2254,6 +2254,89 @@ sessions, analytics, conversations and group conversations.
 
 ---
 
+### Entry 28 — The deferred test pass, and CI
+
+**The ask.** *"Instead of hand checks maybe we can implement those tests in
+GitHub Actions so they get tested automatically?"* Which retires the two
+oldest items on this list at once: six features verified only by hand, and no
+CI at all.
+
+**Files added:** `server/test/mentorship.test.js`, `goals.test.js`,
+`sessions.test.js`, `analytics.test.js`, `conversations.test.js`,
+`groupreads.test.js`, `.github/workflows/ci.yml`.
+
+**The suite went from 105 tests across 5 files to 273 across 11**, in about
+23 seconds. Every server feature is now covered; nothing is left on the
+"verified by hand, not committed" list.
+
+**These are not transcriptions of the hand checks.** The scratch scripts were
+flat lists of `check(name, boolean)` written to answer "does this work right
+now". Converting them meant deciding, for each one, what it is actually
+guarding — which is a different question, and it changed the shape. The
+files are grouped by the rule being protected rather than by endpoint, and
+several checks that were really the same assertion twice collapsed into one.
+A few gaps showed up in the process and got tests they never had: goals had
+no committed coverage of the derived-status *round trip* (tick to complete,
+un-tick back to active with `completedAt` cleared), and nothing anywhere
+asserted that a goal with no milestones is never complete.
+
+**The comments say why, not what.** `assert.equal(row.unread, 3)` is already
+readable; what is worth writing down is that answering someone is not the same
+as having read what they sent, which is why replying leaves the count alone.
+The test names carry the rule — *"the proposer cannot confirm their own"*,
+*"an archived goal contributes NO milestones"*, *"activity reaches members who
+are NOT in the room"* — so a failure names the broken promise rather than a
+line number.
+
+**A hook bug, caught immediately.** The first version of `goals.test.js` used
+two root `test.before` hooks — one to start the server, one to seed a
+mentorship — and the seeding ran against a server that was not listening yet.
+Node's runner does not guarantee the second waits for the first to resolve.
+One hook that does both, with a comment saying why, rather than a sleep.
+
+**Design decision — three CI jobs, not one.** Lint, build and test run
+separately so a lint failure and a test failure are told apart at a glance
+instead of the first one masking the second. `concurrency` cancels superseded
+runs, because a second push makes the first irrelevant.
+
+**Design decision — a real MongoDB, not a mock.** The harness spawns the
+actual server and talks to it over HTTP and Socket.IO; that is the whole
+reason these tests are worth having, and mocking the database would have
+thrown it away. A `mongo:7` service container provides one. It carries a
+health check, because without one the suite can start before Mongo accepts
+connections and fails as a confusing `ECONNREFUSED` inside the harness rather
+than as "the database was not ready".
+
+**Node 22 is pinned deliberately.** `node --test` only accepts glob patterns
+from Node 21 onwards, and the test script passes `"test/**/*.test.js"`.
+
+**One thing I wrote and then deleted.** The test job originally set
+`MONGODB_URI` as an env var, with a comment claiming it pinned where Mongo
+lives. It does nothing — the harness hardcodes the test database and passes it
+to the server it spawns, ignoring the environment. That hardcoding is a safety
+feature dating from Entry 18, when a hand-run check overwrote a real user's
+name and email: the harness calls `dropDatabase()` on the way out, and an env
+var able to redirect it is an env var able to point a drop-database at
+somebody's real data. The workflow now carries that as a comment explaining
+the *absence*, which is the kind of thing a future reader would otherwise
+"fix".
+
+**What is still not covered.** The frontend. The 273 are all server-side;
+React components are checked only by the Playwright screenshot harness, which
+catches render failures and console errors but asserts nothing about
+behaviour. That harness is also not in CI, because it needs both servers and a
+browser — a materially bigger job than the one that now exists, and worth
+doing on its own rather than bolted onto this.
+
+**Verified** by running each new file alone, then the whole suite together to
+prove no cross-file interference: 273 passing, 0 failing. `npm ci` was
+dry-run against both lockfiles to confirm CI will install cleanly, and the
+workflow was checked structurally — three jobs, no tabs, Node pinned in all
+three, the service block intact. The workflow itself cannot be executed
+locally; the first push is its real test.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2273,14 +2356,16 @@ sessions, analytics, conversations and group conversations.
   online, stale flags are cleared at boot, and multi-tab is handled properly.
 - ~~**No automated test suite**~~ — done in Entry 18: 67 integration tests,
   `cd server && npm test`.
-- **No CI** — the tests exist but nothing runs them on push.
-- **No frontend tests** — the 105 cover the server. React components are only
+- ~~**No CI**~~ — done in Entry 28. GitHub Actions runs the linter, a
+  production build and the suite on every push and pull request.
+- **No frontend tests** — the 273 cover the server. React components are only
   checked by the Playwright screenshot harness, which catches render failures
-  and console errors but asserts nothing about behaviour.
-- **Six server features are not in the test suite** — mentorships, goals,
-  sessions, analytics, conversations and group conversations, verified by hand
-  in Entries 20, 21, 22, 24, 25, 26 and 27 (14, 9, 40, 39, 23, 44 and 32
-  checks) that were not committed. Deferred to one test pass.
+  and console errors but asserts nothing about behaviour. The screenshot run
+  is also not in CI: it needs both servers and a browser, which is a
+  materially bigger job than the one that exists.
+- ~~**Six server features are not in the test suite**~~ — done in Entry 28.
+  All six were converted from hand checks into committed tests; the suite went
+  from 105 to 273.
 - **An ignored opt-out has no way out** — a mentor who never answers leaves
   the student stuck. `optOut.requestedAt` is the seam for a sweep, an admin
   action, or auto-approval after N days. Entry 26.

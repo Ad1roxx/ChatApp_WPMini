@@ -1,5 +1,7 @@
 # Chat App — Mentor/Student Mini Project
 
+[![CI](https://github.com/Ad1roxx/ChatApp_WPMini/actions/workflows/ci.yml/badge.svg)](https://github.com/Ad1roxx/ChatApp_WPMini/actions/workflows/ci.yml)
+
 A real-time chat application with 1-to-1 messaging, group chats, mentor
 announcements, and student/mentor roles.
 
@@ -98,7 +100,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 105 integration tests against a throwaway database |
+| `npm test` | 273 integration tests against a throwaway database |
 
 ---
 
@@ -152,6 +154,12 @@ server/
     admin.test.js            admin role and dashboard endpoints
     realtime.test.js         socket identity, membership, presence
     moderation.test.js       verification, suspension, reports
+    mentorship.test.js       both directions, and opt-outs
+    goals.test.js            permissions, and the derived status
+    sessions.test.js         the propose/confirm handshake, transitions
+    analytics.test.js        the figures, and what they exclude
+    conversations.test.js    previews, unread counts, read events
+    groupreads.test.js       group previews, counts, receipts
     startup.test.js          stale-presence reset on boot
   models/
     User.js                  identity, presence, role, profile fields
@@ -164,6 +172,9 @@ server/
     Goal.js                  goals with embedded milestones
     Session.js               scheduled meetings, proposed and confirmed
     GroupRead.js             per-member read marks, for group unread and receipts
+
+.github/workflows/
+  ci.yml                     lint, build and the test suite on every push
 
 docs/
   BUILD_NOTES.md             running log: what was built and why

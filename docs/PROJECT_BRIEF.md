@@ -7,16 +7,17 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-09 against commit `14bb8cf`, plus analytics added
-afterwards. Figures counted before the commit that records them.
+Compiled 2026-09-10 against commit `8c429ef`, plus the test suite and CI
+added afterwards. Figures counted before the commit that records them.
 
 | | |
 | --- | --- |
-| Commits | 35 |
+| Commits | 39 |
 | Active | 2025-08-23 → 2026-09-06 |
-| Source | 11,831 lines JS/JSX |
-| Automated tests | 105, all passing |
+| Source | 14,502 lines JS/JSX |
+| Automated tests | 273, all passing, in CI |
 | Deployed | No |
+| CI | GitHub Actions: lint, build, tests |
 
 ---
 
@@ -38,18 +39,18 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **11,831** lines of JavaScript/JSX across **54** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
-| **35** commits, first 2025-08-23, most recent 2026-09-09 | `git rev-list --count HEAD` |
+| **14,502** lines of JavaScript/JSX across **63** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
+| **39** commits, first 2025-08-23, most recent 2026-09-10 | `git rev-list --count HEAD` |
 | ESLint across frontend, backend and tests: **49** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
 
 ### Backend surface
 
 | Fact | Source |
 | --- | --- |
-| **35** REST endpoints, every one behind authentication; **8** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
-| **11** Socket.IO event handlers; **18** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
-| **9** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal, Session — with **29** index declarations, **9** of them compound | `server/models/*.js` · `grep -n "index: true\|unique: true\|\.index(" server/models/*.js` returns 30 lines; `User.firebaseUid` carries both `unique` and `index`, which is one index, hence 29 |
-| `server/index.js` is **2,561** lines; `server/middleware/auth.js` is **306**; the test suite is **1,160** lines across 5 files | `wc -l server/index.js server/middleware/auth.js server/test/**` |
+| **38** REST endpoints, every one behind authentication; **8** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
+| **12** Socket.IO event handlers; **22** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
+| **10** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal, Session, GroupRead — with **31** index declarations, **10** of them compound | `server/models/*.js` · `grep -n "index: true\|unique: true\|\.index(" server/models/*.js` returns 30 lines; `User.firebaseUid` carries both `unique` and `index`, which is one index, hence 29 |
+| `server/index.js` is **2,988** lines; `server/middleware/auth.js` is **306**; the test suite is **2,530** lines across 11 files plus the harness | `wc -l server/index.js server/middleware/auth.js server/test/**` |
 
 ### Authentication
 
@@ -63,15 +64,15 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **14** page components and **14** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
-| Production bundle **459.50 kB** JS (**126.95 kB** gzipped) and **50.48 kB** CSS (**8.60 kB** gzipped) | `npm run build` (Vite 5.4 output) |
+| **14** page components and **15** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
+| Production bundle **469.53 kB** JS (**129.79 kB** gzipped) and **51.91 kB** CSS (**8.80 kB** gzipped) | `npm run build` (Vite 5.4 output) |
 | Responsive at a **900 px** breakpoint: fixed sidebar above it, overlay drawer below | `src/components/AppShell.module.css`, `@media (max-width: 900px)` |
 
 ### Tests
 
 | Fact | Source |
 | --- | --- |
-| **105** integration tests across **5** files, all passing, in about **12 s** | `cd server && npm test` |
+| **273** integration tests across **11** files, all passing, in about **23 s**, run on every push by GitHub Actions | `cd server && npm test` · `.github/workflows/ci.yml` |
 | Runner is Node's built-in `node:test` — **no test-runner dependency**; the only devDependency added was `socket.io-client`, needed to drive the socket layer | `server/package.json` |
 | Tests spawn the **real server as a child process**, so they exercise config validation, the Mongo connection and the startup presence reset rather than an imported app object | `server/test/helpers/harness.js`, `start()` |
 | They run against a throwaway `chatapp_test` database dropped on teardown, so they cannot touch development data | `server/test/helpers/harness.js`, `TEST_DB` and `stop()` |
@@ -226,18 +227,15 @@ No Python, notebooks, datasets or ML components exist in this repository.
 
 ## 5. Not implemented
 
-- **No CI.** No `.github/` directory or any other pipeline configuration — the
-  tests exist but nothing runs them automatically.
-- **No frontend tests.** The 105 tests cover the server. React components are
+- **No deployment pipeline.** CI runs the linter, a build and the tests on
+  every push, but nothing deploys; there is no environment to deploy to.
+- **No frontend tests.** The 273 tests cover the server. React components are
   checked only by the Playwright screenshot harness, which catches render
-  failures and console errors but asserts nothing about behaviour.
-- **The mentorship, goal, session and analytics endpoints are not yet in the
-  test suite.** All four were verified by hand — 14 HTTP checks on
-  mentorships, 9 on goals, 40 on sessions and 39 on analytics, covering
-  permissions, the duplicate guard, the derived goal status, every session
-  state transition and the aggregation's exclusions — but those checks were
-  not committed. Every other server feature is covered; these four are the
-  exception, deferred deliberately to a single test pass.
+  failures and console errors but asserts nothing about behaviour — and that
+  harness is not in CI, because it needs both servers and a browser.
+- ~~The mentorship, goal, session and analytics endpoints are not yet in the
+  test suite.~~ **Resolved.** Every server feature is now covered: the hand
+  checks became committed tests, and the suite went from 105 to 273.
 - **Never deployed.** No Dockerfile, Procfile, or Vercel, Netlify, Render or Fly
   configuration. It runs on localhost only.
 - **No rate limiting.** A signed-in client can flood messages or announcements
@@ -297,7 +295,7 @@ interviewer will ask you to substantiate, and none can be.
 Drawn only from section 2. Each is defensible if questioned.
 
 > Built a real-time mentorship platform (React, Express, Socket.IO, MongoDB)
-> with 35 authenticated REST endpoints and 11 Socket.IO handlers across three
+> with 38 authenticated REST endpoints and 11 Socket.IO handlers across three
 > broadcast topologies: unicast for direct messages, rooms for groups, global
 > emit for announcements.
 
