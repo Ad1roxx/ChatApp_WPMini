@@ -121,6 +121,14 @@ export const LinkIcon = (p) => (
   </Icon>
 );
 
+export const TrophyIcon = (p) => (
+  <Icon {...p}>
+    <path d="M8 21h8M12 17v4" />
+    <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
+    <path d="M7 6H5a2 2 0 0 0 0 4h2M17 6h2a2 2 0 0 1 0 4h-2" />
+  </Icon>
+);
+
 export const ShieldIcon = (p) => (
   <Icon {...p}>
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />

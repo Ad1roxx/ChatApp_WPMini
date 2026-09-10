@@ -29,6 +29,7 @@ import EmptyState from '../components/EmptyState';
 import { PageLoader } from '../components/Loading';
 import { HandshakeIcon } from '../components/Icons';
 import useNow, { relative } from '../lib/useNow';
+import Achievements from '../components/Achievements';
 import styles from './ProgressPage.module.css';
 
 /** A relationship with no session in this long, and none booked, has stalled. */
@@ -108,6 +109,12 @@ export default function ProgressPage() {
             }
           />
         </Card>
+
+        {/* Still rendered here: a mentorship that has ENDED leaves no active
+            row to report on, but the sessions you met and the goals you
+            finished inside it did happen. An empty page would read as though
+            they had been taken away. */}
+        <Achievements />
       </AppShell>
     );
   }
@@ -259,6 +266,8 @@ export default function ProgressPage() {
           })}
         </ul>
       </Card>
+
+      <Achievements />
     </AppShell>
   );
 }

@@ -2863,6 +2863,214 @@ app.get('/api/analytics/me', requireAuth, async (req, res) => {
 });
 
 // ============================================
+// ACHIEVEMENTS - DERIVED, NEVER STORED
+// ============================================
+
+/**
+ * Every achievement this app can award, as data.
+ *
+ * ## Nothing here is stored
+ *
+ * There is no Achievement collection and no "awarded" row. Each badge is a
+ * predicate over figures the app already keeps — completed goals, sessions
+ * met, minutes, ratings — and it is recomputed on every read.
+ *
+ * That is not laziness, it is the only version that cannot lie. A stored
+ * award drifts the moment the thing underneath it changes: un-tick the last
+ * milestone of a goal and a persisted "first goal completed" badge is still
+ * sitting there, describing something that is no longer true. Derived badges
+ * cannot disagree with the data, because they *are* the data.
+ *
+ * *The tradeoff, plainly:* you cannot award something history no longer
+ * supports, and there is no "earned on" date. A badge that appeared and
+ * silently vanished would be worse than one that was never granted, so
+ * `progress` is returned alongside every locked badge — the UI shows how far
+ * off it is rather than presenting a wall of grey mysteries.
+ *
+ * ## Thresholds are low on purpose
+ *
+ * One goal, three sessions, five hours. This is a project used by a handful
+ * of people, and a badge nobody can reach is decoration. They are honest
+ * about being modest: "First goal", not "Goal Master".
+ */
+const ACHIEVEMENTS = [
+  {
+    id: 'first-goal',
+    name: 'First goal done',
+    description: 'Complete every milestone in a goal',
+    audience: 'student',
+    target: 1,
+    measure: (s) => s.goalsCompleted
+  },
+  {
+    id: 'five-goals',
+    name: 'Five goals done',
+    description: 'Finish five goals across your mentorships',
+    audience: 'student',
+    target: 5,
+    measure: (s) => s.goalsCompleted
+  },
+  {
+    id: 'first-session',
+    name: 'First session',
+    description: 'Meet your mentor once',
+    audience: 'student',
+    target: 1,
+    measure: (s) => s.sessionsMet
+  },
+  {
+    id: 'ten-sessions',
+    name: 'Ten sessions in',
+    description: 'Meet ten times',
+    audience: 'both',
+    target: 10,
+    measure: (s) => s.sessionsMet
+  },
+  {
+    id: 'five-hours',
+    name: 'Five hours',
+    description: 'Spend five hours in sessions',
+    audience: 'both',
+    target: 300,
+    measure: (s) => s.minutesMet,
+    format: (n) => `${Math.floor(n / 60)}h`
+  },
+  {
+    id: 'reliable',
+    name: 'Reliable',
+    description: 'Keep five sessions in a row without cancelling one',
+    audience: 'both',
+    target: 5,
+    // Not a ratio: a percentage is unreadable at small counts, where one
+    // cancellation out of two looks like a catastrophe.
+    measure: (s) => s.streakKept
+  },
+  {
+    id: 'first-student',
+    name: 'First student',
+    description: 'Take someone on as a mentor',
+    audience: 'mentor',
+    target: 1,
+    measure: (s) => s.studentsMentored
+  },
+  {
+    id: 'well-rated',
+    name: 'Well rated',
+    description: 'Hold a 4.5 average over at least three rated sessions',
+    audience: 'mentor',
+    target: 1,
+    // A single five-star rating is not a reputation, so this needs a floor on
+    // the count before the average counts for anything at all.
+    measure: (s) => (s.ratingCount >= 3 && s.ratingAverage >= 4.5 ? 1 : 0)
+  }
+];
+
+/**
+ * GET /api/achievements/me
+ *
+ * What you have earned, computed from what you have actually done.
+ *
+ * Returns every badge, locked ones included, each with `earned` and the
+ * `progress` behind it — a locked badge with "7 of 10" beside it is an
+ * invitation, where a grey square with no number is just a locked door.
+ */
+app.get('/api/achievements/me', requireAuth, async (req, res) => {
+  try {
+    const me = req.authUser._id;
+
+    const mentorships = await Mentorship.find({
+      $or: [{ mentor: me }, { student: me }]
+    }).select('_id mentor student status');
+
+    const asStudent = mentorships.filter((m) => String(m.student) === String(me));
+    const asMentor = mentorships.filter((m) => String(m.mentor) === String(me));
+    const ids = mentorships.map((m) => m._id);
+
+    // Goals belong to a mentorship, so "my completed goals" means the ones in
+    // the mentorships where I am the student — a mentor did not complete them.
+    const goalsCompleted = asStudent.length
+      ? await Goal.countDocuments({
+          mentorship: { $in: asStudent.map((m) => m._id) },
+          status: 'completed'
+        })
+      : 0;
+
+    const sessions = ids.length
+      ? await Session.find({ mentorship: { $in: ids } })
+          .select('status durationMinutes scheduledFor')
+          .sort({ scheduledFor: 1 })
+      : [];
+
+    const met = sessions.filter((s) => s.status === 'completed');
+    const minutesMet = met.reduce((n, s) => n + (s.durationMinutes || 0), 0);
+
+    /**
+     * The longest run of kept sessions with no cancellation in between.
+     *
+     * Walks in scheduled order and resets on a cancel. Sessions still to come
+     * are skipped rather than breaking the run — a meeting in the diary is
+     * not yet either a keep or a miss, and treating it as a break would make
+     * the streak fall every time someone scheduled ahead.
+     */
+    let streakKept = 0;
+    let run = 0;
+    for (const s of sessions) {
+      if (s.status === 'completed') {
+        run += 1;
+        streakKept = Math.max(streakKept, run);
+      } else if (s.status === 'cancelled') {
+        run = 0;
+      }
+    }
+
+    const [rating] = await Feedback.aggregate([
+      { $match: { to: new mongoose.Types.ObjectId(String(me)) } },
+      { $group: { _id: null, count: { $sum: 1 }, average: { $avg: '$rating' } } }
+    ]);
+
+    const stats = {
+      goalsCompleted,
+      sessionsMet: met.length,
+      minutesMet,
+      streakKept,
+      studentsMentored: asMentor.length,
+      ratingCount: rating?.count || 0,
+      ratingAverage: rating?.average || 0
+    };
+
+    // A badge for the other role is not "locked", it is not yours — showing a
+    // student how far they are from "First student" would be nonsense.
+    const canMentorRole = ['mentor', 'admin'].includes(req.authUser.role);
+    const mine = ACHIEVEMENTS.filter(
+      (a) =>
+        a.audience === 'both' ||
+        (a.audience === 'mentor' ? canMentorRole : !canMentorRole || asStudent.length > 0)
+    );
+
+    res.json({
+      stats,
+      achievements: mine.map((a) => {
+        const value = a.measure(stats);
+        return {
+          id: a.id,
+          name: a.name,
+          description: a.description,
+          earned: value >= a.target,
+          progress: Math.min(value, a.target),
+          target: a.target,
+          label: a.format
+            ? `${a.format(Math.min(value, a.target))} of ${a.format(a.target)}`
+            : `${Math.min(value, a.target)} of ${a.target}`
+        };
+      })
+    });
+  } catch (err) {
+    console.error('Error building achievements:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
 // SOCKET.IO - REAL-TIME EVENTS
 // ============================================
 

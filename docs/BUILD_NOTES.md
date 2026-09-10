@@ -2489,6 +2489,88 @@ The suite is now **329 tests across 13 files**.
 
 ---
 
+### Entry 31 — Achievements, derived rather than stored
+
+**What I built.** The last of the originally-scoped features, and the one I
+argued against back when the list was drawn up: badges on a college project
+read as filler unless they are earned from real data. Goals, sessions,
+minutes and ratings now exist, so they can be — and that is the only version
+worth shipping.
+
+**Files added:** `src/components/Achievements.jsx` + module,
+`server/test/achievements.test.js`.
+
+**Files changed:** `server/index.js` (one endpoint, 45 total),
+`ProgressPage.jsx`, `Icons.jsx`.
+
+**Design decision 1 — nothing is stored.** There is no Achievement collection
+and no "awarded" row. Each badge is a predicate over figures the app already
+keeps, recomputed on every read.
+
+That is not laziness, it is the only version that cannot lie. A stored award
+drifts the moment the thing underneath it changes: un-tick the last milestone
+of a goal and a persisted "first goal completed" is still sitting there,
+describing something no longer true. Derived badges cannot disagree with the
+data because they *are* the data. **The test that matters most in this entry
+is the un-earning one** — earning a badge is easy to get right, and losing it
+correctly is the thing the whole design exists for.
+
+*The tradeoff, plainly:* there is no "earned on" date, and nothing can be
+awarded that history no longer supports.
+
+**Design decision 2 — locked badges show their progress.** A badge that
+appeared and silently vanished would be worse than one never granted, so
+every locked badge returns `progress` and `target`. "7 of 10" is an
+invitation; a grey square with no number is a locked door, and a wall of them
+is just a list of things you have not done.
+
+**Design decision 3 — the other role's badges are absent, not locked.**
+Showing a student how far they are from "First student" is nonsense rather
+than encouragement, so they are filtered by audience rather than greyed out.
+
+**Design decision 4 — thresholds are deliberately modest.** One goal, three
+sessions, five hours. This is a project used by a handful of people, and a
+badge nobody can reach is decoration. The names are honest about it too:
+"First goal done", not "Goal Master".
+
+**Design decision 5 — two figures needed care.**
+
+*The kept streak* counts the longest run of completed sessions with no
+cancellation between them, and **skips sessions still to come** rather than
+breaking on them. A meeting in the diary is neither a keep nor a miss yet;
+treating it as a break would drop the streak every time someone scheduled
+ahead. It is a run rather than a ratio because a percentage is unreadable at
+small counts — one cancellation out of two looks like a catastrophe.
+
+*"Well rated"* requires **three ratings before the average counts at all**. A
+single five-star rating is not a reputation, and a badge that can be minted by
+one click from one person is a badge worth nothing.
+
+**A duplicate the screenshot caught.** `Progress` defaults `showCount` to
+true, so passing my formatted label rendered *both* — "4h of 5h" on the left
+and a raw "270 of 300" on the right, two units for one fact. `showCount` is
+off here; the label is the one in units a person can hold.
+
+**Rendered on the Progress page, including its empty state.** A mentorship
+that has *ended* leaves no active row to report on, but the sessions met and
+goals finished inside it still happened — an empty page would read as though
+they had been taken away.
+
+**25 tests**, covering both directions of every badge: nothing earned at the
+start with real progress attached, role filtering, a goal completing and then
+*un*-completing, minutes formatting, the streak surviving a future session and
+breaking on a cancellation, the ratings floor, an empty account, and 401.
+
+The suite is now **354 tests across 14 files**, and every server feature has
+committed coverage.
+
+**That closes the content list.** Scheduling, analytics, feedback ratings,
+resources and achievements were the five features scoped back in Entry 19 and
+deferred; all five exist. What remains is infrastructure: deployment, and
+frontend tests.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2525,10 +2607,9 @@ The suite is now **329 tests across 13 files**.
 - ~~**Scheduling**~~ — done in Entry 22.
 - ~~**Analytics**~~ — done in Entry 24. `/api/analytics/me` plus the Progress
   page, and the admin dashboard now counts mentorships, goals and sessions.
-- **Achievements** — the last of the originally-scoped features not built.
-  Now that goals, sessions and mentorship duration all produce real figures it
-  could be earned from data rather than invented, which is the only version
-  worth having.
+- ~~**Achievements**~~ — done in Entry 31, derived rather than stored. That
+  closes the content list: every feature scoped in Entry 19 now exists.
+- **Deployment** and **frontend tests** are what remain, both infrastructure.
 - ~~**Feedback ratings**~~ — done in Entry 29.
 - ~~**Resources**~~ — done in Entry 30.
 - **Sessions never leave the app** — no calendar export, no invitation, and no
