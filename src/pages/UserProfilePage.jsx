@@ -27,6 +27,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { canMentor } from '../lib/roles';
 import Stars from '../components/Stars';
+import { FEATURES } from '../lib/features';
 import styles from './UserProfilePage.module.css';
 
 export default function UserProfilePage() {
@@ -79,7 +80,8 @@ export default function UserProfilePage() {
       }
     };
 
-    if (userId) load();
+    // Not fetched at all while ratings are switched off.
+    if (userId && FEATURES.sessionRatings) load();
     return () => {
       stale = true;
     };
@@ -336,7 +338,7 @@ export default function UserProfilePage() {
       {/* What their students said. Only rendered once there is something to
           render: an empty ratings card on a new mentor reads as "nobody
           rated them well" rather than "nobody has rated them". */}
-      {isMentor && ratings?.count > 0 && (
+      {FEATURES.sessionRatings && isMentor && ratings?.count > 0 && (
         <Card
           title="What students say"
           subtitle={`From ${ratings.count} rated session${ratings.count === 1 ? '' : 's'}`}

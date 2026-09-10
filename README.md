@@ -36,7 +36,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Progress | What the mentorships add up to, sorted so the quiet one is at the top |
 | Unread messages | Per-person and per-group counts, previews, and sidebar totals |
 | Group read receipts | "Seen by" under your last message, from per-member read marks |
-| Feedback ratings | Students rate a completed session; the average shows on the mentor |
+| ~~Feedback ratings~~ | Built and tested, switched **off** in `src/lib/features.js` — see below |
 | Resources | Links pinned to a mentorship, so they do not scroll away in the chat |
 | Achievements | Badges computed from real goals and sessions — never stored |
 | Profiles | Bio for everyone; expertise and availability for mentors |
@@ -127,7 +127,7 @@ src/
     Progress.jsx             a done/total meter, not a percentage
     Stat.jsx                 a number worth reading on its own
     UnreadBadge.jsx          the count pill, capped at 99+
-    Stars.jsx                a five-point rating, read or written
+    Stars.jsx                a five-point rating (dormant — see features.js)
     Resources.jsx            the shared-links section of a mentorship
     Achievements.jsx         badges, earned and in progress
     Sessions.jsx             the scheduling section of a mentorship
@@ -147,6 +147,7 @@ src/
     ProgressPage.jsx         goals and sessions read back as progress
     SuspendedPage.jsx        shown instead of the app to a suspended account
   lib/
+    features.js              switches for built-but-not-shipped features
     roles.js                 canMentor / isAdmin / isVerified — rendering only
     useNow.js                the clock as state, plus relative time formatting
 
@@ -289,6 +290,23 @@ What is actually enforced, since a chat app with roles invites the question:
 
 No service-account key is needed: verifying an ID token only requires Google's
 public certificates. Set `FIREBASE_PROJECT_ID` and the server runs.
+
+## A feature that is built but switched off
+
+**Session ratings** — a `Feedback` model, three endpoints, a `Stars`
+component and 27 tests — are complete and passing, but hidden. A five-star
+score sits oddly in a two-person mentorship: the number adds little the
+session notes do not already say, and rating the person helping you nudges
+the relationship towards a marketplace.
+
+The **server half is deliberately left switched on**. The endpoints stay
+mounted and their tests keep running, because dead code that nothing
+exercises rots — if the routes were commented out and the tests skipped,
+turning this back on later would mean debugging three endpoints that had
+drifted out of step with the models around them. Kept live and tested,
+flipping `FEATURES.sessionRatings` in `src/lib/features.js` is the whole job.
+
+---
 
 ## Known limitations
 

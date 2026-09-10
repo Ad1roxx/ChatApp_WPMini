@@ -16,6 +16,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import useNow, { relative } from '../lib/useNow';
+import { FEATURES } from '../lib/features';
 import Card from './Card';
 import Button from './Button';
 import Badge from './Badge';
@@ -107,13 +108,18 @@ export default function Sessions({ mentorshipId, active, isMentor }) {
 
     const load = async () => {
       try {
+        // The feedback request is skipped rather than fetched-and-ignored
+        // when ratings are switched off: an endpoint that is not being
+        // rendered should not be being called either.
         const [sRes, fRes] = await Promise.all([
           authFetch(`/api/mentorships/${mentorshipId}/sessions`),
-          authFetch(`/api/mentorships/${mentorshipId}/feedback`)
+          FEATURES.sessionRatings
+            ? authFetch(`/api/mentorships/${mentorshipId}/feedback`)
+            : null
         ]);
 
         if (sRes.ok && !stale) setSessions(await sRes.json());
-        if (fRes.ok && !stale) {
+        if (fRes?.ok && !stale) {
           const rows = await fRes.json();
           setFeedback(Object.fromEntries(rows.map((f) => [String(f.session), f])));
         }
@@ -343,7 +349,7 @@ export default function Sessions({ mentorshipId, active, isMentor }) {
           {/* The rating, once given. Both sides see the same thing: there is
               no anonymity to protect in a room of two, so pretending
               otherwise would only be theatre. */}
-          {rated && !rating && (
+          {FEATURES.sessionRatings && rated && !rating && (
             <div className={styles.rated}>
               <Stars value={rated.rating} size="sm" />
               <span className={styles.dim}>
@@ -355,7 +361,7 @@ export default function Sessions({ mentorshipId, active, isMentor }) {
             </div>
           )}
 
-          {rating && (
+          {FEATURES.sessionRatings && rating && (
             <div className={styles.inlineForm}>
               <Field label="How was it?" hint="Your mentor sees this with your name on it">
                 <Stars
@@ -527,7 +533,7 @@ export default function Sessions({ mentorshipId, active, isMentor }) {
 
               {/* Students rate; mentors are rated. The server enforces it, so
                   this only decides whether to offer the button. */}
-              {session.status === 'completed' && !isMentor && (
+              {FEATURES.sessionRatings && session.status === 'completed' && !isMentor && (
                 <Button
                   size="sm"
                   variant={rated ? 'ghost' : 'secondary'}

@@ -2571,6 +2571,53 @@ frontend tests.
 
 ---
 
+### Entry 32 — Ratings switched off, and kept
+
+**The call.** *"A mentorship rating system doesn't seem like it fits in our
+project — could you keep it in the codebase as redundant code in case we need
+it later?"*
+
+Fair, and I think correct. A five-star score sits oddly in a relationship with
+exactly two people in it: the number adds very little that the session notes
+do not already say, and rating the person who is helping you nudges the thing
+towards a marketplace rather than a mentorship. That is a product judgement,
+not a defect — so the code stays and only the product changes.
+
+**How it is off.** One object, `src/lib/features.js`, with one boolean. Three
+render sites in `Sessions.jsx` and one card in `UserProfilePage.jsx` check it,
+and the two `fetch` calls that fed them are skipped rather than made and
+ignored — an endpoint nothing is rendering should not be being called either.
+
+**Why the server half stays switched ON.** This is the part worth writing
+down. Only the UI is hidden. The model, the three endpoints and all 27 tests
+stay exactly as they were, and they still run in CI.
+
+The reason is that **dead code nothing exercises rots.** If the routes were
+commented out and the tests skipped, turning this back on in six months would
+not be flipping a switch — it would be debugging three endpoints that had
+silently drifted out of step with the models around them while nothing was
+watching. Kept live and tested, the switch really is the whole job.
+
+Nothing is exposed by leaving them reachable: they are authenticated and
+permission-checked like every other endpoint. There is simply no button in the
+product that calls them.
+
+**Verified by rendering it, not by reasoning about it.** The fixture still
+holds a five-star rating on one session and three ratings on the mentor, and
+both screens were screenshotted with the switch off: no "Rate this session",
+no stars on the rated session, and no "What students say" card on a profile
+whose average is 4.7 in the database. The data is there; the product does not
+show it. 354 tests still pass.
+
+**A note on the shape of this.** A feature flag for one boolean is normally
+over-engineering. It earns its place here because the alternative was deleting
+tested work on a judgement that may reverse, and a commented-out block with a
+"re-enable later" note is the version that never gets re-enabled. The file
+says which feature, why it is off, and what to do — which is the part a
+`git revert` would not have carried.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2610,7 +2657,9 @@ frontend tests.
 - ~~**Achievements**~~ — done in Entry 31, derived rather than stored. That
   closes the content list: every feature scoped in Entry 19 now exists.
 - **Deployment** and **frontend tests** are what remain, both infrastructure.
-- ~~**Feedback ratings**~~ — done in Entry 29.
+- ~~**Feedback ratings**~~ — built in Entry 29, switched **off** in Entry 32.
+  The server half and its 27 tests stay live so the code cannot rot while
+  dormant; `FEATURES.sessionRatings` brings the UI back.
 - ~~**Resources**~~ — done in Entry 30.
 - **Sessions never leave the app** — no calendar export, no invitation, and no
   reminder before one starts. Times are stored UTC and rendered per viewer, so
