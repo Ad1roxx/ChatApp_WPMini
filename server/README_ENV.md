@@ -1,48 +1,136 @@
 Setup & run (PowerShell)
-------------------------
+========================
 
-1) Save your connection string & service account locally (do NOT commit):
+`server/.env.example` is the authoritative list of settings — it documents
+every variable and why it exists. This file is the short version: what to do,
+in order, on Windows.
 
-   - Save the Firebase service account JSON somewhere safe, e.g.
-     C:\secrets\mentorconnect-service-account.json
+There is **no Firebase service account and no key file**. Verifying a Firebase
+ID token only needs Google's public certificates, which the server fetches
+itself, so there is nothing secret to download and no Firebase Console step
+before it will run. If you find a `GOOGLE_APPLICATION_CREDENTIALS` anywhere,
+it is left over from an earlier design and can be deleted.
 
-   - You already have your Atlas connection string (example):
-     mongodb+srv://aditya1roxx_db_user:<PASSWORD>@mentor-connect1.3fve8.mongodb.net/?appName=mentor-connect1
 
-2) Temporary (current PowerShell session) — set env vars:
+1) Create your `.env`
+---------------------
 
 ```powershell
-cd 'C:\Users\Aditya Dubey\Documents\mentorconnect\server'
-# Use the full connection string you obtained from Atlas (include password).
-$env:MONGODB_URI = '<PASTE_YOUR_FULL_MONGODB_URI_HERE>'
-$env:GOOGLE_APPLICATION_CREDENTIALS = 'C:\secrets\mentorconnect-service-account.json'
+cd 'C:\Users\Aditya Dubey\Documents\Aditya_dubey_16010423006\chat_app_miniproject\server'
+Copy-Item .env.example .env
+notepad .env
 ```
 
-3) OR create a local `.env` file in `server/` (recommended for dev):
+Two values are required:
 
- - Copy `server/.env.example` -> `server/.env`
- - Edit `server/.env` and replace the placeholders with your real values (do NOT commit `.env`).
+- **`MONGODB_URI`** — either a local install or Atlas.
 
-4) Start the server:
+  Local: `mongodb://127.0.0.1:27017/chatapp`
+
+  Use `127.0.0.1`, not `localhost`. On Windows `localhost` resolves to IPv6
+  (`::1`) first, while a default MongoDB install listens only on IPv4, so
+  `localhost` fails with `ECONNREFUSED ::1:27017` even though MongoDB is
+  running.
+
+  Atlas: the connection string from your cluster, with the password filled in
+  and a database name on the end —
+  `mongodb+srv://USER:PASSWORD@cluster.mongodb.net/chatapp?retryWrites=true&w=majority`
+
+- **`FIREBASE_PROJECT_ID`** — must match `projectId` in `src/firebase.js`.
+
+  Not a secret; it already ships in the frontend bundle. The server needs it
+  to check a token's `aud` and `iss`, which is what stops a token minted for
+  somebody else's Firebase project being replayed against this one.
+
+Optional:
+
+- **`ADMIN_EMAILS`** — comma-separated addresses granted `admin` at sign-in.
+  This is the only way to become an admin.
+- **`PORT`** — defaults to 3001.
+
+
+2) Start it
+-----------
 
 ```powershell
+npm install     # first time only
 npm start
 ```
 
-5) Verify server behavior:
 
- - In the server logs check for:
-   - "Firebase Admin initialized" (service account loaded)
-   - "Connected to MongoDB" (if `MONGODB_URI` is valid)
-   - "Server listening at http://localhost:3001"
+3) What a healthy start looks like
+----------------------------------
 
- - Quick API test from PowerShell (after server is running):
-```powershell
-# list announcements (GET)
-Invoke-RestMethod -Uri 'http://localhost:3001/api/announcements'
 ```
+🔒 Admin allowlist: 1 address(es)        (only if ADMIN_EMAILS is set)
+✅ Connected to MongoDB
+
+  🚀 Server running on http://localhost:3001
+  📡 Socket.IO ready for connections
+  💾 MongoDB: mongodb://127.0.0.1:27017/chatapp
+```
+
+Quick check from a second terminal — this should return `401`, which is the
+correct answer to an unauthenticated request and proves the server is up and
+enforcing auth:
+
+```powershell
+try { Invoke-RestMethod -Uri 'http://localhost:3001/api/announcements' }
+catch { $_.Exception.Response.StatusCode }
+```
+
+
+4) The frontend
+---------------
+
+From the project root, in another terminal:
+
+```powershell
+npm install     # first time only
+npm run dev     # http://localhost:5173
+```
+
+The frontend talks to `http://localhost:3001` unless `VITE_SERVER_URL` says
+otherwise. Set that to point a build at a deployed backend, or to run a second
+copy against a throwaway database without disturbing the one already running.
+
+
+Running the tests
+-----------------
+
+```powershell
+cd server
+npm test
+```
+
+They need a MongoDB reachable at `127.0.0.1:27017`. The harness spawns a real
+server against a **throwaway `chatapp_test` database** and drops it afterwards
+— that address is hardcoded and ignores `MONGODB_URI` on purpose, so a test
+run can never point `dropDatabase()` at your real data.
+
+
+ALLOW_DEV_AUTH
+--------------
+
+Leave it unset. When set to exactly `true` (and `NODE_ENV` is not
+`production`) the server accepts an `X-Dev-User-Id` header instead of a real
+token, so an automated browser — which cannot complete a Google sign-in popup
+— can drive the app.
+
+**It turns authentication off for anyone who can reach the server.** The
+server prints a loud warning at startup whenever it is on:
+
+```
+*** ALLOW_DEV_AUTH is on: an X-Dev-User-Id header can stand in for a real sign-in.
+*** Never enable this on a deployed server.
+```
+
 
 Security notes
 --------------
-- Never paste the service account JSON or `.env` into public chat or commit it to Git.
-- `server/.gitignore` (added) ignores `.env` and common JSON files; double-check your repo-level `.gitignore` too.
+
+- Never commit `.env`. `server/.gitignore` covers it; check the repo-level
+  `.gitignore` too.
+- The Atlas connection string contains a password. Treat the whole string as
+  the secret, not just the password field.
+- `FIREBASE_PROJECT_ID` is *not* a secret and does not need protecting.
