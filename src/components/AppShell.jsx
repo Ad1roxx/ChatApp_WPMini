@@ -29,8 +29,10 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useConversations } from '../context/ConversationsContext';
 import Avatar from './Avatar';
 import { RoleBadge } from './Badge';
+import UnreadBadge from './UnreadBadge';
 import {
   AnnouncementIcon,
   ChartIcon,
@@ -54,7 +56,9 @@ const NAV_SECTIONS = [
   {
     label: null,
     items: [
-      { to: '/users', label: 'Messages', icon: MessagesIcon },
+      // `badge` names which counter this entry shows, so a second one later
+      // (unread announcements, say) is another key rather than another branch.
+      { to: '/users', label: 'Messages', icon: MessagesIcon, badge: 'messages' },
       { to: '/mentorships', label: 'Mentorship', icon: HandshakeIcon },
       { to: '/progress', label: 'Progress', icon: ChartIcon },
       { to: '/groups', label: 'Groups', icon: GroupsIcon },
@@ -86,6 +90,7 @@ export default function AppShell({
   children
 }) {
   const { dbUser, logout } = useAuth();
+  const { totalUnread } = useConversations();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -127,7 +132,7 @@ export default function AppShell({
           return (
             <div key={section.label ?? i} className={styles.navSection}>
               {section.label && <p className={styles.navLabel}>{section.label}</p>}
-              {items.map(({ to, label, icon: NavIcon }) => (
+              {items.map(({ to, label, icon: NavIcon, badge }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -142,6 +147,15 @@ export default function AppShell({
                 >
                   <NavIcon size={17} />
                   <span>{label}</span>
+                  {/* Pushed to the far right by .navItem's auto margin, so
+                      the label stays put whether or not there is a count. */}
+                  {badge === 'messages' && (
+                    <UnreadBadge
+                      count={totalUnread}
+                      label="unread messages"
+                      className={styles.navBadge}
+                    />
+                  )}
                 </NavLink>
               ))}
             </div>

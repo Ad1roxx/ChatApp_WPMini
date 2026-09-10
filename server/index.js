@@ -320,6 +320,86 @@ app.get('/api/users', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/conversations
+ *
+ * One row per person you have exchanged messages with: what was said last,
+ * when, which way round, and how many of theirs you have not read.
+ *
+ * This is what makes the people list a *messages* list. Until now the page
+ * showed everyone with "Online"/"Offline" underneath and no indication that
+ * anyone had said anything — a message arrived and the only way to find out
+ * was to open every conversation in turn.
+ *
+ * ## Why one aggregation instead of a query per person
+ *
+ * The obvious version loops the user list and runs two queries each — last
+ * message, unread count. That is 2N round trips for a screen that renders
+ * once. This is one pass: sort every message the caller is party to, newest
+ * first, then `$group` on "the other person", taking `$first` for the last
+ * message and summing the unread ones on the way through.
+ *
+ * *Tradeoff, stated plainly:* it touches all of the caller's messages, so it
+ * grows with their history rather than with their contact count. The two
+ * compound indexes on the collection serve the `$or` match, and at this
+ * project's scale it is a single-digit-millisecond query — but a real
+ * deployment with long histories would keep a denormalised conversation
+ * document instead, updated on write.
+ *
+ * People you have never messaged do not appear at all. The client merges
+ * these rows onto the user list rather than replacing it, so a fresh contact
+ * still shows up — just without a preview.
+ */
+app.get('/api/conversations', requireAuth, async (req, res) => {
+  try {
+    const me = req.authUser._id;
+
+    const rows = await Message.aggregate([
+      { $match: { $or: [{ sender: me }, { receiver: me }] } },
+
+      // Newest first, so `$first` below means "most recent" rather than
+      // "whichever the storage engine happened to return".
+      { $sort: { timestamp: -1 } },
+
+      {
+        $group: {
+          // The other party, whichever side of the message they were on.
+          _id: {
+            $cond: [{ $eq: ['$sender', me] }, '$receiver', '$sender']
+          },
+          lastText: { $first: '$text' },
+          lastAt: { $first: '$timestamp' },
+          lastFromMe: { $first: { $eq: ['$sender', me] } },
+          unread: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ['$receiver', me] }, { $eq: ['$read', false] }] },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+
+      { $sort: { lastAt: -1 } }
+    ]);
+
+    res.json(
+      rows.map((r) => ({
+        peerId: r._id,
+        lastText: r.lastText,
+        lastAt: r.lastAt,
+        lastFromMe: r.lastFromMe,
+        unread: r.unread
+      }))
+    );
+  } catch (err) {
+    console.error('Error listing conversations:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
  * GET /api/messages/:visitorId/:peerId
  * 
  * Get conversation history between two users.
@@ -2388,8 +2468,18 @@ io.on('connection', (socket) => {
         { read: true }
       );
 
-      // Notify the peer, on every tab they have open
+      // Two different facts, two different audiences.
+      //
+      // The PEER learns "they read what you sent" — that is a receipt, and it
+      // drives the "Seen" line under their message.
+      //
+      // The READER's own other tabs learn "you have read these" — that is
+      // what clears the unread badge on the messages list. Without it, a
+      // conversation opened in one tab left the count sitting there in
+      // another until a reload, which is the sort of thing that teaches
+      // people not to trust the number.
       emitToUser(peerId, 'messages-read', { byVisitor: visitorId });
+      emitToUser(visitorId, 'conversation-read', { peerId });
     } catch (err) {
       console.error('Error marking messages as read:', err);
     }

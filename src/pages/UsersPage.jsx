@@ -4,10 +4,21 @@
  * Shows all registered users except yourself.
  *
  * Features:
+ * - The last thing said, and how many of theirs you have not read
  * - Online/offline presence, live via Socket.IO
  * - Role badge (student/mentor) so mentors are identifiable at a glance
  * - Row opens the chat; a separate button opens that person's profile
  * - New signups appear without a refresh ('user-added' / 'user-updated')
+ *
+ * It is a *people* list that behaves like a *messages* list. Anyone you have
+ * spoken to sorts to the top by recency and shows a preview; everyone else
+ * keeps their alphabetical place underneath, so a new contact is still
+ * findable rather than buried under whoever messaged most recently.
+ *
+ * The second line used to read "Online"/"Offline" for everybody. That fact
+ * has not been lost — it is the dot on the avatar, which is where every
+ * other messaging app puts it — and the line is now doing something no other
+ * part of the app was doing at all.
  *
  * Accessibility note on the row: the whole row used to be a `<div onClick>`,
  * which is invisible to the keyboard. It's now a real `<button>` that fills
@@ -19,19 +30,24 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useConversations } from '../context/ConversationsContext';
 import AppShell from '../components/AppShell';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import { RoleBadge, VerifiedBadge } from '../components/Badge';
+import UnreadBadge from '../components/UnreadBadge';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import { InlineLoader } from '../components/Loading';
 import { MessagesIcon } from '../components/Icons';
+import useNow from '../lib/useNow';
 import styles from './UsersPage.module.css';
 
 export default function UsersPage() {
   const navigate = useNavigate();
   const { dbUser, socket, authFetch } = useAuth();
+  const { byPeer, markRead } = useConversations();
+  const now = useNow();
 
   // List of all users
   const [users, setUsers] = useState([]);
@@ -152,6 +168,36 @@ export default function UsersPage() {
   }, [socket, dbUser]);
 
   const onlineCount = users.filter(u => onlineUserIds.has(u._id)).length;
+  const unreadPeople = users.filter(u => (byPeer[u._id]?.unread || 0) > 0).length;
+
+  /**
+   * Conversations first, newest at the top; everyone else keeps the
+   * alphabetical order the server sent them in.
+   *
+   * `sort` mutates, so this works on a copy — sorting `users` in place would
+   * be mutating state during render.
+   */
+  const ordered = [...users].sort((a, b) => {
+    const at = byPeer[a._id]?.lastAt;
+    const bt = byPeer[b._id]?.lastAt;
+
+    if (at && bt) return new Date(bt) - new Date(at);
+    if (at) return -1;
+    if (bt) return 1;
+    return 0;
+  });
+
+  /** "09:28" today, "Mon" this week, "4 Sep" beyond it — the WhatsApp ladder. */
+  const stamp = (value) => {
+    const d = new Date(value);
+    const age = now - d.getTime();
+
+    if (age < 86400000 && d.getDate() === new Date(now).getDate()) {
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+    if (age < 7 * 86400000) return d.toLocaleDateString([], { weekday: 'short' });
+    return d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  };
 
   return (
     <AppShell
@@ -159,8 +205,10 @@ export default function UsersPage() {
       subtitle={
         loading
           ? undefined
-          : `${users.length} ${users.length === 1 ? 'person' : 'people'}` +
-            (onlineCount > 0 ? ` · ${onlineCount} online` : '')
+          : unreadPeople > 0
+            ? `Unread from ${unreadPeople} ${unreadPeople === 1 ? 'person' : 'people'}`
+            : `${users.length} ${users.length === 1 ? 'person' : 'people'}` +
+              (onlineCount > 0 ? ` · ${onlineCount} online` : '')
       }
     >
       <Card padded={false}>
@@ -174,14 +222,22 @@ export default function UsersPage() {
           />
         ) : (
           <ul className={styles.list}>
-            {users.map(user => {
+            {ordered.map(user => {
               const isOnline = onlineUserIds.has(user._id);
+              const convo = byPeer[user._id];
+              const unread = convo?.unread || 0;
 
               return (
                 <li key={user._id} className={styles.row}>
                   <button
                     type="button"
-                    onClick={() => navigate(`/chat/${user._id}`)}
+                    // Clear the count as the chat opens rather than a
+                    // round-trip later. ChatPage emits `mark-read` on mount,
+                    // so the server confirms this a moment afterwards.
+                    onClick={() => {
+                      markRead(user._id);
+                      navigate(`/chat/${user._id}`);
+                    }}
                     className={styles.rowMain}
                   >
                     <Avatar
@@ -195,10 +251,34 @@ export default function UsersPage() {
                         <RoleBadge role={user.role} />
                         <VerifiedBadge user={user} />
                       </span>
-                      <span className={styles.rowStatus}>
-                        {isOnline ? 'Online' : 'Offline'}
-                      </span>
+
+                      {/* The preview, or the presence line for someone you
+                          have never spoken to. "You:" marks your own last
+                          message the way every messaging app does — without
+                          it a reply and a message you sent look identical. */}
+                      {convo ? (
+                        <span
+                          className={[
+                            styles.rowPreview,
+                            unread > 0 ? styles.rowPreviewUnread : ''
+                          ].filter(Boolean).join(' ')}
+                        >
+                          {convo.lastFromMe && <span className={styles.you}>You: </span>}
+                          {convo.lastText}
+                        </span>
+                      ) : (
+                        <span className={styles.rowStatus}>
+                          {isOnline ? 'Online' : 'Offline'}
+                        </span>
+                      )}
                     </span>
+
+                    {convo && (
+                      <span className={styles.rowMeta}>
+                        <span className={styles.time}>{stamp(convo.lastAt)}</span>
+                        <UnreadBadge count={unread} label="unread messages" />
+                      </span>
+                    )}
                   </button>
 
                   <Button

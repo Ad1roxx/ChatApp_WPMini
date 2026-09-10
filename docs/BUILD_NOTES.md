@@ -1982,6 +1982,94 @@ not committed.
 
 ---
 
+### Entry 25 — Unread counts and message previews
+
+**The report.** *"There is absolutely no message notification system... if
+someone sends a message it isn't visible on the users page alongside their
+name with a number or something."* Correct, and worse than it sounds: every
+row said "Online" or "Offline" underneath the name, so a list of people you
+had been talking to all day looked identical to a list of strangers. The only
+way to find out whether anyone had said anything was to open each conversation
+in turn.
+
+**Files added:** `src/context/ConversationsContext.jsx`,
+`src/components/UnreadBadge.jsx` + module.
+
+**Files changed:** `server/index.js` (one endpoint, 36 total; `mark-read` now
+emits twice), `UsersPage.jsx` + module, `AppShell.jsx` + module, `App.jsx`.
+
+**Design decision 1 — one aggregation, not 2N queries.** The obvious version
+loops the user list and runs two queries each: last message, unread count.
+`GET /api/conversations` is one pass instead — sort every message the caller
+is party to newest-first, then `$group` on "the other person", taking `$first`
+for the preview and summing unread on the way through. *Stated tradeoff:* it
+grows with the caller's history rather than their contact count, and a real
+deployment with long histories would keep a denormalised conversation document
+updated on write. At this scale the two existing compound indexes serve it.
+
+**Design decision 2 — the state lives above both screens.** Two things need
+these numbers and they have to agree: the per-person rows and the one total
+beside "Messages" in the sidebar. Separate copies would drift the moment a
+socket event arrived while only one of them was mounted, so
+`ConversationsContext` owns the fetch and the socket wiring, and both read it.
+
+**A real bug this exposed.** `mark-read` told the *peer* their message had
+been seen, and told nobody else. Your own other tabs never learned you had
+read anything — so a conversation opened in one window left the count sitting
+there in another until a reload. The handler now emits twice, and the comment
+in the code says why: `messages-read` to the peer is a receipt, and
+`conversation-read` to yourself is what clears the badge. Two different facts,
+two different audiences; one of them had simply been missing.
+
+**Design decision 3 — a people list that behaves like a messages list.**
+Anyone you have spoken to sorts to the top by recency and shows a preview;
+everyone else keeps their alphabetical place underneath. That way a new
+contact is still findable rather than buried under whoever messaged most
+recently, which is what a pure conversation list would have done.
+
+The presence line was not lost when the preview took its place — it moved to
+the dot on the avatar, which is where every other messaging app puts it. Rows
+with no history still read "Online"/"Offline", because for those people that
+is the only thing there is to say.
+
+**Design decision 4 — unread is three signals, not one.** The count pill, a
+darker preview, and a heavier weight. A row that says "unread" only by the
+colour of a small circle says nothing to a reader who cannot distinguish it,
+and nothing at all once the pill has scrolled out of view.
+
+**`UnreadBadge` is not `Badge`.** The existing one is a label that happens to
+be small; this is a number that must stay circular at one digit and become a
+pill at three, and it caps at 99+ because past a point the exact figure stops
+being information and starts being a layout problem. The real number still
+goes in the `aria-label`, since a screen reader has no layout to protect.
+
+**A test bug worth recording.** Two socket checks failed at first —
+`conversation-read` and the pre-existing `messages-read` both arrived as null,
+while the database showed the read had been processed. The cause was in the
+check, not the server: unicast fans out from the `onlineUsers` map, which is
+populated by the `user-online` event, and the test sockets had connected
+without emitting it. The real client emits it on connect. Worth writing down
+because a socket that is connected but not *registered* looks identical from
+the outside, and the same trap is waiting for the next unicast test.
+
+**Verified with 23 checks** against a throwaway `chatapp_test`: an empty list
+before anything is said, a preview and count appearing after one message, the
+sender seeing the same row with nothing unread and `lastFromMe` true, counts
+accumulating, a reply flipping the preview without marking their messages
+read, `mark-read` clearing the count *and* notifying the reader's own tabs,
+ordering by recency, counts staying per-peer, a third party seeing none of it,
+401 without a token, reading one thread leaving the other alone, and the
+original read receipt still reaching the peer. The 105 existing tests pass.
+
+Screenshotted at both widths against a fixture with four deliberate states —
+three unread, one unread, read-with-your-own-reply-last, and never messaged.
+
+**Not in the test suite.** The five server features whose checks were run by
+hand and not committed are now mentorships, goals, sessions, analytics and
+conversations.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2006,10 +2094,10 @@ not committed.
 - **No frontend tests** — the 105 cover the server. React components are only
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour.
-- **Mentorship, goal, session and analytics endpoints are not in the test
-  suite** — verified by hand in Entries 20, 21, 22 and 24 (14, 9, 40 and 39
-  checks) that were not committed. The four server features without coverage,
-  deferred to one test pass.
+- **Mentorship, goal, session, analytics and conversation endpoints are not
+  in the test suite** — verified by hand in Entries 20, 21, 22, 24 and 25 (14,
+  9, 40, 39 and 23 checks) that were not committed. The five server features
+  without coverage, deferred to one test pass.
 - ~~**Goals & milestones**~~ — done in Entry 21.
 - ~~**Scheduling**~~ — done in Entry 22.
 - ~~**Analytics**~~ — done in Entry 24. `/api/analytics/me` plus the Progress

@@ -30,6 +30,7 @@ import SuspendedPage from "./pages/SuspendedPage";
 import MentorshipsPage from "./pages/MentorshipsPage";
 import MentorshipDetailPage from "./pages/MentorshipDetailPage";
 import ProgressPage from "./pages/ProgressPage";
+import { ConversationsProvider } from "./context/ConversationsContext";
 import { PageLoader } from "./components/Loading";
 
 function App() {
@@ -59,8 +60,13 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
+    /* Unread counts and message previews, above the router: the messages list
+       and the sidebar badge both read them, and they have to agree. Mounted
+       below the auth gates above, so it never fetches for a signed-out or
+       suspended account. */
+    <ConversationsProvider>
+      <BrowserRouter>
+        <Routes>
         {/* Home - redirect based on auth status */}
         <Route 
           path="/" 
@@ -150,8 +156,9 @@ function App() {
 
         {/* Catch-all - redirect to home */}
         <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </ConversationsProvider>
   );
 }
 

@@ -34,6 +34,7 @@
 }
 
 .rowText {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -53,6 +54,49 @@
 .rowStatus {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+}
+
+/* ---- Message preview ---- */
+
+/* One line, clipped. A preview that wraps stops being a preview: the rows
+   change height with the length of whatever was last said, and the list
+   loses the even rhythm that makes it scannable. */
+.rowPreview {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Unread reads darker and heavier — the same two signals the count pill
+   gives, so the row still says "unread" to someone who cannot see the pill's
+   colour or has scrolled it out of view. */
+.rowPreviewUnread {
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+}
+
+.you {
+  color: var(--color-text-subtle);
+}
+
+/* Time above, count below, hard right — the layout every messaging app uses,
+   and the reason the preview needs its own clipping above. */
+.rowMeta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+}
+
+.time {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* Hidden until hover on a pointer device — the row is quieter at rest, and
@@ -77,5 +121,12 @@
 @media (max-width: 600px) {
   .rowName {
     flex-wrap: wrap;
+  }
+
+  /* The Profile button stops hiding at this width, so something has to give.
+     The timestamp is the least load-bearing thing in the row — the preview
+     and the count both survive. */
+  .time {
+    display: none;
   }
 }

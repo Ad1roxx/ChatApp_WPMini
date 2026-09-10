@@ -83,6 +83,13 @@
   transition: background-color var(--transition), color var(--transition);
 }
 
+/* The count sits hard right, and the label keeps its place whether or not
+   one is there — a nav item that shifts when a message arrives is a nav item
+   you misclick. */
+.navBadge {
+  margin-left: auto;
+}
+
 .navItem:hover {
   background-color: var(--color-surface-hover);
   color: var(--color-text);
