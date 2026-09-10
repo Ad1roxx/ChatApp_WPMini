@@ -2418,6 +2418,77 @@ line hanging under nothing. It claims the full row now.
 
 ---
 
+### Entry 30 — Shared resources
+
+**What I built.** A place to pin the links worth coming back to. *"That
+article you sent me"* is the single most common thing to lose in a
+conversation, and a chat transcript is a bad place to keep anything you intend
+to return to.
+
+**Files added:** `server/models/Resource.js`, `src/components/Resources.jsx` +
+module, `server/test/resources.test.js`.
+
+**Files changed:** `server/index.js` (three endpoints, 44 total),
+`MentorshipDetailPage.jsx`, `Icons.jsx`.
+
+**Design decision 1 — links, not uploads.** File uploads mean storage, size
+limits, virus scanning and a bill, none of which this project has. Almost
+everything a mentor actually shares already lives at a URL, so a link is the
+whole feature at a fraction of the cost — and it degrades honestly: a dead
+link is visibly dead, whereas a missing upload just looks like a bug.
+
+**Design decision 2 — either party may add.** Like sessions, unlike goals. A
+student finding something useful and pinning it for their mentor is the same
+act as the reverse, and there is nothing here to approve.
+
+**Design decision 3 — removing is not symmetric.** Whoever shared it may take
+it down, and so may the mentor; a student cannot remove their mentor's links.
+Deleting what someone else shared is the one action in this feature with a
+loser, and the mentor is the party with standing to decide. The button is
+hidden where it would be refused, and the server refuses it regardless.
+
+**The security bit, and why it is in two places.** The client renders `url`
+straight into an `href`, so a stored `javascript:` URL is stored XSS with a
+one-click path to the other party. The route parses with `new URL()` and
+allow-lists `http:` and `https:` — an allow-list rather than a blocklist,
+because that is the version that stays correct as new schemes are invented.
+The *model* validates it again, which is not redundancy for its own sake: the
+route's check is what returns a useful 400, and the schema's is what stops
+anything else in the codebase — a seed script, a migration, some future
+endpoint — from writing a dangerous URL into that field without going through
+the route at all.
+
+`javascript:`, `JavaScript:` (case), `data:`, `file:` and `ftp:` all have
+tests, plus one asserting that after all of them, nothing non-http survived in
+the collection. Those assertions exist as much to explain the allow-list to
+whoever loosens it later as to catch a regression.
+
+The rendered anchor carries `rel="noopener noreferrer"`: `noopener` because a
+`target="_blank"` link otherwise hands the new page a reference back to this
+one, and `noreferrer` so a shared link does not leak the mentorship URL it was
+shared from.
+
+**A small UI decision.** The line under each title is the **hostname**, not a
+truncated URL. A bare domain tells you more about where a link goes than the
+first forty characters of its path do, and it is what a reader is actually
+checking before they click.
+
+**A comment that was lying, caught before commit.** The Remove button carried
+a note saying it "only avoids offering a button that would be refused" — while
+rendering unconditionally. Either the comment or the code had to change; the
+code did, since the claim was the correct design. Worth recording because a
+comment describing an intention the code does not implement is worse than no
+comment: the next reader trusts it.
+
+**29 tests, written alongside** — both parties sharing, the outsider and the
+ended-mentorship refusals, every dangerous scheme, the required fields,
+ordering, and the four-way removal matrix (own link, someone else's, mentor
+over everything, outsider over nothing).
+
+The suite is now **329 tests across 13 files**.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2459,8 +2530,7 @@ line hanging under nothing. It claims the full row now.
   could be earned from data rather than invented, which is the only version
   worth having.
 - ~~**Feedback ratings**~~ — done in Entry 29.
-- **Resources** — still unbuilt. Link sharing per mentorship is the cheapest
-  of the remaining features.
+- ~~**Resources**~~ — done in Entry 30.
 - **Sessions never leave the app** — no calendar export, no invitation, and no
   reminder before one starts. Times are stored UTC and rendered per viewer, so
   two timezones agree on the moment; nothing tells either person it is coming.

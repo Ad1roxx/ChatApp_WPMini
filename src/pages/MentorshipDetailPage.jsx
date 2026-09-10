@@ -28,6 +28,7 @@ import Badge, { RoleBadge, VerifiedBadge } from '../components/Badge';
 import { Field, Input, Textarea } from '../components/Field';
 import Progress from '../components/Progress';
 import Sessions from '../components/Sessions';
+import Resources from '../components/Resources';
 import EmptyState from '../components/EmptyState';
 import { InlineLoader, PageLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
@@ -420,6 +421,15 @@ export default function MentorshipDetailPage() {
           anyone?" is a different question and is answered on the mentorships
           list, where it does not need this page open to see. */}
       <Sessions
+        mentorshipId={id}
+        active={mentorship.status === 'active'}
+        isMentor={isMentor}
+      />
+
+      {/* Last, because it is the section you come to deliberately rather than
+          the one you are answering. Goals are the work, sessions are the
+          commitments, and this is the shelf you put things on. */}
+      <Resources
         mentorshipId={id}
         active={mentorship.status === 'active'}
         isMentor={isMentor}

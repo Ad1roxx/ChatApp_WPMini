@@ -37,6 +37,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Unread messages | Per-person and per-group counts, previews, and sidebar totals |
 | Group read receipts | "Seen by" under your last message, from per-member read marks |
 | Feedback ratings | Students rate a completed session; the average shows on the mentor |
+| Resources | Links pinned to a mentorship, so they do not scroll away in the chat |
 | Profiles | Bio for everyone; expertise and availability for mentors |
 | Presence | Live online/offline status across the app |
 
@@ -101,7 +102,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 300 integration tests against a throwaway database |
+| `npm test` | 329 integration tests against a throwaway database |
 
 ---
 
@@ -126,6 +127,7 @@ src/
     Stat.jsx                 a number worth reading on its own
     UnreadBadge.jsx          the count pill, capped at 99+
     Stars.jsx                a five-point rating, read or written
+    Resources.jsx            the shared-links section of a mentorship
     Sessions.jsx             the scheduling section of a mentorship
   pages/
     LoginPage.jsx            Google sign-in
@@ -163,6 +165,7 @@ server/
     conversations.test.js    previews, unread counts, read events
     groupreads.test.js       group previews, counts, receipts
     feedback.test.js         who may rate, the scale, and the average
+    resources.test.js        the URL allow-list, and who may remove
     startup.test.js          stale-presence reset on boot
   models/
     User.js                  identity, presence, role, profile fields
@@ -176,6 +179,7 @@ server/
     Session.js               scheduled meetings, proposed and confirmed
     GroupRead.js             per-member read marks, for group unread and receipts
     Feedback.js              a student's rating of one completed session
+    Resource.js              a shared link, http(s) only
 
 .github/workflows/
   ci.yml                     lint, build and the test suite on every push
@@ -231,6 +235,9 @@ docs/
 | PUT | `/api/sessions/:sessionId/feedback` | **Student only** — rate a completed session |
 | GET | `/api/mentorships/:id/feedback` | Every rating in one mentorship |
 | GET | `/api/users/:id/feedback` | A mentor's count, average and recent comments |
+| GET | `/api/mentorships/:id/resources` | Links shared in one mentorship |
+| POST | `/api/mentorships/:id/resources` | Share a link (either party, http/https only) |
+| DELETE | `/api/resources/:resourceId` | Whoever shared it, or the mentor |
 
 ## Socket.IO events
 
