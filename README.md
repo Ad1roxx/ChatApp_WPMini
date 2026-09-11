@@ -32,7 +32,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Reports | Anyone can report a user or content; admins resolve or dismiss |
 | Mentorships | Mentors add students outright; students ask and can request to opt out |
 | Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
-| Assignments | One brief to several students; each drafts, hands in and unsubmits on their own; the mentor reviews each, with a full history |
+| Assignments | One brief to several students; each drafts, attaches files, hands in and unsubmits on their own; the mentor reviews each, with a full history |
 | Sessions | Either party proposes a time, the other confirms; reschedule, cancel, notes |
 | Progress | What the mentorships add up to, sorted so the quiet one is at the top |
 | Unread messages | Per-person and per-group counts, previews, and sidebar totals |
@@ -104,7 +104,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 436 integration tests against a throwaway database |
+| `npm test` | 482 integration tests against a throwaway database |
 
 ---
 
@@ -132,7 +132,7 @@ src/
     Resources.jsx            the shared-links section of a mentorship
     Achievements.jsx         badges, earned and in progress
     Assignments.jsx          one student's slice, on the mentorship page
-    SubmissionRow.jsx        one hand-in: draft, hand in, unsubmit, review, history
+    SubmissionRow.jsx        one hand-in: draft, files, hand in, unsubmit, review, history
     Sessions.jsx             the scheduling section of a mentorship
   pages/
     LoginPage.jsx            Google sign-in
@@ -151,6 +151,7 @@ src/
     AssignmentsPage.jsx      the whole class: set for several, review each
     SuspendedPage.jsx        shown instead of the app to a suspended account
   lib/
+    attachments.js           what can be attached, mirrored for the file picker
     features.js              switches for built-but-not-shipped features
     roles.js                 canMentor / isAdmin / isVerified — rendering only
     useNow.js                the clock as state, plus relative time formatting
@@ -159,6 +160,8 @@ server/
   index.js                   Express routes + all Socket.IO handlers
   middleware/
     auth.js                  Firebase ID token verification + role gates
+  lib/
+    fileStore.js             uploaded files, kept in MongoDB (GridFS)
   test/
     helpers/harness.js       spawns the server against a throwaway database
     auth.test.js             identity, ownership, role gates
@@ -175,6 +178,7 @@ server/
     resources.test.js        the URL allow-list, and who may remove
     achievements.test.js     earning badges, and un-earning them
     assignments.test.js      recipients, privacy, drafts, unsubmit, the history
+    attachments.test.js      who uploads and downloads, limits, clean-up
     startup.test.js          stale-presence reset on boot
   models/
     User.js                  identity, presence, role, profile fields
@@ -190,7 +194,7 @@ server/
     Feedback.js              a student's rating of one completed session
     Resource.js              a shared link, http(s) only
     Assignment.js            one brief and a deadline, sent to several students
-    Submission.js            one student's hand-in, its status and its history
+    Submission.js            one student's hand-in, its files, status and history
 
 .github/workflows/
   ci.yml                     lint, build and the test suite on every push
@@ -259,6 +263,9 @@ docs/
 | PUT | `/api/submissions/:id` | **Student only** — save a draft, or hand it in |
 | POST | `/api/submissions/:id/unsubmit` | **Student only** — take a hand-in back to edit it |
 | PATCH | `/api/submissions/:id` | **The mentor who set it** — accept, or ask for changes |
+| POST | `/api/submissions/:id/files` | **Student only** — attach a file (10 MB, 5 per hand-in); saves a draft |
+| GET | `/api/submissions/:id/files/:fileId` | The student, or the mentor who set it — download, always as an attachment |
+| DELETE | `/api/submissions/:id/files/:fileId` | **Student only** — remove a file, unless the work is handed in |
 
 ## Socket.IO events
 

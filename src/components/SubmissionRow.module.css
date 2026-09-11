@@ -221,3 +221,93 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* A file name in the history is data, not part of the label. */
+.eventDetail {
+  font-weight: var(--weight-normal);
+  word-break: break-word;
+}
+
+/* ---- Files ---- */
+
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.fileIcon {
+  flex-shrink: 0;
+  color: var(--color-text-subtle);
+}
+
+/* The name is the download button. It truncates rather than wrapping, so a
+   long name never pushes the size and the remove button off the row. */
+.fileName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--color-accent);
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+
+.fileName:hover {
+  text-decoration: underline;
+}
+
+.fileSize {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.fileRemove {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-subtle);
+}
+
+.fileRemove:hover:not(:disabled) {
+  color: var(--color-danger);
+  background-color: var(--color-surface-hover);
+}
+
+.attach {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.attachLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.attachRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.attachHint {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}

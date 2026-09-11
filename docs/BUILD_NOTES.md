@@ -2880,6 +2880,149 @@ The suite is now **436 tests across 15 files**.
 
 ---
 
+### Entry 35 — Files on hand-ins, kept in MongoDB
+
+**The ask.** *"Add in a button to select all students for convenience — also,
+are files attachable now? We need that to work for this to be complete."*
+
+Select all already existed, as a text link beside "Send to". The user did not
+find it, which is a finding in itself: the common case — most work goes to
+everyone — was dressed as the least important control on the form. It is now a
+real button, "Select all 4" / "Clear all".
+
+Files did not exist. A hand-in was text and a link, and the link's hint told
+students to put their file on Drive and paste the share link. That was the
+last thing standing between this and Classroom.
+
+**Files added:** `server/lib/fileStore.js`, `server/test/attachments.test.js`,
+`src/lib/attachments.js`.
+
+**Files changed:** `server/index.js` (3 routes; 57 total),
+`server/models/Submission.js`, `SubmissionRow.jsx` + module,
+`AssignmentsPage.jsx` + module, `AuthContext.jsx`, `Icons.jsx`,
+`server/package.json` (multer).
+
+**Design decision 1 — the bytes go in MongoDB (GridFS), not a bucket.** The
+user had already asked whether files would mean paying for a storage plan.
+A bucket (S3, R2, Firebase Storage) is the textbook answer, and every one needs
+an account, credentials in the server's environment and, usually, a card on
+file. GridFS needs nothing new: the same code runs on a laptop, in CI's `mongo`
+service and on a hosted MongoDB. The cost is database space, bounded by 10 MB a
+file and 5 files a hand-in — and the file says, in so many words, that a free
+Atlas cluster is 512 MB for everything. The routes call only the functions
+`fileStore.js` exports, so moving to a bucket later rewrites that one file.
+
+**Design decision 2 — a file is reached through its hand-in.** The record of
+each file lives on the `Submission`; the download route is
+`/api/submissions/:id/files/:fileId` and looks the file up in *that*
+submission's list. So the people who can read a file are exactly the people who
+can read the hand-in — the student and the mentor who set the work — with no
+second permission model to drift. A real file id asked for through the wrong
+hand-in is a 404, and the test for it deliberately uses the mentor, who may
+read both hand-ins: it proves the *pairing* is checked, not just the person.
+
+**Design decision 3 — served so a file can never run as this app.** An upload
+feature's classic hole is stored XSS: upload `page.html`, send someone the
+link, and it runs on your origin with their session. Four layers, each
+tested:
+
+- `Content-Disposition: attachment` — the browser saves it, never renders it
+- a Content-Type the **server** chose from the extension at upload time; the
+  type the browser claimed is thrown away. The test uploads a `<script>` named
+  `report.pdf` claiming `text/html`, and it comes back `application/pdf`
+- `X-Content-Type-Options: nosniff`, so the browser does not second-guess it
+- `Content-Security-Policy: sandbox`, for anyone who opens the URL directly
+
+HTML and all source code are served as `text/plain`. SVG is not allowed at all:
+it is an image format that can carry script.
+
+**Design decision 4 — an allow-list of extensions.** Documents, images, zip,
+and source code — most of what a coding mentorship hands in. Nothing that
+launches on a double-click, so a hand-in cannot carry a program from one
+account to another. One check is subtler than it looks: `TYPES[ext]` for a file
+named `x.constructor` finds `Object.prototype.constructor`, which is truthy,
+and would wave it through. The lookup is `Object.hasOwn`, and a test uploads
+exactly that name.
+
+**Design decision 5 — names are cleaned, never trusted.** Only the last path
+segment is kept, in both slash directions. Control characters are stripped, and
+so are bidirectional overrides, which can make `invoice<U+202E>fdp.exe` display
+as `invoiceexe.pdf`. Names are capped at 200 characters, keeping the extension.
+Non-English names survive the round trip: multer is told to decode them as
+UTF-8, and downloads send the RFC 6266 `filename*` form. `résumé.pdf` is a
+test.
+
+**Design decision 6 — refused before it is read.** Who is asking, whether the
+work can still change, and the five-file cap are all checked in a middleware
+that runs *before* multer parses the body. Someone who may not attach here is
+turned away without the server buffering their 10 MB first. The size cap
+itself is multer's, and answers 413.
+
+**Design decision 7 — files obey the hand-in's rules, not their own.**
+
+- Attaching *is* saving a draft. That is how Classroom behaves, and
+  "attached, not handed in" is precisely the state the mentor asked to see in
+  Entry 34.
+- Handed-in work is frozen: no file added or removed until Unsubmit, exactly
+  like its text. Accepted work is a record.
+- A file on its own is enough to hand in.
+- Every attach and remove goes in the history *with the file's name* — a new
+  optional `detail` on history events — so the timeline reads "Attached
+  design.pdf · Rahul".
+
+**Design decision 8 — deleting means deleting.** Removing a file deletes the
+bytes, not just the listing, and withdrawing an assignment deletes every file
+handed in against it; tests check GridFS's own collections afterwards. The
+order is record first, bytes second, so a failure halfway leaves an orphan
+nobody can reach — never a hand-in pointing at nothing. And if the bytes are
+stored but the record then fails to save, the bytes are taken back out.
+
+**Downloading without leaking the token.** The route needs the sign-in token.
+An `<a href>` cannot send one, and a token in the URL would end up in browser
+history and server logs. So the client fetches with `authFetch`, makes a blob
+URL, and clicks a temporary link. `authFetch` had to learn one thing for
+uploads: not to stamp `Content-Type: application/json` on a `FormData` body,
+because the browser has to set `multipart/form-data` itself, boundary included.
+
+**Two things that went wrong on the way.**
+
+1. The splice script refused to run. After the last commit, git's `autocrlf`
+   had rewritten `index.js` in the working copy with CRLF endings, and the
+   script asserted LF. It failed closed, wrote nothing, and now matches on LF
+   and writes back whatever it found.
+2. The bidi-stripping regex was first written with the literal invisible
+   characters inside it, and the comment's example contained a real
+   right-to-left override. In source code that is the very trick the function
+   exists to defend against, so both became `\u` escapes and a visible
+   `<U+202E>`.
+
+**A flaky test that was a real bug.** The full run failed the startup test,
+which had never failed before; run alone, it failed one time in three. The
+server called `listen()` as soon as its routes were registered and connected
+to Mongo in parallel, so "the server answers HTTP" — the harness's signal that
+it is ready — did not mean the stale-presence reset had run, and the test read
+the database in the gap. This change had only shifted the timing. And the gap
+was not just a test's problem: after a restart, Socket.IO clients reconnect
+within moments, and one that reconnected inside it would be marked online and
+then wiped by the reset still in flight — shown offline while connected. The
+server now connects, clears stale presence, and only then listens; if Mongo
+cannot be reached it exits with the error rather than serve requests it has no
+database to answer. The test was not changed. It was right.
+
+**Also found, and left for their own commits.** `npm install` reported 8
+vulnerabilities, none of them from multer: body-parser, qs and path-to-regexp
+(through Express), socket.io, engine.io and ws, and mongoose — all fixable
+within their current version ranges. And the frontend bundle has crossed
+Vite's 500 kB warning line, which is the prompt to split routes with dynamic
+`import()`.
+
+**46 tests in `attachments.test.js`**: who can attach and download, from five
+directions; what can be attached, including both boundaries of the size cap;
+how files are served; the hand-in rules; and clean-up, checked against GridFS
+itself. The suite is now **482 tests across 16 files**.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -2929,3 +3072,9 @@ The suite is now **436 tests across 15 files**.
 - **No rate limiting** — a signed-in client can flood messages or announcements.
 - **Pagination built but unused** — `?limit` / `?before` exist on the group
   history endpoint; no page calls them.
+- **Eight dependency advisories** — body-parser, qs, path-to-regexp,
+  socket.io, engine.io, ws and mongoose. `npm audit fix` resolves them within
+  the current version ranges; it deserves its own commit and test run.
+  Entry 35.
+- **The bundle is past 500 kB** — Vite now warns. Splitting routes with
+  dynamic `import()` is the fix. Entry 35.

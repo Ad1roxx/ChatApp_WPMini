@@ -16,20 +16,24 @@
  * the history are all written from the reader's side of the desk.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Avatar from './Avatar';
 import Badge from './Badge';
 import Button from './Button';
 import { Field, Input, Textarea } from './Field';
 import { useToast } from './Toast';
+import { CloseIcon, PaperclipIcon } from './Icons';
 import useNow, { relative } from '../lib/useNow';
+import { ACCEPT, MAX_FILE_BYTES, MAX_FILES, formatBytes } from '../lib/attachments';
 import styles from './SubmissionRow.module.css';
 
 /** What each logged event is called, in the history. */
 const EVENT_LABEL = {
   assigned: 'Assigned',
   'draft-saved': 'Draft saved',
+  'file-attached': 'Attached',
+  'file-removed': 'Removed',
   submitted: 'Handed in',
   unsubmitted: 'Unsubmitted',
   'changes-requested': 'Changes asked for',
@@ -69,6 +73,42 @@ const fmtDue = (d) =>
 const fmtStamp = (d) =>
   `${d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 
+/**
+ * The files on a hand-in. Each name downloads it; `onRemove` adds a remove
+ * button, which only the student gets and only while the work is editable.
+ */
+function FileList({ files, onDownload, onRemove, busy }) {
+  return (
+    <ul className={styles.files}>
+      {files.map((f) => (
+        <li key={f.fileId} className={styles.file}>
+          <PaperclipIcon size={14} className={styles.fileIcon} />
+          <button
+            type="button"
+            className={styles.fileName}
+            onClick={() => onDownload(f)}
+            title={`Download ${f.name}`}
+          >
+            {f.name}
+          </button>
+          <span className={styles.fileSize}>{formatBytes(f.size)}</span>
+          {onRemove && (
+            <button
+              type="button"
+              className={styles.fileRemove}
+              onClick={() => onRemove(f)}
+              disabled={busy}
+              aria-label={`Remove ${f.name}`}
+            >
+              <CloseIcon size={14} />
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function SubmissionRow({
   submission,
   viewer,
@@ -80,6 +120,7 @@ export default function SubmissionRow({
   const { authFetch } = useAuth();
   const toast = useToast();
   const now = useNow();
+  const fileInput = useRef(null);
 
   // null | 'handin' | 'review'
   const [mode, setMode] = useState(null);
@@ -88,6 +129,7 @@ export default function SubmissionRow({
   const [url, setUrl] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const sub = submission;
   const assignment = typeof sub.assignment === 'object' ? sub.assignment : null;
@@ -95,7 +137,8 @@ export default function SubmissionRow({
   const badge = statusBadge(sub, viewer);
   const isMentor = viewer === 'mentor';
   const isDraft = sub.status === 'draft';
-  const hasWork = Boolean(sub.text || sub.url);
+  const files = sub.attachments || [];
+  const hasWork = Boolean(sub.text || sub.url || files.length);
   const history = sub.history || [];
 
   const studentId = String(sub.student?._id || sub.student);
@@ -107,7 +150,7 @@ export default function SubmissionRow({
     return byStudent ? 'you' : 'your mentor';
   };
 
-  const call = async (path, method, body, success) => {
+  const call = async (path, method, body, success, { keepOpen = false } = {}) => {
     setBusy(true);
 
     try {
@@ -118,7 +161,7 @@ export default function SubmissionRow({
 
       if (res.ok) {
         onChanged?.(await res.json());
-        setMode(null);
+        if (!keepOpen) setMode(null);
         toast.success(success);
       } else {
         const err = await res.json().catch(() => ({}));
@@ -148,6 +191,86 @@ export default function SubmissionRow({
     setText(sub.text || '');
     setUrl(sub.url || '');
     setMode('handin');
+  };
+
+  /**
+   * Upload straight away, the way Classroom does: picking a file attaches it,
+   * and the work becomes a draft the mentor can see. Several files go one at
+   * a time, stopping at the first refusal so the message names the file.
+   */
+  const attach = async (picked) => {
+    if (picked.length === 0) return;
+
+    if (files.length + picked.length > MAX_FILES) {
+      toast.error(`Up to ${MAX_FILES} files per hand-in`);
+      return;
+    }
+
+    const tooBig = picked.find((f) => f.size > MAX_FILE_BYTES);
+    if (tooBig) {
+      toast.error(`${tooBig.name} is over ${formatBytes(MAX_FILE_BYTES)}`);
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      for (const file of picked) {
+        const form = new FormData();
+        form.append('file', file);
+
+        const res = await authFetch(`${base}/files`, { method: 'POST', body: form });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast.error(err.error || `Could not attach ${file.name}`);
+          return;
+        }
+        onChanged?.(await res.json());
+      }
+
+      toast.success(
+        picked.length === 1 ? `Attached ${picked[0].name}` : `Attached ${picked.length} files`
+      );
+    } catch (err) {
+      console.error('Error attaching file:', err);
+      toast.error('Could not reach the server');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const detach = (f) =>
+    call(`${base}/files/${f.fileId}`, 'DELETE', undefined, `Removed ${f.name}`, {
+      keepOpen: true
+    });
+
+  /**
+   * Download through authFetch rather than a plain link. The file route needs
+   * the sign-in token, which an <a href> cannot send — and putting the token
+   * in the URL would leave it in browser history and server logs.
+   */
+  const download = async (f) => {
+    try {
+      const res = await authFetch(`${base}/files/${f.fileId}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Could not download that file');
+        return;
+      }
+
+      const href = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = f.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Freed a minute later, long after the browser has taken the bytes.
+      setTimeout(() => URL.revokeObjectURL(href), 60000);
+    } catch (err) {
+      console.error('Error downloading file:', err);
+      toast.error('Could not reach the server');
+    }
   };
 
   return (
@@ -229,6 +352,8 @@ export default function SubmissionRow({
             </a>
           )}
 
+          {files.length > 0 && <FileList files={files} onDownload={download} />}
+
           {/* Said plainly, because the student should never be surprised
               that a draft was visible. */}
           {isDraft && !isMentor && (
@@ -248,7 +373,7 @@ export default function SubmissionRow({
 
       {mode === 'handin' && (
         <div className={styles.inlineForm}>
-          <Field label="Your answer" hint="Text, a link, or both">
+          <Field label="Your answer" hint="Text, a link, files — any mix of them">
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -259,10 +384,7 @@ export default function SubmissionRow({
             />
           </Field>
 
-          <Field
-            label="Link"
-            hint="Optional. For a file, upload it to Drive or GitHub and set it so anyone with the link can view."
-          >
+          <Field label="Link" hint="Optional — a repo, a doc, a live page">
             <Input
               type="url"
               value={url}
@@ -272,13 +394,55 @@ export default function SubmissionRow({
             />
           </Field>
 
+          <div className={styles.attach}>
+            <span className={styles.attachLabel}>Files</span>
+
+            {files.length > 0 && (
+              <FileList
+                files={files}
+                onDownload={download}
+                onRemove={detach}
+                busy={busy || uploading}
+              />
+            )}
+
+            <div className={styles.attachRow}>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                accept={ACCEPT}
+                hidden
+                onChange={(e) => {
+                  // Copied before the input is reset, so the same file can
+                  // be picked again after removing it.
+                  const picked = [...e.target.files];
+                  e.target.value = '';
+                  attach(picked);
+                }}
+              />
+              <Button
+                size="sm"
+                loading={uploading}
+                disabled={busy || files.length >= MAX_FILES}
+                onClick={() => fileInput.current?.click()}
+              >
+                {uploading ? 'Uploading' : 'Attach files'}
+              </Button>
+              <span className={styles.attachHint}>
+                Up to {MAX_FILES}, {formatBytes(MAX_FILE_BYTES)} each. Attaching saves a
+                draft your mentor can see.
+              </span>
+            </div>
+          </div>
+
           <div className={styles.inlineActions}>
             <Button size="sm" variant="ghost" onClick={() => setMode(null)}>
               Never mind
             </Button>
             <Button
               size="sm"
-              disabled={busy || (!text.trim() && !url.trim())}
+              disabled={busy || uploading || (!text.trim() && !url.trim())}
               onClick={() => save(false)}
             >
               Save draft
@@ -286,7 +450,7 @@ export default function SubmissionRow({
             <Button
               size="sm"
               variant="primary"
-              disabled={busy || (!text.trim() && !url.trim())}
+              disabled={busy || uploading || (!text.trim() && !url.trim() && files.length === 0)}
               onClick={() => save(true)}
             >
               Hand in
@@ -416,6 +580,7 @@ export default function SubmissionRow({
                 <span className={styles.eventDot} data-type={event.type} aria-hidden="true" />
                 <span className={styles.eventLabel}>
                   {EVENT_LABEL[event.type] || event.type}
+                  {event.detail && <span className={styles.eventDetail}> {event.detail}</span>}
                   {lateHandIn && <span className={styles.eventLate}> · late</span>}
                   <span className={styles.dim}> · {actor(event)}</span>
                 </span>

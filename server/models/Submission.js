@@ -23,14 +23,22 @@
  * Unsubmitting takes a hand-in back to `draft` so it can be edited. It keeps
  * the work — unsubmitting is "let me change this", not "throw it away".
  *
+ * ## Files
+ *
+ * `attachments` records the files handed in with the work; the bytes live in
+ * GridFS (see lib/fileStore.js). The record is kept here, on the submission,
+ * so that a file is only ever reached through the hand-in it belongs to — and
+ * whoever may read the hand-in may read its files, and nobody else.
+ *
  * ## The history is embedded and append-only
  *
- * Every move — assigned, draft saved, handed in, unsubmitted, changes asked
- * for, accepted — is appended to `history` with who did it and when. Embedded
- * rather than its own collection because it is only ever read with its
- * submission and it is bounded by how many times two people can click a
- * button; nothing ever queries one event on its own. Nothing edits or removes
- * an entry once written, which is the property that makes it worth reading.
+ * Every move — assigned, draft saved, file attached or removed, handed in,
+ * unsubmitted, changes asked for, accepted — is appended to `history` with who
+ * did it and when. Embedded rather than its own collection because it is only
+ * ever read with its submission and it is bounded by how many times two
+ * people can click a button; nothing ever queries one event on its own.
+ * Nothing edits or removes an entry once written, which is the property that
+ * makes it worth reading.
  *
  * ## Lateness is derived, never stored
  *
@@ -63,6 +71,8 @@ const ALLOWED_TRANSITIONS = {
 const EVENT_TYPES = [
   'assigned',
   'draft-saved',
+  'file-attached',
+  'file-removed',
   'submitted',
   'unsubmitted',
   'changes-requested',
@@ -75,7 +85,27 @@ const eventSchema = new mongoose.Schema(
     at: { type: Date, required: true },
     // Who did it. Stored even though the type usually implies it, because an
     // audit trail that relies on inference is one refactor away from lying.
-    by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+    by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // What it was about, where the type alone does not say — the file's name,
+    // for an attachment. Absent for everything else.
+    detail: { type: String, maxlength: 200 }
+  },
+  { _id: false }
+);
+
+/**
+ * One file handed in with the work. `fileId` is the GridFS id, and also the
+ * id the download route is addressed by.
+ */
+const attachmentSchema = new mongoose.Schema(
+  {
+    fileId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    name: { type: String, required: true, maxlength: 200 },
+    size: { type: Number, required: true, min: 0 },
+    // Decided by the server from the extension — never the type the upload
+    // claimed to be.
+    contentType: { type: String, required: true },
+    uploadedAt: { type: Date, required: true }
   },
   { _id: false }
 );
@@ -127,6 +157,8 @@ const submissionSchema = new mongoose.Schema(
       }
     },
 
+    attachments: { type: [attachmentSchema], default: [] },
+
     // When it was last turned in. Cleared on Unsubmit, because after that it
     // is not handed in — and lateness derives from this, so leaving it set
     // would make an unsubmitted piece of work look on time forever.
@@ -161,8 +193,10 @@ submissionSchema.methods.canBecome = function canBecome(next) {
 };
 
 /** Append one event. The only way anything is ever written to `history`. */
-submissionSchema.methods.log = function log(type, by) {
-  this.history.push({ type, at: new Date(), by });
+submissionSchema.methods.log = function log(type, by, detail) {
+  const event = { type, at: new Date(), by };
+  if (detail) event.detail = detail;
+  this.history.push(event);
 };
 
 /**

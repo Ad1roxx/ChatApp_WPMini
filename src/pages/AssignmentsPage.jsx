@@ -348,17 +348,24 @@ export default function AssignmentsPage() {
             {/* A real fieldset of checkboxes: keyboard-operable and announced
                 as a group, which a list of clickable cards would not be. */}
             <fieldset className={styles.recipients}>
+              {/* Most work goes to everyone, so Select all is a real button
+                  rather than a text link that is easy to miss. */}
               <legend className={styles.legend}>
                 Send to
-                <button
+                <Button
                   type="button"
-                  className={styles.selectAll}
+                  size="sm"
+                  variant={allPicked ? 'ghost' : 'secondary'}
                   onClick={() =>
                     setPicked(allPicked ? new Set() : new Set(students.map((m) => m._id)))
                   }
                 >
-                  {allPicked ? 'Clear' : 'Select all'}
-                </button>
+                  {allPicked
+                    ? 'Clear all'
+                    : students.length === 1
+                      ? 'Select'
+                      : `Select all ${students.length}`}
+                </Button>
               </legend>
 
               {groupOptions.length > 0 && (

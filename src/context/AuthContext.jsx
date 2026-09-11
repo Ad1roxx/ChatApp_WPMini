@@ -115,6 +115,9 @@ export function AuthProvider({ children }) {
    *
    * Takes a PATH ('/api/users'), not a full URL, so no page has to know where
    * the server lives. JSON bodies get their Content-Type set automatically.
+   * FormData bodies (file uploads) must not: the browser sets
+   * multipart/form-data itself, with the boundary the server needs to split
+   * the parts.
    *
    * Wrapped in useCallback with no dependencies beyond the constant
    * SERVER_URL, so its identity is stable and pages can safely list it in an
@@ -122,7 +125,9 @@ export function AuthProvider({ children }) {
    */
   const authFetch = useCallback(async (path, options = {}) => {
     const headers = { ...(options.headers || {}) };
-    if (options.body) headers['Content-Type'] = 'application/json';
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (DEV_USER_ID) {
       headers['X-Dev-User-Id'] = DEV_USER_ID;
