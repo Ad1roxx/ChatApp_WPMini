@@ -30,6 +30,7 @@ import SuspendedPage from "./pages/SuspendedPage";
 import MentorshipsPage from "./pages/MentorshipsPage";
 import MentorshipDetailPage from "./pages/MentorshipDetailPage";
 import ProgressPage from "./pages/ProgressPage";
+import AssignmentsPage from "./pages/AssignmentsPage";
 import { ConversationsProvider } from "./context/ConversationsContext";
 import { PageLoader } from "./components/Loading";
 
@@ -125,6 +126,14 @@ function App() {
         <Route
           path="/progress"
           element={user ? <ProgressPage /> : <Navigate to="/login" />}
+        />
+
+        {/* Work set for several students at once, and the student's view of
+            everything set for them. Role-aware rather than two pages, since
+            one person can be on both sides. */}
+        <Route
+          path="/assignments"
+          element={user ? <AssignmentsPage /> : <Navigate to="/login" />}
         />
 
         {/* Admin dashboard - protected route.

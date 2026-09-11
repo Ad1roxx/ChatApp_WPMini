@@ -36,6 +36,7 @@ import UnreadBadge from './UnreadBadge';
 import {
   AnnouncementIcon,
   ChartIcon,
+  ClipboardIcon,
   ChevronLeftIcon,
   HandshakeIcon,
   CloseIcon,
@@ -60,6 +61,7 @@ const NAV_SECTIONS = [
       // (unread announcements, say) is another key rather than another branch.
       { to: '/users', label: 'Messages', icon: MessagesIcon, badge: 'messages' },
       { to: '/mentorships', label: 'Mentorship', icon: HandshakeIcon },
+      { to: '/assignments', label: 'Assignments', icon: ClipboardIcon },
       { to: '/progress', label: 'Progress', icon: ChartIcon },
       { to: '/groups', label: 'Groups', icon: GroupsIcon, badge: 'groups' },
       { to: '/announcements', label: 'Announcements', icon: AnnouncementIcon }

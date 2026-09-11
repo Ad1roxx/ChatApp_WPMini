@@ -1,61 +1,62 @@
 /**
  * Assignment Model
  *
- * One specific piece of work, set by the mentor, due by a date, handed in by
- * the student and reviewed.
+ * One piece of work, set by a mentor, due by a date, sent to one or several
+ * of their students — the way a Google Classroom assignment is posted to a
+ * class rather than to each pupil separately.
  *
  * ## Why this is not a Goal
  *
- * A goal is a checklist of progress over weeks — *"Be ready for backend
- * interviews"* with four topics under it — and either party may tick a
- * milestone off. Nothing about it has a deadline, and nothing is handed in.
+ * A goal is a checklist of progress over weeks, and either party ticks a
+ * milestone off. It has no date field at all and nothing is handed in. An
+ * assignment is *"solve five array problems by Friday"*: a deadline, something
+ * produced, and a mentor who answers it. Bolting those onto milestones would
+ * have made both worse — a milestone is a topic, not a task.
  *
- * An assignment is *"submit your resume by Friday"*. It has a due date, the
- * student produces something, and the mentor answers it. Bolting those onto
- * milestones would have made both muddier: a milestone is a topic, not a
- * task, and most goals have no sensible deadline at all.
+ * ## Why the work and the hand-ins are separate documents
  *
- * ## The submission is embedded
+ * The first version embedded one submission inside each assignment, which was
+ * right while an assignment belonged to a single mentorship: one assignment,
+ * one student, one submission, never read apart. Sending the same work to six
+ * students broke that — there are now six hand-ins, each with its own status,
+ * and the mentor's most important view is "4 of 6 handed in".
  *
- * A mentorship has exactly one student, so an assignment has exactly one
- * submission. It is never read without its assignment, and there is no query
- * that wants one on its own — the same reasoning as milestones inside a goal.
+ * So the assignment holds only what is *shared* — the brief and the deadline —
+ * and each student's side lives in a `Submission`. Editing the brief once
+ * changes it for everybody; one student's hand-in never touches another's.
  *
- * Resubmission overwrites rather than appending. A history of drafts would be
- * a different feature, and pretending to keep one while only ever showing the
- * latest would be worse than not keeping it.
+ * ## Recipients are mentorships, not users
  *
- * ## Lateness is derived, never stored
- *
- * `isLate()` compares the submission time against the due date, and an
- * unsubmitted assignment is late once the date has passed. A stored `late`
- * flag would be a second source of truth that drifts the moment a mentor
- * extends a deadline — the same reason goal status is recomputed rather than
- * saved.
+ * Every other feature in the app — goals, sessions, resources — is anchored to
+ * the relationship, and access is checked against it. Storing mentorship ids
+ * keeps assignments on the same footing: a student sees work because they are
+ * in an active mentorship with the mentor who set it, not because their id
+ * happens to be on a list.
  */
 
 const mongoose = require('mongoose');
 
-/**
- * Where an assignment can go next.
- *
- * `changes-requested` returns to `submitted` rather than to `assigned`,
- * because the student has already handed something in — sending it back to
- * "not started" would lose that and misrepresent what happened.
- */
-const ALLOWED_TRANSITIONS = {
-  assigned: ['submitted'],
-  submitted: ['accepted', 'changes-requested'],
-  'changes-requested': ['submitted'],
-  accepted: []
-};
-
 const assignmentSchema = new mongoose.Schema(
   {
-    mentorship: {
+    // Whoever set it. The only person who may edit, review or withdraw it.
+    mentor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Mentorship',
+      ref: 'User',
       required: true
+    },
+
+    /**
+     * Who it was sent to. Never empty: work set for nobody is not work.
+     *
+     * The route guarantees each of these is an active mentorship belonging to
+     * `mentor`; the schema only guarantees there is at least one.
+     */
+    mentorships: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Mentorship' }],
+      validate: {
+        validator: (v) => Array.isArray(v) && v.length > 0,
+        message: 'An assignment needs at least one student'
+      }
     },
 
     title: {
@@ -65,8 +66,8 @@ const assignmentSchema = new mongoose.Schema(
       maxlength: 200
     },
 
-    // What to actually do. Optional in the schema, because a clear title is
-    // sometimes the whole brief.
+    // What to actually do. Optional, because a clear title is sometimes the
+    // whole brief.
     instructions: {
       type: String,
       trim: true,
@@ -75,86 +76,23 @@ const assignmentSchema = new mongoose.Schema(
     },
 
     /**
-     * Required. A task without a date is a goal, and this model exists
-     * precisely to be the thing that has one.
+     * Shared by every recipient. There is no per-student extension: that is a
+     * real feature, but a second deadline per student is a second source of
+     * truth for "is this late", and it can be added later without disturbing
+     * this one.
      */
     dueAt: {
       type: Date,
       required: true
-    },
-
-    status: {
-      type: String,
-      enum: ['assigned', 'submitted', 'changes-requested', 'accepted'],
-      default: 'assigned'
-    },
-
-    // The mentor. Stored rather than derived so a future "everything I set"
-    // query does not have to walk every mentorship first.
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-
-    /**
-     * What the student handed in.
-     *
-     * Text or a link or both — the same allow-listed http(s) rule the shared
-     * resources use, for the same reason: the client renders this into an
-     * `href`, and a `javascript:` URL there is stored XSS aimed at the mentor.
-     */
-    submission: {
-      text: { type: String, trim: true, maxlength: 5000, default: '' },
-      url: {
-        type: String,
-        trim: true,
-        maxlength: 2000,
-        default: '',
-        validate: {
-          validator: (v) => v === '' || /^https?:\/\/\S+$/i.test(v),
-          message: 'Only http and https links are allowed'
-        }
-      },
-      submittedAt: { type: Date, default: null }
-    },
-
-    // The mentor's answer. `note` carries the "what to change" on a
-    // changes-requested, and the "nice work" on an accepted.
-    review: {
-      note: { type: String, trim: true, maxlength: 2000, default: '' },
-      reviewedAt: { type: Date, default: null }
     }
   },
   { timestamps: true }
 );
 
-/** The list query: this mentorship's assignments, soonest deadline first. */
-assignmentSchema.index({ mentorship: 1, dueAt: 1 });
+/** "Everything I have set", soonest deadline first. */
+assignmentSchema.index({ mentor: 1, dueAt: 1 });
 
-/** Whether `next` is reachable from where this assignment is now. */
-assignmentSchema.methods.canBecome = function canBecome(next) {
-  return ALLOWED_TRANSITIONS[this.status].includes(next);
-};
-
-/**
- * Late means one of two different things, so both are handled here rather
- * than in whichever route happened to need it first:
- *
- * - handed in after the deadline
- * - not handed in, and the deadline has passed
- *
- * An accepted assignment that was submitted on time is never late, even if
- * the mentor reviewed it a week afterwards — the student's part was done.
- */
-assignmentSchema.methods.isLate = function isLate() {
-  const due = this.dueAt.getTime();
-
-  if (this.submission.submittedAt) {
-    return this.submission.submittedAt.getTime() > due;
-  }
-
-  return Date.now() > due;
-};
+/** "Everything sent into this mentorship" — a multikey index over the array. */
+assignmentSchema.index({ mentorships: 1 });
 
 module.exports = mongoose.model('Assignment', assignmentSchema);

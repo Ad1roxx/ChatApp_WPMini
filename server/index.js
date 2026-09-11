@@ -36,6 +36,7 @@ const GroupRead = require('./models/GroupRead');
 const Feedback = require('./models/Feedback');
 const Resource = require('./models/Resource');
 const Assignment = require('./models/Assignment');
+const Submission = require('./models/Submission');
 
 // Authentication
 const {
@@ -2649,71 +2650,189 @@ app.get('/api/users/:id/feedback', requireAuth, async (req, res) => {
 });
 
 // ============================================
-// ASSIGNMENTS - SET, SUBMITTED, REVIEWED
+// ASSIGNMENTS - SHARED, CLASSROOM-STYLE
 // ============================================
 
 /**
- * Serialise an assignment with the two things the client cannot work out for
- * itself without duplicating the rules: whether it is late, and how the due
- * date compares to now.
+ * Whether one hand-in is late against its assignment's deadline.
  *
- * Derived here rather than stored, so a mentor extending a deadline changes
- * the answer immediately instead of leaving a stale flag behind.
+ * Takes plain objects as well as documents, because the list routes read
+ * with `.lean()`-shaped data after populating. Mirrors
+ * `Submission.methods.isLate`, which is the version the model owns.
  */
-function serialiseAssignment(doc) {
-  const a = doc.toObject ? doc.toObject() : doc;
-  return { ...a, late: doc.isLate() };
+function lateFor(sub, dueAt) {
+  const due = new Date(dueAt).getTime();
+  if (sub.submittedAt) return new Date(sub.submittedAt).getTime() > due;
+  return Date.now() > due;
 }
 
 /**
- * GET /api/mentorships/:id/assignments
+ * A submission as the client wants it: with `late` worked out, since the rule
+ * for that lives here and not in two React components.
  *
- * Soonest deadline first, because the next thing due is the thing you came to
- * look at. Both parties see the same list.
+ * `assignment` is passed explicitly when the submission was loaded without it
+ * populated — inside the mentor's per-assignment view, where it is the page.
  */
-app.get('/api/mentorships/:id/assignments', requireAuth, async (req, res) => {
-  try {
-    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
-    if (access.error) {
-      return res.status(access.status).json({ error: access.error });
-    }
-
-    const assignments = await Assignment.find({ mentorship: req.params.id })
-      .sort({ dueAt: 1 })
-      .populate('createdBy', 'displayName photoURL');
-
-    res.json(assignments.map(serialiseAssignment));
-  } catch (err) {
-    console.error('Error listing assignments:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+function serialiseSubmission(sub, assignment) {
+  const s = sub.toObject ? sub.toObject() : sub;
+  const a = assignment || s.assignment;
+  return { ...s, late: a ? lateFor(s, a.dueAt) : false };
+}
 
 /**
- * POST /api/mentorships/:id/assignments
+ * The numbers behind "4 of 6 handed in".
  *
- * MENTOR ONLY, and only on an active mentorship — the same rule as goals, for
- * the same reason: setting work is a directive, and a student setting their
- * own assignment would make the mentor's part decorative.
+ * `handedIn` counts work that is currently in and not bounced back:
+ * `submitted` and `accepted`. A `changes-requested` hand-in is not counted —
+ * the student owes something again, and counting it as done would make the
+ * headline number flatter than the truth.
  *
- * Body: title, instructions, dueAt
+ * `drafts` is work attached but not turned in — the thing a mentor chasing a
+ * deadline most wants to know about, and not the same as "not started".
+ *
+ * `overdue` is work not handed in with the deadline gone, drafts included: a
+ * draft is not handed in. It is the figure a mentor actually chases.
  */
-app.post('/api/mentorships/:id/assignments', requireAuth, async (req, res) => {
+function summarise(subs, dueAt) {
+  const pastDue = Date.now() > new Date(dueAt).getTime();
+  const out = {
+    total: subs.length,
+    handedIn: 0,
+    toReview: 0,
+    accepted: 0,
+    changesRequested: 0,
+    drafts: 0,
+    overdue: 0
+  };
+
+  for (const s of subs) {
+    if (s.status === 'submitted' || s.status === 'accepted') out.handedIn += 1;
+    if (s.status === 'submitted') out.toReview += 1;
+    if (s.status === 'accepted') out.accepted += 1;
+    if (s.status === 'changes-requested') out.changesRequested += 1;
+    if (s.status === 'draft') out.drafts += 1;
+    if ((s.status === 'assigned' || s.status === 'draft') && pastDue) out.overdue += 1;
+  }
+
+  return out;
+}
+
+/**
+ * Check that every mentorship in a recipient list is the caller's own, active
+ * student — and turn the list into documents.
+ *
+ * Refuses the whole list if any one entry is wrong, rather than silently
+ * sending to the valid ones. A mentor who ticked six students and reached
+ * five would not know which one was missed.
+ */
+async function resolveRecipients(mentorshipIds, user) {
+  const ids = [
+    ...new Set((Array.isArray(mentorshipIds) ? mentorshipIds : []).map(String))
+  ];
+
+  if (ids.length === 0) {
+    return { error: 'Pick at least one student', status: 400 };
+  }
+
+  if (!ids.every((id) => mongoose.isValidObjectId(id))) {
+    return { error: 'One of those mentorships does not exist', status: 404 };
+  }
+
+  const found = await Mentorship.find({ _id: { $in: ids } });
+
+  if (found.length !== ids.length) {
+    return { error: 'One of those mentorships does not exist', status: 404 };
+  }
+
+  const me = String(user._id);
+
+  // Only your own students. Setting work for someone else's student would let
+  // any mentor put tasks in front of any student in the app.
+  if (found.some((m) => String(m.mentor) !== me)) {
+    return { error: 'You can only set work for your own students', status: 403 };
+  }
+
+  if (found.some((m) => m.status !== 'active')) {
+    return { error: 'One of those mentorships is not active', status: 400 };
+  }
+
+  return { mentorships: found };
+}
+
+/** Load an assignment the caller set, or say why not. */
+async function loadOwnAssignment(id, user) {
+  if (!mongoose.isValidObjectId(id)) {
+    return { error: 'Assignment not found', status: 404 };
+  }
+
+  const assignment = await Assignment.findById(id);
+  if (!assignment) {
+    return { error: 'Assignment not found', status: 404 };
+  }
+
+  if (String(assignment.mentor) !== String(user._id)) {
+    return { error: 'Only the mentor who set this can do that', status: 403 };
+  }
+
+  return { assignment };
+}
+
+/** Load a submission with its assignment, or say why not. */
+async function loadSubmission(id) {
+  if (!mongoose.isValidObjectId(id)) {
+    return { error: 'Submission not found', status: 404 };
+  }
+
+  const submission = await Submission.findById(id).populate('assignment');
+  if (!submission || !submission.assignment) {
+    return { error: 'Submission not found', status: 404 };
+  }
+
+  return { submission };
+}
+
+/** Re-read a submission the way every response shapes it. */
+function loadSubmissionForResponse(id) {
+  return Submission.findById(id)
+    .populate({
+      path: 'assignment',
+      populate: { path: 'mentor', select: 'displayName photoURL' }
+    })
+    .populate('student', 'displayName photoURL');
+}
+
+/**
+ * Tell everyone an assignment touches that it changed.
+ *
+ * The payload is just the id, and clients refetch. A mentor and a student want
+ * differently-shaped answers from the same change — the mentor a summary of
+ * six hand-ins, the student only their own — so a single pushed object would
+ * be wrong for one of them, and pushing a different one to each would mean
+ * duplicating every route's shaping logic inside the socket layer.
+ */
+function announceAssignment(assignmentId, mentorId, studentIds) {
+  const payload = { assignmentId: String(assignmentId) };
+  emitToUser(mentorId, 'assignment-changed', payload);
+  for (const studentId of studentIds) {
+    emitToUser(studentId, 'assignment-changed', payload);
+  }
+}
+
+/**
+ * POST /api/assignments
+ *
+ * Set work for one or several students at once. MENTOR ONLY, and only for
+ * their own active students.
+ *
+ * One `Submission` row is created per recipient in the same request, with
+ * status `assigned` — so "not handed in" is a real state from the first
+ * moment, not the absence of a row.
+ *
+ * Body: title, instructions, dueAt, mentorshipIds[]
+ */
+app.post('/api/assignments', requireAuth, async (req, res) => {
   try {
-    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
-    if (access.error) {
-      return res.status(access.status).json({ error: access.error });
-    }
-
-    if (!access.isMentor) {
-      return res.status(403).json({ error: 'Only the mentor can set an assignment' });
-    }
-
-    if (access.mentorship.status !== 'active') {
-      return res.status(400).json({ error: 'That mentorship is not active' });
-    }
-
-    const { title, instructions = '', dueAt } = req.body;
+    const { title, instructions = '', dueAt, mentorshipIds } = req.body;
 
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'A title is required' });
@@ -2724,69 +2843,219 @@ app.post('/api/mentorships/:id/assignments', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'A valid due date is required' });
     }
 
-    // Refusing the past is a typo guard, as it is for sessions. Setting work
-    // that was already overdue when it appeared is nobody's intention, and
-    // the wrong year is the easiest thing to mistype in a date field.
+    // A typo guard more than a rule: work that was overdue the moment it
+    // appeared is nobody's intention, and the wrong year is the easiest thing
+    // to mistype in a date field.
     if (due.getTime() <= Date.now()) {
       return res.status(400).json({ error: 'Pick a due date in the future' });
     }
 
+    const recipients = await resolveRecipients(mentorshipIds, req.authUser);
+    if (recipients.error) {
+      return res.status(recipients.status).json({ error: recipients.error });
+    }
+
     const assignment = await Assignment.create({
-      mentorship: access.mentorship._id,
+      mentor: req.authUser._id,
+      mentorships: recipients.mentorships.map((m) => m._id),
       title: String(title).trim(),
       instructions: String(instructions).trim(),
-      dueAt: due,
-      createdBy: req.authUser._id
+      dueAt: due
     });
 
-    const populated = await Assignment.findById(assignment._id).populate(
-      'createdBy',
-      'displayName photoURL'
+    const assignedAt = new Date();
+    const submissions = await Submission.insertMany(
+      recipients.mentorships.map((m) => ({
+        assignment: assignment._id,
+        mentorship: m._id,
+        student: m.student,
+        // Every history starts here, so the log answers "when was this set
+        // for me" as well as everything after it.
+        history: [{ type: 'assigned', at: assignedAt, by: req.authUser._id }]
+      }))
     );
 
-    emitToUser(access.mentorship.student, 'assignment-updated', serialiseAssignment(populated));
-    emitToUser(access.mentorship.mentor, 'assignment-updated', serialiseAssignment(populated));
+    announceAssignment(
+      assignment._id,
+      req.authUser._id,
+      recipients.mentorships.map((m) => m.student)
+    );
 
-    res.status(201).json(serialiseAssignment(populated));
+    res.status(201).json({
+      ...assignment.toObject(),
+      summary: summarise(submissions, due)
+    });
   } catch (err) {
-    console.error('Error creating assignment:', err);
+    console.error('Error setting assignment:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 /**
- * PUT /api/assignments/:assignmentId/submission
+ * GET /api/assignments
  *
- * STUDENT ONLY. Hand the work in, or hand it in again after changes were
- * asked for.
+ * Everything on your plate, from both sides of the desk:
  *
- * PUT because it is idempotent: resubmitting replaces what was there. A
- * history of drafts would be a different feature, and appending silently
- * while only ever showing the latest would be worse than not keeping one.
+ *   set   assignments you set, each with its "4 of 6" summary
+ *   mine  your own hand-ins, for work set for you
  *
- * Body: text and/or url — at least one, because an empty submission is not a
- * submission.
+ * Both are returned because one person can be on both sides — a mentor with
+ * a mentor of their own is the ordinary case, not an edge one.
  */
-app.put('/api/assignments/:assignmentId/submission', requireAuth, async (req, res) => {
+app.get('/api/assignments', requireAuth, async (req, res) => {
   try {
-    const assignment = await Assignment.findById(req.params.assignmentId);
-    if (!assignment) {
-      return res.status(404).json({ error: 'Assignment not found' });
+    const me = req.authUser._id;
+
+    const set = await Assignment.find({ mentor: me }).sort({ dueAt: 1 });
+    const setIds = set.map((a) => a._id);
+
+    const setSubs = setIds.length
+      ? await Submission.find({ assignment: { $in: setIds } }).select('assignment status submittedAt')
+      : [];
+
+    const subsBy = new Map();
+    for (const s of setSubs) {
+      const key = String(s.assignment);
+      if (!subsBy.has(key)) subsBy.set(key, []);
+      subsBy.get(key).push(s);
     }
 
-    const access = await resolveMentorshipAccess(assignment.mentorship, req.authUser);
+    const mine = await Submission.find({ student: me })
+      .populate({
+        path: 'assignment',
+        populate: { path: 'mentor', select: 'displayName photoURL' }
+      })
+      .populate('student', 'displayName photoURL');
+
+    res.json({
+      set: set.map((a) => ({
+        ...a.toObject(),
+        summary: summarise(subsBy.get(String(a._id)) || [], a.dueAt)
+      })),
+      mine: mine
+        // A hand-in whose assignment has gone is an orphan, not work.
+        .filter((s) => s.assignment)
+        .map((s) => serialiseSubmission(s))
+        .sort((a, b) => new Date(a.assignment.dueAt) - new Date(b.assignment.dueAt))
+    });
+  } catch (err) {
+    console.error('Error listing assignments:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/assignments/:id
+ *
+ * The mentor's view of one assignment: the brief, the summary, and every
+ * student's hand-in side by side.
+ *
+ * MENTOR ONLY — specifically the mentor who set it. A student never sees this
+ * route, because it would show them their classmates' work and their
+ * classmates' feedback, and neither is theirs to read.
+ */
+app.get('/api/assignments/:id', requireAuth, async (req, res) => {
+  try {
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+
+    const subs = await Submission.find({ assignment: own.assignment._id }).populate(
+      'student',
+      'displayName photoURL'
+    );
+
+    subs.sort((a, b) =>
+      (a.student?.displayName || '').localeCompare(b.student?.displayName || '')
+    );
+
+    res.json({
+      ...own.assignment.toObject(),
+      summary: summarise(subs, own.assignment.dueAt),
+      submissions: subs.map((s) => serialiseSubmission(s, own.assignment))
+    });
+  } catch (err) {
+    console.error('Error reading assignment:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/mentorships/:id/assignments
+ *
+ * The work inside one mentorship — one student's hand-ins, whether that
+ * student is the one asking or their mentor is. Both parties of the
+ * relationship may read it, and nobody else.
+ */
+app.get('/api/mentorships/:id/assignments', requireAuth, async (req, res) => {
+  try {
+    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
 
-    if (access.isMentor) {
-      return res.status(403).json({ error: 'Only the student submits an assignment' });
+    const subs = await Submission.find({ mentorship: req.params.id })
+      .populate({
+        path: 'assignment',
+        populate: { path: 'mentor', select: 'displayName photoURL' }
+      })
+      .populate('student', 'displayName photoURL');
+
+    res.json(
+      subs
+        .filter((s) => s.assignment)
+        .map((s) => serialiseSubmission(s))
+        .sort((a, b) => new Date(a.assignment.dueAt) - new Date(b.assignment.dueAt))
+    );
+  } catch (err) {
+    console.error('Error listing mentorship assignments:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * PUT /api/submissions/:id
+ *
+ * Save work, and optionally turn it in. ONLY the student it was set for — not
+ * the mentor, and not a classmate.
+ *
+ *   { text, url }                 hand it in (the default)
+ *   { text, url, turnIn: false }  save it as a draft: attached, not handed in
+ *
+ * A piece of work that is already handed in cannot be edited as a draft —
+ * Unsubmit first. That keeps "they took it back to change it" an explicit,
+ * logged event rather than something that happens silently inside a save,
+ * which is the whole point of the history.
+ *
+ * PUT because it is idempotent: saving again replaces what was there.
+ */
+app.put('/api/submissions/:id', requireAuth, async (req, res) => {
+  try {
+    const loaded = await loadSubmission(req.params.id);
+    if (loaded.error) {
+      return res.status(loaded.status).json({ error: loaded.error });
+    }
+    const { submission } = loaded;
+
+    if (String(submission.student) !== String(req.authUser._id)) {
+      return res
+        .status(403)
+        .json({ error: 'Only the student it was set for can hand this in' });
     }
 
-    if (!assignment.canBecome('submitted')) {
-      return res
-        .status(400)
-        .json({ error: 'That assignment has already been accepted' });
+    const turnIn = req.body.turnIn !== false;
+
+    if (submission.status === 'accepted') {
+      return res.status(400).json({ error: 'That work has already been accepted' });
+    }
+
+    if (!turnIn && submission.status === 'submitted') {
+      return res.status(400).json({ error: 'Unsubmit it first to edit it' });
+    }
+
+    if (!submission.canBecome(turnIn ? 'submitted' : 'draft')) {
+      return res.status(400).json({ error: 'That is already handed in' });
     }
 
     const text = String(req.body.text || '').trim();
@@ -2798,9 +3067,7 @@ app.put('/api/assignments/:assignmentId/submission', requireAuth, async (req, re
 
     let url = '';
     if (rawUrl) {
-      // The same allow-list the shared resources use. The client renders this
-      // into an href, so a javascript: URL here is stored XSS aimed at the
-      // mentor who opens it.
+      // The same allow-list shared resources use. The mentor clicks this.
       const link = parseSharedUrl(rawUrl);
       if (link.error) {
         return res.status(400).json({ error: link.error });
@@ -2808,157 +3075,291 @@ app.put('/api/assignments/:assignmentId/submission', requireAuth, async (req, re
       url = link.url;
     }
 
-    assignment.submission.text = text;
-    assignment.submission.url = url;
-    assignment.submission.submittedAt = new Date();
-    assignment.status = 'submitted';
+    submission.text = text;
+    submission.url = url;
 
-    // A resubmission is a fresh answer to the mentor, so their previous
-    // "change this" is cleared rather than left hanging over the new work.
-    assignment.review.note = '';
-    assignment.review.reviewedAt = null;
+    if (turnIn) {
+      submission.status = 'submitted';
+      submission.submittedAt = new Date();
 
-    await assignment.save();
+      // A fresh hand-in is a fresh answer. Leaving the old "change this"
+      // hanging over new work would read as a second rejection.
+      submission.review.note = '';
+      submission.review.reviewedAt = null;
 
-    const populated = await Assignment.findById(assignment._id).populate(
-      'createdBy',
-      'displayName photoURL'
-    );
+      submission.log('submitted', req.authUser._id);
+    } else {
+      submission.status = 'draft';
+      submission.draftSavedAt = new Date();
 
-    emitToUser(access.mentorship.student, 'assignment-updated', serialiseAssignment(populated));
-    emitToUser(access.mentorship.mentor, 'assignment-updated', serialiseAssignment(populated));
+      // The review note is kept on a draft: a student editing after being
+      // sent back still needs to see what they were asked to change.
+      submission.log('draft-saved', req.authUser._id);
+    }
 
-    res.json(serialiseAssignment(populated));
+    await submission.save();
+
+    // Only this student and the mentor care. A classmate's hand-in changes
+    // nothing on anyone else's screen.
+    announceAssignment(submission.assignment._id, submission.assignment.mentor, [
+      submission.student
+    ]);
+
+    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
   } catch (err) {
-    console.error('Error submitting assignment:', err);
+    console.error('Error handing in:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 /**
- * PATCH /api/assignments/:assignmentId
+ * POST /api/submissions/:id/unsubmit
  *
- * Two different jobs behind one route, split by who is asking:
+ * Take a hand-in back to change it. STUDENT ONLY, and only while it is
+ * `submitted`: once accepted it is a record, and letting it be pulled back
+ * would let a student quietly rewrite something the mentor already signed
+ * off.
  *
- *   MENTOR, `action: 'accept' | 'request-changes'` — review what was handed
- *   in. `request-changes` needs a note, because "do it again" with no reason
- *   is not feedback.
- *
- *   MENTOR, `dueAt` — extend (or move) the deadline. Allowed at any point
- *   before acceptance: a mentor giving someone more time should not have to
- *   delete and recreate the assignment, which would throw away the
- *   submission.
+ * The work is kept and becomes a draft — unsubmitting is "let me change
+ * this", not "throw it away". `submittedAt` is cleared, because after this it
+ * is not handed in and lateness derives from it; the history keeps the record
+ * of when it was.
  */
-app.patch('/api/assignments/:assignmentId', requireAuth, async (req, res) => {
+app.post('/api/submissions/:id/unsubmit', requireAuth, async (req, res) => {
   try {
-    const assignment = await Assignment.findById(req.params.assignmentId);
-    if (!assignment) {
-      return res.status(404).json({ error: 'Assignment not found' });
+    const loaded = await loadSubmission(req.params.id);
+    if (loaded.error) {
+      return res.status(loaded.status).json({ error: loaded.error });
+    }
+    const { submission } = loaded;
+
+    if (String(submission.student) !== String(req.authUser._id)) {
+      return res
+        .status(403)
+        .json({ error: 'Only the student who handed it in can take it back' });
     }
 
-    const access = await resolveMentorshipAccess(assignment.mentorship, req.authUser);
-    if (access.error) {
-      return res.status(access.status).json({ error: access.error });
+    if (submission.status !== 'submitted') {
+      return res.status(400).json({
+        error:
+          submission.status === 'accepted'
+            ? 'That work has been accepted — it is a record now'
+            : 'That is not handed in'
+      });
     }
 
-    if (!access.isMentor) {
-      return res.status(403).json({ error: 'Only the mentor can review an assignment' });
+    submission.status = 'draft';
+    submission.submittedAt = null;
+    submission.draftSavedAt = new Date();
+    submission.log('unsubmitted', req.authUser._id);
+
+    await submission.save();
+
+    announceAssignment(submission.assignment._id, submission.assignment.mentor, [
+      submission.student
+    ]);
+
+    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
+  } catch (err) {
+    console.error('Error unsubmitting:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * PATCH /api/submissions/:id
+ *
+ * The mentor reviews ONE student's hand-in: `accept`, or `request-changes`
+ * with a note. Only the mentor who set the assignment — being someone's
+ * mentor for other work does not make you the reviewer of this.
+ *
+ * Asking for changes needs a note, because "do it again" with no reason is
+ * not feedback and leaves the student guessing.
+ */
+app.patch('/api/submissions/:id', requireAuth, async (req, res) => {
+  try {
+    const loaded = await loadSubmission(req.params.id);
+    if (loaded.error) {
+      return res.status(loaded.status).json({ error: loaded.error });
+    }
+    const { submission } = loaded;
+
+    if (String(submission.assignment.mentor) !== String(req.authUser._id)) {
+      return res
+        .status(403)
+        .json({ error: 'Only the mentor who set this can review it' });
     }
 
-    const { action, note = '', dueAt } = req.body;
+    const { action, note = '' } = req.body;
+
+    if (action !== 'accept' && action !== 'request-changes') {
+      return res.status(400).json({ error: 'Unknown action' });
+    }
+
+    const next = action === 'accept' ? 'accepted' : 'changes-requested';
+
+    if (!submission.canBecome(next)) {
+      return res.status(400).json({
+        error:
+          submission.status === 'assigned'
+            ? 'Nothing has been handed in yet'
+            : `A ${submission.status} hand-in cannot be ${next}`
+      });
+    }
+
+    if (action === 'request-changes' && !String(note).trim()) {
+      return res.status(400).json({ error: 'Say what needs changing' });
+    }
+
+    submission.status = next;
+    submission.review.note = String(note).trim();
+    submission.review.reviewedAt = new Date();
+    submission.log(next, req.authUser._id);
+    await submission.save();
+
+    announceAssignment(submission.assignment._id, submission.assignment.mentor, [
+      submission.student
+    ]);
+
+    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
+  } catch (err) {
+    console.error('Error reviewing hand-in:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * PATCH /api/assignments/:id
+ *
+ * Edit the shared part — title, instructions, deadline — or send it to more
+ * students. MENTOR ONLY.
+ *
+ * Editing the brief once changes it for everyone, which is the point of an
+ * assignment being one document. Moving the deadline re-derives lateness for
+ * every recipient, because late is always relative to the deadline as it now
+ * stands; that is what "extend the deadline" means.
+ *
+ * `addMentorshipIds` covers the student who joins after the work was set:
+ * without it, the mentor would have to recreate the assignment and lose every
+ * hand-in already made against the original.
+ */
+app.patch('/api/assignments/:id', requireAuth, async (req, res) => {
+  try {
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+    const { assignment } = own;
+
+    const { title, instructions, dueAt, addMentorshipIds } = req.body;
+
+    if (
+      title === undefined &&
+      instructions === undefined &&
+      dueAt === undefined &&
+      addMentorshipIds === undefined
+    ) {
+      return res.status(400).json({ error: 'Nothing to change' });
+    }
+
+    if (title !== undefined) {
+      if (!String(title).trim()) {
+        return res.status(400).json({ error: 'A title is required' });
+      }
+      assignment.title = String(title).trim();
+    }
+
+    if (instructions !== undefined) {
+      assignment.instructions = String(instructions).trim();
+    }
 
     if (dueAt !== undefined) {
       const due = new Date(dueAt);
       if (Number.isNaN(due.getTime())) {
         return res.status(400).json({ error: 'A valid due date is required' });
       }
-      if (assignment.status === 'accepted') {
-        return res.status(400).json({ error: 'That assignment is already accepted' });
+      if (due.getTime() <= Date.now()) {
+        return res.status(400).json({ error: 'Pick a due date in the future' });
       }
       assignment.dueAt = due;
     }
 
-    if (action === 'accept' || action === 'request-changes') {
-      const next = action === 'accept' ? 'accepted' : 'changes-requested';
-
-      if (!assignment.canBecome(next)) {
-        return res.status(400).json({
-          error:
-            assignment.status === 'assigned'
-              ? 'Nothing has been handed in yet'
-              : `A ${assignment.status} assignment cannot be ${next}`
-        });
+    if (addMentorshipIds !== undefined) {
+      const recipients = await resolveRecipients(addMentorshipIds, req.authUser);
+      if (recipients.error) {
+        return res.status(recipients.status).json({ error: recipients.error });
       }
 
-      // "Do it again" with no reason is not feedback, and the student has no
-      // way to guess what to change.
-      if (action === 'request-changes' && !String(note).trim()) {
-        return res.status(400).json({ error: 'Say what needs changing' });
-      }
+      // Already-recipients are skipped rather than refused: ticking a student
+      // who already has the work is a harmless no-op, not a mistake to report.
+      const existing = new Set(assignment.mentorships.map(String));
+      const fresh = recipients.mentorships.filter((m) => !existing.has(String(m._id)));
 
-      assignment.status = next;
-      assignment.review.note = String(note).trim();
-      assignment.review.reviewedAt = new Date();
-    } else if (action !== undefined) {
-      return res.status(400).json({ error: 'Unknown action' });
-    } else if (dueAt === undefined) {
-      return res.status(400).json({ error: 'Nothing to change' });
+      if (fresh.length) {
+        assignment.mentorships.push(...fresh.map((m) => m._id));
+        const addedAt = new Date();
+        await Submission.insertMany(
+          fresh.map((m) => ({
+            assignment: assignment._id,
+            mentorship: m._id,
+            student: m.student,
+            // A student added later starts their history when THEY were
+            // added, not when the assignment was first set.
+            history: [{ type: 'assigned', at: addedAt, by: req.authUser._id }]
+          }))
+        );
+      }
     }
 
     await assignment.save();
 
-    const populated = await Assignment.findById(assignment._id).populate(
-      'createdBy',
-      'displayName photoURL'
+    const subs = await Submission.find({ assignment: assignment._id });
+    announceAssignment(
+      assignment._id,
+      assignment.mentor,
+      subs.map((s) => s.student)
     );
 
-    emitToUser(access.mentorship.student, 'assignment-updated', serialiseAssignment(populated));
-    emitToUser(access.mentorship.mentor, 'assignment-updated', serialiseAssignment(populated));
-
-    res.json(serialiseAssignment(populated));
+    res.json({ ...assignment.toObject(), summary: summarise(subs, assignment.dueAt) });
   } catch (err) {
-    console.error('Error updating assignment:', err);
+    console.error('Error editing assignment:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 /**
- * DELETE /api/assignments/:assignmentId
+ * DELETE /api/assignments/:id
  *
- * MENTOR ONLY. Withdraw work that should not have been set — a duplicate, or
- * one aimed at the wrong student.
+ * Withdraw work that should not have been set. MENTOR ONLY.
  *
- * Refused once accepted: at that point it is a record of something the
- * student did, and deleting it would erase their work rather than the
- * mentor's mistake.
+ * Refused once ANY student's hand-in has been accepted: at that point part of
+ * it is a record of something a student did, and withdrawing the assignment
+ * would erase their work rather than the mentor's mistake.
  */
-app.delete('/api/assignments/:assignmentId', requireAuth, async (req, res) => {
+app.delete('/api/assignments/:id', requireAuth, async (req, res) => {
   try {
-    const assignment = await Assignment.findById(req.params.assignmentId);
-    if (!assignment) {
-      return res.status(404).json({ error: 'Assignment not found' });
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+    const { assignment } = own;
+
+    const subs = await Submission.find({ assignment: assignment._id });
+
+    if (subs.some((s) => s.status === 'accepted')) {
+      return res.status(400).json({
+        error: 'Some of this work has been accepted — it is a record now'
+      });
     }
 
-    const access = await resolveMentorshipAccess(assignment.mentorship, req.authUser);
-    if (access.error) {
-      return res.status(access.status).json({ error: access.error });
-    }
-
-    if (!access.isMentor) {
-      return res.status(403).json({ error: 'Only the mentor can withdraw an assignment' });
-    }
-
-    if (assignment.status === 'accepted') {
-      return res
-        .status(400)
-        .json({ error: 'That work has been accepted — it is a record now' });
-    }
-
+    await Submission.deleteMany({ assignment: assignment._id });
     await assignment.deleteOne();
 
-    const payload = { _id: assignment._id, mentorship: assignment.mentorship, deleted: true };
-    emitToUser(access.mentorship.student, 'assignment-removed', payload);
-    emitToUser(access.mentorship.mentor, 'assignment-removed', payload);
+    announceAssignment(
+      assignment._id,
+      assignment.mentor,
+      subs.map((s) => s.student)
+    );
 
     res.json({ ok: true });
   } catch (err) {

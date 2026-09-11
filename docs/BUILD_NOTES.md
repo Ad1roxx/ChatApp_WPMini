@@ -2732,6 +2732,154 @@ staleness lies.
 
 ---
 
+### Entry 34 — Assignments go Classroom-style: shared, drafted, and logged
+
+**Three asks, arriving one after another.**
+
+1. *"I need the relationship to be one mentor can have multiple students."* It
+   already was — each mentor–student pair is its own mentorship, the duplicate
+   guard is keyed on the *pair*, and the analytics suite runs one mentor with two
+   students. The confusion was my wording: *"exactly one student per
+   mentorship"* meant per mentorship **record**, and read as "a mentor has one
+   student". The real gap underneath was different: an assignment belonged to
+   one mentorship, so giving five students the same work meant creating it five
+   times. The user chose the Classroom model — one brief, several students.
+2. *"The mentor should also be able to see when the assignment is just attached
+   and not turned in… and see the logs of changes made — submitted, unsubmitted
+   and submitted again — with when it was done."*
+3. *"Make assignments a group feature."*
+
+**The sentence that stopped being true.** Entry 33 embedded the submission
+inside the assignment on the grounds of *"one assignment, one student, one
+submission"*. That was right for the per-pair model and wrong the moment an
+assignment had several recipients. It is quoted here because the user quoted it
+back, and a design note that has been overtaken should say so rather than
+quietly disappear.
+
+**Files added:** `server/models/Submission.js`, `src/pages/AssignmentsPage.jsx`
++ module, `src/components/SubmissionRow.jsx` + module.
+
+**Files changed:** `server/models/Assignment.js` (rewritten), `server/index.js`
+(the whole assignments block replaced — 9 routes where there were 5; 54 total),
+`Assignments.jsx` + module, `AppShell.jsx`, `App.jsx`,
+`server/test/assignments.test.js` (rewritten).
+
+**No migration was needed, and that was checked rather than assumed.** The old
+shape was committed but never pushed or deployed, and a read-only count of the
+development database found 0 assignments.
+
+**Design decision 1 — the brief and the hand-ins are separate documents.**
+`Assignment` holds what is shared: the title, the instructions, the deadline,
+and the list of recipients. `Submission` holds each student's side. Editing the
+brief once changes it for everybody; one student's hand-in never touches
+another's row.
+
+**Design decision 2 — a submission exists before anything is submitted.** One
+row per recipient is created in the same request as the assignment, with status
+`assigned`. That is how Google Classroom models it too, and for the same
+reason: "Rahul has not handed this in" is a fact about Rahul and this
+assignment, and it needs somewhere to live. Without the row, "4 of 6 handed in"
+would be a comparison of two lists, and "overdue" would have nothing to attach
+to.
+
+**Design decision 3 — recipients are mentorships, and only your own.** Every
+other feature is anchored to the relationship, so assignments are too. The
+server refuses the *whole* list if any one entry is someone else's student or an
+ended mentorship, rather than sending to the valid ones — a mentor who ticked
+six students and reached five would not know which one was missed.
+
+**Design decision 4 — students never see each other's work.** The per-assignment
+view lists every hand-in and every piece of feedback, so it is refused to
+anyone but the mentor who set it — including another mentor who happens to
+mentor one of the same students. Tested from all three directions.
+
+**Design decision 5 — "4 of 6 handed in" means currently in.** `handedIn` counts
+`submitted` and `accepted`. Work sent back for changes is *not* counted: the
+student owes something again, and counting it would make the headline number
+flatter than the truth.
+
+**Design decision 6 — drafts are a real state, and visible.** A student can
+attach work without turning it in. The mentor sees it — "Attached, not handed
+in", on a dashed panel so "not final" reads before a single word does — and the
+student is told so on screen, in so many words, because they should never be
+surprised that a draft was visible. A draft past the deadline counts as overdue:
+attached is not handed in.
+
+**Design decision 7 — Unsubmit is explicit, and cannot be skipped.** Taking work
+back moves it to `draft`, keeps the content, and clears `submittedAt` — lateness
+derives from it, and leaving it set would make taken-back work look on time
+forever. Handed-in work **cannot** be edited as a draft without unsubmitting
+first: an edit the history never saw would defeat the history. Accepted work
+cannot be unsubmitted at all.
+
+**Design decision 8 — the history is embedded, append-only, and read in
+context.** Every move — assigned, draft saved, handed in, unsubmitted, changes
+asked for, accepted — appends `{ type, at, by }`. Embedded because it is only
+ever read with its submission and is bounded by how many times two people can
+click a button. Nothing edits or removes an entry.
+
+The user offered two places to show it: per student inside the assignment, or a
+separate logs page with search and filtering. **Per student in context**, because
+the context *is* the filter — opening "Solve five array problems → Rahul" shows
+exactly Rahul's timeline for that assignment, with nothing to search and nothing
+to mix up. A global log would need search to be usable at all and would still be
+worse at the one question a mentor actually has. It reads oldest first, as a
+story, with absolute timestamps rather than "3 days ago" — a history is the
+thing you screenshot and send to someone else — and marks a hand-in made after
+the deadline as late. `by` is stored even though the type usually implies it: an
+audit trail that relies on inference is one refactor away from lying.
+
+**Design decision 9 — groups pick recipients; they never receive work.** Groups
+here are open: anyone can join, and other mentors are members too. If a group
+itself received assignments, a student could opt into another mentor's work
+just by joining, and a mentor could set work for people who never agreed to be
+mentored by them. So "Tick your students from a group" ticks only the members
+who **are** your students, adds to rather than replaces the current selection,
+and says who it left out — *"Ticked 3 from 'Backend crew'. 1 other member is not
+your student, so they will not get it."* It is entirely client-side; the server
+validates the final list exactly as it would a hand-ticked one.
+
+**Two pages, two axes.** The mentorship page is one student, many assignments.
+`AssignmentsPage` is one assignment, many students — the only place "4 of 6"
+can live. It is role-aware rather than two pages, because one person can be on
+both sides of the desk. There is deliberately no Withdraw on the mentorship
+page: pulling a six-student assignment from inside one student's page would take
+it away from the other five without the mentor seeing them.
+
+**A bug the redesign fixed.** In Entry 33's version, a student whose work was
+`submitted` saw "Hand in again" — and the server refused `submitted → submitted`
+with the message *"That assignment has already been accepted"*, which was false.
+The tests covered resubmitting after changes were requested, never from
+`submitted`. The new model makes that path Unsubmit, and a test asserts
+handed-in work cannot be edited without it.
+
+**Two safety checks that failed closed.** The script that spliced the new routes
+into `index.js` asserted that no helper was declared twice; its regex matched
+`function name(` but not `async function name(`, counted three helpers as
+missing, and aborted before writing anything. A second script asserted the word
+`useCallback` no longer appeared in a file — and tripped on the comment
+explaining why it was gone. Both were wrong checks, and both stopped the write
+rather than let it through, which is the direction a check should fail in.
+
+**Lint, and the pattern that satisfies it.** Both new data-loading components
+first used a shared `load` callback called from an effect, which React's
+compiler rules reject. The loader now lives inside the effect, where its
+setStates are visibly after an `await`, and every reload goes through a
+`version` bump from an event handler instead. Lint is back to 0 errors and the
+one long-standing warning.
+
+**82 tests in `assignments.test.js`**, rewritten for the new model: shared
+recipients and de-duplication, the whole-list refusals, the deadline rules,
+independent hand-ins, the URL allow-list, privacy from three directions, the
+per-student review loop, lateness per student and extended deadlines un-lating
+everyone, editing the brief once, adding a student later (whose history starts
+when *they* were added), withdrawal, drafts, Unsubmit, and a full seven-move
+history asserted event by event, in order, with who did each one.
+
+The suite is now **436 tests across 15 files**.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

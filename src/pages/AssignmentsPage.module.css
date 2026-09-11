@@ -1,0 +1,202 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---- Recipient picker ---- */
+.recipients {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.legend {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.selectAll {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  color: var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.recipientGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+}
+
+/* The whole card is the label, so the target is the card rather than a
+   14px checkbox — the same reasoning as the milestone rows. */
+.recipient {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition), background-color var(--transition);
+}
+
+.recipient:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.recipient:has(.checkbox:checked) {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.recipientText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.recipientName {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.recipientTopic {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Work you set ---- */
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.setRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+}
+
+.setRow:not(:first-child) {
+  border-top: 1px solid var(--color-border);
+}
+
+.setRow:first-child {
+  padding-top: 0;
+}
+
+.setRow:last-child {
+  padding-bottom: 0;
+}
+
+.setHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.setText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.setDue {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.dim {
+  color: var(--color-text-subtle);
+  font-weight: var(--weight-normal);
+}
+
+.flags {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.setActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* The per-student view opens inside the row it belongs to, set back on a
+   sunken panel so it reads as "inside this assignment" rather than as the
+   next assignment in the list. */
+.detail {
+  padding: var(--space-5);
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.instructions {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+}
+
+/* ---- Pick from a group ---- */
+.groupPick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* Says who was left out, because a mentor who picked "Backend crew" and got
+   four of its seven members should know why before they hit Set. */
+.groupNote {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}

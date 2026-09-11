@@ -1,0 +1,223 @@
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5) 0;
+  list-style: none;
+}
+
+.row:not(:first-child) {
+  border-top: 1px solid var(--color-border);
+}
+
+.row:first-child {
+  padding-top: 0;
+}
+
+.row:last-child {
+  padding-bottom: 0;
+}
+
+.topLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+/* The deadline is what makes this an assignment rather than a goal, so it
+   reads at full strength rather than as metadata. */
+.due {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.dim {
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  font-weight: var(--weight-normal);
+}
+
+.instructions {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+}
+
+/* A sunken panel rather than a quote: this is an artefact the student
+   produced, not something either of them said. */
+.submission {
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+/* Dashed for a draft: "not final" reads before a single word does, and it
+   does not rely on colour to say so. */
+.submissionDraft {
+  border-style: dashed;
+  border-color: var(--color-border-strong);
+  background-color: transparent;
+}
+
+.submissionHead {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.submissionText {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+}
+
+/* Long URLs break rather than pushing the card wide. */
+.submissionLink {
+  font-size: var(--text-sm);
+  color: var(--color-accent);
+  word-break: break-all;
+}
+
+.draftNotice {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+/* The mentor's answer IS something someone said, so it is a quote. */
+.reviewNote {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) 0 var(--space-2) var(--space-4);
+  border-left: 2px solid var(--color-border-strong);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+
+.inlineForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-top: var(--space-1);
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.inlineActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ---- History ---- */
+
+/* A vertical timeline: a rule down the left, a dot per event. The rule is
+   what makes a list of rows read as a sequence rather than as a table. */
+.history {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0 0 0 var(--space-4);
+  border-left: 2px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.event {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.eventDot {
+  position: absolute;
+  left: calc(-1 * var(--space-4) - 6px);
+  top: 0.45em;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border-strong);
+}
+
+/* Colour marks the two outcomes a mentor scans for, and nothing else — the
+   label beside each dot carries the meaning on its own. */
+.eventDot[data-type='submitted'] {
+  border-color: var(--color-accent);
+}
+
+.eventDot[data-type='accepted'] {
+  border-color: var(--color-success);
+  background-color: var(--color-success);
+}
+
+.eventDot[data-type='changes-requested'],
+.eventDot[data-type='unsubmitted'] {
+  border-color: var(--color-warning);
+}
+
+.eventLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.eventLate {
+  color: var(--color-danger);
+  font-weight: var(--weight-medium);
+}
+
+.eventTime {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
