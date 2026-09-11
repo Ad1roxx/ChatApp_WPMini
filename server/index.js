@@ -125,6 +125,15 @@ app.use(express.json());
 // running when it is.
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/chatapp';
 
+/**
+ * Connect, clear stale presence, and only THEN start listening.
+ *
+ * Listening first left a gap: after a restart, Socket.IO clients reconnect
+ * within moments, and one that reconnected before the reset below had run
+ * would be marked online and then wiped by it — shown offline while
+ * connected. If Mongo cannot be reached the process exits, rather than serve
+ * requests it has no database to answer.
+ */
 mongoose.connect(mongoUri)
   .then(async () => {
     console.log('✅ Connected to MongoDB');
@@ -139,8 +148,13 @@ mongoose.connect(mongoUri)
     if (stale.modifiedCount > 0) {
       console.log(`🧹 Cleared stale online status for ${stale.modifiedCount} user(s)`);
     }
+
+    startServer();
   })
-  .catch((err) => console.error('❌ MongoDB connection error:', err));
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
 
 // ============================================
 // TRACK ONLINE USERS
@@ -4198,10 +4212,13 @@ io.on('connection', (socket) => {
 // START SERVER
 // ============================================
 
-server.listen(PORT, () => {
-  console.log(`
+/** Called once the database is ready — see the connect block at the top. */
+function startServer() {
+  server.listen(PORT, () => {
+    console.log(`
   🚀 Server running on http://localhost:${PORT}
   📡 Socket.IO ready for connections
   💾 MongoDB: ${mongoUri}
   `);
-});
+  });
+}
