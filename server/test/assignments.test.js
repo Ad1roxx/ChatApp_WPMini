@@ -13,7 +13,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { USERS, start, stop, api, db, mongoose } = require('./helpers/harness');
+const {
+  USERS, start, stop, api, db, mongoose, connect, once, settle
+} = require('./helpers/harness');
 
 let m1; // mentor  → student
 let m2; // mentor  → student2
@@ -657,4 +659,66 @@ test('the counts behind the sidebar badge', async (t) => {
     const res = await api('/api/assignments/counts');
     assert.equal(res.status, 401);
   });
+});
+
+/**
+ * The quiet notice.
+ *
+ * `assignment-changed` tells open screens to refetch; `work-notice` is the
+ * sentence a person reads. Worth asserting that it reaches the person it
+ * happened to and nobody else - a notice about someone else's work is both
+ * noise and a small leak of what they were set.
+ */
+test('a work notice reaches the person it happened to', async (t) => {
+  const student = await connect(USERS.student);
+  const mentor = await connect(USERS.mentor);
+  const bystander = await connect(USERS.student2);
+
+  // Unicast goes through the online map, which `user-online` fills in.
+  student.emit('user-online');
+  mentor.emit('user-online');
+  bystander.emit('user-online');
+  await settle();
+
+  const toStudent = once(student, 'work-notice');
+  const toBystander = once(bystander, 'work-notice', 1500);
+  const a = await shared('Noticed', [m1._id]);
+
+  await t.test('the student is told, by name and title', async () => {
+    const notice = await toStudent;
+    assert.ok(notice);
+    assert.match(notice.text, /Test Mentor set new work: Noticed/);
+    assert.equal(notice.to, '/assignments');
+  });
+
+  await t.test('a student it was not set for hears nothing', async () => {
+    assert.equal(await toBystander, null);
+  });
+
+  await t.test('handing it in tells the mentor', async () => {
+    const sub = await subFor(a._id, USERS.student);
+    const heard = once(mentor, 'work-notice');
+
+    const res = await handIn(USERS.student, sub._id, { text: 'done' });
+    assert.equal(res.status, 200);
+
+    const notice = await heard;
+    assert.ok(notice);
+    assert.match(notice.text, /Test Student handed in: Noticed/);
+  });
+
+  await t.test('and the answer to it tells the student', async () => {
+    const sub = await subFor(a._id, USERS.student);
+    const heard = once(student, 'work-notice');
+
+    await review(USERS.mentor, sub._id, { action: 'request-changes', note: 'again please' });
+
+    const notice = await heard;
+    assert.ok(notice);
+    assert.match(notice.text, /Test Mentor asked for changes: Noticed/);
+  });
+
+  student.close();
+  mentor.close();
+  bystander.close();
 });

@@ -2835,6 +2835,23 @@ function announceAssignment(assignmentId, mentorId, studentIds) {
 }
 
 /**
+ * A short, readable notice for the people it happened to.
+ *
+ * Separate from `assignment-changed`, which carries only an id and exists so
+ * open screens refetch. This is the sentence a person reads, and it says where
+ * to look.
+ *
+ * Nothing is stored. A notice missed while signed out is not something the app
+ * owes anybody later — the count in the sidebar is what survives a reload, and
+ * it is derived from the work itself rather than from a list of events.
+ */
+function notifyWork(userIds, text, to = '/assignments') {
+  for (const id of userIds) {
+    emitToUser(id, 'work-notice', { text, to, at: new Date().toISOString() });
+  }
+}
+
+/**
  * POST /api/assignments
  *
  * Set work for one or several students at once. MENTOR ONLY, and only for
@@ -2895,6 +2912,11 @@ app.post('/api/assignments', requireAuth, async (req, res) => {
       assignment._id,
       req.authUser._id,
       recipients.mentorships.map((m) => m.student)
+    );
+
+    notifyWork(
+      recipients.mentorships.map((m) => m.student),
+      `${req.authUser.displayName} set new work: ${assignment.title}`
     );
 
     res.status(201).json({
@@ -3161,6 +3183,15 @@ app.put('/api/submissions/:id', requireAuth, async (req, res) => {
       submission.student
     ]);
 
+    // Saving a draft is not news to anyone: the mentor can see it, but it is
+    // not waiting on them.
+    if (turnIn) {
+      notifyWork(
+        [submission.assignment.mentor],
+        `${req.authUser.displayName} handed in: ${submission.assignment.title}`
+      );
+    }
+
     res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
   } catch (err) {
     console.error('Error handing in:', err);
@@ -3277,6 +3308,13 @@ app.patch('/api/submissions/:id', requireAuth, async (req, res) => {
       submission.student
     ]);
 
+    notifyWork(
+      [submission.student],
+      action === 'accept'
+        ? `${req.authUser.displayName} accepted your work: ${submission.assignment.title}`
+        : `${req.authUser.displayName} asked for changes: ${submission.assignment.title}`
+    );
+
     res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
   } catch (err) {
     console.error('Error reviewing hand-in:', err);
@@ -3363,6 +3401,13 @@ app.patch('/api/assignments/:id', requireAuth, async (req, res) => {
             // added, not when the assignment was first set.
             history: [{ type: 'assigned', at: addedAt, by: req.authUser._id }]
           }))
+        );
+
+        // Only the students just added. Everybody else already had it, and
+        // being told twice about the same assignment is noise.
+        notifyWork(
+          fresh.map((m) => m.student),
+          `${req.authUser.displayName} set new work: ${assignment.title}`
         );
       }
     }

@@ -92,11 +92,12 @@ export default function AppShell({
   variant = 'default',
   children
 }) {
-  const { dbUser, logout } = useAuth();
+  const { dbUser, logout, socket } = useAuth();
   const { totalUnread, totalGroupUnread } = useConversations();
   const work = useWork();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notice, setNotice] = useState(null);
 
   const role = dbUser?.role;
 
@@ -122,6 +123,32 @@ export default function AppShell({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [drawerOpen]);
+
+  /**
+   * A quiet line when something happens to your work while you are somewhere
+   * else in the app — "Priya Nair set new work: Solve five array problems".
+   *
+   * Deliberately not a toast. A toast is the result of something YOU just did
+   * and sits on top of the page demanding to be read; this is someone else's
+   * action arriving unannounced, so it takes one line under the header, says
+   * what happened, and leaves on its own.
+   */
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const onNotice = (payload) => setNotice(payload);
+    socket.on('work-notice', onNotice);
+    return () => socket.off('work-notice', onNotice);
+  }, [socket]);
+
+  // Gone after twelve seconds whether or not anyone looked. The sidebar count
+  // is what remains: a notice is a nudge, not a record.
+  useEffect(() => {
+    if (!notice) return undefined;
+
+    const timer = setTimeout(() => setNotice(null), 12000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const handleLogout = async () => {
     await logout();
@@ -260,6 +287,34 @@ export default function AppShell({
           {actions && <div className={styles.topbarActions}>{actions}</div>}
           </div>
         </header>
+
+        {/* role="status" so a screen reader mentions it once, politely, rather
+            than interrupting whatever is being read. */}
+        {notice && (
+          <div className={styles.notice} role="status">
+            <span className={styles.noticeText}>{notice.text}</span>
+            {notice.to && (
+              <button
+                type="button"
+                className={styles.noticeLink}
+                onClick={() => {
+                  navigate(notice.to);
+                  setNotice(null);
+                }}
+              >
+                View
+              </button>
+            )}
+            <button
+              type="button"
+              className={styles.noticeClose}
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss"
+            >
+              <CloseIcon size={14} />
+            </button>
+          </div>
+        )}
 
         <main className={variant === 'flush' ? styles.contentFlush : styles.content}>
           {children}

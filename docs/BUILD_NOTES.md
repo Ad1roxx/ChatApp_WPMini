@@ -3068,6 +3068,92 @@ and the old ones gone, Message opens the chat and Back returns to
 
 ---
 
+### Entry 37 — Achievements out, streaks in, and the app learns to tell you
+
+**The asks.** *"Assignment task or other goal notification system for the
+student (did you remove tasks and goals, I can't find them)"* — and *"I was
+thinking of completely removing the achievement system… just keep an assignment
+streak instead."*
+
+**Nothing had been removed, and that was the finding.** Goals live inside a
+mentorship — Mentorship → Open → Goals — which is the only place they can live,
+since a goal belongs to a relationship rather than to a person. Assignments
+arrived later and got their own sidebar entry; goals never did. So the newer
+feature looked like a replacement for the older one, purely because one of them
+is named in the navigation and the other is two clicks inside a page. Worth
+remembering the next time something "disappears": the sidebar is the map, and
+anything not on it is, to a user, somewhere between hidden and gone.
+
+**1 — Achievements are gone, not dormant.** The user's call, and the right one:
+the badges set challenges about hours and streaks of meetings, which is not
+what a mentorship is for. Deleted rather than switched off behind a flag the
+way session ratings were, because that one was paused and this one was decided
+against — a flag would only leave a second, colder copy of the same
+disagreement in the tree. Out went the card and its styles, the
+`/api/achievements/me` route and its badge definitions, 25 tests, the Trophy
+icon nothing else used, and four README rows.
+
+**2 — Two streaks, and the user asked for both of the rules offered.**
+
+- **On time, in a row.** Assignments in deadline order; a hand-in that beats
+  its deadline extends the run, a late one or a deadline that passed with
+  nothing handed in resets it. Work *not yet due* is skipped rather than
+  counted as a break — an assignment due next week is not yet either a success
+  or a failure, and treating it as one would drop the streak to zero every time
+  a mentor set something. The best run is kept alongside the current one, so a
+  reset takes the streak but not the history.
+- **Weeks running.** Consecutive weeks holding at least one hand-in, late or
+  not: the "did you keep showing up" figure rather than the punctuality one.
+  This week being empty so far does not break it; a whole empty week does.
+  Weeks run Monday to Sunday **in UTC**, so the number does not change when the
+  reader travels.
+
+Both are derived on read inside `/api/analytics/me` — the one idea worth
+keeping from the achievements, and the reason neither can drift out of step
+with the work. They render where the badges used to be, and only for someone
+who has handed something in: a mentor who has never been a student would
+otherwise get a card of zeroes about work nobody set them.
+
+**3 — The sidebar badge.** Work set for a student was silent until they thought
+to go and look. The count beside Assignments is two figures in one pill,
+because one person can be on both sides of the desk: what you owe as a student
+(drafts and work sent back for changes included — attached is not handed in)
+and what has been handed in to you as a mentor.
+
+It is served by a small `/api/assignments/counts` rather than the existing
+list: the shell draws this on every page, and a badge is not worth shipping
+every assignment and hand-in to render. That route is declared **before**
+`/api/assignments/:id`, or Express reads "counts" as an id and hands it to the
+wrong route — the kind of bug that appears months later when someone adds a
+static path under a dynamic one.
+
+**4 — The notice, deliberately not a toast.** The user asked for something like
+Classroom's "stream was updated": *"not too flashy… something subtle like
+that."* A toast is the result of something **you** just did, and it sits over
+the page demanding to be read. This is someone else's action arriving while you
+were busy with your own, so it takes one muted line under the header, says what
+happened, offers *View*, and leaves after twelve seconds. `role="status"`, so a
+screen reader mentions it once rather than interrupting.
+
+Four moments deserve one: work set, students added to work that already
+existed, a hand-in arriving (the mentor), and an answer to one (the student).
+Saving a draft does not — the mentor can see it, but nothing is waiting on
+them.
+
+**Nothing about a notice is stored.** A notice missed while signed out is not a
+debt the app owes you later; the badge is what survives a reload, and it is
+counted from the work itself rather than from a list of events. That is the
+same reasoning as the streaks, one layer up.
+
+A test asserts that a student the work was *not* set for hears nothing: a
+notice about someone else's assignment is noise, and a small leak of what they
+were set.
+
+**The suite went 482 → 457 → 478**: 25 gone with the achievements, 9 for the
+streaks, 7 for the badge counts and 5 for the notice.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -3104,8 +3190,9 @@ and the old ones gone, Message opens the chat and Back returns to
 - ~~**Scheduling**~~ — done in Entry 22.
 - ~~**Analytics**~~ — done in Entry 24. `/api/analytics/me` plus the Progress
   page, and the admin dashboard now counts mentorships, goals and sessions.
-- ~~**Achievements**~~ — done in Entry 31, derived rather than stored. That
-  closes the content list: every feature scoped in Entry 19 now exists.
+- ~~**Achievements**~~ — built in Entry 31, **removed** in Entry 37. The badges
+  set challenges the platform is not about; assignment streaks replace them,
+  and keep the one idea worth keeping: derived on read, never stored.
 - **Deployment** and **frontend tests** are what remain, both infrastructure.
 - ~~**Feedback ratings**~~ — built in Entry 29, switched **off** in Entry 32.
   The server half and its 27 tests stay live so the code cannot rot while

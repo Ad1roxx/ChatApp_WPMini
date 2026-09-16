@@ -269,6 +269,74 @@
   flex-direction: column;
 }
 
+/* ---- Work notice ---- */
+
+/* A line under the header rather than something floating over the page: this
+   is somebody else's action arriving while you were busy with your own, so it
+   should be noticeable without being obeyed. Muted, one line, no colour
+   shouting - the toasts are for what you just did yourself. */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-6);
+  background-color: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  animation: notice-in 120ms ease-out;
+}
+
+/* One line, clipped: a long assignment title must not push the buttons off
+   the end or change the height of the bar. */
+.noticeText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noticeLink {
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.noticeLink:hover {
+  text-decoration: underline;
+}
+
+.noticeClose {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-subtle);
+}
+
+.noticeClose:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+@keyframes notice-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice {
+    animation: none;
+  }
+}
+
 /* ---- Mobile drawer ---- */
 .menuButton {
   display: none;
@@ -336,5 +404,9 @@
 
   .content {
     padding: var(--space-4);
+  }
+
+  .notice {
+    padding-inline: var(--space-4);
   }
 }

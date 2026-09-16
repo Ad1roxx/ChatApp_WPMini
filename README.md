@@ -104,7 +104,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 473 integration tests against a throwaway database |
+| `npm test` | 478 integration tests against a throwaway database |
 
 ---
 
@@ -278,7 +278,8 @@ docs/
 `group-user-stop-typing`, `new-announcement`, `announcement-deleted`,
 `mentorship-updated`, `goal-updated`, `session-updated`, `conversation-read`,
 `group-activity`, `group-read`, `group-receipt`, `resource-added`,
-`resource-removed`, `feedback-updated`, `assignment-changed`, `error`
+`resource-removed`, `feedback-updated`, `assignment-changed`, `work-notice`,
+`error`
 
 ---
 
