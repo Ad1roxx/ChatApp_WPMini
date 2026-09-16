@@ -216,6 +216,22 @@ export default function MentorshipsPage() {
   const formatDate = (value) =>
     value ? new Date(value).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '';
 
+  /**
+   * How the relationship started, said the same way on both sides of it.
+   * "they asked you" read like a scribbled note; this is the sentence you
+   * would expect to find in a record of it.
+   */
+  const startedNote = (m) => {
+    const mentorSide = iAmMentor(m);
+    const student = m.student?.displayName || 'them';
+    const mentor = m.mentor?.displayName || 'They';
+
+    if (m.initiatedBy === 'mentor') {
+      return mentorSide ? `You admitted ${student}` : `${mentor} admitted you`;
+    }
+    return mentorSide ? `Accepted ${student}’s request` : `${mentor} accepted your request`;
+  };
+
   /** "Thu 12 Mar, 4:00 PM" — enough to plan around without a full date. */
   const formatWhen = (value) => {
     const d = new Date(value);
@@ -467,7 +483,7 @@ export default function MentorshipsPage() {
                     key={m._id}
                     user={m.mentor}
                     topic={m.topic}
-                    when={m.initiatedBy === 'mentor' ? 'they added you' : undefined}
+                    when={startedNote(m)}
                   >
                     <Button
                       size="sm"
@@ -521,7 +537,7 @@ export default function MentorshipsPage() {
                     key={m._id}
                     user={m.student}
                     topic={m.topic}
-                    when={m.initiatedBy === 'mentor' ? 'you added them' : 'they asked you'}
+                    when={startedNote(m)}
                   >
                     <Button
                       size="sm"
