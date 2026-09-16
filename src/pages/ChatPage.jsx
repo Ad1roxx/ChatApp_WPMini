@@ -20,7 +20,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
 import Avatar from '../components/Avatar';
@@ -35,7 +35,17 @@ import styles from './Chat.module.css';
 export default function ChatPage() {
   const { peerId } = useParams();  // MongoDB _id of the person we're chatting with
   const navigate = useNavigate();
+  const location = useLocation();
   const { dbUser, socket, authFetch } = useAuth();
+
+  /**
+   * Back goes where you came from — a mentorship, a profile, or the Messages
+   * list. A chat is opened from several places, and always returning to
+   * Messages meant walking back to the mentorship page through the sidebar
+   * every time. Whoever navigates here says where from; a link straight to a
+   * chat carries no state, so it falls back to the list.
+   */
+  const backTo = location.state?.from || '/users';
 
   // State
   const [messages, setMessages] = useState([]);
@@ -264,7 +274,7 @@ export default function ChatPage() {
   return (
     <AppShell
       variant="flush"
-      backTo="/users"
+      backTo={backTo}
       title={peer?.displayName || 'Chat'}
       subtitle={peerTyping ? 'typing…' : undefined}
       leading={

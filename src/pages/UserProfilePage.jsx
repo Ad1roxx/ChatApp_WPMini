@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
 import Card from '../components/Card';
@@ -33,6 +33,7 @@ import styles from './UserProfilePage.module.css';
 export default function UserProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { dbUser, socket, authFetch } = useAuth();
   const toast = useToast();
 
@@ -271,7 +272,7 @@ export default function UserProfilePage() {
             </Button>
           ) : (
             <>
-              <Button variant="primary" onClick={() => navigate(`/chat/${profile._id}`)}>
+              <Button variant="primary" onClick={() => navigate(`/chat/${profile._id}`, { state: { from: location.pathname } })}>
                 Message
               </Button>
               {/* Only offered for people who can actually mentor. The server

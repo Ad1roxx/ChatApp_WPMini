@@ -3023,6 +3023,51 @@ itself. The suite is now **482 tests across 16 files**.
 
 ---
 
+### Entry 36 — Three things that were in the way
+
+**The asks.** (1) On the Groups page, make the whole bar open the group rather
+than having a separate Open button on it. (2) The note on each mentorship row —
+*"they asked you"* — is too casual; say it the way a record would. (3) Back
+from a chat opened from the mentorship page lands on the Messages list, so
+getting back to the mentorship means going through the sidebar again.
+
+**Files changed:** `GroupsPage.jsx` + module, `MentorshipsPage.jsx`,
+`ChatPage.jsx`, `MentorshipDetailPage.jsx`, `UserProfilePage.jsx`.
+
+**1 — The row is the button, but only for members.** The Messages list already
+works this way, so the group list borrows its shape: one `<button>` filling the
+row, the avatar, name and preview inside it. A row for a group you have *not*
+joined stays inert and keeps its Join button, because joining is a decision
+rather than navigation and should not happen because somebody tapped a row on
+the way past. That is also why the hover and the pointer live on the button
+rather than on the row: a non-member row must not look like a way in.
+
+**2 — How a mentorship started, said the same way on both sides.** One helper
+now writes all four sentences: *You admitted Zara Khan* / *Accepted Rahul
+Mehta's request* for the mentor, *Priya Nair admitted you* / *Priya Nair
+accepted your request* for the student. The student side previously said
+nothing at all when the student had been the one to ask — the very case where
+"they accepted" is worth seeing. Both sides now always say how it began.
+
+**3 — Back goes where you came from.** A chat is opened from the Messages list,
+a profile and two mentorship screens, and `backTo` was the fixed string
+`/users`, so three of those four sent you somewhere you had not been. Each
+caller now passes its own path in the navigation state and the chat reads it,
+falling back to the Messages list for a link opened cold.
+
+`navigate(-1)` would have been less code and wrong: the history entry behind a
+chat is not always the page that opened it — a reload, a redirect through the
+role gate, or arriving from a notification all leave something else there.
+Saying where you came from is explicit, survives a refresh, and cannot walk
+backwards into a page the user never saw.
+
+**Checked in a browser, asserting rather than photographing:** no Open button
+on the row, clicking the bar lands on `/group/:id`, all four wordings present
+and the old ones gone, Message opens the chat and Back returns to
+`/mentorships`, and a chat opened cold still falls back to Messages.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

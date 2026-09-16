@@ -18,7 +18,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
 import Card from '../components/Card';
@@ -39,6 +39,7 @@ import styles from './MentorshipDetailPage.module.css';
 export default function MentorshipDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { dbUser, socket, authFetch } = useAuth();
   const toast = useToast();
 
@@ -274,7 +275,7 @@ export default function MentorshipDetailPage() {
             </span>
           </div>
 
-          <Button size="sm" onClick={() => navigate(`/chat/${other._id}`)}>
+          <Button size="sm" onClick={() => navigate(`/chat/${other._id}`, { state: { from: location.pathname } })}>
             Message
           </Button>
         </div>

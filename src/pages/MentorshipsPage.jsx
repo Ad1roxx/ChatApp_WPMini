@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
 import Card from '../components/Card';
@@ -71,6 +71,7 @@ const DIALOG = {
 
 export default function MentorshipsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { dbUser, socket, authFetch } = useAuth();
   const toast = useToast();
 
@@ -492,7 +493,7 @@ export default function MentorshipsPage() {
                     >
                       Open
                     </Button>
-                    <Button size="sm" onClick={() => navigate(`/chat/${m.mentor._id}`)}>
+                    <Button size="sm" onClick={() => navigate(`/chat/${m.mentor._id}`, { state: { from: location.pathname } })}>
                       Message
                     </Button>
 
@@ -546,7 +547,7 @@ export default function MentorshipsPage() {
                     >
                       Open
                     </Button>
-                    <Button size="sm" onClick={() => navigate(`/chat/${m.student._id}`)}>
+                    <Button size="sm" onClick={() => navigate(`/chat/${m.student._id}`, { state: { from: location.pathname } })}>
                       Message
                     </Button>
                     {/* The same mentorship is in the opt-out card above.
