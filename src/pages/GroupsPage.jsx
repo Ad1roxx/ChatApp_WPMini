@@ -309,8 +309,10 @@ export default function GroupsPage() {
               const convo = byGroup[g._id];
               const unread = convo?.unread || 0;
 
-              return (
-                <li key={g._id} className={styles.row}>
+              /* The row's content, so the member and non-member versions
+                 below can wrap the same thing in different containers. */
+              const rowContent = (
+                <>
                   <span className={styles.groupAvatar} aria-hidden="true">
                     {g.name?.charAt(0)?.toUpperCase() || 'G'}
                   </span>
@@ -346,26 +348,39 @@ export default function GroupsPage() {
                   </span>
 
                   <UnreadBadge count={unread} label="unread messages" />
+                </>
+              );
 
+              return (
+                <li key={g._id} className={styles.row}>
+                  {/* For a member the whole bar is the way in, as in the
+                      Messages list. A non-member gets a static row and the
+                      Join button: joining is a decision rather than
+                      navigation, and should not happen because somebody
+                      tapped a row on their way past. */}
                   {member ? (
-                    <Button
-                      size="sm"
+                    <button
+                      type="button"
+                      className={styles.rowMain}
                       onClick={() => {
                         markGroupRead(g._id);
                         navigate(`/group/${g._id}`);
                       }}
                     >
-                      Open
-                    </Button>
+                      {rowContent}
+                    </button>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      loading={joiningId === g._id}
-                      onClick={() => handleJoin(g._id)}
-                    >
-                      Join
-                    </Button>
+                    <>
+                      <span className={styles.rowMain}>{rowContent}</span>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        loading={joiningId === g._id}
+                        onClick={() => handleJoin(g._id)}
+                      >
+                        Join
+                      </Button>
+                    </>
                   )}
                 </li>
               );
