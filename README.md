@@ -104,7 +104,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 466 integration tests against a throwaway database |
+| `npm test` | 473 integration tests against a throwaway database |
 
 ---
 
@@ -117,6 +117,7 @@ src/
   context/
     AuthContext.jsx          auth state, the socket, dbUser, authFetch
     ConversationsContext.jsx previews and unread counts, shared by list and sidebar
+    WorkContext.jsx          assignment counts, for the sidebar badge
   styles/
     tokens.css               design tokens — every colour, space, type size
     base.css                 reset + element defaults
@@ -253,6 +254,7 @@ docs/
 | DELETE | `/api/resources/:resourceId` | Whoever shared it, or the mentor |
 | POST | `/api/assignments` | **Mentor only** — set work for one or several of your students |
 | GET | `/api/assignments` | Work you set (with "4 of 6" summaries) and work set for you |
+| GET | `/api/assignments/counts` | The two numbers behind the sidebar badge: owed, and waiting on you |
 | GET | `/api/assignments/:id` | **The mentor who set it** — every hand-in and its history |
 | PATCH | `/api/assignments/:id` | **Mentor only** — edit the brief, move the deadline, add students |
 | DELETE | `/api/assignments/:id` | **Mentor only** — withdraw, unless any work is accepted |

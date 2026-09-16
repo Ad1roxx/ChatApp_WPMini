@@ -2961,6 +2961,45 @@ app.get('/api/assignments', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/assignments/counts
+ *
+ * The two numbers the sidebar badge is made of, and nothing else: what you owe
+ * as a student, and what is waiting on you as a mentor. One person can be
+ * both, so both always come back.
+ *
+ * Declared BEFORE `/api/assignments/:id`, or Express reads "counts" as an id
+ * and hands the request to that route instead.
+ *
+ * Deliberately not the full list. The shell draws this on every page, and a
+ * badge is not worth shipping every assignment and hand-in to render.
+ */
+app.get('/api/assignments/counts', requireAuth, async (req, res) => {
+  try {
+    const me = req.authUser._id;
+
+    // Owed: set for you and not handed in. A draft counts — it is attached,
+    // not handed in — and so does work sent back for changes.
+    const owed = await Submission.countDocuments({
+      student: me,
+      status: { $in: ['assigned', 'draft', 'changes-requested'] }
+    });
+
+    const set = await Assignment.find({ mentor: me }).select('_id');
+    const toReview = set.length
+      ? await Submission.countDocuments({
+          assignment: { $in: set.map((a) => a._id) },
+          status: 'submitted'
+        })
+      : 0;
+
+    res.json({ owed, toReview });
+  } catch (err) {
+    console.error('Error counting assignments:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
  * GET /api/assignments/:id
  *
  * The mentor's view of one assignment: the brief, the summary, and every

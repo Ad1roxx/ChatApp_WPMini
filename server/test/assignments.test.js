@@ -606,3 +606,55 @@ test('every move is logged, in order, with when and who', async (t) => {
     assert.deepEqual(late.history.map((e) => e.type), ['assigned']);
   });
 });
+
+/**
+ * The two numbers behind the sidebar badge.
+ *
+ * Asserted as changes rather than absolutes: the tests above leave a varying
+ * amount of work lying around, and a badge test that depends on the exact
+ * state of every test before it is a badge test that breaks whenever one of
+ * them is edited.
+ */
+test('the counts behind the sidebar badge', async (t) => {
+  const counts = (as) => api('/api/assignments/counts', { as }).then((r) => r.json());
+
+  const studentBefore = await counts(USERS.student);
+  const mentorBefore = await counts(USERS.mentor);
+
+  const a = await shared('Counted', [m1._id]);
+  const sub = await subFor(a._id, USERS.student);
+
+  await t.test('work set for you is owed', async () => {
+    assert.equal((await counts(USERS.student)).owed, studentBefore.owed + 1);
+  });
+
+  await t.test('and is not yet waiting on the mentor', async () => {
+    assert.equal((await counts(USERS.mentor)).toReview, mentorBefore.toReview);
+  });
+
+  await t.test('handing it in moves it from one side to the other', async () => {
+    const res = await handIn(USERS.student, sub._id, { text: 'done' });
+    assert.equal(res.status, 200);
+
+    assert.equal((await counts(USERS.student)).owed, studentBefore.owed);
+    assert.equal((await counts(USERS.mentor)).toReview, mentorBefore.toReview + 1);
+  });
+
+  await t.test('accepting it clears it from the mentor', async () => {
+    await review(USERS.mentor, sub._id, { action: 'accept' });
+    assert.equal((await counts(USERS.mentor)).toReview, mentorBefore.toReview);
+  });
+
+  await t.test('a draft is still owed - attached is not handed in', async () => {
+    const b = await shared('Drafted', [m1._id]);
+    const s2 = await subFor(b._id, USERS.student);
+    await handIn(USERS.student, s2._id, { text: 'half of it', turnIn: false });
+
+    assert.equal((await counts(USERS.student)).owed, studentBefore.owed + 1);
+  });
+
+  await t.test('and the counts need a token', async () => {
+    const res = await api('/api/assignments/counts');
+    assert.equal(res.status, 401);
+  });
+});

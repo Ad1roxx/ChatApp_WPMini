@@ -32,6 +32,7 @@ import MentorshipDetailPage from "./pages/MentorshipDetailPage";
 import ProgressPage from "./pages/ProgressPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import { ConversationsProvider } from "./context/ConversationsContext";
+import { WorkProvider } from "./context/WorkContext";
 import { PageLoader } from "./components/Loading";
 
 function App() {
@@ -66,6 +67,9 @@ function App() {
        below the auth gates above, so it never fetches for a signed-out or
        suspended account. */
     <ConversationsProvider>
+      {/* The count beside "Assignments" in the sidebar, for the same reason:
+          every page draws it, so it cannot live inside one of them. */}
+      <WorkProvider>
       <BrowserRouter>
         <Routes>
         {/* Home - redirect based on auth status */}
@@ -167,6 +171,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </BrowserRouter>
+      </WorkProvider>
     </ConversationsProvider>
   );
 }

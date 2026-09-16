@@ -30,6 +30,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useConversations } from '../context/ConversationsContext';
+import { useWork } from '../context/WorkContext';
 import Avatar from './Avatar';
 import { RoleBadge } from './Badge';
 import UnreadBadge from './UnreadBadge';
@@ -61,7 +62,7 @@ const NAV_SECTIONS = [
       // (unread announcements, say) is another key rather than another branch.
       { to: '/users', label: 'Messages', icon: MessagesIcon, badge: 'messages' },
       { to: '/mentorships', label: 'Mentorship', icon: HandshakeIcon },
-      { to: '/assignments', label: 'Assignments', icon: ClipboardIcon },
+      { to: '/assignments', label: 'Assignments', icon: ClipboardIcon, badge: 'assignments' },
       { to: '/progress', label: 'Progress', icon: ChartIcon },
       { to: '/groups', label: 'Groups', icon: GroupsIcon, badge: 'groups' },
       { to: '/announcements', label: 'Announcements', icon: AnnouncementIcon }
@@ -93,10 +94,22 @@ export default function AppShell({
 }) {
   const { dbUser, logout } = useAuth();
   const { totalUnread, totalGroupUnread } = useConversations();
+  const work = useWork();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const role = dbUser?.role;
+
+  /**
+   * What each nav badge counts, and what it is called to a screen reader. A
+   * map rather than a ternary: the third entry is the point at which
+   * "messages or groups" stopped being a question with two answers.
+   */
+  const badges = {
+    messages: { count: totalUnread, label: 'unread messages' },
+    groups: { count: totalGroupUnread, label: 'unread group messages' },
+    assignments: { count: work.total, label: 'assignments waiting on you' }
+  };
 
   // Escape closes the drawer — expected of anything overlay-shaped.
   useEffect(() => {
@@ -153,8 +166,8 @@ export default function AppShell({
                       the label stays put whether or not there is a count. */}
                   {badge && (
                     <UnreadBadge
-                      count={badge === 'messages' ? totalUnread : totalGroupUnread}
-                      label="unread messages"
+                      count={badges[badge].count}
+                      label={badges[badge].label}
                       className={styles.navBadge}
                     />
                   )}
