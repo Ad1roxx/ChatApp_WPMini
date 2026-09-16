@@ -127,14 +127,6 @@ export const PaperclipIcon = (p) => (
   </Icon>
 );
 
-export const TrophyIcon = (p) => (
-  <Icon {...p}>
-    <path d="M8 21h8M12 17v4" />
-    <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
-    <path d="M7 6H5a2 2 0 0 0 0 4h2M17 6h2a2 2 0 0 1 0 4h-2" />
-  </Icon>
-);
-
 export const ClipboardIcon = (p) => (
   <Icon {...p}>
     <rect x="8" y="2" width="8" height="4" rx="1" />
