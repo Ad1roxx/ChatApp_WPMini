@@ -236,3 +236,135 @@ test('the admin overview counts the whole product, not just messages', async (t)
     assert.equal(res.status, 403);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Streaks
+//
+// Both are derived at read time from hand-ins, so the fixtures are dates
+// rather than counters. The API refuses a deadline in the past - rightly - so
+// the deadline and the hand-in time are written afterwards, the same way the
+// session fixtures above backdate a meeting that has already happened.
+// ---------------------------------------------------------------------------
+
+const DAY = 86400000;
+
+const setWork = async (mentorship, title, as = USERS.mentor) => {
+  const res = await api('/api/assignments', {
+    as,
+    method: 'POST',
+    body: {
+      title,
+      dueAt: new Date(Date.now() + 30 * DAY).toISOString(),
+      mentorshipIds: [mentorship._id]
+    }
+  });
+  assert.equal(res.status, 201);
+  return res.json();
+};
+
+const subFor = async (assignmentId, student) => {
+  const { mine: rows } = await api('/api/assignments', { as: student }).then((r) => r.json());
+  return rows.find((x) => String(x.assignment._id) === String(assignmentId));
+};
+
+/**
+ * One assignment, with its deadline `dueDaysAgo` in the past (negative for
+ * the future) and, when `handedDaysAgo` is given, a hand-in that long ago.
+ */
+async function work(mentorship, student, title, { dueDaysAgo, handedDaysAgo, as = USERS.mentor }) {
+  const a = await setWork(mentorship, title, as);
+  const sub = await subFor(a._id, student);
+
+  if (handedDaysAgo !== undefined) {
+    const res = await api(`/api/submissions/${sub._id}`, {
+      as: student,
+      method: 'PUT',
+      body: { text: 'done', turnIn: true }
+    });
+    assert.equal(res.status, 200);
+
+    await db()
+      .collection('submissions')
+      .updateOne(
+        { _id: new mongoose.Types.ObjectId(sub._id) },
+        { $set: { submittedAt: new Date(Date.now() - handedDaysAgo * DAY) } }
+      );
+  }
+
+  await db()
+    .collection('assignments')
+    .updateOne(
+      { _id: new mongoose.Types.ObjectId(a._id) },
+      { $set: { dueAt: new Date(Date.now() - dueDaysAgo * DAY) } }
+    );
+
+  return a;
+}
+
+test('the on-time streak counts hand-ins that beat their deadline', async (t) => {
+  await work(m1, USERS.student, 'S1', { dueDaysAgo: 31, handedDaysAgo: 32 });
+  await work(m1, USERS.student, 'S2', { dueDaysAgo: 24, handedDaysAgo: 25 });
+  await work(m1, USERS.student, 'S3', { dueDaysAgo: 17, handedDaysAgo: 18 });
+  await work(m1, USERS.student, 'S4, handed in late', { dueDaysAgo: 10, handedDaysAgo: 9 });
+  await work(m1, USERS.student, 'S5', { dueDaysAgo: 3, handedDaysAgo: 4 });
+  await work(m1, USERS.student, 'S6, not due yet', { dueDaysAgo: -5 });
+
+  const a = await mine(USERS.student);
+
+  await t.test('a late hand-in breaks the run', () => {
+    assert.equal(a.streaks.onTime.current, 1);
+  });
+
+  await t.test('the best run is remembered', () => {
+    assert.equal(a.streaks.onTime.best, 3);
+  });
+
+  await t.test('work not yet due neither counts nor breaks it', () => {
+    // Six were set, five handed in; the sixth is not yet either.
+    assert.equal(a.streaks.handedIn, 5);
+  });
+});
+
+test('a deadline that passes with nothing handed in breaks it too', async () => {
+  await work(m1, USERS.student, 'S7, missed', { dueDaysAgo: 1 });
+
+  const a = await mine(USERS.student);
+  assert.equal(a.streaks.onTime.current, 0);
+  assert.equal(a.streaks.onTime.best, 3, 'the best run still happened');
+});
+
+test('the weekly streak counts weeks with a hand-in in them', async (t) => {
+  // m2 was ended by the test above, and work cannot be set for an ended
+  // mentorship - rightly. A fresh one under the admin also keeps this
+  // student's hand-ins to exactly the three below.
+  const m3 = await api('/api/mentorships', {
+    as: USERS.admin,
+    method: 'POST',
+    body: { studentId: USERS.student2._id, topic: 'Streaks' }
+  }).then((r) => r.json());
+
+  // Exactly seven days apart, so these are three consecutive weeks whatever
+  // day the suite runs on.
+  const byAdmin = { as: USERS.admin };
+  await work(m3, USERS.student2, 'W1', { dueDaysAgo: 13, handedDaysAgo: 14, ...byAdmin });
+  await work(m3, USERS.student2, 'W2', { dueDaysAgo: 6, handedDaysAgo: 7, ...byAdmin });
+  await work(m3, USERS.student2, 'W3', { dueDaysAgo: -1, handedDaysAgo: 0, ...byAdmin });
+
+  const a = await mine(USERS.student2);
+
+  await t.test('three weeks running', () => {
+    assert.equal(a.streaks.weeks, 3);
+  });
+
+  await t.test('and all three beat their deadlines', () => {
+    assert.equal(a.streaks.onTime.current, 3);
+  });
+});
+
+test('streaks are about your own hand-ins', async () => {
+  // The mentor set every assignment above and handed in none of them.
+  const a = await mine(USERS.mentor);
+  assert.equal(a.streaks.handedIn, 0);
+  assert.equal(a.streaks.onTime.current, 0);
+  assert.equal(a.streaks.weeks, 0);
+});

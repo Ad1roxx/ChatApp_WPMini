@@ -92,6 +92,7 @@ export default function ProgressPage() {
 
   const totals = data?.totals;
   const rows = data?.mentorships || [];
+  const streaks = data?.streaks;
 
   if (!totals || totals.mentorships.active === 0) {
     return (
@@ -259,6 +260,30 @@ export default function ProgressPage() {
           })}
         </ul>
       </Card>
+
+      {/* Only for someone who has handed something in. A mentor who has never
+          been a student would otherwise get a card of zeroes about work they
+          were never set. */}
+      {streaks?.handedIn > 0 && (
+        <Card title="Streaks" subtitle="Counted from the work you have handed in">
+          <StatGrid min={132}>
+            <Stat
+              value={streaks.onTime.current}
+              label={streaks.onTime.current === 1 ? 'Hand-in on time' : 'Hand-ins on time'}
+              sub={
+                streaks.onTime.best > streaks.onTime.current
+                  ? `in a row · best ${streaks.onTime.best}`
+                  : 'in a row'
+              }
+            />
+            <Stat
+              value={streaks.weeks}
+              label={streaks.weeks === 1 ? 'Week running' : 'Weeks running'}
+              sub="with something handed in"
+            />
+          </StatGrid>
+        </Card>
+      )}
     </AppShell>
   );
 }

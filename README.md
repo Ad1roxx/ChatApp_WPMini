@@ -33,6 +33,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Mentorships | Mentors add students outright; students ask and can request to opt out |
 | Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
 | Assignments | One brief to several students; each drafts, attaches files, hands in and unsubmits on their own; the mentor reviews each, with a full history |
+| Assignment streaks | Hand-ins on time in a row, and weeks running — derived on read, never stored |
 | Sessions | Either party proposes a time, the other confirms; reschedule, cancel, notes |
 | Progress | What the mentorships add up to, sorted so the quiet one is at the top |
 | Unread messages | Per-person and per-group counts, previews, and sidebar totals |
@@ -103,7 +104,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 457 integration tests against a throwaway database |
+| `npm test` | 466 integration tests against a throwaway database |
 
 ---
 

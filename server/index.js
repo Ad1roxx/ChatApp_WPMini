@@ -3846,6 +3846,73 @@ app.get('/api/analytics/me', requireAuth, async (req, res) => {
         return at - bt;
       });
 
+    /**
+     * Two streaks, both about work handed in AS A STUDENT — a mentor who set
+     * the work handed nothing in, and their figures stay at zero.
+     *
+     * `onTime` walks the assignments in deadline order and counts the run of
+     * hand-ins that beat their deadline. A late one, or one whose deadline
+     * passed with nothing handed in, breaks it. Work not yet due is skipped
+     * rather than treated as a break: an assignment due next week is not yet
+     * either a success or a failure, and counting it as one would make the
+     * streak fall every time a mentor set something.
+     *
+     * `weeks` counts consecutive weeks holding at least one hand-in, late or
+     * not — "did you keep showing up" rather than "were you punctual". This
+     * week having nothing in it yet does not break the run; a whole empty
+     * week does.
+     */
+    const submissions = await Submission.find({ student: me })
+      .select('submittedAt assignment')
+      .populate('assignment', 'dueAt');
+
+    const decided = submissions
+      .filter((x) => x.assignment)
+      .map((x) => ({
+        due: new Date(x.assignment.dueAt).getTime(),
+        at: x.submittedAt ? new Date(x.submittedAt).getTime() : null
+      }))
+      // Not handed in and not yet due: no verdict, so it takes no part.
+      .filter((x) => x.at !== null || x.due < now.getTime())
+      .sort((a, b) => a.due - b.due);
+
+    let onTimeCurrent = 0;
+    let onTimeBest = 0;
+    for (const x of decided) {
+      if (x.at !== null && x.at <= x.due) {
+        onTimeCurrent += 1;
+        onTimeBest = Math.max(onTimeBest, onTimeCurrent);
+      } else {
+        onTimeCurrent = 0;
+      }
+    }
+
+    // Weeks run Monday to Sunday in UTC, so the figure does not shift with
+    // the reader's timezone the way a local midnight boundary would.
+    const WEEK = 7 * 86400000;
+    const weekOf = (ms) => {
+      const d = new Date(ms);
+      const sinceMonday = (d.getUTCDay() + 6) % 7;
+      return (
+        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) -
+        sinceMonday * 86400000
+      );
+    };
+
+    const weeksHandedIn = new Set(
+      submissions
+        .filter((x) => x.submittedAt)
+        .map((x) => weekOf(new Date(x.submittedAt).getTime()))
+    );
+
+    const thisWeek = weekOf(now.getTime());
+    let weeks = 0;
+    let cursor = weeksHandedIn.has(thisWeek) ? thisWeek : thisWeek - WEEK;
+    while (weeksHandedIn.has(cursor)) {
+      weeks += 1;
+      cursor -= WEEK;
+    }
+
     const sum = (list, pick) => list.reduce((n, x) => n + pick(x), 0);
 
     res.json({
@@ -3873,6 +3940,13 @@ app.get('/api/analytics/me', requireAuth, async (req, res) => {
           cancelled: sum(rows, (r) => r.sessions.cancelled),
           minutesMet: sum(rows, (r) => r.sessions.minutesMet)
         }
+      },
+      // Derived on read, like everything else here. Nothing about a streak is
+      // stored, so none of it can drift out of step with the hand-ins.
+      streaks: {
+        handedIn: submissions.filter((x) => x.submittedAt).length,
+        onTime: { current: onTimeCurrent, best: onTimeBest },
+        weeks
       },
       mentorships: rows
     });
