@@ -7,15 +7,15 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-10 against commit `8c429ef`, plus the test suite and CI
-added afterwards. Figures counted before the commit that records them.
+Compiled 2026-09-19 against commit `5a3c6d4`. Figures counted before the
+commit that records them.
 
 | | |
 | --- | --- |
-| Commits | 39 |
-| Active | 2025-08-23 → 2026-09-06 |
-| Source | 14,502 lines JS/JSX |
-| Automated tests | 273, all passing, in CI |
+| Commits | 57 |
+| Active | 2025-08-23 → 2026-09-19 |
+| Source | 21,025 lines JS/JSX |
+| Automated tests | 478, all passing, in CI |
 | Deployed | No |
 | CI | GitHub Actions: lint, build, tests |
 
@@ -23,9 +23,11 @@ added afterwards. Figures counted before the commit that records them.
 
 ## 1. Name and positioning
 
-**MentorConnect** — a web application in which students and mentors exchange
-direct messages, chat in groups, and read mentor announcements, with three
-roles whose permissions are enforced on the server.
+**MentorConnect** — a web application in which students and mentors hold
+mentorships with goals, scheduled sessions, shared resources and assignments
+handed in with file attachments, alongside direct messages, group chat and
+mentor announcements, with three roles whose permissions are enforced on the
+server.
 
 Built as a college mini-project. Identity is handled by Firebase
 Authentication (Google Sign-In only); all application data is held in MongoDB
@@ -39,18 +41,18 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **14,502** lines of JavaScript/JSX across **63** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
-| **39** commits, first 2025-08-23, most recent 2026-09-10 | `git rev-list --count HEAD` |
-| ESLint across frontend, backend and tests: **49** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
+| **21,025** lines of JavaScript/JSX across **81** files, excluding lockfiles, `node_modules` and build output | `find . -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \| grep -vE 'node_modules\|dist' \| xargs wc -l` |
+| **57** commits, first 2025-08-23, most recent 2026-09-19 | `git rev-list --count HEAD` |
+| ESLint across frontend, backend and tests: **81** files, **0** errors, **1** documented warning | `npx eslint . --format json` — the warning is `react-hooks/set-state-in-effect`, exempted in `eslint.config.js` with written reasoning |
 
 ### Backend surface
 
 | Fact | Source |
 | --- | --- |
-| **38** REST endpoints, every one behind authentication; **8** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
-| **12** Socket.IO event handlers; **22** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
-| **10** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal, Session, GroupRead — with **31** index declarations, **10** of them compound | `server/models/*.js` · `grep -n "index: true\|unique: true\|\.index(" server/models/*.js` returns 30 lines; `User.firebaseUid` carries both `unique` and `index`, which is one index, hence 29 |
-| `server/index.js` is **2,988** lines; `server/middleware/auth.js` is **306**; the test suite is **2,530** lines across 11 files plus the harness | `wc -l server/index.js server/middleware/auth.js server/test/**` |
+| **57** REST endpoints, every one behind authentication; **9** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
+| **12** Socket.IO event handlers; **27** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
+| **14** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal, Session, GroupRead, Feedback, Resource, Assignment, Submission — with **40** index-declaration lines, of which `User.firebaseUid` carries both `unique` and `index` and is one index, so **39** distinct | `server/models/*.js` · `grep -n "index: true\|unique: true\|\.index(" server/models/*.js` |
+| `server/index.js` is **4,458** lines; `server/middleware/auth.js` is **306**; the test suite is **4,234** lines across 15 files plus the harness | `wc -l server/index.js server/middleware/auth.js server/test/**` |
 
 ### Authentication
 
@@ -64,26 +66,26 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **14** page components and **15** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
-| Production bundle **469.53 kB** JS (**129.79 kB** gzipped) and **51.91 kB** CSS (**8.80 kB** gzipped) | `npm run build` (Vite 5.4 output) |
+| **15** page components and **20** reusable components, styled with CSS Modules over a single design-token file | `ls src/pages/*.jsx \| wc -l` · `ls src/components/*.jsx \| wc -l` · `src/styles/tokens.css` |
+| Production bundle **501.25 kB** JS (**138.75 kB** gzipped) and **63.88 kB** CSS (**10.30 kB** gzipped) — past Vite's 500 kB warning, which is an open item | `npm run build` (Vite 5.4 output) |
 | Responsive at a **900 px** breakpoint: fixed sidebar above it, overlay drawer below | `src/components/AppShell.module.css`, `@media (max-width: 900px)` |
 
 ### Tests
 
 | Fact | Source |
 | --- | --- |
-| **273** integration tests across **11** files, all passing, in about **23 s**, run on every push by GitHub Actions | `cd server && npm test` · `.github/workflows/ci.yml` |
+| **478** integration tests across **15** files, all passing, in about **35 s**, run on every push by GitHub Actions | `cd server && npm test` · `.github/workflows/ci.yml` |
 | Runner is Node's built-in `node:test` — **no test-runner dependency**; the only devDependency added was `socket.io-client`, needed to drive the socket layer | `server/package.json` |
 | Tests spawn the **real server as a child process**, so they exercise config validation, the Mongo connection and the startup presence reset rather than an imported app object | `server/test/helpers/harness.js`, `start()` |
 | They run against a throwaway `chatapp_test` database dropped on teardown, so they cannot touch development data | `server/test/helpers/harness.js`, `TEST_DB` and `stop()` |
-| Coverage by area: authentication and ownership (21), admin role (22), sockets, membership and presence (20), verification, suspension and reports (38), startup (4) | `server/test/*.test.js` |
+| Areas covered, one file each: authentication and ownership, admin, realtime, moderation, mentorship, goals, sessions, analytics (including assignment streaks), conversations, group reads, feedback, resources, assignments, attachments, startup | `server/test/*.test.js` |
 | A Playwright harness screenshots each route at two viewport widths and fails on an unexpected redirect or any console error | `scripts/screenshot.mjs` (108 lines) · `npm run screenshot` |
 
 ### Database
 
 | Fact | Source |
 | --- | --- |
-| Local development database holds **3** user records — one per role — and **0** messages, groups or announcements | `mongodb://127.0.0.1:27017/chatapp`, `countDocuments()` per collection |
+| Local development database holds **3** user records — one per role — 3 messages, 1 group, 1 mentorship, 1 assignment with 1 hand-in and 1 stored file, and 0 goals, sessions, resources, announcements or reports | `mongodb://127.0.0.1:27017/chatapp`, `countDocuments()` per collection |
 
 ---
 
@@ -229,13 +231,13 @@ No Python, notebooks, datasets or ML components exist in this repository.
 
 - **No deployment pipeline.** CI runs the linter, a build and the tests on
   every push, but nothing deploys; there is no environment to deploy to.
-- **No frontend tests.** The 273 tests cover the server. React components are
+- **No frontend tests.** The 478 tests cover the server. React components are
   checked only by the Playwright screenshot harness, which catches render
   failures and console errors but asserts nothing about behaviour — and that
   harness is not in CI, because it needs both servers and a browser.
 - ~~The mentorship, goal, session and analytics endpoints are not yet in the
-  test suite.~~ **Resolved.** Every server feature is now covered: the hand
-  checks became committed tests, and the suite went from 105 to 273.
+  test suite.~~ **Resolved.** Every server feature is covered; the suite has
+  gone from 105 to 478 as features were added.
 - **Never deployed.** No Dockerfile, Procfile, or Vercel, Netlify, Render or Fly
   configuration. It runs on localhost only.
 - **No rate limiting.** A signed-in client can flood messages or announcements
@@ -254,10 +256,19 @@ No Python, notebooks, datasets or ML components exist in this repository.
   so a user who closes the tab immediately stays marked online.
 - **Presence state is in-memory.** The user-to-socket `Map` does not survive a
   restart and does not work across more than one server process.
-- **No shared resources, feedback ratings, achievements, matching or
-  notifications.** Mentorships, goals, sessions and analytics were built;
-  these were scoped alongside them and remain deferred. Nothing about them
-  exists in code.
+- **No mentor matching.** A student finds a mentor by opening their profile
+  from the Messages list; nothing suggests one.
+- **Feedback ratings are built but switched off.** The `Feedback` model, three
+  endpoints and their tests are live; the UI is hidden behind
+  `FEATURES.sessionRatings` in `src/lib/features.js`, so the code cannot rot
+  while dormant.
+- **Achievements were built and then removed.** Badges derived from goals and
+  sessions existed for six commits; they set challenges the platform is not
+  about, and assignment streaks replaced them.
+- **Notifications are in-app only.** A sidebar count of work waiting on you and
+  a transient line under the header when work is set, handed in or answered.
+  Nothing is stored, so a notice that arrives while you are signed out is gone;
+  there is no email and no push.
 
 The repository's own documentation was checked against the code while compiling
 this brief: every claim in `README.md` holds, including the `?limit` / `?before`
@@ -272,14 +283,14 @@ No evidence exists for any of the following. Each is the kind of figure an
 interviewer will ask you to substantiate, and none can be.
 
 - **User counts of any kind** — registered, active, concurrent. The database
-  holds two development accounts, both the author's.
-- **Message or traffic volume.** Zero messages, groups and announcements are
-  currently stored.
+  holds three development accounts, one per role, all the author's.
+- **Message or traffic volume.** The development database holds three messages
+  and one group; nothing that could be called traffic.
 - **Latency, throughput or response-time figures.** Nothing was benchmarked or
   instrumented.
 - **Concurrent connection capacity or load-test results.** Never load tested.
 - **Uptime or availability.** The application has never been hosted.
-- **Test coverage percentage.** 67 tests exist, but no coverage tool has been
+- **Test coverage percentage.** 478 tests exist, but no coverage tool has been
   run, so any percentage would be invented. Cite the test count, not coverage.
 - **Lighthouse, Core Web Vitals or accessibility audit scores.** Accessibility
   work was done — keyboard-operable rows, `useId`-associated labels,
@@ -295,7 +306,7 @@ interviewer will ask you to substantiate, and none can be.
 Drawn only from section 2. Each is defensible if questioned.
 
 > Built a real-time mentorship platform (React, Express, Socket.IO, MongoDB)
-> with 38 authenticated REST endpoints and 11 Socket.IO handlers across three
+> with 57 authenticated REST endpoints and 12 Socket.IO handlers across three
 > broadcast topologies: unicast for direct messages, rooms for groups, global
 > emit for announcements.
 
@@ -317,7 +328,13 @@ Drawn only from section 2. Each is defensible if questioned.
 > a test asserting that a forged sender id is attributed to the authenticated
 > user instead.
 
-> Built a 67-test integration suite on Node's built-in test runner with no
+> Built a 478-test integration suite on Node's built-in test runner with no
 > runner dependency, spawning the real server against a throwaway database so
 > tests cannot touch development data, covering authentication, ownership,
-> role gates, socket identity, group membership and multi-tab presence.
+> role gates, socket identity, group membership, multi-tab presence, and the
+> mentorship, goal, session, assignment and file-attachment rules.
+
+> Designed a Classroom-style assignment model: one brief shared across several
+> students, each with an independent hand-in, draft and unsubmit states, an
+> append-only history of every move, and file attachments stored in MongoDB
+> GridFS and served only to the student and the mentor who set the work.
