@@ -104,7 +104,7 @@ From `server/`:
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 478 integration tests against a throwaway database |
+| `npm test` | 490 integration tests against a throwaway database |
 
 ---
 
@@ -179,6 +179,7 @@ server/
     resources.test.js        the URL allow-list, and who may remove
     assignments.test.js      recipients, privacy, drafts, unsubmit, the history
     attachments.test.js      who uploads and downloads, limits, clean-up
+    copilot.test.js          who may ask about a mentorship, and who is refused
     startup.test.js          stale-presence reset on boot
   models/
     User.js                  identity, presence, role, profile fields
@@ -273,6 +274,7 @@ docs/
 | PATCH | `/api/assignments/:id` | **Mentor only** — edit the brief, move the deadline, add students |
 | DELETE | `/api/assignments/:id` | **Mentor only** — withdraw, unless any work is accepted |
 | GET | `/api/mentorships/:id/assignments` | One student's hand-ins, in one mentorship |
+| POST | `/api/mentorships/:id/copilot/search` | Both parties — ask about this mentorship's own material; 503 when the retrieval service is not configured |
 | PUT | `/api/submissions/:id` | **Student only** — save a draft, or hand it in |
 | POST | `/api/submissions/:id/unsubmit` | **Student only** — take a hand-in back to edit it |
 | PATCH | `/api/submissions/:id` | **The mentor who set it** — accept, or ask for changes |

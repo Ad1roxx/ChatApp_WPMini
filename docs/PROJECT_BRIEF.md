@@ -7,15 +7,15 @@ traceable is quarantined in section 6 and must not be used in an application.
 Several numbers change as the code changes — re-run the cited commands before
 reusing them.
 
-Compiled 2026-09-19 against commit `5a3c6d4`. Figures counted before the
+Compiled 2026-09-19 against commit `b40272b`. Figures counted before the
 commit that records them.
 
 | | |
 | --- | --- |
-| Commits | 57 |
+| Commits | 59 |
 | Active | 2025-08-23 → 2026-09-19 |
 | Source | 21,025 lines JS/JSX |
-| Automated tests | 478, all passing, in CI |
+| Automated tests | 490, all passing, in CI |
 | Deployed | No |
 | CI | GitHub Actions: lint, build, tests |
 
@@ -49,10 +49,20 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **57** REST endpoints, every one behind authentication; **9** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
+| **58** REST endpoints, every one behind authentication; **9** additionally gated to the admin role | `grep -nE "^app\.(get\|post\|put\|patch\|delete)\(" server/index.js` |
 | **12** Socket.IO event handlers; **27** distinct server-to-client events | `grep -oE "socket\.on\('[a-z-]+'" server/index.js` and the emit call sites in the same file |
 | **14** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal, Session, GroupRead, Feedback, Resource, Assignment, Submission — with **40** index-declaration lines, of which `User.firebaseUid` carries both `unique` and `index` and is one index, so **39** distinct | `server/models/*.js` · `grep -n "index: true\|unique: true\|\.index(" server/models/*.js` |
 | `server/index.js` is **4,458** lines; `server/middleware/auth.js` is **306**; the test suite is **4,234** lines across 15 files plus the harness | `wc -l server/index.js server/middleware/auth.js server/test/**` |
+
+### Retrieval service
+
+| Fact | Source |
+| --- | --- |
+| **736** lines of Python across **7** files — ingestion, chunking, embeddings, filtered vector search and a FastAPI endpoint | `ai/*.py` |
+| Embeddings are **384**-dimensional, from `all-MiniLM-L6-v2` running locally on CPU: no API key, no per-token cost, works offline | `ai/config.py`, `ai/store.py` |
+| The mentorship filter is passed **inside** `$vectorSearch`, not applied to its results, so the index cannot spend its candidate budget on chunks the caller may not see | `ai/store.py`, `search()` |
+| Cross-mentorship isolation is checked against a corpus where both mentorships cover the same topics in similar words | `ai/check_retrieval.py` |
+| `$vectorSearch` needs Atlas; local MongoDB 8.0.8 Community has no such operator, so development runs the `mongodb/mongodb-atlas-local` container | `docker run -d -p 27018:27017 mongodb/mongodb-atlas-local` |
 
 ### Authentication
 
@@ -74,11 +84,11 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **478** integration tests across **15** files, all passing, in about **35 s**, run on every push by GitHub Actions | `cd server && npm test` · `.github/workflows/ci.yml` |
+| **490** integration tests across **16** files, all passing, in about **35 s**, run on every push by GitHub Actions | `cd server && npm test` · `.github/workflows/ci.yml` |
 | Runner is Node's built-in `node:test` — **no test-runner dependency**; the only devDependency added was `socket.io-client`, needed to drive the socket layer | `server/package.json` |
 | Tests spawn the **real server as a child process**, so they exercise config validation, the Mongo connection and the startup presence reset rather than an imported app object | `server/test/helpers/harness.js`, `start()` |
 | They run against a throwaway `chatapp_test` database dropped on teardown, so they cannot touch development data | `server/test/helpers/harness.js`, `TEST_DB` and `stop()` |
-| Areas covered, one file each: authentication and ownership, admin, realtime, moderation, mentorship, goals, sessions, analytics (including assignment streaks), conversations, group reads, feedback, resources, assignments, attachments, startup | `server/test/*.test.js` |
+| Areas covered, one file each: authentication and ownership, admin, realtime, moderation, mentorship, goals, sessions, analytics (including assignment streaks), conversations, group reads, feedback, resources, assignments, attachments, the Copilot trust boundary, startup | `server/test/*.test.js` |
 | A Playwright harness screenshots each route at two viewport widths and fails on an unexpected redirect or any console error | `scripts/screenshot.mjs` (108 lines) · `npm run screenshot` |
 
 ### Database
@@ -220,10 +230,16 @@ firebase 10.12 (Auth only), CSS Modules
 **Backend** — Node.js, Express 5.1, Socket.IO 4.8, Mongoose 8.19, jsonwebtoken
 9.0, cors 2.8, dotenv 17.2
 
+**Retrieval service** — Python 3.11, FastAPI, uvicorn, pymongo,
+sentence-transformers 6.1 (`all-MiniLM-L6-v2`), MongoDB Atlas Vector Search via
+the `mongodb-atlas-local` container
+
 **Data and tooling** — MongoDB, ESLint 9.39 (flat config),
 eslint-plugin-react-hooks 7.1, eslint-plugin-react-refresh 0.5, Playwright 1.62
 
-No Python, notebooks, datasets or ML components exist in this repository.
+**No model is trained here.** The embedding model is pre-trained and used as
+is; the engineering is in what gets indexed, how it is filtered, and how that
+is measured. There are no notebooks and no datasets in this repository.
 
 ---
 
@@ -256,6 +272,15 @@ No Python, notebooks, datasets or ML components exist in this repository.
   so a user who closes the tab immediately stays marked online.
 - **Presence state is in-memory.** The user-to-socket `Map` does not survive a
   restart and does not work across more than one server process.
+- **The Copilot has no interface yet.** The route and the retrieval service
+  work end to end, but nothing in React calls them; it is exercised by tests
+  and by a scripted request.
+- **The Copilot does not write prose.** It returns ranked chunks with scores
+  and their sources. Generation is a prompt away and was deliberately left
+  until retrieval can be measured.
+- **The Python service is not in CI.** It needs Docker, a container image and a
+  model download; the Node suite proves the access rules without any of them,
+  and that is what runs on every push.
 - **No mentor matching.** A student finds a mentor by opening their profile
   from the Messages list; nothing suggests one.
 - **Feedback ratings are built but switched off.** The `Feedback` model, three
@@ -333,6 +358,12 @@ Drawn only from section 2. Each is defensible if questioned.
 > tests cannot touch development data, covering authentication, ownership,
 > role gates, socket identity, group membership, multi-tab presence, and the
 > mentorship, goal, session, assignment and file-attachment rules.
+
+> Built a mentorship-scoped retrieval service (FastAPI, sentence-transformers,
+> MongoDB Atlas Vector Search) in which the permission filter runs inside the
+> vector query rather than over its results, with tests proving that a user
+> outside a mentorship retrieves nothing from it and that the access check
+> happens in Express, before the service is reachable.
 
 > Designed a Classroom-style assignment model: one brief shared across several
 > students, each with an independent hand-in, draft and unsubmit states, an

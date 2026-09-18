@@ -3327,6 +3327,71 @@ commits.
 
 ---
 
+### Entry 40 — The trust boundary in front of retrieval
+
+Entry 39 ended with the retrieval service proven and deliberately unreachable:
+nothing in the application called it. This is the route that does, and the
+reason it exists is that **the service cannot check who is asking.**
+
+`POST /api/mentorships/:id/copilot/search`. Fifty-eight endpoints now.
+
+**Why the check cannot live in the retrieval service.** It never sees a
+Firebase token and could not verify one if it did — that machinery is in
+`middleware/auth.js`, in Node, and duplicating it in Python would mean two
+implementations of the same security check drifting apart. So the service
+trusts the mentorship id it is handed, and the chain is:
+
+```
+token → requireAuth → resolveMentorshipAccess → retrieval
+```
+
+The same `resolveMentorshipAccess` the goals, sessions and resources routes
+use. Reusing it matters more than it looks: a new permission helper written
+for one route is a second definition of "is this your mentorship", and the two
+would answer differently the first time either changed.
+
+**The viewer id comes from the verified identity, never from the body.** A
+caller cannot ask what somebody else would be allowed to see; the field is
+filled in from `req.authUser._id` after the token has been checked.
+
+**Two locks behind that, neither of which is the access check.** The service
+binds to `127.0.0.1`, so nothing off the machine can open a socket to it, and
+every route requires a shared secret Express holds. Those stop *other things on
+the same machine* from skipping Express. They do not decide who may read what —
+that decision is made before the service is called at all.
+
+**Unconfigured answers 503, and that is a feature.** With `AI_SERVICE_URL`
+unset the route says the Copilot is not configured. A clone with no Python, no
+Docker and no model download still runs, and its tests still pass — which is
+why CI stays a Node-only job rather than growing a 1.2 GB virtualenv and a
+container to lint a JavaScript repository.
+
+**Twelve tests, and the interesting ones are the refusals.** Another mentor's
+student, another student's mentor, and the mirror case of the same person
+asking about a mentorship that is not theirs — all 403, from the same helper.
+An unknown mentorship is 404 rather than 403, because "not yours" and "not a
+thing" are different answers and neither says anything about anyone else's
+data. Signed out is 401 before any of it. The empty and over-long question are
+refused here rather than at the service, so a bad request never crosses the
+boundary.
+
+None of those twelve need Python running. That is deliberate: everything they
+assert happens *before* the service would be called, so the security of the
+boundary is proven by the suite that runs on every push, not by a demo.
+
+**End to end, with the service up:** the student asks *"how do compound indexes
+work?"* and gets his mentor's compound-index note at 0.805, the indexing
+exercise at 0.704, the book she shared at 0.668, and the goal that ties them
+together at 0.595. The other mentorship's student, asking the same question
+against the same mentorship id, gets 403 — and the signed-out request gets 401.
+
+**One small thing worth keeping.** The upstream call has a fifteen-second
+abort. A slow model must not hold an Express connection open indefinitely, and
+a timeout and a service that is not running look the same to the person asking:
+the question was not answered, and it was not their fault. Both become 502.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

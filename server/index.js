@@ -3752,6 +3752,102 @@ app.delete('/api/submissions/:id/files/:fileId', requireAuth, async (req, res) =
 });
 
 // ============================================
+// MENTORSHIP COPILOT - RETRIEVAL
+// ============================================
+
+/**
+ * Where the retrieval service lives, and the secret it expects.
+ *
+ * Unset by default: with no URL configured the route answers 503 rather than
+ * failing obscurely, so a clone without the Python service still runs and
+ * still passes its tests.
+ */
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || '';
+const AI_SERVICE_SECRET = process.env.AI_SERVICE_SECRET || '';
+
+/**
+ * POST /api/mentorships/:id/copilot/search
+ *
+ * Ask a question about ONE mentorship's own material. Both parties may ask;
+ * nobody else may, which is the entire point of this route existing.
+ *
+ * ## Why Express is in the middle
+ *
+ * The retrieval service trusts the `mentorshipId` and `viewerId` it is given.
+ * It has to - it never sees a Firebase token and could not verify one. So the
+ * membership check happens HERE, against the database, before the service is
+ * called at all:
+ *
+ *   token -> requireAuth -> resolveMentorshipAccess -> retrieval
+ *
+ * The service is bound to localhost and requires a shared secret on top of
+ * that. Neither of those is the access check; they are what stops anything
+ * else on the machine from skipping it.
+ *
+ * The viewer id is taken from `req.authUser`, never from the body. A caller
+ * cannot ask "what would somebody else be allowed to see".
+ */
+app.post('/api/mentorships/:id/copilot/search', requireAuth, async (req, res) => {
+  try {
+    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
+    if (access.error) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    const query = String(req.body?.query || '').trim();
+    if (!query) {
+      return res.status(400).json({ error: 'Ask a question' });
+    }
+    if (query.length > 1000) {
+      return res.status(400).json({ error: 'That question is too long' });
+    }
+
+    if (!AI_SERVICE_URL || !AI_SERVICE_SECRET) {
+      return res.status(503).json({ error: 'The Copilot is not configured on this server' });
+    }
+
+    // A slow model must not hold an Express connection open indefinitely.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+
+    let answer;
+    try {
+      const upstream = await fetch(`${AI_SERVICE_URL}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AI-Secret': AI_SERVICE_SECRET
+        },
+        body: JSON.stringify({
+          mentorshipId: String(req.params.id),
+          // From the verified identity, never from the request body.
+          viewerId: String(req.authUser._id),
+          query,
+          k: Math.min(Math.max(Number(req.body?.k) || 5, 1), 10)
+        }),
+        signal: controller.signal
+      });
+
+      if (!upstream.ok) {
+        console.error('Retrieval service answered', upstream.status);
+        return res.status(502).json({ error: 'The Copilot could not answer that' });
+      }
+
+      answer = await upstream.json();
+    } finally {
+      clearTimeout(timer);
+    }
+
+    res.json(answer);
+  } catch (err) {
+    // An aborted fetch and a service that is not running look the same to a
+    // caller: the question was not answered, and it is not their fault.
+    console.error('Error asking the Copilot:', err.name === 'AbortError' ? 'timed out' : err);
+    res.status(502).json({ error: 'The Copilot could not answer that' });
+  }
+});
+
+// ============================================
 // ANALYTICS
 // ============================================
 
