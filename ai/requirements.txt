@@ -1,0 +1,8 @@
+# The AI service. Kept deliberately small: a web framework, a driver, and the
+# embedding model. No LangChain or LlamaIndex — the whole point of this service
+# is that the retrieval logic is visible and testable rather than configured.
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32,<1
+pymongo>=4.9,<5
+sentence-transformers>=3
+python-dotenv>=1,<2

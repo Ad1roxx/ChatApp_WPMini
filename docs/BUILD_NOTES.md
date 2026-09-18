@@ -3232,6 +3232,101 @@ reason is worth no more than the claim it was meant to support.
 
 ---
 
+### Entry 39 — Retrieval, and three things proven before any of it was written
+
+**The ask.** A proposal to add RAG to the project — a "Mentorship Copilot" that
+answers questions from the material inside one mentorship — plus a review of
+that proposal, and the question *"how do we go about implementing this?"*
+
+The review asked one thing that decided the order of everything: *have
+resources and assignments actually been built?* They have, since Entries 30–38.
+The brief said otherwise because it was compiled on 10 September, which is why
+Entry 39 begins with a documentation fix rather than with code.
+
+**Files added:** `ai/` — `config.py`, `sources.py`, `chunking.py`, `store.py`,
+`ingest.py`, `check_retrieval.py`, `app.py`, `requirements.txt`, `.env.example`,
+`README.md` — and `scripts/seed-rag-corpus.js`.
+
+---
+
+**Nothing was built until three unknowns were settled.** Each could have
+changed the design, and two of them did.
+
+1. **Does `$vectorSearch` exist here?** The development MongoDB is 8.0.8
+   Community with no modules, so: no. The `mongodb/mongodb-atlas-local` image
+   bundles the search node, runs offline, needs no account and no card, and
+   speaks the same query syntax as Atlas. A smoke test — three documents, two
+   mentorships, one filtered query — proved it before a line of the service
+   existed.
+2. **Can embeddings run locally?** `all-MiniLM-L6-v2` loads on CPU and returns
+   384 dimensions. Ingestion therefore costs nothing and works offline, which
+   matters more than the quality difference at this corpus size.
+3. **What text is actually there to retrieve?** This one falsified part of the
+   plan. The proposal assumed shared resources were documents to chunk. They
+   are **links** — a title, a URL, and a 500-character note. So "RAG over
+   resources" would have retrieved a sentence each. The substantial
+   first-party text is assignment briefs, hand-in text and mentor review notes.
+   Fetching the linked pages would fix that and open an SSRF hole in a server
+   that currently makes no outbound requests at all; it was refused.
+
+**What is indexed, then.** Assignment briefs, hand-in text, mentor reviews,
+goals with their milestones, and resource titles with their notes. All of it
+written by someone in the mentorship.
+
+**The rule the whole thing rests on: filter inside the search, not after it.**
+
+```python
+"filter": {
+    "mentorshipId": {"$eq": mentorship_id},
+    "viewers": {"$in": [viewer_id]},
+}
+```
+
+Filtering the results afterwards would let the index spend its candidate budget
+on documents the caller may not see. A query could then come back empty
+*because* the nearest neighbours belonged to someone else — and the obvious fix
+would look like "raise numCandidates" rather than "this is wrong". The corpus
+is built to catch that: both mentorships cover indexing and caching in similar
+words, so a leak is likely rather than hypothetical.
+
+**An honest note about `viewers`.** A mentorship has exactly one student, so a
+hand-in's viewers are the same two people as the mentorship — meaning
+`mentorshipId` alone already isolates it today. The field is kept because it
+states the rule in the data and costs nothing, and it starts doing real work
+the moment a mentor searches across all their students. It is not claimed to be
+doing more than that now.
+
+**Two findings from actually running it, both about tests rather than code.**
+
+The first run reported: *"no chunk from the other mentorship appears — ok"* and
+*"a student outside this mentorship retrieves nothing — ok"*, while the two
+relevance checks failed with nothing returned at all. Both isolation checks had
+passed **because nothing was returned to anybody**. An assertion that cannot
+fail for the right reason is worth nothing, which is the same lesson the empty
+PDF frame taught in Entry 38, two days earlier and in a different language.
+
+The cause was the second finding: **Atlas indexes asynchronously.**
+`insert_many` returns once Mongo has the documents; the search node sees them a
+moment later. Queries issued in that window read an index that has not caught
+up, and an empty result is indistinguishable from "nothing matched". Ingestion
+now ends with `wait_until_searchable`, which polls until the index returns as
+many chunks as were written, and the isolation assertions now require results
+to exist before concluding that nothing leaked.
+
+After that, on 15 sources and 15 chunks: *"how do compound indexes work?"*
+returns the mentor's compound-index note at 0.805, then the indexing exercise,
+then the book she shared — and the same query run as the other mentorship's
+student returns nothing.
+
+**What is deliberately not here yet.** No LLM. Retrieval with citations is the
+part worth engineering and the part an evaluation can measure; generation is a
+prompt away and adds nothing to prove until the retrieval is good. The Express
+trust boundary — membership checked before this service is called, a shared
+secret, localhost-only binding — and a labelled evaluation set are the next two
+commits.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

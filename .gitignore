@@ -65,6 +65,15 @@ coverage/
 *.lcov
 
 # ========================
+# Python (the AI service)
+# ========================
+.venv/
+ai/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ========================
 # Firebase / Hosting
 # ========================
 .firebase/

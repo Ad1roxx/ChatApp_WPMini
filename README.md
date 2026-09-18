@@ -196,6 +196,19 @@ server/
     Assignment.js            one brief and a deadline, sent to several students
     Submission.js            one student's hand-in, its files, status and history
 
+ai/                          the retrieval service (Python) — see ai/README.md
+  config.py                  settings, all overridable by environment
+  sources.py                 application data → documents worth indexing
+  chunking.py                two strategies, so the evaluation can compare them
+  store.py                   embeddings, the vector index, the filtered search
+  ingest.py                  CLI: build or rebuild the index
+  check_retrieval.py         end-to-end checks, including cross-mentorship isolation
+  app.py                     FastAPI: /search, behind a shared secret
+
+scripts/
+  screenshot.mjs             Playwright shots of every route
+  seed-rag-corpus.js         a corpus to retrieve from and evaluate against
+
 .github/workflows/
   ci.yml                     lint, build and the test suite on every push
 
