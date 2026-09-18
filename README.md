@@ -32,7 +32,7 @@ Firebase `uid` — is the identity every other feature keys off.**
 | Reports | Anyone can report a user or content; admins resolve or dismiss |
 | Mentorships | Mentors add students outright; students ask and can request to opt out |
 | Goals & milestones | Mentors set goals; either party ticks milestones; progress is derived |
-| Assignments | One brief to several students; each drafts, attaches files, hands in and unsubmits on their own; the mentor reviews each, with a full history |
+| Assignments | One brief to several students; each drafts, attaches files (previewable in place), hands in and unsubmits on their own; the mentor reviews each, with a full history |
 | Assignment streaks | Hand-ins on time in a row, and weeks running — derived on read, never stored |
 | Sessions | Either party proposes a time, the other confirms; reschedule, cancel, notes |
 | Progress | What the mentorships add up to, sorted so the quiet one is at the top |
@@ -133,6 +133,7 @@ src/
     Resources.jsx            the shared-links section of a mentorship
     Assignments.jsx          one student's slice, on the mentorship page
     SubmissionRow.jsx        one hand-in: draft, files, hand in, unsubmit, review, history
+    FilePreview.jsx          images, text and PDFs, from the copy already fetched
     Sessions.jsx             the scheduling section of a mentorship
   pages/
     LoginPage.jsx            Google sign-in

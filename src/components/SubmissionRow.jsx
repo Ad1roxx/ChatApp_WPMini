@@ -23,9 +23,10 @@ import Badge from './Badge';
 import Button from './Button';
 import { Field, Input, Textarea } from './Field';
 import { useToast } from './Toast';
-import { CloseIcon, PaperclipIcon } from './Icons';
+import { CloseIcon, DownloadIcon, PaperclipIcon } from './Icons';
 import useNow, { relative } from '../lib/useNow';
-import { ACCEPT, MAX_FILE_BYTES, MAX_FILES, formatBytes } from '../lib/attachments';
+import FilePreview from './FilePreview';
+import { ACCEPT, MAX_FILE_BYTES, MAX_FILES, formatBytes, previewKind } from '../lib/attachments';
 import styles from './SubmissionRow.module.css';
 
 /** What each logged event is called, in the history. */
@@ -74,10 +75,15 @@ const fmtStamp = (d) =>
   `${d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 
 /**
- * The files on a hand-in. Each name downloads it; `onRemove` adds a remove
- * button, which only the student gets and only while the work is editable.
+ * The files on a hand-in.
+ *
+ * The name opens what can be opened — an image, a PDF, anything textual — and
+ * downloads the rest, so a click never does nothing and never surprises.
+ * Download is its own button beside it, because a file you can preview is
+ * still a file you may want to keep. `onRemove` adds the third, which only
+ * the student gets and only while the work can still change.
  */
-function FileList({ files, onDownload, onRemove, busy }) {
+function FileList({ files, onOpen, onDownload, onRemove, busy }) {
   return (
     <ul className={styles.files}>
       {files.map((f) => (
@@ -86,12 +92,20 @@ function FileList({ files, onDownload, onRemove, busy }) {
           <button
             type="button"
             className={styles.fileName}
-            onClick={() => onDownload(f)}
-            title={`Download ${f.name}`}
+            onClick={() => onOpen(f)}
+            title={previewKind(f.name) ? `Open ${f.name}` : `Download ${f.name}`}
           >
             {f.name}
           </button>
           <span className={styles.fileSize}>{formatBytes(f.size)}</span>
+          <button
+            type="button"
+            className={styles.fileAction}
+            onClick={() => onDownload(f)}
+            aria-label={`Download ${f.name}`}
+          >
+            <DownloadIcon size={14} />
+          </button>
           {onRemove && (
             <button
               type="button"
@@ -130,6 +144,7 @@ export default function SubmissionRow({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [previewing, setPreviewing] = useState(null);
 
   const sub = submission;
   const assignment = typeof sub.assignment === 'object' ? sub.assignment : null;
@@ -244,6 +259,9 @@ export default function SubmissionRow({
       keepOpen: true
     });
 
+  // What the name does: show it if a browser can, save it if not.
+  const openFile = (f) => (previewKind(f.name) ? setPreviewing(f) : download(f));
+
   /**
    * Download through authFetch rather than a plain link. The file route needs
    * the sign-in token, which an <a href> cannot send — and putting the token
@@ -352,7 +370,9 @@ export default function SubmissionRow({
             </a>
           )}
 
-          {files.length > 0 && <FileList files={files} onDownload={download} />}
+          {files.length > 0 && (
+            <FileList files={files} onOpen={openFile} onDownload={download} />
+          )}
 
           {/* Said plainly, because the student should never be surprised
               that a draft was visible. */}
@@ -400,6 +420,7 @@ export default function SubmissionRow({
             {files.length > 0 && (
               <FileList
                 files={files}
+                onOpen={openFile}
                 onDownload={download}
                 onRemove={detach}
                 busy={busy || uploading}
@@ -592,6 +613,13 @@ export default function SubmissionRow({
           })}
         </ol>
       )}
+
+      {/* One dialog per row, holding whichever file was opened from it. */}
+      <FilePreview
+        file={previewing}
+        path={previewing ? `${base}/files/${previewing.fileId}` : ''}
+        onClose={() => setPreviewing(null)}
+      />
     </li>
   );
 }

@@ -1,0 +1,115 @@
+/* Wider than ConfirmDialog, which is sized for a sentence and two buttons.
+   This has to hold a page of a PDF or a screenshot at a readable size, and
+   still fit a phone. */
+.dialog {
+  width: min(900px, calc(100vw - var(--space-6)));
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+}
+
+.dialog::backdrop {
+  background-color: rgba(28, 26, 23, 0.4);
+}
+
+.dialog[open] {
+  animation: pop 140ms ease-out;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open] {
+    animation: none;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The name can be 200 characters; it takes one line and clips rather than
+   pushing the size off the end. */
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.size {
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The preview scrolls, the dialog does not: the buttons stay where they were
+   when it opened, however tall the file turns out to be. */
+.body {
+  margin-top: var(--space-4);
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.image {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.frame {
+  display: block;
+  width: 100%;
+  height: min(70vh, 640px);
+  border: 0;
+}
+
+/* Source code keeps its indentation but still wraps, so a long line is read
+   rather than scrolled sideways after. */
+.text {
+  margin: 0;
+  padding: var(--space-4);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.clipped,
+.error {
+  margin: 0;
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}

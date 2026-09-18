@@ -275,12 +275,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+.fileAction,
 .fileRemove {
   flex-shrink: 0;
   display: inline-flex;
   padding: 2px;
   border-radius: var(--radius-sm);
   color: var(--color-text-subtle);
+}
+
+.fileAction:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 .fileRemove:hover:not(:disabled) {

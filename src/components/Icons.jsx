@@ -127,6 +127,14 @@ export const PaperclipIcon = (p) => (
   </Icon>
 );
 
+export const DownloadIcon = (p) => (
+  <Icon {...p}>
+    <path d="M12 3v12" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M20 21H4" />
+  </Icon>
+);
+
 export const ClipboardIcon = (p) => (
   <Icon {...p}>
     <rect x="8" y="2" width="8" height="4" rx="1" />

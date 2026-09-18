@@ -3154,6 +3154,84 @@ streaks, 7 for the badge counts and 5 for the notice.
 
 ---
 
+### Entry 38 — Previewing a hand-in's files
+
+**The ask.** *"Do we not have a file preview system like Classroom does? What
+would it take to implement that?"* — and then, once it was three kinds rather
+than all of them: build those three.
+
+**Files added:** `src/components/FilePreview.jsx` + module.
+**Files changed:** `SubmissionRow.jsx` + module, `src/lib/attachments.js`,
+`Icons.jsx`.
+
+**Three kinds, and that is a fact about browsers rather than a decision.** An
+image, anything textual (source code included), and a PDF. Word, Excel,
+PowerPoint and the OpenDocument equivalents cannot be rendered without
+converting them first, which needs a service — Classroom previews them because
+Drive does that conversion on Google's servers. Those stay download-only, and
+the row never offers a preview it cannot give: the name **downloads** them
+instead, so a click never does nothing and never surprises.
+
+**Nothing about how files are served changed, and that is the point.** The
+server still sends every file with `Content-Disposition: attachment`, a
+Content-Type it chose from the extension, `nosniff`, and a CSP sandbox. The
+preview renders the copy the browser already holds in memory — the same copy
+the download path fetches with the sign-in token, for the same reason an `<a
+href>` was never pointed at the route. So "does previewing weaken the upload
+hardening" has a short answer: there is no inline-serving path to weaken. An
+uploaded `page.html` is still text, still downloaded, and still cannot run on
+this origin.
+
+**One fetch per open.** The blob is kept while the dialog is up, so *Download*
+inside the preview saves the copy already in memory rather than asking the
+server a second time. The object URL is revoked when the dialog closes.
+
+**Text is clipped at 256 KB.** Past that it is not reading, it is scrolling —
+and 10 MB of source laid out as one very long line of DOM is a frozen tab. The
+dialog says it is showing the first 256 KB and points at the download.
+
+**Built on `<dialog>`, like ConfirmDialog**, for the three things hand-rolled
+modals usually get wrong: focus is trapped inside, Escape closes it, and the
+page behind is inert. `::backdrop` is the scrim.
+
+**A React rule shaped the loading state.** The obvious version sets
+`status: 'loading'` at the top of the effect, which is exactly what
+`react-hooks/set-state-in-effect` refuses. So the state records *which file* it
+was fetched for, and the render treats a mismatch as loading. It is the same
+move as the `version` counter in the assignment lists, one size smaller: say
+what is true and derive the rest, rather than writing state on the way in.
+
+**The row grew a second button.** The name opens; download is its own icon
+beside it. A file you can preview is still a file you may want to keep, and
+making preview the only thing a click does would have cost every mentor an
+extra step to save anything.
+
+**No server code changed**, so there are no new tests: the suite is 478 either
+way. It was checked in a browser instead — a generated PNG renders, the `.py`
+shows its text, `project.zip` downloads rather than opening, and *Download*
+inside a preview saves the copy already fetched. The standing open item about
+the frontend having no automated tests is the reason that sentence is a list of
+screenshots rather than a test file.
+
+**The PDF needed a second look, and that is the useful part.** The scripted
+check asserted the dialog contained an `<iframe>`, and it did — but the
+screenshot showed the frame **empty**. An assertion about the DOM had passed
+while the thing it stood for had not happened, which is the failure mode every
+screenshot in this log exists to catch.
+
+Two explanations fitted: headless Chromium ships without the PDF viewer, or the
+PDF generated for the fixture was malformed — it had no cross-reference table.
+Separating them took one throwaway script: a properly structured PDF, opened in
+a **headed** browser, first as a file and then exactly the way the app does it,
+as a blob URL inside an iframe. Both rendered. So the app's path is sound and
+the empty frame was the harness, not the feature.
+
+The lesson for the harness: a headless screenshot can prove an image or text
+preview, and cannot prove a PDF one. A check that cannot fail for the right
+reason is worth no more than the claim it was meant to support.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
