@@ -3392,6 +3392,87 @@ the question was not answered, and it was not their fault. Both become 502.
 
 ---
 
+### Entry 41 — Measuring the retrieval, and what the measurement refused to show
+
+Entry 40 left retrieval working and unmeasured. This is the number, and the
+two findings that matter are both negative.
+
+**The set.** 45 questions in `ai/eval/questions.jsonl`, each labelled with the
+source that should answer it: 31 answerable from this mentorship's material,
+14 not. Five of those 14 are answerable **only inside the other mentorship** —
+*"what did Karan say about low-cardinality fields?"*, *"what was Zara's index
+that made no difference?"* — so they are security probes wearing an
+evaluation's clothes. The answer exists in the corpus; the right behaviour is
+silence.
+
+**Six configurations, on the same corpus:**
+
+| Configuration | chunks | recall@1 | @3 | @5 | MRR |
+| --- | --- | --- | --- | --- | --- |
+| fixed 800 (baseline) | 15 | 0.68 | 1.00 | 1.00 | 0.828 |
+| fixed 800 + reranker | 15 | 0.77 | 0.90 | 0.90 | 0.839 |
+| fixed 400 | 18 | 0.71 | 0.97 | 1.00 | 0.841 |
+| **fixed 400 + reranker** | 18 | **0.81** | 0.90 | 0.90 | **0.855** |
+| heading 800 | 15 | 0.68 | 1.00 | 1.00 | 0.828 |
+| heading 800 + reranker | 15 | 0.77 | 0.90 | 0.90 | 0.839 |
+
+**Finding 1: the heading-aware chunker is not "no better", it is not
+applicable.** It scored *identically* to the fixed splitter — same recall, same
+MRR, same chunk count — because the corpus has no headings in it. Assignment
+briefs are plain paragraphs, so every section fell through to the fixed path
+and produced the same splits. A tie between two strategies is a result; a tie
+because one of them never ran is a mislabelled result, and writing "heading
+chunking made no difference" would have been a lie of exactly the kind this log
+exists to prevent.
+
+**Finding 2: the reranker buys recall@1 with recall@3.** Halving the chunks and
+adding a cross-encoder moves the first-hit rate from 0.68 to 0.81, and moves
+recall@3 from 1.00 down to 0.90. It demotes one chunk consistently: the goal,
+which is a list of milestone bullets, for vague questions like *"what should I
+focus on next?"*. A cross-encoder trained on passage relevance does not think a
+bullet list answers a vague question; for that question it is the only thing
+that does.
+
+Which configuration is better therefore depends on what reads the output. A
+panel showing four citations wants recall@3. A generation step reading the top
+chunk wants recall@1. That is a product decision wearing a metric's clothes,
+and it is worth stating rather than picking the bigger number.
+
+**Finding 3, the one that changes the plan: no threshold separates answerable
+from unanswerable.** In every configuration the most confident unanswerable
+question outranks the least confident answerable one. The same question wins
+every time:
+
+```
+0.815  leak-04: What does the caching exercise say about stale reads?
+       -> Add caching to the reading list endpoint
+```
+
+The caching brief is genuinely the nearest text — the question is phrased in
+the corpus's own vocabulary — and it does not mention stale reads at all. The
+cross-encoder agrees with it (+2.56, its highest unanswerable score), so this
+is not a weakness of cosine similarity. **Similarity is not answerability.**
+
+The consequence is concrete: *"I do not have enough information"* cannot be
+implemented as a score threshold, which is what a naive RAG tutorial does. It
+has to come from reading the retrieved text and asking whether the answer is in
+it — a grounding check at generation time, or an answerability classifier. That
+is now a measured reason to build one, rather than a guess, and it is the best
+argument yet for having deferred generation until retrieval could be measured.
+
+**What these numbers are not.** Eleven sources, fifteen to eighteen chunks.
+recall@5 is nearly free at that size and should be ignored; recall@1 and MRR
+are the only figures here that discriminate, and even they are measured on a
+corpus one person wrote in an afternoon. The honest claim is "this pipeline was
+measured and improved against a labelled set", not "this system achieves 0.81".
+
+**Still to try:** a second embedding model. The vector index is
+dimension-specific, so a 768-dimension model needs its own collection and
+index rather than a flag — which is itself worth knowing before promising an
+A/B.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

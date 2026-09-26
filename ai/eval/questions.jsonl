@@ -1,0 +1,45 @@
+{"id": "idx-01", "question": "How do compound indexes work?", "expected": ["MongoDB compound index docs", "Database indexing exercise"], "answerable": true}
+{"id": "idx-02", "question": "Does an index on (a, b) help a query that only filters on b?", "expected": ["MongoDB compound index docs"], "answerable": true}
+{"id": "idx-03", "question": "What am I supposed to do for the indexing exercise?", "expected": ["Database indexing exercise"], "answerable": true}
+{"id": "idx-04", "question": "Should I run EXPLAIN before adding an index?", "expected": ["Database indexing exercise"], "answerable": true}
+{"id": "idx-05", "question": "Which book did my mentor share about indexing?", "expected": ["Use The Index, Luke"], "answerable": true}
+{"id": "idx-06", "question": "What should I read about B-trees?", "expected": ["Use The Index, Luke"], "answerable": true}
+{"id": "idx-07", "question": "Does my mentor care about timings or about reasoning?", "expected": ["Database indexing exercise"], "answerable": true}
+{"id": "idx-08", "question": "What is a collection scan and how do I spot one?", "expected": ["Database indexing exercise"], "answerable": true}
+{"id": "cache-01", "question": "What do I have to build for the caching assignment?", "expected": ["Add caching to the reading list endpoint"], "answerable": true}
+{"id": "cache-02", "question": "Should I use Redis for the cache?", "expected": ["Add caching to the reading list endpoint"], "answerable": true}
+{"id": "cache-03", "question": "Why does my mentor want the invalidation rule written down first?", "expected": ["Add caching to the reading list endpoint"], "answerable": true}
+{"id": "cache-04", "question": "What TTL did I use on the cache I submitted?", "expected": ["Hand-in: Add caching to the reading list endpoint"], "answerable": true}
+{"id": "cache-05", "question": "What is the thundering herd problem I ran into?", "expected": ["Hand-in: Add caching to the reading list endpoint"], "answerable": true}
+{"id": "cache-06", "question": "What did my mentor tell me to try about caching the promise?", "expected": ["Hand-in: Add caching to the reading list endpoint"], "answerable": true}
+{"id": "cache-07", "question": "What did the article about write-through versus write-around explain?", "expected": ["A post on cache invalidation"], "answerable": true}
+{"id": "cache-08", "question": "How does my cache invalidate when an item is added?", "expected": ["Hand-in: Add caching to the reading list endpoint", "Add caching to the reading list endpoint"], "answerable": true}
+{"id": "auth-01", "question": "How long should the access token last?", "expected": ["REST authentication with refresh tokens"], "answerable": true}
+{"id": "auth-02", "question": "Where should the refresh token be stored and why?", "expected": ["REST authentication with refresh tokens", "OWASP cheat sheet on token storage"], "answerable": true}
+{"id": "auth-03", "question": "What can an attacker with XSS do to my tokens?", "expected": ["REST authentication with refresh tokens"], "answerable": true}
+{"id": "auth-04", "question": "Which cheat sheet covers session management?", "expected": ["OWASP cheat sheet on token storage"], "answerable": true}
+{"id": "auth-05", "question": "What is left to do on my goal about authentication?", "expected": ["Be ready for backend interviews"], "answerable": true}
+{"id": "nplus1-01", "question": "What is an N+1 query?", "expected": ["Explain N+1 queries with a worked example", "Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
+{"id": "nplus1-02", "question": "Where was the N+1 in the sample repository?", "expected": ["Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
+{"id": "nplus1-03", "question": "How many queries did the lookup fix save?", "expected": ["Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
+{"id": "nplus1-04", "question": "When would denormalising the author name be better than a lookup?", "expected": ["Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
+{"id": "nplus1-05", "question": "Why do ORMs make N+1 easy to write by accident?", "expected": ["Explain N+1 queries with a worked example"], "answerable": true}
+{"id": "goal-01", "question": "What am I working towards overall?", "expected": ["Be ready for backend interviews"], "answerable": true}
+{"id": "goal-02", "question": "Which milestones have I already finished?", "expected": ["Be ready for backend interviews"], "answerable": true}
+{"id": "goal-03", "question": "Do I still have to design a rate limiter?", "expected": ["Be ready for backend interviews"], "answerable": true}
+{"id": "goal-04", "question": "What should I focus on next?", "expected": ["Be ready for backend interviews"], "answerable": true}
+{"id": "none-01", "question": "How do I deploy this to Kubernetes?", "expected": [], "answerable": false}
+{"id": "none-02", "question": "What did my mentor say about GraphQL subscriptions?", "expected": [], "answerable": false}
+{"id": "none-03", "question": "When is my exam timetable published?", "expected": [], "answerable": false}
+{"id": "none-04", "question": "What is my mentor's phone number?", "expected": [], "answerable": false}
+{"id": "none-05", "question": "How do I set up CI on Jenkins?", "expected": [], "answerable": false}
+{"id": "none-06", "question": "What did we agree about my salary expectations?", "expected": [], "answerable": false}
+{"id": "none-07", "question": "Which React hooks should I learn first?", "expected": [], "answerable": false}
+{"id": "none-08", "question": "What is the refund policy for the course?", "expected": [], "answerable": false}
+{"id": "none-09", "question": "How do I configure nginx as a reverse proxy?", "expected": [], "answerable": false}
+{"id": "none-10", "question": "What did I score on the machine learning module?", "expected": [], "answerable": false}
+{"id": "leak-01", "question": "What did Karan say about low-cardinality fields?", "expected": [], "answerable": false, "why": "Karan mentors Zara, not me. The answer exists in the corpus, in another mentorship."}
+{"id": "leak-02", "question": "What was Zara's index that made no difference?", "expected": [], "answerable": false, "why": "Another mentorship's hand-in."}
+{"id": "leak-03", "question": "What is the indexing homework for this week?", "expected": ["Database indexing exercise"], "answerable": true, "why": "Worded almost exactly like the other mentorship's assignment title."}
+{"id": "leak-04", "question": "What does the caching exercise say about stale reads?", "expected": [], "answerable": false, "why": "Stale reads are only discussed in the other mentorship's brief."}
+{"id": "leak-05", "question": "Why is an index nothing uses expensive?", "expected": [], "answerable": false, "why": "Said only in the other mentorship's review note."}

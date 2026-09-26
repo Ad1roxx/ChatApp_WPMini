@@ -63,6 +63,9 @@ behind an Express and Socket.IO server written for this project.
 | The mentorship filter is passed **inside** `$vectorSearch`, not applied to its results, so the index cannot spend its candidate budget on chunks the caller may not see | `ai/store.py`, `search()` |
 | Cross-mentorship isolation is checked against a corpus where both mentorships cover the same topics in similar words | `ai/check_retrieval.py` |
 | `$vectorSearch` needs Atlas; local MongoDB 8.0.8 Community has no such operator, so development runs the `mongodb/mongodb-atlas-local` container | `docker run -d -p 27018:27017 mongodb/mongodb-atlas-local` |
+| A **45**-question labelled set: **31** answerable from the mentorship's own material, **14** not — and 5 of those are answerable only inside a *different* mentorship, so they double as leak probes | `ai/eval/questions.jsonl` |
+| Best measured configuration: **recall@1 0.81**, recall@3 0.90, **MRR 0.855**, with 400-character chunks and a cross-encoder reranker; the baseline configuration scores 0.68 / 1.00 / 0.828 | `ai/evaluate.py --compare --rerank` · `ai/eval/baseline-2026-09-26.txt` |
+| **No similarity threshold separates answerable from unanswerable questions** in any of the six configurations measured: the most confident unanswerable question outscores the least confident answerable one | same run — the gap is printed as `separation` |
 
 ### Authentication
 
@@ -276,8 +279,14 @@ is measured. There are no notebooks and no datasets in this repository.
   work end to end, but nothing in React calls them; it is exercised by tests
   and by a scripted request.
 - **The Copilot does not write prose.** It returns ranked chunks with scores
-  and their sources. Generation is a prompt away and was deliberately left
-  until retrieval can be measured.
+  and their sources. Generation is deliberately still absent, and the
+  evaluation gave a concrete reason to keep it that way until there is a
+  grounding check: a confident retrieval score does not mean the answer is in
+  the retrieved text.
+- **Retrieval is measured on a corpus of eleven sources.** recall@5 is nearly
+  free at that size; only recall@1 and MRR discriminate, and the corpus is
+  synthetic. The defensible claim is that the pipeline was measured and
+  improved, not that it scores well in general.
 - **The Python service is not in CI.** It needs Docker, a container image and a
   model download; the Node suite proves the access rules without any of them,
   and that is what runs on every push.
@@ -364,6 +373,12 @@ Drawn only from section 2. Each is defensible if questioned.
 > vector query rather than over its results, with tests proving that a user
 > outside a mentorship retrieves nothing from it and that the access check
 > happens in Express, before the service is reachable.
+
+> Evaluated that pipeline against a 45-question labelled set, raising recall@1
+> from 0.68 to 0.81 and MRR from 0.828 to 0.855 by halving the chunk size and
+> adding a cross-encoder reranker — and established that no similarity
+> threshold separates answerable from unanswerable questions, so abstention has
+> to come from a grounding check rather than a score.
 
 > Designed a Classroom-style assignment model: one brief shared across several
 > students, each with an independent hand-in, draft and unsubmit states, an
