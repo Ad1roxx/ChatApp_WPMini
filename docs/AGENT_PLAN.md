@@ -465,6 +465,58 @@ Probes: why chunk in tokens not characters; why the same 384 dims meant no
 index change; why the heading-aware chunker was null in Entry 41 and may not be
 now.
 
+### S1.5 — Event-driven index updates
+
+**Must land before S2.** Not a preference: once generation exists, a stale
+chunk stops being a wrong search result and becomes a **sentence quoted back to
+a user with a citation attached**. A hand-in the student withdrew, or a rubric
+the mentor deleted, would be presented as current and sourced.
+
+**The gap this closes.** Indexing is a manual CLI run (`ingest.py`). Nothing in
+Express tells the retrieval service that anything changed — the only call
+between them is `/search` (`server/index.js:3815`), and `ai/app.py` exposes
+only `/health` and `/search`. So:
+
+- **New uploads are invisible** until somebody re-indexes.
+- **Deletions leave chunks behind.** S1 adds a reconciliation pass so a *full*
+  re-index removes orphans, which closes the permanent leak. It does not close
+  the **window** between the deletion and the next re-index, and nothing
+  schedules that re-index.
+
+**What it is.** Express notifies the service at the four moments the index goes
+stale: an attachment is uploaded, an attachment is deleted, a submission is
+withdrawn or unsubmitted, and an assignment is withdrawn. One internal endpoint
+on `ai/` — `POST /index/source` taking `{mentorshipId, sourceType, sourceId,
+action: "upsert" | "delete"}` — behind the same shared secret and localhost
+bind as `/search`, since it carries no user identity and must not be reachable
+from anywhere else.
+
+**What it is deliberately not.** No queue, no worker, no broker. A synchronous
+best-effort call that logs its failures, with the full re-index and its
+reconciliation pass remaining the backstop. A message broker here would be
+three new failure modes to explain in exchange for durability that a nightly
+re-index already provides at this scale.
+
+Deliverables: the endpoint; the Express notifications; failure logging that
+names the source left stale; documentation of what is still eventually
+consistent.
+
+Tests (node:test and pytest): deleting an attachment removes its chunks without
+a re-index; withdrawing a submission removes its chunks; uploading an
+attachment makes it retrievable without a re-index; a notification failure is
+logged and does **not** fail the user's original request — losing an upload
+because the indexer was down would be a worse bug than a late index.
+
+Measured: the lag between an upload and its first retrievability, and the same
+for a deletion. Both should be sub-second locally; the number matters because
+S2 quotes what this returns.
+
+BUILD_NOTES: *"Tell the index when something changes"* — must state plainly
+what remains eventually consistent after it.
+
+Probes: why a stale chunk is a different class of bug once generation exists;
+why the notification must not fail the upload.
+
 ### S2 — Generation with verified citations
 
 Deliverables: `LLMProvider` protocol + Gemini adapter; a prompt that cites
@@ -608,6 +660,15 @@ worker, so a 40-page scan cannot block the server.
 
 Evaluation: add scanned documents to the set and report their retrieval quality
 **separately**, because mixing them hides the degradation.
+
+**The S1 scan is deliberately too easy, and S7 must not inherit it.** S1 seeds
+one synthetic scanned PDF — text rendered to an image, no text layer — and it
+exists to prove exactly one thing: that a document with no text layer yields
+zero chunks and says why. It is clean, upright, high-resolution and
+noise-free, which is to say nothing like what a student photographs on a desk
+at night. S7's own corpus needs **lower DPI, slight rotation and noise**, or
+the OCR numbers will flatter themselves against a benchmark that was never
+hard.
 
 ### S8 — Rubric coverage and progress reports
 
