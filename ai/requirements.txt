@@ -12,3 +12,4 @@ python-dotenv>=1,<2
 # text comes out of a PDF changes every chunk derived from it, and the index
 # would still look valid afterwards.
 PyMuPDF==1.28.2
+python-docx==1.2.0

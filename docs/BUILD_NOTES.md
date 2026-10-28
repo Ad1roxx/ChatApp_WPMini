@@ -3610,6 +3610,53 @@ genuinely document properties — page tracking, and having no text layer.
 
 ---
 
+### Entry 45 — S1 step 3: reading Word documents
+
+RAG-Project had no .docx path — arXiv ships PDFs. Coursework does not: a brief
+is often a Word file, and a rubric almost always is. This is new code written
+against the same output contract, so chunking never has to ask which format it
+is holding.
+
+**Headings come from styles, not from shape.** A .docx states that a paragraph
+is Heading 2; there is nothing to infer. The PDF heuristics stay as a fallback
+for the case that is extremely common in student work — a heading typed as
+ordinary text and bolded by hand. Both routes end at the same place.
+
+**Tables are kept, which is the exact opposite of the PDF rule.** That looks
+inconsistent until you look at what arrives. A PDF table comes back
+flattened — `T5-Small 2.08E+00 60 1,000` — with its column headers lost
+somewhere above it, so the numbers mean nothing and the composition filter
+drops the row. A .docx table still *has* cells, so a row renders as
+`Criterion | Marks | Evidence` and stays readable. The rule is not "tables are
+bad"; it is "text whose structure was destroyed is bad". Rubrics are written as
+tables, and S8 has to read them, so dropping them here would quietly make that
+sprint impossible.
+
+**Document order needed the hard way.** `document.paragraphs` silently omits
+tables; `document.tables` loses where they sat. Neither alone preserves the
+order a reader depends on, so the extractor walks the body element and yields
+paragraphs and tables as they actually appear. A test asserts the order
+survives, because "silently omits" is the kind of API behaviour that produces a
+plausible-looking result.
+
+**No pages.** A Word file has no pages until something renders it, so
+`start_page` and `end_page` are None and a citation names the section instead.
+The keys exist in both formats anyway — a chunker that has to branch on format
+is a chunker that will eventually branch wrongly.
+
+**De-hyphenation is not applied.** Line-break hyphens are an artefact of PDF
+layout. Word text has no such breaks, so running the repair would be solving a
+problem that cannot occur.
+
+**An empty document is not an OCR problem.** It returns no sections with the
+reason *"no text found"* and `needs_ocr` false. Nothing to read and unreadable
+are different states, and S7 only cares about the second.
+
+Nineteen tests, built in memory rather than as checked-in binaries. A .docx
+fixture is unreadable in a diff; a builder states the structure being tested.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

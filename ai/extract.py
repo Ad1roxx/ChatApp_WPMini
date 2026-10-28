@@ -40,6 +40,13 @@ each one survives the port because the defect is not specific to papers:
 - **Everything arXiv-specific:** the margin-stamp regex, the metadata contract,
   the on-disk paths, and a heading vocabulary built from paper structure.
 
+## Word documents
+
+`.docx` carries its own structure, so headings come from paragraph styles
+rather than from the shape of a line, and tables are kept rather than dropped —
+see the comment above `extract_docx` for why those two differ from the PDF
+path. Both formats return the same shape, so chunking never asks which it is.
+
 ## Scanned documents
 
 A PDF with no text layer yields no sections and says so, rather than throwing
@@ -338,3 +345,141 @@ def extract_pdf(data: bytes, *, filename: str = "document.pdf") -> dict:
         }
     finally:
         document.close()
+
+
+# --------------------------------------------------------------------------
+# Word documents
+# --------------------------------------------------------------------------
+# Two deliberate differences from the PDF path.
+#
+# Headings come from STYLES. A .docx says "this paragraph is Heading 2"; there
+# is no need to infer it from capitalisation. The PDF heuristics stay as a
+# fallback, because a heading typed as ordinary bold text is common in
+# student work and still reads as a heading.
+#
+# Tables are KEPT, which is the opposite of the PDF rule. A PDF table arrives
+# flattened — "T5-Small 2.08E+00 60 1,000" — with its column headers lost, so
+# the numbers mean nothing and the composition filter drops it. A .docx table
+# still has cells, so a row renders as "Criterion | Marks | Evidence" and stays
+# readable. Rubrics are routinely written as tables, and S8 has to read them;
+# dropping them here would make that sprint impossible later.
+#
+# De-hyphenation is not applied: line-break hyphens are an artefact of PDF
+# layout, and Word text has no such breaks to repair.
+DOCX_HEADING_STYLES = ("heading", "title", "subtitle")
+
+
+def _docx_blocks(document):
+    """Yield paragraphs and tables in document order.
+
+    `document.paragraphs` silently omits tables and `document.tables` loses
+    where they sat, so neither alone preserves the order a reader depends on.
+    Walking the body element keeps it.
+    """
+    from docx.oxml.table import CT_Tbl
+    from docx.oxml.text.paragraph import CT_P
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    for child in document.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            yield Paragraph(child, document)
+        elif isinstance(child, CT_Tbl):
+            yield Table(child, document)
+
+
+def _is_styled_heading(paragraph) -> bool:
+    style = (getattr(paragraph.style, "name", "") or "").strip().lower()
+    return style.startswith(DOCX_HEADING_STYLES)
+
+
+def _table_text(table) -> str:
+    """One line per row, cells separated by a pipe, empty rows dropped."""
+    rows = []
+    for row in table.rows:
+        cells = [cell.text.strip() for cell in row.cells]
+        if any(cells):
+            rows.append(" | ".join(cells))
+    return "\n".join(rows)
+
+
+def extract_docx(data: bytes, *, filename: str = "document.docx") -> dict:
+    """Extract sections from .docx bytes, in the same shape as `extract_pdf`.
+
+    Word has no pages until it is rendered, so `start_page` and `end_page` are
+    None here. A citation into a .docx names its section instead, which is why
+    both formats carry a heading.
+    """
+    import io as _io
+
+    from docx import Document
+
+    document = Document(_io.BytesIO(data))
+
+    sections: list[dict] = []
+    current: dict | None = None
+
+    def start(heading: str) -> None:
+        nonlocal current
+        current = {
+            "index": len(sections),
+            "heading": heading,
+            "start_page": None,
+            "end_page": None,
+            "parts": [],
+        }
+        sections.append(current)
+
+    for block in _docx_blocks(document):
+        if hasattr(block, "rows"):  # a table
+            text = _table_text(block)
+            if not text:
+                continue
+            if current is None:
+                start("Document")
+            current["parts"].append(text)
+            continue
+
+        text = normalise_unicode(block.text).strip()
+        if not text:
+            continue
+
+        if _is_styled_heading(block):
+            start(flatten(text))
+            continue
+
+        # A heading typed as ordinary text still reads as one.
+        inferred = heading_of(text)
+        if inferred is not None:
+            start(inferred)
+            continue
+
+        if current is None:
+            # Text before any heading is content, exactly as in the PDF path.
+            start("Document")
+        current["parts"].append(text)
+
+    cleaned = [
+        {
+            "index": index,
+            "heading": section["heading"],
+            "start_page": None,
+            "end_page": None,
+            # Paragraph breaks are kept: they are real structure in Word, and
+            # the sentence splitter treats them as whitespace anyway.
+            "text": "\n\n".join(section["parts"]),
+        }
+        for index, section in enumerate(s for s in sections if s["parts"])
+    ]
+
+    if not cleaned:
+        log.warning("%s: no text found in the document", filename)
+
+    return {
+        "filename": filename,
+        "kind": "docx",
+        "page_count": None,
+        "needs_ocr": False,
+        "reason": "" if cleaned else "no text found",
+        "sections": cleaned,
+    }
