@@ -6,3 +6,9 @@ uvicorn[standard]>=0.32,<1
 pymongo>=4.9,<5
 sentence-transformers>=3
 python-dotenv>=1,<2
+
+# --- S1: document extraction ---
+# Pinned exactly, for the same reason the embedding stack is: a change in how
+# text comes out of a PDF changes every chunk derived from it, and the index
+# would still look valid afterwards.
+PyMuPDF==1.28.2

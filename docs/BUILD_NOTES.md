@@ -3539,6 +3539,77 @@ itself, not an assumption that the fixture did its job.
 
 ---
 
+### Entry 44 — S1 step 2: porting PDF extraction
+
+From RAG-Project at commit `695795a`, `ingestion/extract.py` becomes
+`ai/extract.py`. Papers in, coursework out.
+
+**What was taken.** Every rule below exists because of a defect observed in a
+real PDF, and none of them is specific to research papers:
+
+- **Words-per-line block filtering.** Body text comes back from PyMuPDF with
+  eight to twelve words a line; a diagram's labels come back with one or two,
+  because every label is its own line.
+- **A composition filter for flattened tables.** A table row passes every
+  shape test — it is long and dense — and is useless once its column headers
+  are gone. Prose is overwhelmingly alphabetic; a table row is mostly numeric.
+- **The hyphenation vocabulary trick.** `representa-
+tion` and
+  `task-
+specific` are identical on the page. The document itself decides:
+  if `representation` appears elsewhere unbroken the hyphen was soft, if
+  `task-specific` appears intact it was real.
+- **NFKC folding**, so `ﬁne-tuned` and `fine-tuned` stop being different
+  strings to a tokenizer.
+- **Page tracking**, so a citation can name somewhere a person can turn to.
+
+**What was deliberately NOT taken: the references cut.** RAG-Project drops
+everything from the `References` heading onward, and is right to — in a paper
+that section is lexically dense with query terms and informationally empty.
+Here it would silently delete the end of somebody's hand-in, and an appendix
+after it. Conflict C10. A test asserts extraction does *not* stop there, because
+the absence of a behaviour needs a test as much as its presence does.
+
+**What else was left behind.** The arXiv margin-stamp regex, the metadata
+contract, the on-disk paths, and the paper-shaped heading vocabulary —
+"abstract", "related work", "broader impact" — replaced with one for briefs,
+rubrics and coursework: requirements, deliverables, marking scheme, testing,
+reflection.
+
+The asymmetric-risk reasoning behind that list was kept exactly as they wrote
+it. Single generic words that are also table column headers — "Model",
+"Results", "Marks" — are deliberately *absent*. A missed heading merges one
+section into its neighbour and costs a little citation precision; a false
+heading corrupts the document's structure from that point on, and in their
+corpus produced a 50,000-character phantom section. Documents that section on
+those words almost always number them, which the numbered pattern catches.
+
+**Two deliberate differences.** Extraction takes **bytes, not a path**, because
+attachments live in GridFS and never touch the disk. And **text before the
+first heading is kept**: the original discarded a paper's title block as
+already-known metadata, but a brief routinely opens with a paragraph of
+instruction before any heading, and dropping it would lose the actual task.
+
+**A scan is noticed rather than crashed on.** Under twenty characters of
+extractable text across the whole document means there is no text layer; the
+result says `needs_ocr` and logs *"no extractable text - needs OCR (S7)"*. OCR
+itself is S7. This module only has to notice, and to not pretend an empty
+string is a document.
+
+**PyMuPDF is AGPL** (conflict C9). Acceptable for a public portfolio
+repository, where the source is published anyway; `pdfplumber` (MIT) is the
+named alternative if this ever ships inside something closed. Pinned exactly at
+1.28.2, for the same reason the embedding stack will be: a change in how text
+comes out of a PDF changes every chunk derived from it, and the index would
+still look valid afterwards.
+
+**Twenty-four tests**, almost all on pure functions. A PDF round trip would
+test PyMuPDF's layout engine as much as our rules and fail for unrelated
+reasons; the two tests that do build real PDFs test the two things that are
+genuinely document properties — page tracking, and having no text layer.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
