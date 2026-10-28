@@ -22,10 +22,29 @@ DB_NAME = os.getenv("AI_DB_NAME", "chatapp_rag")
 CHUNKS_COLLECTION = "knowledge_chunks"
 VECTOR_INDEX = "chunk_vector_index"
 
-# 384 dimensions, CPU-only, ~90 MB. Chosen so ingestion costs nothing and runs
-# offline; the evaluation compares it against a larger model later.
-EMBEDDING_MODEL = os.getenv("AI_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+# 384 dimensions, CPU-only, ~130 MB. Local so that ingestion costs nothing and
+# runs offline.
+#
+# bge-small-en-v1.5 rather than all-MiniLM-L6-v2, the usual default, for one
+# concrete reason: MiniLM reads 256 tokens and bge-small reads 512, at the same
+# 384 dimensions. That limit is a hard ceiling on chunk size and exceeding it
+# raises nothing — the model truncates and embeds the surviving prefix. With a
+# 400-token budget, MiniLM would silently discard the back half of every full
+# chunk. bge-small also scores better on MTEB retrieval, but the context limit
+# is the deciding argument.
+#
+# The width is unchanged, so the vector index does not need rebuilding when the
+# model moves: see the note beside `numDimensions` in store.py.
+EMBEDDING_MODEL = os.getenv("AI_EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 EMBEDDING_DIMS = int(os.getenv("AI_EMBEDDING_DIMS", "384"))
+
+# BGE models are trained asymmetrically: passages bare, queries prefixed. This
+# is the prefix the model was fine-tuned with, so it is a property of the model
+# rather than a knob. A model without one leaves it empty.
+QUERY_INSTRUCTION = os.getenv(
+    "AI_QUERY_INSTRUCTION",
+    "Represent this sentence for searching relevant passages: ",
+)
 
 # Chunk sizing, in the embedding model's own tokens.
 #
@@ -40,10 +59,11 @@ CHUNK_OVERLAP_TOKENS = int(os.getenv("AI_CHUNK_OVERLAP_TOKENS", "60"))
 MIN_CHUNK_TOKENS = int(os.getenv("AI_MIN_CHUNK_TOKENS", "32"))
 
 # What the configured model can actually read, which is what the chunk budget
-# is clamped to. all-MiniLM-L6-v2 stops at 256 tokens; bge-small-en-v1.5 reads
-# 512 at the same 384 dimensions, which is the whole argument for D1. A test
-# asserts this value matches the model rather than trusting the comment.
-EMBEDDING_MAX_TOKENS = int(os.getenv("AI_EMBEDDING_MAX_TOKENS", "256"))
+# is clamped to. bge-small-en-v1.5 reads 512 tokens, so the 400-token budget
+# above is now reachable in full; all-MiniLM-L6-v2 stopped at 256 and clamped
+# it to 240. A test asserts this value matches the loaded model rather than
+# trusting the comment, so a model switch that forgets it fails loudly.
+EMBEDDING_MAX_TOKENS = int(os.getenv("AI_EMBEDDING_MAX_TOKENS", "512"))
 
 # The shared secret Express presents. The service also binds to localhost, so
 # this is the second lock rather than the only one.

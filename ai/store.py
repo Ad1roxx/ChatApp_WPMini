@@ -22,6 +22,7 @@ from config import (
     EMBEDDING_DIMS,
     EMBEDDING_MODEL,
     MONGODB_URI,
+    QUERY_INSTRUCTION,
     VECTOR_INDEX,
 )
 
@@ -38,9 +39,37 @@ def embedder():
     return _model
 
 
-def embed(texts: list[str]) -> list[list[float]]:
+def _encode(texts: list[str]) -> list[list[float]]:
+    # Normalising to unit length makes a dot product exactly a cosine, so every
+    # score sits on a comparable scale and the index can rank by cosine
+    # cheaply. The vector index is declared with "similarity": "cosine", which
+    # normalises internally too; doing it here as well means the vectors stored
+    # and the vectors compared are the same numbers, and a score computed by
+    # hand matches the one Atlas returns.
     vectors = embedder().encode(texts, normalize_embeddings=True)
     return [v.tolist() for v in vectors]
+
+
+def embed_passages(texts: list[str]) -> list[list[float]]:
+    """Embed indexed text: bare, with no instruction prefix."""
+    return _encode(texts)
+
+
+def embed_query(query: str) -> list[float]:
+    """Embed a search query, with the model's query instruction if it has one.
+
+    BGE models are trained **asymmetrically**: passages are embedded bare and
+    queries carry an instruction prefix. That is not decoration, it is how the
+    model was fine-tuned — a question and the passage answering it are not
+    paraphrases of each other. "What is the marking scheme?" shares little
+    surface form with "Each criterion is worth ten marks."
+
+    Getting it wrong fails quietly: everything still runs and results are still
+    returned, they are just measurably worse. Prefixing the *passages* as well
+    would be the same mistake twice, which is why the two directions are
+    separate functions rather than one with a flag that defaults to something.
+    """
+    return _encode([f"{QUERY_INSTRUCTION}{query}"])[0]
 
 
 class ChunkStore:
@@ -72,6 +101,12 @@ class ChunkStore:
                         {
                             "type": "vector",
                             "path": "embedding",
+                            # 384 for both all-MiniLM-L6-v2 and
+                            # bge-small-en-v1.5, which is why swapping between
+                            # them needs no index rebuild — only a re-embed.
+                            # A model with a different width would: the server
+                            # rejects a query vector whose length does not
+                            # match this number, so the mismatch is loud.
                             "numDimensions": EMBEDDING_DIMS,
                             "similarity": "cosine",
                         },
@@ -110,7 +145,7 @@ class ChunkStore:
         if not chunks:
             return 0
 
-        vectors = embed(chunks)
+        vectors = embed_passages(chunks)
         self.chunks.insert_many(
             [
                 {
@@ -147,7 +182,7 @@ class ChunkStore:
         if expected <= 0:
             return True
 
-        probe = embed(["indexing and caching"])[0]
+        probe = embed_query("indexing and caching")
         deadline = time.time() + timeout
 
         while time.time() < deadline:
@@ -183,7 +218,7 @@ class ChunkStore:
         k: int = 5,
         candidates: int | None = None,
     ) -> list[dict]:
-        vector = embed([query])[0]
+        vector = embed_query(query)
 
         pipeline = [
             {

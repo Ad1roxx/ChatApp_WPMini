@@ -2,7 +2,6 @@
 
     python evaluate.py                          the default configuration
     python evaluate.py --budget 256             a smaller token budget
-    python evaluate.py --model all-mpnet-base-v2 --dims 768
     python evaluate.py --compare                every configuration, side by side
 
 Each question in eval/questions.jsonl carries the source that should answer it,
@@ -200,9 +199,10 @@ def main() -> None:
     # worth comparing now is how much text one chunk may hold.
     #
     # Named and de-duplicated by the *effective* budget, because a request
-    # above the model's limit is clamped to it: with all-MiniLM-L6-v2 both 400
-    # and 256 come out at 240, and running the same configuration twice under
-    # two names would read as a measurement rather than as the clamp.
+    # above the model's limit is clamped to it. bge-small-en-v1.5 reads 512, so
+    # all three budgets below are reachable today; under all-MiniLM-L6-v2 both
+    # 400 and 256 came out at 240, and running one configuration twice under
+    # two names would have read as a measurement rather than as the clamp.
     requested = [400, 256, 128] if args.compare else [args.budget]
     configurations: list[tuple[str, int]] = []
     for budget in dict.fromkeys(effective_budget(b) for b in requested):

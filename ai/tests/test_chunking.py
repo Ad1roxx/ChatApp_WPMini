@@ -98,16 +98,17 @@ def test_effective_budget_clamps_to_the_model_with_headroom():
     )
 
 
-def test_the_default_budget_is_clamped_by_todays_model():
-    """Worth asserting rather than assuming: the configured 400 does not fit.
+def test_the_default_budget_fits_todays_model():
+    """The configured 400 is reachable in full, and was not always.
 
-    all-MiniLM-L6-v2 reads 256 tokens, so the 400-token default is a request
-    for more than the model can take. Step 5's switch to bge-small-en-v1.5
-    (512 tokens) is what makes the full 400 reachable, and this test is where
-    that change will show up.
+    Under all-MiniLM-L6-v2 (256 tokens) this same budget was clamped to 240,
+    and the test written at step 4 asserted exactly that — then failed on the
+    switch to bge-small-en-v1.5, which is the point of writing it. 512 tokens
+    leaves room for the budget and the headroom both.
     """
     assert CHUNK_BUDGET_TOKENS == 400
-    assert effective_budget() < CHUNK_BUDGET_TOKENS
+    assert effective_budget() == CHUNK_BUDGET_TOKENS
+    assert CHUNK_BUDGET_TOKENS + HEADROOM_TOKENS <= EMBEDDING_MAX_TOKENS
 
 
 # --------------------------------------------------------------------------
@@ -271,4 +272,4 @@ def test_the_tokenizer_is_the_embedding_model_s_own():
     from store import embedder
 
     assert chunking.tokenizer() is embedder().tokenizer
-    assert EMBEDDING_MODEL in ("all-MiniLM-L6-v2", "BAAI/bge-small-en-v1.5")
+    assert EMBEDDING_MODEL == "BAAI/bge-small-en-v1.5"

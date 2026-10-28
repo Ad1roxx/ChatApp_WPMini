@@ -59,7 +59,7 @@ behind an Express and Socket.IO server written for this project.
 | Fact | Source |
 | --- | --- |
 | **736** lines of Python across **7** files — ingestion, chunking, embeddings, filtered vector search and a FastAPI endpoint | `ai/*.py` |
-| Embeddings are **384**-dimensional, from `all-MiniLM-L6-v2` running locally on CPU: no API key, no per-token cost, works offline | `ai/config.py`, `ai/store.py` |
+| Embeddings are **384**-dimensional, from `BAAI/bge-small-en-v1.5` running locally on CPU: no API key, no per-token cost, works offline. Chosen over `all-MiniLM-L6-v2` because it reads **512** tokens rather than 256 at the same width, and that limit is a hard ceiling on chunk size | `ai/config.py`, `ai/store.py` |
 | The mentorship filter is passed **inside** `$vectorSearch`, not applied to its results, so the index cannot spend its candidate budget on chunks the caller may not see | `ai/store.py`, `search()` |
 | Cross-mentorship isolation is checked against a corpus where both mentorships cover the same topics in similar words | `ai/check_retrieval.py` |
 | `$vectorSearch` needs Atlas; local MongoDB 8.0.8 Community has no such operator, so development runs the `mongodb/mongodb-atlas-local` container | `docker run -d -p 27018:27017 mongodb/mongodb-atlas-local` |
@@ -234,7 +234,7 @@ firebase 10.12 (Auth only), CSS Modules
 9.0, cors 2.8, dotenv 17.2
 
 **Retrieval service** — Python 3.11, FastAPI, uvicorn, pymongo,
-sentence-transformers 6.1 (`all-MiniLM-L6-v2`), MongoDB Atlas Vector Search via
+sentence-transformers 6.1 (`BAAI/bge-small-en-v1.5`), MongoDB Atlas Vector Search via
 the `mongodb-atlas-local` container
 
 **Data and tooling** — MongoDB, ESLint 9.39 (flat config),

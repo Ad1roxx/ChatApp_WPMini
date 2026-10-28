@@ -1,0 +1,98 @@
+45 questions from questions.jsonl
+
+=== fixed 800 ===
+  chunks indexed        15
+  recall@1 / @3 / @5    0.68 / 1.00 / 1.00
+  MRR                   0.828
+  top score             answerable mean 0.718 (min 0.580) · unanswerable mean 0.614 (max 0.788)
+  separation            -0.208 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    0.788  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    0.704  leak-05: Why is an index nothing uses expensive?
+           -> MongoDB compound index docs
+    0.628  none-10: What did I score on the machine learning module?
+           -> Be ready for backend interviews
+
+=== fixed 800 + reranker ===
+  chunks indexed        15
+  recall@1 / @3 / @5    0.77 / 0.90 / 0.90
+  MRR                   0.839
+  top score             answerable mean 1.401 (min -11.234) · unanswerable mean -9.199 (max 2.112)
+  separation            -13.346 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    2.112  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    -6.249  leak-05: Why is an index nothing uses expensive?
+           -> Database indexing exercise
+    -6.872  none-04: What is my mentor's phone number?
+           -> Hand-in: Add caching to the reading list endpoint
+  missed (3):
+    goal-01: What am I working towards overall? -> ['Database indexing exercise', 'Add caching to the reading list endpoint', 'Hand-in: Add caching to the reading list endpoint']
+    goal-02: Which milestones have I already finished? -> ['Hand-in: Add caching to the reading list endpoint', 'Hand-in: Explain N+1 queries with a worked example', 'Use The Index, Luke']
+    goal-04: What should I focus on next? -> ['Database indexing exercise', 'Hand-in: Add caching to the reading list endpoint', 'Add caching to the reading list endpoint']
+
+=== fixed 400 ===
+  chunks indexed        18
+  recall@1 / @3 / @5    0.71 / 0.97 / 1.00
+  MRR                   0.841
+  top score             answerable mean 0.729 (min 0.580) · unanswerable mean 0.619 (max 0.815)
+  separation            -0.235 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    0.815  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    0.725  leak-05: Why is an index nothing uses expensive?
+           -> Database indexing exercise
+    0.632  leak-02: What was Zara's index that made no difference?
+           -> Database indexing exercise
+
+=== fixed 400 + reranker ===
+  chunks indexed        18
+  recall@1 / @3 / @5    0.81 / 0.90 / 0.90
+  MRR                   0.855
+  top score             answerable mean 1.633 (min -11.077) · unanswerable mean -9.226 (max 2.561)
+  separation            -13.638 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    2.561  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    -6.600  none-02: What did my mentor say about GraphQL subscriptions?
+           -> Hand-in: Add caching to the reading list endpoint
+    -6.684  none-04: What is my mentor's phone number?
+           -> Hand-in: Add caching to the reading list endpoint
+  missed (3):
+    goal-01: What am I working towards overall? -> ['Database indexing exercise', 'Database indexing exercise', 'Hand-in: Add caching to the reading list endpoint']
+    goal-02: Which milestones have I already finished? -> ['Hand-in: Add caching to the reading list endpoint', 'Hand-in: Explain N+1 queries with a worked example', 'Hand-in: Add caching to the reading list endpoint']
+    goal-04: What should I focus on next? -> ['Hand-in: Add caching to the reading list endpoint', 'Database indexing exercise', 'Add caching to the reading list endpoint']
+
+=== heading 800 ===
+  chunks indexed        15
+  recall@1 / @3 / @5    0.68 / 1.00 / 1.00
+  MRR                   0.828
+  top score             answerable mean 0.718 (min 0.580) · unanswerable mean 0.614 (max 0.788)
+  separation            -0.208 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    0.788  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    0.704  leak-05: Why is an index nothing uses expensive?
+           -> MongoDB compound index docs
+    0.628  none-10: What did I score on the machine learning module?
+           -> Be ready for backend interviews
+
+=== heading 800 + reranker ===
+  chunks indexed        15
+  recall@1 / @3 / @5    0.77 / 0.90 / 0.90
+  MRR                   0.839
+  top score             answerable mean 1.401 (min -11.234) · unanswerable mean -9.199 (max 2.112)
+  separation            -13.346 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    2.112  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    -6.249  leak-05: Why is an index nothing uses expensive?
+           -> Database indexing exercise
+    -6.872  none-04: What is my mentor's phone number?
+           -> Hand-in: Add caching to the reading list endpoint
+  missed (3):
+    goal-01: What am I working towards overall? -> ['Database indexing exercise', 'Add caching to the reading list endpoint', 'Hand-in: Add caching to the reading list endpoint']
+    goal-02: Which milestones have I already finished? -> ['Hand-in: Add caching to the reading list endpoint', 'Hand-in: Explain N+1 queries with a worked example', 'Use The Index, Luke']
+    goal-04: What should I focus on next? -> ['Database indexing exercise', 'Hand-in: Add caching to the reading list endpoint', 'Add caching to the reading list endpoint']
+

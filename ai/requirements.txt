@@ -4,12 +4,21 @@
 fastapi>=0.115,<1
 uvicorn[standard]>=0.32,<1
 pymongo>=4.9,<5
-sentence-transformers>=3
 python-dotenv>=1,<2
 
+# --- S1: the embedding stack, pinned exactly ---
+# Everything that decides what a vector *is* is pinned, because a change here
+# does not fail — it silently produces different vectors for the same text.
+# Half the index would then answer queries with the old geometry and half with
+# the new one, and nothing about the index would look wrong. The version a
+# measurement was taken with is part of the measurement.
+sentence-transformers==6.1.0
+transformers==5.17.0
+torch==2.14.0
+numpy==2.4.6
+
 # --- S1: document extraction ---
-# Pinned exactly, for the same reason the embedding stack is: a change in how
-# text comes out of a PDF changes every chunk derived from it, and the index
-# would still look valid afterwards.
+# Pinned for the same reason: a change in how text comes out of a PDF changes
+# every chunk derived from it, and the index would still look valid afterwards.
 PyMuPDF==1.28.2
 python-docx==1.2.0

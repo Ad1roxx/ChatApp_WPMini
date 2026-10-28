@@ -3734,6 +3734,105 @@ headings. `store.py` also lost a `CHUNK_SETTINGS` dict that nothing read.
 Twenty-two tests, 65 in the Python suite, 490 in the Node suite, all passing.
 ---
 
+### Entry 47 — S1 step 5: bge-small-en-v1.5, and a prefix that did not help
+
+Decision D1 in the agent plan: move the embedder from `all-MiniLM-L6-v2` to
+`BAAI/bge-small-en-v1.5`. One argument decides it — MiniLM reads **256**
+tokens, bge-small reads **512**, at the same **384** dimensions and a
+comparable size. That limit is a hard ceiling on chunk size, and the previous
+entry's 400-token budget was being clamped to 240 by it. The switch is what
+makes the configured budget reachable, so these two steps are one change made
+in two commits.
+
+**No index rebuild, and the reason is one line.** `numDimensions` in the vector
+index is set from `EMBEDDING_DIMS` (`ai/store.py`, the vector field in
+`ensure_vector_index`), and both models are 384-wide, so the index definition
+is unchanged and only the vectors inside it had to be rewritten. A model of a
+different width would need a rebuild — and would fail loudly rather than
+quietly, because Atlas rejects a query vector whose length does not match that
+number. A test asserts `EMBEDDING_DIMS` against the loaded model, so the
+mismatch is caught before an index exists rather than at query time.
+
+**The configured ceiling is now asserted against the model.** `config.py` said
+256 and now says 512; `test_the_configured_token_ceiling_is_the_model_s_ceiling`
+reads `embedder().max_seq_length` and compares. The step-4 test that asserted
+the 400-token budget was *not* reachable failed on this switch, which is
+exactly what it was written to do.
+
+**Passage and query are separate functions, not one with a flag.** BGE is
+trained asymmetrically: passages bare, queries carrying
+`"Represent this sentence for searching relevant passages: "`. A question and
+the passage that answers it are not paraphrases, and the prefix tells the model
+to encode a search intent rather than a statement. Prefixing both sides is the
+common way to get this wrong, and it fails silently — so `embed_passages` and
+`embed_query` exist separately, and tests assert the prefix is on the query and
+off the passage by comparing the vectors, not by reading the code.
+
+**And then the measurement disagreed with the decision.** 45 questions, same
+corpus, same chunker, the prefix as the only variable:
+
+| Configuration | recall@1 | @3 | @5 | MRR | separation |
+| --- | --- | --- | --- | --- | --- |
+| all-MiniLM-L6-v2 (baseline) | 0.68 | 1.00 | 1.00 | 0.828 | −0.208 |
+| bge-small, **with** query prefix | 0.74 | 0.94 | 1.00 | 0.848 | −0.111 |
+| bge-small, **without** query prefix | **0.81** | 0.94 | 1.00 | **0.875** | −0.105 |
+
+The model switch is a clear win either way — recall@1 up from 0.68, MRR from
+0.828, and the answerable/unanswerable separation halves from −0.208 to −0.11
+(still negative: no threshold separates them, which was Entry 41's finding and
+remains true). But the documented, trained-for query prefix **costs** 0.07
+recall@1 here.
+
+Three honest readings, and the measurement does not distinguish them:
+
+1. 0.07 of 45 questions is **three questions**. This corpus has 15 chunks, all
+   short first-party text. It cannot resolve a difference that size.
+2. The prefix is for retrieving *passages* — paragraphs of prose from
+   documents. There are no documents in the index yet. Step 8 is the first time
+   this corpus contains the thing the prefix was trained on.
+3. With the reranker on, both rows are **identical** (0.77 / 0.90, MRR 0.839):
+   the cross-encoder re-scores the same candidates, so the prefix stops
+   mattering to the final ranking on a corpus this small.
+
+So the prefix stays, for the reason it was adopted — it is how the model was
+fine-tuned, and D1 approved it — but it is now an environment variable
+(`AI_QUERY_INSTRUCTION`, empty to disable) rather than a constant, the
+no-prefix row is recorded above rather than discarded, and step 8 re-measures
+both against real document questions. A first attempt to assert "the prefix
+pulls a question towards its answer" as a unit test was **deleted**, because it
+is false pair by pair: on the fixture used it came out 0.01 the wrong way. What
+the unit test now asserts is that the prefix changes the ranking at all; the
+question of whether it helps belongs to the evaluation, which is the only thing
+that can answer it.
+
+**Also worth recording: the reranker is currently a net loss here.** bge-small
+with no prefix scores 0.81 / MRR 0.875 on its own, and 0.77 / 0.839 with the
+cross-encoder. D7 approved serving the reranker by default, and step 7 builds
+it; this says the default must be decided on step 8's document questions, not
+on this.
+
+**Versions pinned exactly** (C8): `sentence-transformers==6.1.0`,
+`transformers==5.17.0`, `torch==2.14.0`, `numpy==2.4.6`, beside the extraction
+pins from step 2. Everything that decides what a vector *is* is pinned, because
+a change there does not fail — it produces different vectors for the same text,
+and half an index would answer with the old geometry and half with the new one
+while looking entirely valid. The version a number was measured with is part of
+the number.
+
+**One trap, worth writing down.** `ai/.env` is gitignored and it pinned
+`AI_EMBEDDING_MODEL=all-MiniLM-L6-v2`. `load_dotenv()` does not override a real
+environment variable, but it certainly overrides a *default* — so changing
+`config.py` alone changed nothing locally, and the first measurement would have
+been the old model under the new label. `.env.example` and the local `.env`
+were both updated, and the stale `AI_CHUNK_MAX_CHARS` / `AI_CHUNK_OVERLAP` keys
+removed. This is why the ceiling test reads the loaded model instead of trusting
+the config value: a config file that lies is the failure mode here.
+
+Fourteen new tests, 79 in the Python suite. `check_retrieval.py` still passes
+on the new vectors, with better top scores (0.905 against 0.805 for the
+indexing query).
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
