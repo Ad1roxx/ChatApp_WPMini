@@ -3657,6 +3657,83 @@ fixture is unreadable in a diff; a builder states the structure being tested.
 
 ---
 
+### Entry 46 — S1 step 4: chunking in tokens instead of characters
+
+The splitter cut at 800 characters. Characters are a proxy for the thing that
+decides whether a chunk survives, and a loose one. The embedding model's limit
+is measured in **its own tokens**, and text over that limit is not rejected —
+it is silently truncated and the tail is embedded as though it had never been
+written. Nothing downstream looks wrong. Retrieval just quietly gets worse.
+
+800 characters is roughly 200 tokens, so the old chunks happened to fit under
+all-MiniLM-L6-v2's 256-token ceiling. That was luck, not design, and it stops
+being true the moment a dense PDF arrives — which steps 2 and 3 just made
+possible.
+
+**The budget is clamped to the model, not merely configured beside it.**
+`CHUNK_BUDGET_TOKENS` is a request: `effective_budget()` returns
+`min(requested, EMBEDDING_MAX_TOKENS - 16)`. The configured default is 400 and
+today's model reads 256, so the real budget is 240 — and a test asserts that
+the default is currently *not* reachable, so step 5's switch to
+bge-small-en-v1.5 (512 tokens, same 384 dimensions) is what widens it. Chunk
+size and model limit are one decision, so they are made in one place; a model
+with a smaller window narrows the budget instead of overflowing it.
+
+**The tokenizer had to come from the loaded model.** The first version called
+`AutoTokenizer.from_pretrained(EMBEDDING_MODEL)` and it does not work:
+`all-MiniLM-L6-v2` is the name sentence-transformers accepts, not a Hub
+identifier, so `AutoTokenizer` raises. Writing the test is what found it —
+nothing in the pipeline had called `token_count` yet. It now reads
+`store.embedder().tokenizer`: the tokenizer that counts is the tokenizer that
+truncates, and the process that chunks is already the process that embeds, so
+there is no second copy of the vocabulary and no name to guess.
+
+**Three properties, each asserted directly rather than through a proxy.**
+
+1. *No chunk exceeds the model's limit*, counted with the real tokenizer. A
+   character assertion would pass while the model truncated.
+2. *No chunk crosses a section boundary.* A passage half Requirements and half
+   Marking Scheme describes no single thing, so its vector lands between two
+   topics and answers neither question well. The test gives each section a
+   nonsense marker word and asserts no chunk contains two of them — detected
+   from the text, not from bookkeeping the chunker produced itself.
+3. *Consecutive chunks of one section overlap.* The sentence that answers a
+   question and the sentence that names its subject are often neighbours; split
+   between them with no overlap and neither chunk is retrievable alone.
+
+**Boundaries land on sentences, which means splitting sentences properly.**
+Prose is full of periods that end nothing — `et al.`, `e.g.`, `fig. 4`,
+`J. Dean`. A sentence longer than the whole budget is real rather than
+hypothetical (a list of forty requirements with no full stop, a table row on
+one line) and is hard-split on words, because the alternative is the invisible
+truncation this module exists to prevent. A remainder under
+`MIN_CHUNK_TOKENS` is folded into the previous chunk rather than indexed as a
+weak competitor for queries its own neighbour should win — but a whole piece of
+text that is short, like a one-line resource note, is kept: it is all there is.
+
+**Measured, not assumed: no change on the seeded corpus.** 15 sources, 15
+chunks, recall@1/@3/@5 0.68 / 1.00 / 1.00, MRR 0.828, separation −0.208 —
+identical to `fixed 800` in `ai/eval/s1-before.txt`, because every seeded
+source is short enough to be one chunk under either rule. `check_retrieval.py`
+passes unchanged. The baseline's `fixed 400` row still scores better
+(recall@1 0.71, MRR 0.841) for the same reason smaller chunks always flatter a
+corpus of tiny documents.
+
+`--compare` makes that plainer than intended: at 240, 128 and every budget
+between, the corpus produces the same 15 chunks and the same 0.68 / 0.828,
+because no seeded source reaches 128 tokens. The seeded corpus cannot tell
+these configurations apart at all, which is exactly what step 8's real
+multi-page documents are for.
+
+**What went away.** `STRATEGIES`, `fixed_chunks` and `heading_chunks` are gone,
+with `CHUNK_MAX_CHARS` and `CHUNK_OVERLAP`. `evaluate.py --compare` no longer
+compares chunkers; it compares token budgets (400 / 256 / 128), because Entry
+41 already measured the heading strategy as not applicable to a corpus with no
+headings. `store.py` also lost a `CHUNK_SETTINGS` dict that nothing read.
+
+Twenty-two tests, 65 in the Python suite, 490 in the Node suite, all passing.
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

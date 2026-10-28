@@ -18,8 +18,6 @@ from pymongo.operations import SearchIndexModel
 
 from config import (
     CHUNKS_COLLECTION,
-    CHUNK_MAX_CHARS,
-    CHUNK_OVERLAP,
     DB_NAME,
     EMBEDDING_DIMS,
     EMBEDDING_MODEL,
@@ -215,6 +213,3 @@ class ChunkStore:
             },
         ]
         return list(self.chunks.aggregate(pipeline))
-
-
-CHUNK_SETTINGS = {"max_chars": CHUNK_MAX_CHARS, "overlap": CHUNK_OVERLAP}

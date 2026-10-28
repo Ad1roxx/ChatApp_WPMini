@@ -27,11 +27,23 @@ VECTOR_INDEX = "chunk_vector_index"
 EMBEDDING_MODEL = os.getenv("AI_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 EMBEDDING_DIMS = int(os.getenv("AI_EMBEDDING_DIMS", "384"))
 
-# Chunk size in characters rather than tokens: the sources here are short
-# enough that the difference does not matter, and characters are something a
-# person can reason about when reading the chunks back.
-CHUNK_MAX_CHARS = int(os.getenv("AI_CHUNK_MAX_CHARS", "800"))
-CHUNK_OVERLAP = int(os.getenv("AI_CHUNK_OVERLAP", "120"))
+# Chunk sizing, in the embedding model's own tokens.
+#
+# Characters were a proxy for this, and a loose one: the model truncates in
+# tokens and does so silently, so a budget measured in anything else is a guess
+# that looks correct until a denser document arrives.
+CHUNK_BUDGET_TOKENS = int(os.getenv("AI_CHUNK_BUDGET_TOKENS", "400"))
+CHUNK_OVERLAP_TOKENS = int(os.getenv("AI_CHUNK_OVERLAP_TOKENS", "60"))
+
+# Below this a chunk is a fragment - a heading remnant, a stray line - and is
+# folded into its neighbour rather than indexed as a competitor to it.
+MIN_CHUNK_TOKENS = int(os.getenv("AI_MIN_CHUNK_TOKENS", "32"))
+
+# What the configured model can actually read, which is what the chunk budget
+# is clamped to. all-MiniLM-L6-v2 stops at 256 tokens; bge-small-en-v1.5 reads
+# 512 at the same 384 dimensions, which is the whole argument for D1. A test
+# asserts this value matches the model rather than trusting the comment.
+EMBEDDING_MAX_TOKENS = int(os.getenv("AI_EMBEDDING_MAX_TOKENS", "256"))
 
 # The shared secret Express presents. The service also binds to localhost, so
 # this is the second lock rather than the only one.

@@ -1,85 +1,232 @@
 """Splitting text into pieces small enough to embed and large enough to mean something.
 
-Two strategies, because the evaluation compares them rather than assuming one:
+Ported from RAG-Project at commit `695795a` (`ingestion/chunk.py`), replacing
+the character-based splitter this service used until now.
 
-- `fixed_chunks` splits on paragraph boundaries and packs up to a character
-  budget, with an overlap so a sentence spanning a boundary is not lost to both
-  sides.
-- `heading_chunks` keeps a Markdown-ish heading with the text beneath it, so a
-  chunk carries the context its author gave it.
+## Why tokens, not characters
 
-Neither is clever. Clever chunking is where RAG projects quietly lose their
-recall, and the way to find out which is better here is to measure it.
+The old splitter cut at 800 characters. Characters are a proxy for the thing
+that actually matters, and a loose one: the embedding model has a limit
+measured in **its own tokens**, and text over that limit is not rejected — it
+is silently truncated, and the tail is embedded as though it had never been
+written. Nothing downstream looks wrong. Retrieval just quietly gets worse.
+
+800 characters is roughly 200 tokens, so the old chunks happened to fit under
+MiniLM's 256-token ceiling. That was luck, not design, and it would have
+stopped being true the moment a PDF arrived with denser text.
+
+## The budget is coupled to the model
+
+`CHUNK_BUDGET_TOKENS` is a request, not a guarantee: it is clamped to what the
+configured model can actually read, minus headroom. Switching to a model with a
+larger window widens the real budget automatically, and switching to a smaller
+one narrows it rather than overflowing. Chunk size and model limit are one
+decision, so they live in one place.
+
+## Three commitments
+
+1. **Chunks never cross a section boundary.** A passage that is half
+   Requirements and half Marking Scheme describes no single thing, so its
+   vector lands between two topics and answers neither question well.
+2. **Chunks are measured in the embedding model's own tokenizer**, for the
+   reason above.
+3. **Chunks overlap at the seams.** The sentence that answers a question and
+   the sentence that names its subject are often neighbours; split between
+   them with no overlap and neither chunk is retrievable on its own.
 """
 
 from __future__ import annotations
 
 import re
+from typing import Iterator
 
-_HEADING = re.compile(r"^\s{0,3}(#{1,6}\s+.+|[A-Z][^\n]{0,60}:)\s*$")
+from config import (
+    CHUNK_BUDGET_TOKENS,
+    CHUNK_OVERLAP_TOKENS,
+    EMBEDDING_MAX_TOKENS,
+    MIN_CHUNK_TOKENS,
+)
 
+# Headroom under the model's hard limit. Nothing is prepended to the text
+# today, but a tokenizer's special tokens still occupy slots, and a budget that
+# sits exactly on the ceiling is one change away from silent truncation.
+HEADROOM_TOKENS = 16
 
-def _paragraphs(text: str) -> list[str]:
-    return [p.strip() for p in re.split(r"\n\s*\n", text or "") if p.strip()]
+def tokenizer():
+    """The embedding model's own tokenizer, taken from the loaded model.
 
+    Sizing chunks with any other tokenizer makes the budget a guess. This is
+    the one that decides what gets truncated, so it is the one that counts.
 
-def fixed_chunks(
-    text: str, max_chars: int = 800, overlap: int = 120
-) -> list[str]:
-    """Pack paragraphs up to `max_chars`, carrying `overlap` characters forward."""
-    chunks: list[str] = []
-    current = ""
+    It comes from `store.embedder()` rather than from `AutoTokenizer` on the
+    model name, for two reasons. The configured name is the one
+    sentence-transformers accepts (`all-MiniLM-L6-v2`), which is not a Hub
+    identifier on its own — `AutoTokenizer` rejects it. And the process that
+    chunks is the process that embeds, so this reuses the model already loaded
+    instead of fetching a second copy of its vocabulary.
+    """
+    from store import embedder
 
-    for para in _paragraphs(text):
-        # A paragraph longer than the budget is split on its own, rather than
-        # being allowed to produce one enormous chunk.
-        while len(para) > max_chars:
-            head, para = para[:max_chars], para[max_chars - overlap :]
-            chunks.append(head.strip())
-
-        if not current:
-            current = para
-        elif len(current) + len(para) + 2 <= max_chars:
-            current = f"{current}\n\n{para}"
-        else:
-            chunks.append(current.strip())
-            tail = current[-overlap:] if overlap else ""
-            current = f"{tail}\n\n{para}".strip() if tail else para
-
-    if current.strip():
-        chunks.append(current.strip())
-
-    return [c for c in chunks if c]
+    return embedder().tokenizer
 
 
-def heading_chunks(text: str, max_chars: int = 800) -> list[str]:
-    """Group each heading with the lines under it, then bound the size."""
-    lines = (text or "").splitlines()
-    sections: list[list[str]] = []
+def token_count(text: str) -> int:
+    return len(tokenizer().encode(text, add_special_tokens=False))
+
+
+def effective_budget(requested: int | None = None) -> int:
+    """What a chunk may actually hold, given the model in use."""
+    requested = CHUNK_BUDGET_TOKENS if requested is None else requested
+    return min(requested, EMBEDDING_MAX_TOKENS - HEADROOM_TOKENS)
+
+
+# --------------------------------------------------------------------------
+# Sentence splitting
+# --------------------------------------------------------------------------
+# Chunk boundaries land on sentence boundaries so no chunk starts or ends
+# mid-thought. That means splitting sentences correctly, and prose is full of
+# periods that end nothing.
+ABBREVIATIONS = {
+    "et al.", "e.g.", "i.e.", "cf.", "etc.", "vs.", "resp.", "approx.",
+    "fig.", "eq.", "sec.", "tab.", "no.", "pp.", "al.", "dr.", "prof.",
+    "inc.", "ltd.", "st.", "ca.", "ref.", "refs.", "eqs.", "figs.",
+}
+SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
+# A single capital followed by a period is an initial ("J. Devlin"), not an end.
+INITIAL = re.compile(r"\b[A-Z]\.$")
+
+
+def split_sentences(text: str) -> list[str]:
+    """Split on sentence boundaries, re-joining the false ones."""
+    sentences: list[str] = []
+
+    for piece in SENTENCE_BOUNDARY.split(text or ""):
+        piece = piece.strip()
+        if not piece:
+            continue
+        if sentences:
+            previous = sentences[-1]
+            tail = previous.split()[-1].lower() if previous.split() else ""
+            if tail in ABBREVIATIONS or INITIAL.search(previous):
+                sentences[-1] = f"{previous} {piece}"
+                continue
+        sentences.append(piece)
+
+    return sentences
+
+
+def split_oversized_sentence(sentence: str, limit: int) -> list[str]:
+    """Hard-split one sentence that exceeds the whole budget.
+
+    Rare but real — a list of forty requirements with no full stop, or a table
+    row rendered as one line. Without this the chunk overflows the model's
+    limit and is truncated invisibly, which is the failure this module exists
+    to prevent.
+    """
+    parts: list[str] = []
     current: list[str] = []
 
-    for line in lines:
-        if _HEADING.match(line) and current:
-            sections.append(current)
-            current = [line]
-        else:
-            current.append(line)
+    for word in sentence.split():
+        current.append(word)
+        if token_count(" ".join(current)) >= limit:
+            parts.append(" ".join(current))
+            current = []
 
     if current:
-        sections.append(current)
+        parts.append(" ".join(current))
+    return parts
+
+
+# --------------------------------------------------------------------------
+# Packing
+# --------------------------------------------------------------------------
+def pack_sentences(
+    sentences: list[str], budget: int, overlap: int
+) -> Iterator[str]:
+    """Greedily fill chunks with whole sentences, overlapping at the seams."""
+    current: list[str] = []
+    current_tokens = 0
+
+    for sentence in sentences:
+        sentence_tokens = token_count(sentence)
+
+        if sentence_tokens > budget:
+            if current:
+                yield " ".join(current)
+                current, current_tokens = [], 0
+            for part in split_oversized_sentence(sentence, budget):
+                yield part
+            continue
+
+        if current_tokens + sentence_tokens > budget and current:
+            yield " ".join(current)
+            # Carry the tail of the finished chunk into the next one.
+            carried: list[str] = []
+            carried_tokens = 0
+            for previous in reversed(current):
+                previous_tokens = token_count(previous)
+                if carried_tokens + previous_tokens > overlap:
+                    break
+                carried.insert(0, previous)
+                carried_tokens += previous_tokens
+            current, current_tokens = carried, carried_tokens
+
+        current.append(sentence)
+        current_tokens += sentence_tokens
+
+    if current:
+        yield " ".join(current)
+
+
+def chunk_text(
+    text: str, *, budget: int | None = None, overlap: int | None = None
+) -> list[str]:
+    """Split one piece of text — a brief, a note, one section — into chunks."""
+    budget = effective_budget(budget)
+    overlap = CHUNK_OVERLAP_TOKENS if overlap is None else overlap
+
+    sentences = split_sentences(text)
+    if not sentences:
+        return []
 
     chunks: list[str] = []
-    for section in sections:
-        body = "\n".join(section).strip()
-        if not body:
+    for piece in pack_sentences(sentences, budget, overlap):
+        if token_count(piece) < MIN_CHUNK_TOKENS and chunks:
+            # A tiny trailing remainder is folded into the previous chunk
+            # rather than indexed as a fragment. Dropping it would lose real
+            # text; indexing it alone would add a weak competitor for the
+            # queries its own neighbours should win.
+            chunks[-1] = f"{chunks[-1]} {piece}"
             continue
-        # A section over budget falls back to the fixed splitter, so the
-        # strategy degrades rather than emitting something unembeddable.
-        chunks.extend(
-            [body] if len(body) <= max_chars else fixed_chunks(body, max_chars)
-        )
+        chunks.append(piece)
 
+    # A whole piece of text shorter than the minimum is kept: a resource note
+    # or a one-line brief is short on purpose, and it is all there is.
     return chunks
 
 
-STRATEGIES = {"fixed": fixed_chunks, "heading": heading_chunks}
+def chunk_sections(
+    sections: list[dict], *, budget: int | None = None, overlap: int | None = None
+) -> list[dict]:
+    """Chunk an extracted document, never crossing a section boundary.
+
+    Each chunk carries where it came from, so a citation can name a section and
+    a page rather than an offset nobody can act on.
+    """
+    chunks: list[dict] = []
+
+    for section in sections:
+        pieces = chunk_text(section.get("text", ""), budget=budget, overlap=overlap)
+        for position, piece in enumerate(pieces):
+            chunks.append(
+                {
+                    "text": piece,
+                    "heading": section.get("heading", ""),
+                    "section_index": section.get("index", 0),
+                    "chunk_index": position,
+                    "start_page": section.get("start_page"),
+                    "end_page": section.get("end_page"),
+                }
+            )
+
+    return chunks

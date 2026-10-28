@@ -70,15 +70,16 @@ cp .env.example .env
 
 ## The files
 
-| File | What it does |
-| --- | --- |
-| `config.py` | Settings, all overridable by environment |
-| `sources.py` | Application data → documents worth indexing, each with its `viewers` |
-| `chunking.py` | Two strategies, fixed-size and heading-aware, so the evaluation can compare them |
-| `store.py` | Embeddings, the vector index, and the filtered search |
-| `ingest.py` | CLI: build or rebuild the index |
-| `check_retrieval.py` | End-to-end checks, including that another mentorship's material never appears |
-| `app.py` | FastAPI: `/search`, behind the shared secret |
+| File | In | Out |
+| --- | --- | --- |
+| `config.py` | Environment | Settings: database, model, chunk budget, secret |
+| `sources.py` | Application data | Documents worth indexing, each with its `viewers` |
+| `extract.py` | PDF and Word attachments | Text in sections, with page numbers where the format has them |
+| `chunking.py` | Text | Chunks sized in the embedding model's own tokens, never crossing a section boundary |
+| `store.py` | Chunks, queries | Embeddings, the vector index, and the filtered search |
+| `ingest.py` | CLI | A built or rebuilt index |
+| `check_retrieval.py` | CLI | End-to-end checks, including that another mentorship's material never appears |
+| `app.py` | HTTP | FastAPI `/search`, behind the shared secret |
 
 ## What is indexed
 

@@ -1,7 +1,7 @@
 """Measure the retrieval, rather than assert that it exists.
 
     python evaluate.py                          the default configuration
-    python evaluate.py --strategy heading       the other chunker
+    python evaluate.py --budget 256             a smaller token budget
     python evaluate.py --model all-mpnet-base-v2 --dims 768
     python evaluate.py --compare                every configuration, side by side
 
@@ -35,8 +35,8 @@ import json
 import statistics
 from pathlib import Path
 
-from chunking import STRATEGIES
-from config import CHUNK_OVERLAP
+from chunking import chunk_text, effective_budget
+from config import CHUNK_BUDGET_TOKENS
 from sources import documents
 from store import ChunkStore
 
@@ -69,18 +69,13 @@ def load_questions() -> list[dict]:
         return [json.loads(line) for line in fh if line.strip()]
 
 
-def build_index(store: ChunkStore, strategy: str, max_chars: int) -> int:
+def build_index(store: ChunkStore, budget: int) -> int:
     """Re-chunk and re-embed everything with one configuration."""
-    split = STRATEGIES[strategy]
     store.drop_all()
 
     written = 0
     for doc in documents(store.db):
-        pieces = (
-            split(doc["text"], max_chars, CHUNK_OVERLAP)
-            if strategy == "fixed"
-            else split(doc["text"], max_chars)
-        )
+        pieces = chunk_text(doc["text"], budget=budget)
         written += store.replace_source(doc, pieces)
 
     if not store.wait_until_searchable(written):
@@ -188,8 +183,7 @@ def report(name: str, chunks: int, result: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Measure retrieval quality.")
-    parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="fixed")
-    parser.add_argument("--max-chars", type=int, default=800)
+    parser.add_argument("--budget", type=int, default=CHUNK_BUDGET_TOKENS)
     parser.add_argument("--compare", action="store_true", help="every configuration")
     parser.add_argument("--rerank", action="store_true", help="add a cross-encoder reranker")
     args = parser.parse_args()
@@ -200,14 +194,22 @@ def main() -> None:
     store = ChunkStore()
     store.ensure_vector_index()
 
-    configurations = (
-        [("fixed 800", "fixed", 800), ("fixed 400", "fixed", 400), ("heading 800", "heading", 800)]
-        if args.compare
-        else [(f"{args.strategy} {args.max_chars}", args.strategy, args.max_chars)]
-    )
+    # Budgets rather than chunking strategies: the strategies compared in
+    # Entry 41 were fixed-versus-heading over character counts, and the heading
+    # one was measured as not applicable to a corpus with no headings. What is
+    # worth comparing now is how much text one chunk may hold.
+    #
+    # Named and de-duplicated by the *effective* budget, because a request
+    # above the model's limit is clamped to it: with all-MiniLM-L6-v2 both 400
+    # and 256 come out at 240, and running the same configuration twice under
+    # two names would read as a measurement rather than as the clamp.
+    requested = [400, 256, 128] if args.compare else [args.budget]
+    configurations: list[tuple[str, int]] = []
+    for budget in dict.fromkeys(effective_budget(b) for b in requested):
+        configurations.append((f"tokens {budget}", budget))
 
-    for name, strategy, max_chars in configurations:
-        chunks = build_index(store, strategy, max_chars)
+    for name, budget in configurations:
+        chunks = build_index(store, budget)
         report(name, chunks, evaluate(store, questions, rerank=False))
         if args.rerank:
             report(f"{name} + reranker", chunks, evaluate(store, questions, rerank=True))

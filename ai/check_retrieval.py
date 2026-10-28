@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import sys
 
-from chunking import fixed_chunks
-from config import CHUNK_MAX_CHARS, CHUNK_OVERLAP
+from chunking import chunk_text
 from sources import documents
 from store import ChunkStore
 
@@ -46,9 +45,7 @@ def main() -> None:
     m2_titles: set[str] = set()
 
     for doc in documents(store.db):
-        written = store.replace_source(
-            doc, fixed_chunks(doc["text"], CHUNK_MAX_CHARS, CHUNK_OVERLAP)
-        )
+        written = store.replace_source(doc, chunk_text(doc["text"]))
         counts["sources"] += 1
         counts["chunks"] += written
         if doc["mentorship_id"] == M2:
