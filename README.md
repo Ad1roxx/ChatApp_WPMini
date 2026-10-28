@@ -208,7 +208,7 @@ ai/                          the retrieval service (Python) — see ai/README.md
 
 scripts/
   screenshot.mjs             Playwright shots of every route
-  seed-rag-corpus.js         a corpus to retrieve from and evaluate against
+  seed-rag-corpus.cjs         a corpus to retrieve from and evaluate against
 
 .github/workflows/
   ci.yml                     lint, build and the test suite on every push

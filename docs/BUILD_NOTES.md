@@ -3245,7 +3245,7 @@ Entry 39 begins with a documentation fix rather than with code.
 
 **Files added:** `ai/` — `config.py`, `sources.py`, `chunking.py`, `store.py`,
 `ingest.py`, `check_retrieval.py`, `app.py`, `requirements.txt`, `.env.example`,
-`README.md` — and `scripts/seed-rag-corpus.js`.
+`README.md` — and `scripts/seed-rag-corpus.cjs`.
 
 ---
 
@@ -3470,6 +3470,31 @@ measured and improved against a labelled set", not "this system achieves 0.81".
 dimension-specific, so a 768-dimension model needs its own collection and
 index rather than a flag — which is itself worth knowing before promising an
 A/B.
+
+---
+
+### Entry 42 — A seeder that had never been run from where it lives
+
+Found while starting S1, before a line of it was written: the committed
+`scripts/seed-rag-corpus.js` could not execute at all.
+
+The repository's `package.json` declares `"type": "module"`, so Node loads a
+`.js` file as an ES module, and the script opens with `require(...)`. It threw
+*"require is not defined in ES module scope"* on the first line that mattered.
+
+It had worked perfectly in the scratch directory it was written in — no
+`package.json` there, so Node treated it as CommonJS — and was then copied into
+`scripts/`, committed, documented in three files, and referenced by the S1 plan
+without once being run from its committed location.
+
+Renamed to `.cjs`, which states its module system explicitly, the way
+`scripts/screenshot.mjs` already does.
+
+The lesson is the one Entries 38 and 41 keep teaching in different clothes. An
+empty PDF frame passed its assertion; isolation checks passed while returning
+nothing; and a seeder passed review while being unrunnable. Each time the proof
+was a proxy for the property rather than the property itself. **Running it
+somewhere is not running it where it lives.**
 
 ---
 

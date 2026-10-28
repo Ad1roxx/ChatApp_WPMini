@@ -279,6 +279,6 @@ src/pages/ src/components/   screens and shared UI (CSS Modules + design tokens)
 src/context/                 AuthContext (identity, socket, authFetch), Conversations, Work
 ai/                          retrieval service — see ai/README.md
 ai/eval/                     45 labelled questions + a dated results snapshot
-scripts/seed-rag-corpus.js   the corpus the evaluation runs against
+scripts/seed-rag-corpus.cjs   the corpus the evaluation runs against
 docs/BUILD_NOTES.md          41 entries: why everything is the way it is
 ```
