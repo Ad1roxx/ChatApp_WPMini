@@ -3498,6 +3498,47 @@ somewhere is not running it where it lives.**
 
 ---
 
+### Entry 43 — S1 step 1: a test suite for the Python side
+
+The retrieval service has had no tests since it was written. Four sprints of
+planning now depend on it, and S1 is about to rewrite its chunker and swap its
+embedding model, so the regression protection comes first.
+
+**pytest, and nothing else.** The Node side runs on `node:test` with no runner
+dependency; the Python side gets `pytest` and no plugins. `requirements-dev.txt`
+is separate from `requirements.txt` for the reason Node keeps devDependencies
+separate: what runs the service and what proves it works are different lists.
+
+**The isolation rule is inherited, not invented.** `server/test/helpers/harness.js`
+already settled it — spawn against a throwaway database, drop it afterwards,
+because verification runs against the development database twice meant
+repairing real records. Python inherits the rule and adds a second forbidden
+name, because this service has two databases worth protecting:
+
+- `chatapp` — what the app uses
+- `chatapp_rag` — the corpus the retrieval evaluation runs on
+
+Tests use `chatapp_rag_pytest`, dropped on the way in as well as out. Dropping
+on entry matters: a run killed halfway leaves state behind, and a test that
+silently inherits it passes for the wrong reason.
+
+**The guard has its own tests.** `forbid_real_databases` raises on either real
+name, and four tests assert that it does — including one asserting that
+`config.DB_NAME` is still *in* the forbidden set, so pointing the service at a
+new corpus fails loudly rather than leaving the guard protecting a name nothing
+uses.
+
+**Mongo-dependent tests skip rather than fail.** Extraction and chunking are
+pure functions and must stay runnable with Docker closed; only `needs_mongo`
+tests need the container. Skipping keeps the fast tests honest on a laptop
+without making the slow ones optional on a machine that has it.
+
+Seven tests. The two that matter most are the pair proving teardown works: one
+writes a document, the next asserts the database is empty — the property
+itself, not an assumption that the fixture did its job.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

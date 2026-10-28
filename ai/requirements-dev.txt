@@ -1,0 +1,10 @@
+# Test-only dependencies for the AI service.
+#
+# Kept separate from requirements.txt for the same reason Node keeps
+# devDependencies separate: what runs the service and what proves it works are
+# different lists, and only the first belongs anywhere near a deployment.
+#
+#   .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+#   .venv/Scripts/python.exe -m pytest
+
+pytest>=8,<9
