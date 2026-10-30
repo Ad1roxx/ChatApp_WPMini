@@ -1,0 +1,8 @@
+another user's search latency, through the Copilot route
+  worker idle                        n= 200   median   36.3 ms   p95   55.4 ms   max  112.9 ms
+  worker embedding a 50-page PDF     n= 200   median   84.2 ms   p95  139.2 ms   max  173.5 ms
+  embedding windows: 3.68 s, 3.47 s, 3.75 s, 3.61 s, 3.52 s
+  ok   searches stay far inside Express's 15 s timeout while the worker embeds
+       slowest 174 ms
+
+all checks passed

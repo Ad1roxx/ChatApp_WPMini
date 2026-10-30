@@ -568,6 +568,11 @@ start-up catch-up; the sync queue is in memory (BUILD_NOTES open items).
   model must be ready at start-up, and S2's latency must fit — or change —
   Express's 15-second timeout on the Copilot route, which generation will
   stress far more than retrieval did.
+- **Generation will share a process with the sync worker.** A fifty-page
+  upload already doubles other users' search latency while it embeds (36 → 84
+  ms median, `check_freshness.py --contention`). Measure S2's latency with the
+  worker busy, not only idle; if it matters, cap the worker's torch threads or
+  move it to its own process.
 - **Evaluations must wait for the index.** Atlas indexes asynchronously, and a
   sync re-writes a record's unchanged files too; a faithfulness test that
   searches straight after a write measures the lag, not the model.

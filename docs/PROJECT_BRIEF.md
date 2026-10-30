@@ -58,8 +58,8 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **3,666** lines of Python across **12** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
-| The served index is built from the app's own database, read through a handle that has no write method; evaluation runs on a separate seeded database with its own index. **Until S1.5 the served index came from that seeded copy**, so the Copilot had never searched a real user's material | `ai/appdb.py` · `ai/tests/test_appdb.py` · BUILD_NOTES Entry 53 |
+| **3,751** lines of Python across **12** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
+| **The Copilot searches the app's real records** — what users have actually written and attached — not a seeded copy. The served index is built from the app's own database, read through a handle that has no write method; evaluation runs on a separate seeded database with its own index. **Until S1.5 the served index came from that seeded copy**, so the Copilot had never searched a real user's material | `ai/appdb.py` · `ai/tests/test_appdb.py` · BUILD_NOTES Entry 53 |
 | PDF and Word attachments are extracted into sections with page numbers, chunked in the embedding model's own tokens, and indexed with the viewers of the record they hang off | `ai/extract.py`, `ai/chunking.py`, `ai/sources.py` |
 | A scan with no text layer produces **zero** chunks and logs that it needs OCR, rather than indexing a filename that looks readable | `ai/check_retrieval.py`, check 8 |
 | Ingestion **reconciles**: a source that was not seen in a run has its chunks deleted, so a removed attachment, a deleted hand-in or an ended mentorship cannot stay retrievable | `ai/ingest.py` · `ai/store.py`, `reconcile()` |
@@ -72,6 +72,7 @@ behind an Express and Socket.IO server written for this project.
 | The cross-encoder reranker, re-measured on this corpus, is **mixed**: +0.03 recall@1 on records (0.71 → 0.74), −0.06 on documents (0.93 → 0.87), ~370 ms added per search. The corpus is smaller than the 30-chunk candidate pool, so this compares the cross-encoder with the bi-encoder rather than measuring the two-stage pipeline; so it is **off by default** and revisited in S2 on a larger corpus. The served path is bge-small dense search with a soft per-record cap, `k=4`, at ~25 ms | same file · `AI_RERANK=1` · BUILD_NOTES Entry 52 |
 | **Search is correct even when the index was never told**: every result is checked against its record at read time — deleted, changed, no longer visible, or unversioned chunks are dropped — so a missed update can only delay an addition. The check costs **3.5 ms** of a 30 ms search where it runs, and drops nothing on a fresh index | `ai/store.py`, `read_time_check()` · `python check_freshness.py` |
 | **Freshness, end to end through the app's routes**: upload → searchable **0.94 s** median (p95 0.96 s, n=20) for a one-page PDF, **0.71 s** for a 9.28 MB mostly-image PDF (n=5), **3.78 s** for fifty pages of text (n=3); delete → gone at the **first** search after the delete, 28 of 28, even while the deleted file's chunks were still indexed | `python check_freshness.py` · `ai/eval/s15-freshness.txt` |
+| A long upload competes with search for the CPU: while a fifty-page PDF is embedded (3.5–3.8 s), another user's search goes from **36 ms to 84 ms** median and **55 ms to 139 ms** p95 — slowest 174 ms, against a 15 s timeout. One worker means at most one embedding at a time | `python check_freshness.py --contention` · `ai/eval/s15-contention.txt` |
 | Express sends **identifiers only** after a successful write, never awaited, 1.5 s timeout, no retry; the service refuses any body carrying content or viewers, so nothing reaching it can choose what is indexed or who sees it | `server/lib/indexSync.js` · `ai/app.py`, `/index/sync` · `server/test/indexsync.test.js` |
 | The service **refuses to search an index embedded by a different model**: two 384-wide models are accepted by the index and mean nothing to each other, and a mismatch measured 0.16 recall@1 against 0.74 with no error | `ai/store.py`, `assert_model_matches()` |
 | **Almost no configuration separates answerable from unanswerable questions**: the most confident unanswerable question outscores the least confident answerable one in every configuration but one. The exception is bge-small, dense, on the document questions, at **+0.014** — thin, on 20 questions, and the first positive separation measured in this project | same run — the gap is printed as `separation` |
@@ -382,6 +383,13 @@ Drawn only from section 2. Each is defensible if questioned.
 > vector query rather than over its results, with tests proving that a user
 > outside a mentorship retrieves nothing from it and that the access check
 > happens in Express, before the service is reachable.
+
+> Kept that index in step with the application: every result is checked
+> against its source record at read time, so a deleted or changed record is
+> never returned even when the update was lost, and a background worker syncs
+> each change from identifiers alone. Measured end to end through the app's
+> routes, a new upload is searchable in about a second and a deleted one is
+> gone at the very next search.
 
 > Evaluated that pipeline against a 65-question labelled set over a seeded
 > corpus, in two groups, raising recall@1 on typed-in text from 0.55 to 0.71 by moving

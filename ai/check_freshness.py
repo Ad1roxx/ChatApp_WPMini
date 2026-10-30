@@ -2,6 +2,7 @@
 
     python check_freshness.py            # about five minutes; needs both MongoDBs running
     python check_freshness.py --quick    # fewer repetitions, for a smoke test
+    python check_freshness.py --contention   # other users' search while the worker embeds
 
 It starts the real Express server and the real retrieval service itself, both
 pointed at a fixture database of their own (`chatapp_freshness` on each MongoDB)
@@ -343,7 +344,91 @@ def measure(label: str, make, runs: int, sid: str, mentorship: str, results: dic
     results[label] = {"size_mb": size / (1024 * 1024), "add": add, "gone": gone, "first_poll": first_poll}
 
 
+def contention(uploads: int = 5) -> None:
+    """Another user's search latency while the worker embeds a long PDF.
+
+    The sync worker shares the service's process with search, so a long upload
+    competes with everyone's questions for the CPU. Measured, not assumed: one
+    student searches their own mentorship, through the Copilot route, while a
+    different student's fifty-page PDF is being embedded.
+
+    The embedding window is observed directly rather than guessed:
+    `replace_source` inserts a file's chunks only after all of them are
+    embedded, so the window runs from the upload route's response until those
+    chunks appear in the chunk store.
+    """
+    seed()
+    procs = start()
+    chunks = MongoClient(CHUNK_MONGO)[FIXTURE].knowledge_chunks
+
+    def search_ms(user, mentorship) -> float:
+        started = time.perf_counter()
+        status, _ = search(user, mentorship)
+        assert status == 200, f"search answered {status}"
+        return (time.perf_counter() - started) * 1000
+
+    try:
+        due = datetime.fromtimestamp(time.time() + 7 * 86400, timezone.utc).isoformat()
+        uploader = call("POST", "/api/mentorships", MENTOR, {"studentId": STUDENT, "topic": "A"})[1]["_id"]
+        other = call("POST", "/api/mentorships", MENTOR, {"studentId": OUTSIDER, "topic": "B"})[1]["_id"]
+        call(
+            "POST",
+            "/api/assignments",
+            MENTOR,
+            {"title": "Caching exercise", "instructions": BRIEF, "dueAt": due, "mentorshipIds": [uploader, other]},
+        )
+        sid = call("GET", f"/api/mentorships/{uploader}/assignments", STUDENT)[1][0]["_id"]
+        until(lambda: search(OUTSIDER, other)[1] != [], timeout=60)
+        for _ in range(10):  # warm both paths before measuring anything
+            search_ms(OUTSIDER, other)
+
+        idle = [search_ms(OUTSIDER, other) for _ in range(200)]
+
+        busy, windows = [], []
+        for n in range(uploads):
+            name = f"long-{n}.pdf"
+            status, _ = upload(sid, name, long_pdf(f"busy{n}"))
+            assert status == 201, f"upload answered {status}"
+            started = time.perf_counter()
+            while chunks.count_documents({"title": name}) == 0:
+                busy.append(search_ms(OUTSIDER, other))
+                if time.perf_counter() - started > 120:
+                    raise SystemExit(f"{name} was never indexed")
+            windows.append(time.perf_counter() - started)
+            sub = call("GET", f"/api/mentorships/{uploader}/assignments", STUDENT)[1][0]
+            file_id = next(a["fileId"] for a in sub["attachments"] if a["name"] == name)
+            call("DELETE", f"/api/submissions/{sid}/files/{file_id}", STUDENT)
+            time.sleep(2)  # let the deletion's sync finish before the next window
+    finally:
+        stop(procs)
+
+    def row(label, xs):
+        print(
+            f"  {label:<34} n={len(xs):>4}   median {statistics.median(xs):6.1f} ms"
+            f"   p95 {p95(xs):6.1f} ms   max {max(xs):6.1f} ms"
+        )
+
+    print("another user's search latency, through the Copilot route")
+    row("worker idle", idle)
+    row("worker embedding a 50-page PDF", busy)
+    print(f"  embedding windows: {', '.join(f'{w:.2f} s' for w in windows)}")
+    check(
+        "searches stay far inside Express's 15 s timeout while the worker embeds",
+        max(busy) < 15000,
+        f"slowest {max(busy):.0f} ms",
+    )
+
+
 def main() -> None:
+    if "--contention" in sys.argv:
+        contention()
+        print()
+        if failures:
+            print(f"{len(failures)} check(s) failed")
+            sys.exit(1)
+        print("all checks passed")
+        return
+
     quick = "--quick" in sys.argv
     runs = {"small": 5 if quick else 20, "large": 2 if quick else 5, "long": 1 if quick else 3}
 

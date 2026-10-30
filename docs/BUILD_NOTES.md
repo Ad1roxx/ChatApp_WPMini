@@ -4756,6 +4756,60 @@ after a lost event, not while the worker is busy, not with the service down.
 
 ---
 
+### Entry 59 — Before S2: four things confirmed, two of them not yet true
+
+S1.5 was checked once more before S2 starts. Four questions; the honest
+answers were "yes", "now measured", "yes", and "no — fixed".
+
+**Does the brief say the Copilot now searches the app's real records?** It
+implied it — "the served index is built from the app's own database" — without
+saying so, and S1.5 had no résumé line. It now says it plainly, beside the
+freshness figures and the command that produced them.
+
+**Does a long upload slow other people's searches?** Yes, about twofold, and
+now it is measured rather than guessed. The sync worker shares the service's
+process with search, so `python check_freshness.py --contention` has one
+student search their own mentorship through the Copilot route while a
+different student's fifty-page PDF is embedded — the window observed directly,
+from the upload's response until the file's chunks appear in the chunk store
+(`ai/eval/s15-contention.txt`):
+
+| Another user's search | n | median | p95 | max |
+| --- | --- | --- | --- | --- |
+| worker idle | 200 | 36.3 ms | 55.4 ms | 112.9 ms |
+| worker embedding a 50-page PDF | 200 | 84.2 ms | 139.2 ms | 173.5 ms |
+
+The embedding windows were 3.5–3.8 s. A scratch run before the measurement was
+folded into the script gave 37.0 → 81.8 ms median and 57.6 → 131.8 ms p95, so
+the figure is stable. It is a real cost and an acceptable one here: the slowest
+search was 174 ms against a 15-second timeout, and one worker means at most one
+embedding competes at a time, however many people upload. The levers, if it
+ever matters, are capping the worker's torch threads or moving the worker into
+its own process — the latter also isolates a crash in a PDF library from
+search. Neither is taken now; both are written into S2's notes, because
+generation will add its own load to the same process.
+
+**Are the test databases dropped?** Yes. After the full Python suite, the Node
+suite, the freshness check and the contention run, 27017 holds `chatapp` and
+two databases from another project (created December 2025), and 27018 holds
+`chatapp_rag` and `chatapp_eval` — no `chatapp_rag_pytest*`, no
+`chatapp_freshness*`, no `chatapp_test`, no `chatapp_backfill_test`, and no
+fixture service left listening.
+
+**Was the goal backfill run on dev, and did the catch-up re-index afterwards?**
+The backfill ran in step 1 and found nothing to do: dev has no goals. The
+catch-up had **not** run. The served service had not been started since S1.5
+landed; its index was last written by a manual `ingest.py` during step 1,
+*before* step 3 began stamping `assignmentId` on file chunks — so all seven
+file chunks lacked the field an assignment-delete sync uses to find them. The
+read-time check would still have refused them correctly if their records went
+away; the index just was not in the state these notes describe. The service was
+started against dev with its default start-up behaviour, logged
+*"catch-up: 9 chunks written, 0 removed"*, and was stopped. All nine chunks now
+carry a version, an `assignmentId` where one applies, and one embedding model.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

@@ -187,6 +187,11 @@ not bytes. From a delete's response until it is gone: immediate, at the very
 next search, even with the deleted file's chunks still in the index
 (`ai/eval/s15-freshness.txt`).
 
+The worker shares this process with search, so a long upload slows everyone's
+searches while it embeds: from 36 ms to 84 ms median for another user, during a
+fifty-page PDF's 3.5 seconds (`check_freshness.py --contention`). One worker
+means at most one embedding at a time.
+
 ### The read-time check
 
 Every search checks its candidates against the records as they are now, after
