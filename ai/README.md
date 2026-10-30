@@ -23,9 +23,22 @@ Express  ──verifies the token, checks mentorship membership──┐
                                                      knowledge_chunks
 ```
 
-`knowledge_chunks` is an index **derived** from application data. The
-application's own collections stay the source of truth; nothing here writes to
-them, and dropping the whole collection costs one re-ingest.
+Three databases, three jobs:
+
+| Database | Server | Holds | Written by |
+| --- | --- | --- | --- |
+| `chatapp` | 27017 | the app's records and attachments | Express only — this service **reads** it, through `appdb.py` |
+| `chatapp_rag` | 27018 | the served index, `knowledge_chunks` | this service only |
+| `chatapp_eval` | 27018 | a seeded corpus **and** its own index | the seeders, `evaluate.py`, `check_retrieval.py` |
+
+`knowledge_chunks` is an index **derived** from the app's records. Those stay
+the source of truth; `appdb.py` offers no way to write to them, and dropping the
+whole index costs one re-ingest.
+
+**Until S1.5 this was not true.** The service read its records from a seeded
+copy beside the chunks, so the Copilot had never searched anything a real user
+wrote (BUILD_NOTES Entry 53). Every evaluation figure was, and still is,
+measured on that seeded corpus — which is what an evaluation corpus is for.
 
 ## The rule that matters
 
@@ -63,12 +76,15 @@ python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements.txt   # Windows
 cp .env.example .env
 
+# The served index, from the app's own database (read-only):
+.venv/Scripts/python.exe ingest.py --drop
+.venv/Scripts/python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
+
+# The evaluation, on its own fixture database - never the served index:
 node ../scripts/seed-rag-corpus.cjs             # the corpus, from the repo root
 .venv/Scripts/python.exe eval/seed_documents.py  # its PDFs and Word files
-.venv/Scripts/python.exe ingest.py --drop        # build the index
 .venv/Scripts/python.exe check_retrieval.py      # prove the isolation
 .venv/Scripts/python.exe evaluate.py --ablation  # measure it, stage by stage
-.venv/Scripts/python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
 `eval/seed_documents.py` is a **separate step**, run after the Node seeder; the

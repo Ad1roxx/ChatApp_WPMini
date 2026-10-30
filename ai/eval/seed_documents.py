@@ -50,7 +50,7 @@ from bson import ObjectId  # noqa: E402
 from docx import Document  # noqa: E402
 from pymongo import MongoClient  # noqa: E402
 
-from config import DB_NAME, MONGODB_URI  # noqa: E402
+from config import EVAL_DB_NAME, MONGODB_URI  # noqa: E402
 
 PDF_TYPE = "application/pdf"
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -322,8 +322,10 @@ DOCUMENTS = {
 
 
 def main() -> None:
+    # The evaluation fixture. A seeder writes, so it opens its own client; it
+    # is never pointed at the app's database or the served index.
     client = MongoClient(MONGODB_URI)
-    db = client[DB_NAME]
+    db = client[EVAL_DB_NAME]
     bucket = gridfs.GridFSBucket(db, bucket_name="attachments")
 
     # Idempotent: the bytes and the references both go, so a second run cannot
@@ -374,7 +376,9 @@ def main() -> None:
             print(f"  {assignment_title}: {', '.join(name for name, _, _ in files)}")
 
     print(f"attached {attached} files to {sum(len(r) for r in DOCUMENTS.values())} hand-ins")
-    print("now run: .venv/Scripts/python.exe ingest.py --drop")
+    # Not ingest.py: that builds the SERVED index from the app's database.
+    # These two build their own index in this fixture and measure it.
+    print("now run: .venv/Scripts/python.exe check_retrieval.py  (or evaluate.py)")
     client.close()
 
 

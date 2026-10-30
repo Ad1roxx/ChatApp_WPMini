@@ -24,8 +24,8 @@ from __future__ import annotations
 import sys
 
 from chunking import chunk_document
+from evaluate import fixture
 from sources import documents
-from store import ChunkStore
 
 M1 = "d00000000000000000000001"  # Priya  -> Aditya
 M2 = "d00000000000000000000002"  # Karan  -> Zara
@@ -45,14 +45,17 @@ def check(what: str, ok: bool, detail: str = "") -> None:
 
 
 def main() -> None:
-    store = ChunkStore()
+    # The evaluation fixture, never the served index: this empties the index
+    # it checks, every run.
+    store, records = fixture()
+    print(f"fixture: {store.db.name}")
     print("vector index:", store.ensure_vector_index())
 
     store.drop_all()
     counts = {"sources": 0, "chunks": 0}
     m2_titles: set[str] = set()
 
-    for doc in documents(store.db):
+    for doc in documents(records):
         written = store.replace_source(doc, chunk_document(doc))
         counts["sources"] += 1
         counts["chunks"] += written

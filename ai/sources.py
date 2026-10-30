@@ -69,9 +69,6 @@ EXTRACTABLE = {
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 MAX_ATTACHMENTS_PER_RECORD = 5
 
-ATTACHMENTS_BUCKET = "attachments"
-
-
 def _ids(value) -> str:
     return str(value)
 
@@ -83,10 +80,12 @@ def _attachment_bytes(db, file_id) -> bytes | None:
     be referenced by a record and still be missing — a half-finished upload, or
     a delete that removed the record's entry but not the row. Either way it is
     not something to crash an ingest run over.
+
+    `db` is the app's database as `appdb.py` hands it out: read-only, GridFS
+    included.
     """
-    bucket = gridfs.GridFSBucket(db, bucket_name=ATTACHMENTS_BUCKET)
     try:
-        with bucket.open_download_stream(file_id) as stream:
+        with db.open_download_stream(file_id) as stream:
             if stream.length > MAX_ATTACHMENT_BYTES:
                 log.warning(
                     "attachment %s is %.1f MB, over the %d MB limit - skipped",
@@ -204,7 +203,11 @@ def _mentorship_map(db, mentorship_id: str | None) -> dict[str, dict]:
 
 
 def documents(db, mentorship_id: str | None = None) -> Iterator[dict]:
-    """Yield one document per piece of text worth indexing."""
+    """Yield one document per piece of text worth indexing.
+
+    `db` is the app's database, read-only (`appdb.py`). The index is written
+    elsewhere; nothing here can write back to where the records live.
+    """
     mentorships = _mentorship_map(db, mentorship_id)
     if not mentorships:
         return

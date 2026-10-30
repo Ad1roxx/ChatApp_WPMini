@@ -4312,6 +4312,85 @@ order is untouched, and the cap still over-fetches so it has alternatives.
 
 ---
 
+### Entry 53 — S1.5 step 0: the index had never read the app
+
+S1.5's inventory asked a plain question — *which database does the served
+search read?* — and the answer undid an assumption every earlier entry had
+made. The app writes to `chatapp` on 27017. The retrieval service read its
+**source records** from `chatapp_rag` on 27018: the seeded copy that
+`scripts/seed-rag-corpus.cjs` writes, in the same database as the chunks. So
+the Copilot had never searched anything a real user wrote, and the S1.5
+design as first specified — "ai/ reads the current state from the database" —
+would have read that copy, found no record for a real upload, and **deleted**
+instead of indexing.
+
+Every S1 number still stands: evaluation is *supposed* to run on a seeded
+corpus. What changed is that nothing may now describe the Copilot as
+searching live content without this entry being true, and as of this commit
+it is.
+
+**Three databases, three jobs.**
+
+| Database | Server | Holds | Written by |
+| --- | --- | --- | --- |
+| `chatapp` | 27017 | the app's records and attachments | Express only |
+| `chatapp_rag` | 27018 | the served index, nothing else | this service only |
+| `chatapp_eval` | 27018 | a seeded corpus **and** its own index | the seeders, `evaluate.py`, `check_retrieval.py` |
+
+The seeded record collections that used to sit beside the served chunks in
+`chatapp_rag` were dropped; the seeder now writes `chatapp_eval`, where they
+were regenerated, and `check_retrieval.py` and `evaluate.py --ablation`
+reproduce every S1 metric there exactly. The served index was then rebuilt
+from the real app database for the first time: one assignment, one hand-in,
+one attachment, nine chunks.
+
+**This service cannot write to the app's database, by construction.**
+`appdb.py` hands out a `ReadOnlyDatabase`: collections offer `find`,
+`find_one`, `count_documents` and `distinct`, GridFS offers a download stream,
+and that is all. No `insert_one` to call by mistake, no `drop`, and no
+`aggregate` either, because a pipeline ending in `$out` or `$merge` writes.
+A test checks every write method is absent, and another runs a full ingest
+over a fixture app database and compares it document by document, GridFS
+included, before and after — while asserting chunks *were* written elsewhere,
+so "nothing changed" cannot mean "nothing ran". A deployment would add the
+second lock: a database user with `read` on `chatapp` and nothing else, so the
+guarantee survives code that goes around `appdb.py`.
+
+**Few modules may hold that handle, and a test names them.** From S2 this
+service calls a language model. Nothing that builds a prompt or runs an agent
+tool may read the app's database directly: what a model sees has to arrive
+through the same permission-checked search a user's question does, or the
+permission check is decorative. The test parses every module's imports, so a
+new reader is caught without running it, and adding one means editing the
+list in plain sight. `sources.py` is deliberately not on it: it receives a
+handle rather than opening one.
+
+**The evaluation never touches the served index again.** `evaluate.py` and
+`check_retrieval.py` empty and rebuild the index they measure, every run.
+S1's review found what that does to a collection the service is answering
+from: a MiniLM comparison run left the next bge-small search at 0.16
+recall@1, silently. Both now use `chatapp_eval` for records *and* chunks, and
+the test suite refuses `chatapp`, `chatapp_rag` and `chatapp_eval` alike.
+
+**Rejected: running the app on the Atlas container (option B).** One database
+would have removed the split entirely, and it would have made change streams
+available — the container is a single-node replica set, the app's 27017 is a
+standalone server, which cannot open one. But it makes the app depend on
+Docker, and today the app and its CI run with neither Docker nor this service
+present: the Copilot route answers 503 and everything else works. That
+independence is worth more than one connection string. Change streams are
+rejected on the same ground — they would catch every write path without
+hooks in Express, and they need a replica set the app does not have.
+
+**Failing closed when the app's database is down** is part of the next step,
+not this one: search does not read the app's database until the read-time
+check exists. The connection is opened with a two-second server-selection
+timeout now, so that when it does, a dead database fails a search in two
+seconds rather than the driver's default thirty — inside Express's own
+15-second budget.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

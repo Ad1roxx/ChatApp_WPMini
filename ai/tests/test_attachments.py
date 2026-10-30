@@ -21,6 +21,7 @@ import pytest
 from bson import ObjectId
 from docx import Document
 
+import appdb
 import sources
 from ingest import run
 from store import ChunkStore
@@ -171,7 +172,9 @@ def index_everything(store, mentorship_id=None) -> tuple[int, int]:
     indexed, so ending the last mentorship left its chunks behind - and every
     test here passed, because none of them ran the code that shipped.
     """
-    _, written, removed = run(store, mentorship_id)
+    # Records and chunks share the test database here; the code under test
+    # still only gets a read-only view of the records, as it does in service.
+    _, written, removed = run(store, appdb.wrap(store.db), mentorship_id)
     return written, removed
 
 

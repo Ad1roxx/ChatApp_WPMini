@@ -1,9 +1,16 @@
 """Settings for the AI service, all overridable by environment.
 
-Defaults point at the Atlas Local container on 27018, never at the development
-database on 27017. That is deliberate: this service writes an index derived
-from application data, and it should never be one typo away from writing into
-the database a person is using.
+Three databases, with three different jobs:
+
+- **The app's database** (27017, `chatapp`) holds the records people write. This
+  service READS it, through `appdb.py`, and never writes to it.
+- **The chunk store** (27018, `chatapp_rag`) holds the served index. Only this
+  service writes it.
+- **The evaluation fixture** (27018, `chatapp_eval`) holds a seeded corpus AND
+  its own index, so measuring retrieval never touches either of the above.
+
+Before S1.5 the first and second were the same seeded copy, which is why the
+Copilot had never searched anything a real user wrote.
 """
 
 import os
@@ -12,12 +19,26 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# The Atlas Local container. $vectorSearch does not exist on a plain community
-# server, which is why this is a separate port rather than the app's Mongo.
+# The chunk store: the Atlas Local container. $vectorSearch does not exist on a
+# plain community server, which is why the index lives here and not beside the
+# app's records.
 MONGODB_URI = os.getenv(
     "AI_MONGODB_URI", "mongodb://127.0.0.1:27018/?directConnection=true"
 )
 DB_NAME = os.getenv("AI_DB_NAME", "chatapp_rag")
+
+# The app's database: where the records and their attachments actually live.
+# Read through appdb.py only, which offers no way to write.
+APP_MONGODB_URI = os.getenv(
+    "AI_APP_MONGODB_URI", "mongodb://127.0.0.1:27017/?directConnection=true"
+)
+APP_DB_NAME = os.getenv("AI_APP_DB_NAME", "chatapp")
+
+# The evaluation fixture, on the chunk-store server: seeded records and their
+# own index in one database. evaluate.py and check_retrieval.py rebuild an
+# index from scratch every run, and S1's review found that doing so in the
+# served collection is how a MiniLM run left the service answering at random.
+EVAL_DB_NAME = os.getenv("AI_EVAL_DB_NAME", "chatapp_eval")
 
 CHUNKS_COLLECTION = "knowledge_chunks"
 VECTOR_INDEX = "chunk_vector_index"

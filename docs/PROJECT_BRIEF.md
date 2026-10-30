@@ -58,7 +58,8 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **2,364** lines of Python across **9** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
+| **2,521** lines of Python across **10** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
+| The served index is built from the app's own database, read through a handle that has no write method; evaluation runs on a separate seeded database with its own index. **Until S1.5 the served index came from that seeded copy**, so the Copilot had never searched a real user's material | `ai/appdb.py` · `ai/tests/test_appdb.py` · BUILD_NOTES Entry 53 |
 | PDF and Word attachments are extracted into sections with page numbers, chunked in the embedding model's own tokens, and indexed with the viewers of the record they hang off | `ai/extract.py`, `ai/chunking.py`, `ai/sources.py` |
 | A scan with no text layer produces **zero** chunks and logs that it needs OCR, rather than indexing a filename that looks readable | `ai/check_retrieval.py`, check 8 |
 | Ingestion **reconciles**: a source that was not seen in a run has its chunks deleted, so a removed attachment, a deleted hand-in or an ended mentorship cannot stay retrievable | `ai/ingest.py` · `ai/store.py`, `reconcile()` |
@@ -379,8 +380,8 @@ Drawn only from section 2. Each is defensible if questioned.
 > outside a mentorship retrieves nothing from it and that the access check
 > happens in Express, before the service is reachable.
 
-> Evaluated that pipeline against a 65-question labelled set in two groups,
-> raising recall@1 on the application's own text from 0.55 to 0.71 by moving
+> Evaluated that pipeline against a 65-question labelled set over a seeded
+> corpus, in two groups, raising recall@1 on typed-in text from 0.55 to 0.71 by moving
 > to an embedding model with twice the context window, and reaching 0.93 on
 > questions about attached documents. Found that a cross-encoder reranker
 > adopted on an earlier corpus was a mixed result on this one (+0.03 on

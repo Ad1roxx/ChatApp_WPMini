@@ -28,9 +28,9 @@ import config
 
 TEST_DB_NAME = "chatapp_rag_pytest"
 
-# Both the development database and the live corpus. Neither may be opened by
-# anything in this suite.
-FORBIDDEN_DB_NAMES = frozenset({"chatapp", "chatapp_rag"})
+# The development database, the served index, and the evaluation fixture.
+# None may be opened by anything in this suite.
+FORBIDDEN_DB_NAMES = frozenset({"chatapp", "chatapp_rag", "chatapp_eval"})
 
 
 def forbid_real_databases(name: str) -> str:
@@ -77,6 +77,24 @@ def test_db(mongo_client):
     that passes for the wrong reason.
     """
     name = forbid_real_databases(TEST_DB_NAME)
+    mongo_client.drop_database(name)
+    db = mongo_client[name]
+    yield db
+    mongo_client.drop_database(name)
+
+
+TEST_APP_DB_NAME = "chatapp_rag_pytest_app"
+
+
+@pytest.fixture
+def test_app_db(mongo_client):
+    """A second empty database, standing in for the APP's database.
+
+    Separate from `test_db` (the chunk store) so a test can tell the two apart:
+    "ingestion never writes to the app's database" cannot be asserted when the
+    records and the chunks share one database.
+    """
+    name = forbid_real_databases(TEST_APP_DB_NAME)
     mongo_client.drop_database(name)
     db = mongo_client[name]
     yield db

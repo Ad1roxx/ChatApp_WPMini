@@ -50,8 +50,9 @@ import statistics
 import time
 from pathlib import Path
 
+import appdb
 from chunking import chunk_document, effective_budget
-from config import CHUNK_BUDGET_TOKENS
+from config import CHUNK_BUDGET_TOKENS, EVAL_DB_NAME, MONGODB_URI
 from sources import documents
 from store import ChunkStore
 
@@ -93,12 +94,24 @@ def by_group(questions: list[dict]) -> dict[str, list[dict]]:
     return groups
 
 
-def build_index(store: ChunkStore, budget: int) -> int:
+def fixture() -> tuple[ChunkStore, appdb.ReadOnlyDatabase]:
+    """The evaluation's own database: seeded records and their own index.
+
+    Never the served index. Every run empties and rebuilds the index it
+    measures, and S1's review found what that does to a collection the service
+    is also answering from: a MiniLM run left the next bge-small search at 0.16
+    recall@1, silently.
+    """
+    store = ChunkStore(db_name=EVAL_DB_NAME)
+    return store, appdb.connect(MONGODB_URI, EVAL_DB_NAME)
+
+
+def build_index(store: ChunkStore, records, budget: int) -> int:
     """Re-chunk and re-embed everything with one configuration."""
     store.drop_all()
 
     written = 0
-    for doc in documents(store.db):
+    for doc in documents(records):
         pieces = chunk_document(doc, budget=budget)
         written += store.replace_source(doc, pieces)
 
@@ -231,7 +244,7 @@ def main() -> None:
         + ", ".join(f"{len(qs)} {name}" for name, qs in groups.items())
     )
 
-    store = ChunkStore()
+    store, records = fixture()
     store.ensure_vector_index()
 
     # Budgets rather than chunking strategies: the strategies compared in
@@ -250,7 +263,7 @@ def main() -> None:
         configurations.append((f"tokens {budget}", budget))
 
     for name, budget in configurations:
-        chunks = build_index(store, budget)
+        chunks = build_index(store, records, budget)
 
         for group, questions_in_group in groups.items():
             if args.ablation:

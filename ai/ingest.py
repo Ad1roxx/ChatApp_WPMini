@@ -22,6 +22,7 @@ import argparse
 import logging
 from collections import Counter
 
+import appdb
 from chunking import chunk_document, effective_budget
 from config import CHUNK_BUDGET_TOKENS
 from sources import documents
@@ -29,9 +30,16 @@ from store import ChunkStore
 
 
 def run(
-    store: ChunkStore, mentorship_id: str | None = None, budget: int | None = None
+    store: ChunkStore,
+    records: appdb.ReadOnlyDatabase,
+    mentorship_id: str | None = None,
+    budget: int | None = None,
 ) -> tuple[Counter, int, int]:
     """Index, then reconcile. Returns (sources per type, chunks written, removed).
+
+    `records` is where the app's records are read from, and `store` is where
+    chunks are written: two databases since S1.5, and only one of them is
+    writable from here.
 
     A function rather than the body of `main` so the tests run this code and
     not a copy of it. A copy is how the first version shipped a bug its own
@@ -42,7 +50,7 @@ def run(
     written = 0
     seen: set[tuple[str, str, str]] = set()
 
-    for doc in documents(store.db, mentorship_id):
+    for doc in documents(records, mentorship_id):
         written += store.replace_source(doc, chunk_document(doc, budget=budget))
         counts[doc["source_type"]] += 1
         # Recorded even when it produced no chunks: a brief emptied to nothing
@@ -77,13 +85,15 @@ def main() -> None:
         logging.getLogger(name).setLevel(logging.INFO)
 
     store = ChunkStore()
+    records = appdb.connect()
+    print(f"records from: {records.name} (read-only)   index in: {store.db.name}")
     print("vector index:", store.ensure_vector_index())
 
     if args.drop:
         store.drop_all()
         print("index emptied")
 
-    counts, written, removed = run(store, args.mentorship, args.budget)
+    counts, written, removed = run(store, records, args.mentorship, args.budget)
 
     scope = f"in {args.mentorship}" if args.mentorship else "across the index"
     if not counts:

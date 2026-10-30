@@ -1,8 +1,10 @@
 /**
  * A corpus to retrieve from and to evaluate against.
  *
- * Written into the Atlas Local container (27018), database `chatapp_rag`, so
- * the real development database on 27017 is never touched.
+ * Written into the Atlas Local container (27018), database `chatapp_eval` —
+ * the evaluation fixture, which holds these records and an index built from
+ * them. Never the development database on 27017, and never `chatapp_rag`,
+ * which since S1.5 holds only the served index of the app's real records.
  *
  * Two mentorships, deliberately about the SAME topics: Priya→Aditya and
  * Karan→Zara both cover indexing and caching. If retrieval ever leaks across
@@ -22,7 +24,7 @@
 const ROOT = 'C:/Users/Aditya Dubey/Documents/Aditya_dubey_16010423006/chat_app_miniproject/server';
 const mongoose = require(ROOT + '/node_modules/mongoose');
 
-const URI = 'mongodb://127.0.0.1:27018/chatapp_rag?directConnection=true';
+const URI = 'mongodb://127.0.0.1:27018/chatapp_eval?directConnection=true';
 
 const oid = (hex) => new mongoose.Types.ObjectId(hex);
 const nid = () => new mongoose.Types.ObjectId();
@@ -333,7 +335,7 @@ about how wrong you are willing to be, not a default to copy.`,
   for (const name of ['users', 'mentorships', 'assignments', 'submissions', 'goals', 'resources']) {
     counts[name] = await db.collection(name).countDocuments();
   }
-  console.log('seeded chatapp_rag:', JSON.stringify(counts));
+  console.log('seeded chatapp_eval:', JSON.stringify(counts));
   console.log('mentorship 1 (Priya -> Aditya):', M1);
   console.log('mentorship 2 (Karan  -> Zara  ):', M2);
 

@@ -534,57 +534,94 @@ Probes: why chunk in tokens not characters; why the same 384 dims meant no
 index change; why the heading-aware chunker was null in Entry 41 and may not be
 now.
 
-### S1.5 — Event-driven index updates
+### S1.5 — Keep the index in step with the app
 
-**Must land before S2.** Not a preference: once generation exists, a stale
-chunk stops being a wrong search result and becomes a **sentence quoted back to
-a user with a citation attached**. A hand-in the student withdrew, or a rubric
-the mentor deleted, would be presented as current and sourced.
+**Must land before S2.** Once generation exists, a stale chunk stops being a
+wrong search result and becomes a **sentence quoted back to a user with a
+citation attached**.
 
-**The gap this closes.** Indexing is a manual CLI run (`ingest.py`). Nothing in
-Express tells the retrieval service that anything changed — the only call
-between them is `/search` (`server/index.js:3815`), and `ai/app.py` exposes
-only `/health` and `/search`. So:
+**Rewritten after the S1.5 inventory.** The first version of this section
+planned an `upsert | delete` endpoint called synchronously at four moments
+(upload, delete, withdraw, unsubmit). Checked against the code: there is no
+withdraw route, unsubmit changes neither content nor visibility (the mentor
+sees drafts — see the open question below), the real list is about thirteen
+routes, and — the finding that reshaped the sprint — **the service had never
+read the app's database at all** (BUILD_NOTES Entry 53).
 
-- **New uploads are invisible** until somebody re-indexes.
-- **Deletions leave chunks behind.** S1 adds a reconciliation pass so a *full*
-  re-index removes orphans, which closes the permanent leak. It does not close
-  the **window** between the deletion and the next re-index, and nothing
-  schedules that re-index.
+**Two properties, in this order.**
 
-**What it is.** Express notifies the service at the four moments the index goes
-stale: an attachment is uploaded, an attachment is deleted, a submission is
-withdrawn or unsubmitted, and an assignment is withdrawn. One internal endpoint
-on `ai/` — `POST /index/source` taking `{mentorshipId, sourceType, sourceId,
-action: "upsert" | "delete"}` — behind the same shared secret and localhost
-bind as `/search`, since it carries no user identity and must not be reachable
-from anywhere else.
+1. **Correctness, always — even if this service was down when the change
+   happened.** Search never returns a chunk whose source was deleted, changed
+   after it was indexed, or can no longer be seen by the caller.
+2. **Freshness, best effort and measured.** While the service runs, a change in
+   the app reaches the index within seconds.
 
-**What it is deliberately not.** No queue, no worker, no broker. A synchronous
-best-effort call that logs its failures, with the full re-index and its
-reconciliation pass remaining the backstop. A message broker here would be
-three new failure modes to explain in exchange for durability that a nightly
-re-index already provides at this scale.
+**Design.**
 
-Deliverables: the endpoint; the Express notifications; failure logging that
-names the source left stale; documentation of what is still eventually
+- **Records from the app's database, read-only** (step 0, done). Separate
+  settings for the app database and the chunk store; evaluation and tests on
+  their own fixture databases; a test lists who may hold the handle.
+- **A version on every chunk.** Assignments, submissions and resources carry
+  Mongoose `updatedAt`; **Goal gains `timestamps: true`** with a one-off,
+  re-runnable backfill (`updatedAt = createdAt`). A submission chunk's version
+  is the later of the submission's and its assignment's, because its title
+  comes from the assignment. Chunks with no version fail closed.
+- **A read-time check in `search()`**, after `$vectorSearch` and before the
+  reranker and cap: one batched load of the current records, and a chunk is
+  dropped if its source is gone, its attachment is gone, it would no longer be
+  indexed, the caller is no longer a viewer, or its version is older than the
+  record's. It calls the same eligibility and viewer functions as the indexer.
+  If the app's database is unreachable, search fails closed (the route's 502).
+  This is what makes correctness independent of delivery.
+- **Sync, not deltas.** Express sends identifiers only — `{sourceType,
+  sourceId}`, or `{mentorshipId}` for a mentorship-level change — to
+  `POST /index/sync`, behind the same localhost bind and shared secret as
+  `/search`. A body carrying content or viewers is refused. The handler makes
+  the index match the record as it is now, so it is idempotent and event order
+  does not matter. One background worker, off the request path.
+- **Express notifies after a successful write, never failing the request.**
+  Short timeout, logged, no retry. With the service down the app behaves
+  exactly as before.
+- **Catch-up:** a full re-index on service start-up, and the CLI as backstop.
+  A missed event can only delay an addition — the read-time check means it can
+  never expose a removal.
+
+**The routes** (`server/index.js`; all notify after the write succeeds):
+
+| Route | Sends |
+| --- | --- |
+| `POST /api/submissions/:id/files`, `DELETE …/files/:fileId` | the submission |
+| `PUT /api/submissions/:id`, `POST …/unsubmit`, `PATCH /api/submissions/:id` | the submission |
+| `POST /api/assignments`, `PATCH /api/assignments/:id` | the assignment (its sync re-syncs its submissions) |
+| `DELETE /api/assignments/:id` | the assignment and every deleted submission |
+| `POST /api/mentorships/:id/goals`, `PATCH /api/goals/:goalId`, `PATCH …/milestones/:milestoneId` | the goal |
+| `POST /api/mentorships/:id/resources`, `DELETE /api/resources/:resourceId` | the resource |
+| `PATCH /api/mentorships/:id` — every status change | the mentorship |
+
+Suspension and role changes need nothing: a suspended caller is refused by
+`requireAuth` before search can run, and viewers are a mentorship's two
+parties, not roles. There is no account deletion.
+
+**Rejected:** an outbox with retries (durable delivery the read-time check
+makes unnecessary for correctness — revisit on deployment); change streams
+(the app's database is a standalone server, and moving the app onto the
+container would make it depend on Docker); indexing inside the request (a
+10 MB PDF would hold the user's upload open).
+
+Measured: upload → searchable, median and p95, for a small PDF and one near the
+10 MB limit; delete → unsearchable, which the read-time check should make
+immediate; search latency with and without the check, on both question sets.
+
+BUILD_NOTES: one entry per step, each stating what remains eventually
 consistent.
 
-Tests (node:test and pytest): deleting an attachment removes its chunks without
-a re-index; withdrawing a submission removes its chunks; uploading an
-attachment makes it retrievable without a re-index; a notification failure is
-logged and does **not** fail the user's original request — losing an upload
-because the indexer was down would be a worse bug than a late index.
+#### Open questions S1.5 surfaced, deliberately not answered in it
 
-Measured: the lag between an upload and its first retrievability, and the same
-for a deletion. Both should be sub-second locally; the number matters because
-S2 quotes what this returns.
-
-BUILD_NOTES: *"Tell the index when something changes"* — must state plainly
-what remains eventually consistent after it.
-
-Probes: why a stale chunk is a different class of bug once generation exists;
-why the notification must not fail the upload.
+- **Product: should a mentor see a student's drafts?** Today they do — the
+  hand-in list returns every status, and file download has no status check —
+  so the index shows drafts to the mentor too, and unsubmit changes nothing
+  about who can retrieve a hand-in. If drafts became student-only, it would be
+  one rule in `sources.py`, shared by the indexer and the read-time check.
 
 ### S2 — Generation with verified citations
 
@@ -625,6 +662,16 @@ when the model cites a real chunk that doesn't support the claim.
 Deliverables: a panel on `MentorshipDetailPage`; answer with inline citations;
 expandable source chunks; honest 503 degradation reusing the existing contract
 (`server/index.js:3806`).
+
+**Decision needed before S3 (raised by S1.5): ended mentorships.** The app
+still shows an ended mentorship's content to both parties, and the Copilot
+route accepts one (`resolveMentorshipAccess` checks membership, not status).
+The index is stricter: only active mentorships are indexed, and the read-time
+check drops anything else. So the assistant would answer "I don't know" about
+material the user can still open. Two honest options: (a) refuse with a clear
+*"the assistant isn't available for ended mentorships"* before searching, or
+(b) index ended mentorships and allow search. Not (c), which is the current
+state: answering, and finding nothing.
 
 Tests: Playwright screenshots (render + console errors) — and note the standing
 gap that the frontend has no behavioural tests.
