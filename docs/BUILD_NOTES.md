@@ -4634,6 +4634,64 @@ changed or hidden is ever returned in the meantime.
 
 ---
 
+### Entry 57 — S1.5 step 4: every write that matters tells the index
+
+The other half of the sync: Express calling it. Fifteen call sites across the
+fourteen routes S1.5's inventory found — attach and remove a file, hand in,
+unsubmit, review; set, edit and delete an assignment; set, tick and edit a goal;
+share and remove a resource; and every change to a mentorship's status. The
+calls live in one small module, `server/lib/indexSync.js`, and each route adds
+one line.
+
+**After the write, never before, never awaited.** Each call sits after the
+`save()` (or `deleteOne()`, or `insertMany()`) has returned, so a write that
+failed or was refused sends nothing — a test runs eight refusals, from a
+student editing a brief to a missing assignment, and asserts the stub heard
+none of them, plus an opt-out request that leaves the mentorship active and so
+changes nothing the index cares about. The route does not wait for the call:
+the user's response does not depend on the retrieval service in any way. With
+it unconfigured — `AI_SERVICE_URL` unset, as in CI — nothing is sent at all,
+and the app behaves exactly as before S1.5.
+
+**A short timeout, a log line, no retry.** 1.5 seconds: a healthy service
+answers 202 the moment a job is queued, so anything slower is a service in
+trouble, and the request it came from was answered long ago. A failure is
+logged naming the record left stale — *"Index not told about submission …:
+the service answered 500"* — and nothing more. No retry, because a lost
+notice makes the index late, never wrong: the read-time check honours every
+removal regardless, and the service's start-up catch-up re-adds what a lost
+notice would have. The notifier's promise never rejects, so a route that
+forgot to handle it still could not turn an indexing hiccup into an unhandled
+rejection.
+
+**Identifiers only, from the sender's side too.** The service refuses a body
+carrying anything but identifiers (Entry 56); a test here asserts Express never
+tries — the notice for a hand-in carries `sourceType` and `sourceId` and not a
+word of the text that was just saved.
+
+**Deleting an assignment names everything it deletes.** The brief and each
+hand-in, one notice apiece. The assignment's own sync would find its hand-ins'
+chunks anyway, through the `assignmentId` they carry; naming them costs
+nothing and does not depend on that.
+
+**Tested against a stub, not the service.** A plain `node:http` server inside
+the test file, on a random port, records every request and answers however the
+test asks: accepted, after five seconds, with a 500, or not at all — closed,
+connections dropped, then reopened on the same port. The real Express server is
+spawned against it through the existing harness, so the routes, the module and
+the real `fetch` are all exercised; no new dependency. The slow case asserts the
+user's request returned in under a second while the stub was still holding the
+notice; the failing and absent cases assert a 200 and the log line. 27 tests,
+527 in the Node suite.
+
+**Remaining gap, stated once.** A write that bypasses these routes — a script,
+a manual edit in a database tool — sends no notice. The read-time check still
+keeps search correct; what is missed is only an addition, until the next
+start-up catch-up or `ingest.py` run. Change streams would close this, and
+cannot on a standalone server (Entry 53).
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

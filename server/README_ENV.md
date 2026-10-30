@@ -47,6 +47,12 @@ Optional:
 - **`ADMIN_EMAILS`** — comma-separated addresses granted `admin` at sign-in.
   This is the only way to become an admin.
 - **`PORT`** — defaults to 3001.
+- **`AI_SERVICE_URL`** and **`AI_SERVICE_SECRET`** — where the retrieval
+  service (`ai/`) listens, and the secret it expects. Both or neither. With
+  them set, the Copilot route can search, and every write the index cares
+  about tells the service which record changed (`lib/indexSync.js`). With them
+  unset the Copilot answers 503, nothing is sent, and the rest of the app is
+  unaffected — which is how CI runs.
 
 
 2) Start it

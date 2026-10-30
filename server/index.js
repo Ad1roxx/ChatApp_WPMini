@@ -39,6 +39,9 @@ const Resource = require('./models/Resource');
 const Assignment = require('./models/Assignment');
 const Submission = require('./models/Submission');
 const fileStore = require('./lib/fileStore');
+// Tells the retrieval service which record changed - after the write, never
+// awaited, never able to fail the request. See lib/indexSync.js.
+const { syncSource, syncMentorship } = require('./lib/indexSync');
 
 // Authentication
 const {
@@ -1718,6 +1721,7 @@ app.patch('/api/mentorships/:id', requireAuth, async (req, res) => {
     }
 
     const trimmedNote = String(note).trim();
+    const statusBefore = mentorship.status;
 
     if (action === 'accept' || action === 'decline') {
       if (!isMentor) {
@@ -1804,6 +1808,11 @@ app.patch('/api/mentorships/:id', requireAuth, async (req, res) => {
     }
 
     await mentorship.save();
+
+    // Whether a mentorship's material is searchable depends on its status, so
+    // every status change - accepted, declined, ended - is one the index hears
+    // about. Opt-out requests and answers that leave it active change nothing.
+    if (mentorship.status !== statusBefore) syncMentorship(mentorship._id);
 
     const populated = await Mentorship.findById(mentorship._id)
       .populate('student', MENTORSHIP_USER_FIELDS)
@@ -1942,6 +1951,7 @@ app.post('/api/mentorships/:id/goals', requireAuth, async (req, res) => {
     // The student is the one who has to act on it.
     emitToUser(access.mentorship.student, 'goal-updated', populated);
 
+    syncSource('goal', goal._id);
     console.log(`🎯 Goal set: "${goal.title}"`);
     res.json(populated);
   } catch (err) {
@@ -1994,6 +2004,7 @@ app.patch('/api/goals/:goalId/milestones/:milestoneId', requireAuth, async (req,
 
     goal.refreshStatus();
     await goal.save();
+    syncSource('goal', goal._id);
 
     const populated = await Goal.findById(goal._id).populate(
       'createdBy',
@@ -2061,6 +2072,7 @@ app.patch('/api/goals/:goalId', requireAuth, async (req, res) => {
     }
 
     await goal.save();
+    syncSource('goal', goal._id);
 
     const populated = await Goal.findById(goal._id).populate(
       'createdBy',
@@ -2478,6 +2490,7 @@ app.post('/api/mentorships/:id/resources', requireAuth, async (req, res) => {
       'displayName photoURL'
     );
 
+    syncSource('resource', resource._id);
     emitToUser(access.mentorship.student, 'resource-added', populated);
     emitToUser(access.mentorship.mentor, 'resource-added', populated);
 
@@ -2518,6 +2531,7 @@ app.delete('/api/resources/:resourceId', requireAuth, async (req, res) => {
     }
 
     await resource.deleteOne();
+    syncSource('resource', resource._id);
 
     const payload = { _id: resource._id, mentorship: resource.mentorship };
     emitToUser(access.mentorship.student, 'resource-removed', payload);
@@ -2908,6 +2922,10 @@ app.post('/api/assignments', requireAuth, async (req, res) => {
       }))
     );
 
+    // The brief, in each mentorship it was set to. Its hand-ins are empty
+    // until a student writes something, so there is nothing more to index.
+    syncSource('assignment', assignment._id);
+
     announceAssignment(
       assignment._id,
       req.authUser._id,
@@ -3176,6 +3194,7 @@ app.put('/api/submissions/:id', requireAuth, async (req, res) => {
     }
 
     await submission.save();
+    syncSource('submission', submission._id);
 
     // Only this student and the mentor care. A classmate's hand-in changes
     // nothing on anyone else's screen.
@@ -3241,6 +3260,7 @@ app.post('/api/submissions/:id/unsubmit', requireAuth, async (req, res) => {
     submission.log('unsubmitted', req.authUser._id);
 
     await submission.save();
+    syncSource('submission', submission._id);
 
     announceAssignment(submission.assignment._id, submission.assignment.mentor, [
       submission.student
@@ -3303,6 +3323,7 @@ app.patch('/api/submissions/:id', requireAuth, async (req, res) => {
     submission.review.reviewedAt = new Date();
     submission.log(next, req.authUser._id);
     await submission.save();
+    syncSource('submission', submission._id);
 
     announceAssignment(submission.assignment._id, submission.assignment.mentor, [
       submission.student
@@ -3413,6 +3434,8 @@ app.patch('/api/assignments/:id', requireAuth, async (req, res) => {
     }
 
     await assignment.save();
+    // Its hand-ins take their title from it, so the service re-syncs them too.
+    syncSource('assignment', assignment._id);
 
     const subs = await Submission.find({ assignment: assignment._id });
     announceAssignment(
@@ -3457,6 +3480,12 @@ app.delete('/api/assignments/:id', requireAuth, async (req, res) => {
 
     await Submission.deleteMany({ assignment: assignment._id });
     await assignment.deleteOne();
+
+    // The brief and every hand-in, each by name. The assignment's own sync
+    // would find its hand-ins' chunks anyway; naming them costs nothing and
+    // does not rely on that.
+    syncSource('assignment', assignment._id);
+    for (const s of subs) syncSource('submission', s._id);
 
     // Records first, then bytes: if this fails halfway, the worst case is an
     // orphaned file nobody can reach, never a hand-in pointing at nothing.
@@ -3625,6 +3654,7 @@ app.post(
 
       await submission.save();
       unrecorded = null;
+      syncSource('submission', submission._id);
 
       announceAssignment(submission.assignment._id, submission.assignment.mentor, [
         submission.student
@@ -3739,6 +3769,7 @@ app.delete('/api/submissions/:id/files/:fileId', requireAuth, async (req, res) =
 
     await submission.save();
     await fileStore.removeFile(removed.fileId);
+    syncSource('submission', submission._id);
 
     announceAssignment(submission.assignment._id, submission.assignment.mentor, [
       submission.student
