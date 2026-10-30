@@ -205,6 +205,25 @@ def chunk_text(
     return chunks
 
 
+def chunk_document(
+    doc: dict, *, budget: int | None = None, overlap: int | None = None
+) -> list[dict]:
+    """Chunk one document from `sources.py`, whichever shape it arrived in.
+
+    A record's own text is one string. An attachment is a list of sections,
+    because a chunk must not span two of them and that is impossible to honour
+    once they have been joined into one string. Both come back as the same list
+    of dicts, so the store writes one kind of thing.
+    """
+    if doc.get("sections"):
+        return chunk_sections(doc["sections"], budget=budget, overlap=overlap)
+
+    return [
+        {"text": piece}
+        for piece in chunk_text(doc.get("text", ""), budget=budget, overlap=overlap)
+    ]
+
+
 def chunk_sections(
     sections: list[dict], *, budget: int | None = None, overlap: int | None = None
 ) -> list[dict]:

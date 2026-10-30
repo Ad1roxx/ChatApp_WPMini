@@ -90,3 +90,32 @@ resource titles with their notes.
 Resources are links with a short note, so the page behind the link is **not**
 fetched. Fetching arbitrary URLs from the server would be an SSRF hole for very
 little retrieval value.
+
+**Attached PDFs and Word files**, as one source each, identified by the GridFS
+file id. A chunk from a file records the record it hangs off, which file, and
+the page or section it came from, so a citation names something a person can
+open. Every other attachable type is skipped with a logged reason: there is no
+extractor for spreadsheets or slides, `.doc` is not `.docx`, and an image needs
+the OCR of S7. A scan with no text layer produces **zero** chunks rather than a
+filename pretending to be readable.
+
+An attachment inherits the viewers of the record it is attached to, computed by
+that record's own rule: a hand-in's file is the student's and their mentor's,
+never another student's on the same brief. Today only hand-ins can carry files
+— briefs and resources have no attachment field — but all three are walked, so
+the day either gains uploads nothing here changes.
+
+### Deletion
+
+Re-indexing a source replaces its chunks, which only works for sources that
+still exist. A run therefore ends by **reconciling**: anything in the index that
+was not seen is deleted. A full run reconciles the whole index, so a deleted
+hand-in, a removed attachment or an ended mentorship all disappear; a run
+scoped with `--mentorship` reconciles only inside that mentorship, because it
+only looked there. A source is identified by mentorship, type and id together,
+since one brief set to two mentorships is one source in each.
+
+What this does **not** do is notice a deletion as it happens: the index is
+stale until the next run. That is S1.5's job, and it must land before
+generation, because from then on a stale chunk can be quoted back to someone as
+though it were current.

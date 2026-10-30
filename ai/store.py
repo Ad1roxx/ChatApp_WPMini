@@ -131,10 +131,14 @@ class ChunkStore:
 
     # ---------------- writing ----------------
 
-    def replace_source(self, doc: dict, chunks: Iterable[str]) -> int:
+    def replace_source(self, doc: dict, chunks: Iterable[dict]) -> int:
         """Re-index one source. Delete then insert, so editing a brief cannot
-        leave the old wording retrievable beside the new."""
-        chunks = [c for c in chunks if c.strip()]
+        leave the old wording retrievable beside the new.
+
+        `chunks` are the dicts `chunking.chunk_document` returns: a `text` and,
+        for an attachment, where in the file it came from.
+        """
+        pieces = [c for c in chunks if c.get("text", "").strip()]
         self.chunks.delete_many(
             {
                 "mentorshipId": doc["mentorship_id"],
@@ -142,10 +146,10 @@ class ChunkStore:
                 "sourceId": doc["source_id"],
             }
         )
-        if not chunks:
+        if not pieces:
             return 0
 
-        vectors = embed_passages(chunks)
+        vectors = embed_passages([c["text"] for c in pieces])
         self.chunks.insert_many(
             [
                 {
@@ -153,18 +157,101 @@ class ChunkStore:
                     "sourceType": doc["source_type"],
                     "sourceId": doc["source_id"],
                     "title": doc["title"],
-                    "content": text,
+                    "content": piece["text"],
                     "chunkIndex": i,
                     "viewers": doc["viewers"],
                     "visibility": doc["visibility"],
                     "ownerId": doc.get("owner_id"),
                     "url": doc.get("url"),
+                    # Where a citation points, for an attachment: the record a
+                    # person can open, which file, and which page or section of
+                    # it. All None for a record's own text, which has no
+                    # position worth naming.
+                    "parentType": doc.get("parent_type"),
+                    "parentId": doc.get("parent_id"),
+                    "parentTitle": doc.get("parent_title"),
+                    "attachmentId": doc.get("attachment_id"),
+                    "fileKind": doc.get("file_kind"),
+                    "heading": piece.get("heading"),
+                    "sectionIndex": piece.get("section_index"),
+                    "startPage": piece.get("start_page"),
+                    "endPage": piece.get("end_page"),
                     "embedding": vector,
                 }
-                for i, (text, vector) in enumerate(zip(chunks, vectors))
+                for i, (piece, vector) in enumerate(zip(pieces, vectors))
             ]
         )
-        return len(chunks)
+        return len(pieces)
+
+    def reconcile(
+        self, seen: set[tuple[str, str, str]], mentorship_ids: list[str] | None = None
+    ) -> int:
+        """Delete chunks whose source was not seen in this run.
+
+        `replace_source` keeps one source honest, but it can only delete chunks
+        it is handed a source for. Nothing deletes the chunks of a source that
+        is simply **gone** — a removed attachment, a deleted hand-in, a
+        mentorship that ended. Those chunks stay retrievable, and from S2 on a
+        stale chunk is not merely wrong, it is wrong text quoted back to
+        someone as though it were current.
+
+        A full run passes `mentorship_ids=None` and reconciles the whole index,
+        because a mentorship that no longer exists cannot appear in a list
+        derived from the mentorships that do. A run scoped with `--mentorship`
+        reconciles only within that mentorship: its own sources were all
+        visited, nobody else's were, and deleting on the strength of a partial
+        view would empty the index one mentorship at a time.
+
+        A source is identified by **mentorship, type and id together**, not by
+        type and id. One assignment can be set to several mentorships, and it
+        is then one source in each of them with the same id in all - so keying
+        on the pair alone makes any still-live copy vouch for every dead one,
+        and a mentorship removed from a brief's list keeps its chunks forever.
+        A test asserts this by ending one of two mentorships that share a brief.
+        """
+        scope: dict = (
+            {} if mentorship_ids is None else {"mentorshipId": {"$in": list(mentorship_ids)}}
+        )
+
+        stale = [
+            group["_id"]
+            for group in self.chunks.aggregate(
+                [
+                    {"$match": scope},
+                    {
+                        "$group": {
+                            "_id": {
+                                "mentorshipId": "$mentorshipId",
+                                "sourceType": "$sourceType",
+                                "sourceId": "$sourceId",
+                            }
+                        }
+                    },
+                ]
+            )
+            if (
+                group["_id"]["mentorshipId"],
+                group["_id"]["sourceType"],
+                group["_id"]["sourceId"],
+            )
+            not in seen
+        ]
+        if not stale:
+            return 0
+
+        return self.chunks.delete_many(
+            {
+                **scope,
+                "$or": [
+                    {
+                        "mentorshipId": s["mentorshipId"],
+                        "sourceType": s["sourceType"],
+                        "sourceId": s["sourceId"],
+                    }
+                    for s in stale
+                ],
+            }
+        ).deleted_count
 
     def drop_all(self) -> None:
         self.chunks.delete_many({})

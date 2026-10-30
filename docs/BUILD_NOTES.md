@@ -3833,6 +3833,94 @@ on the new vectors, with better top scores (0.905 against 0.805 for the
 indexing query).
 ---
 
+### Entry 48 — S1 step 6: indexing attached files, and deleting them again
+
+Steps 2 to 5 built a pipeline that can read a PDF, size a chunk honestly and
+embed it. This step is what connects it to the application: the files people
+actually attach.
+
+**The plan was wrong about where attachments live, and the code said so.** It
+asked for attachments "on assignments, submissions and resources". Only
+submissions can carry a file: `attachmentSchema` appears once in the models
+(`server/models/Submission.js`), there is a single `multer` route and it is
+scoped to one hand-in, and a resource is a URL plus a note by design. Rather
+than hard-code the one path that exists, the walk is written against the shape
+of `attachmentSchema` and **called from all three** record loops. Briefs and
+resources yield nothing today; the day either gains an upload route, `ai/`
+needs no change and — more to the point — nobody has to remember that the
+viewers must come from the record's own rule.
+
+**Each file is its own source, keyed by the GridFS file id.** Not "the
+submission, with its files folded in": a file id is unique across the whole
+store, so one file's chunks can be replaced when it changes and found when it
+is gone, without touching the hand-in's text beside it.
+
+**Viewers are inherited, computed, not copied.** An attachment takes the
+viewers of its parent record as that parent computes them —
+`visibility: "student"` and the student as owner for a hand-in, the whole
+mentorship for a brief. The plan's original sentence said "same as submission"
+for all three, which would have published a mentor's rubric to every student
+the day briefs gained uploads. Two tests assert the negative: one student's
+file never carries another student or another mentor as a viewer, even though
+both hand-ins are against the same shared brief.
+
+**A hand-in with no typed text used to be skipped entirely.** `sources.py` had
+`if not body.strip(): continue`, which was correct when text was all there was
+and silently wrong the moment a PDF could be the whole submission. The text
+document is now conditional; the attachment walk is not.
+
+**What is deliberately not indexed, and why it is logged rather than ignored.**
+Only `application/pdf` and the `.docx` type are read — keyed on `contentType`,
+which the server decides from the extension and never takes from the upload, so
+it is a fact rather than a claim. `.doc` is a different format that python-docx
+cannot read, spreadsheets and slides have no extractor, and images need S7's
+OCR. A scan with no text layer produces **zero** chunks and says it needs OCR:
+indexing the filename alone would make an unreadable file look retrievable,
+which is worse than not indexing it. The route's limits — 10 MB, 5 files — are
+repeated here as a floor rather than trusted, because this service reads
+whatever is in the database, including rows a seeder wrote, and extraction
+allocates on the order of the file size. A test asserts the two numbers against
+the route's.
+
+**The deletion gap is closed, and it was not only about attachments.**
+`replace_source` keeps one source honest, but it can only delete chunks it is
+handed a source for. Nothing deleted the chunks of a source that was simply
+gone — and that was already true of ordinary text: delete a hand-in and its
+chunks stayed retrievable until someone ran with `--drop`. A run now ends by
+**reconciling**: anything in the index that was not seen in this run is
+deleted. A full run reconciles the whole index, because a mentorship that no
+longer exists cannot appear in a list derived from the ones that do; a run
+scoped with `--mentorship` reconciles only inside it, since deleting on the
+strength of a partial view would empty the index one mentorship at a time.
+Sources that produced zero chunks are still recorded as seen — a brief emptied
+to nothing exists, and must not look deleted.
+
+**A test found a bug in the key, which is the part worth writing down.** The
+first version keyed a source by `(sourceType, sourceId)`, which is what the
+decision as approved said. One assignment can be set to **several
+mentorships**, and it is then one source in each of them with the same id in
+all. Keying on the pair alone makes any still-live copy vouch for every dead
+one: ending one of two mentorships that share a brief left its chunks in the
+index permanently. The key is now `(mentorshipId, sourceType, sourceId)`, which
+is still a whole-index pass — it is the identity that was wrong, not the scope.
+The test that caught it is kept as its own case rather than folded into the
+mentorship-deletion one, because the failure is about identity and the other
+test would pass with the bug present on a corpus where no brief is shared.
+
+Twenty-five tests, run against the Atlas Local container with no vector index
+created: nothing here searches, so the assertions do not wait for a search node
+to catch up. They cover every deletion the decision named — remove an
+attachment, delete a hand-in, delete a whole mentorship, end a mentorship — and
+the scoped run that must leave another mentorship alone. 104 in the Python
+suite.
+
+**Still missing, on purpose.** Nothing notices a deletion as it happens: the
+index is stale until the next run, and an upload is invisible until then too.
+That is S1.5, which the plan already says must land before S2 — once generation
+exists, a stale chunk is not merely a wrong search result, it is wrong text
+quoted back to someone as though it were current.
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

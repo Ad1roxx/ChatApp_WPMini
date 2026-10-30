@@ -34,7 +34,7 @@ import json
 import statistics
 from pathlib import Path
 
-from chunking import chunk_text, effective_budget
+from chunking import chunk_document, effective_budget
 from config import CHUNK_BUDGET_TOKENS
 from sources import documents
 from store import ChunkStore
@@ -74,7 +74,7 @@ def build_index(store: ChunkStore, budget: int) -> int:
 
     written = 0
     for doc in documents(store.db):
-        pieces = chunk_text(doc["text"], budget=budget)
+        pieces = chunk_document(doc, budget=budget)
         written += store.replace_source(doc, pieces)
 
     if not store.wait_until_searchable(written):
