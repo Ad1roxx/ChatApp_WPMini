@@ -4391,6 +4391,73 @@ seconds rather than the driver's default thirty — inside Express's own
 
 ---
 
+### Entry 54 — S1.5 step 1: every chunk knows which version it came from
+
+The read-time check S1.5 is built around asks one question of every candidate:
+*is this still what the record says?* That needs two things this step adds: a
+version on every chunk, and the indexing rules in a form that can be asked
+about one record without re-running the indexer.
+
+**The version is `updatedAt`, and the inventory checked it is honest.**
+Assignments, hand-ins and resources already had Mongoose timestamps, and every
+route that writes one goes through `save()`, `create()` or `insertMany()` —
+none uses `updateOne` or `findByIdAndUpdate`, which would skip them. Goals had
+no timestamps at all, only a hand-set `createdAt`, so they gained
+`timestamps: true`. A milestone is an embedded subdocument, and whether
+Mongoose moves the *parent's* `updatedAt` when only a child changes is exactly
+the kind of thing to assert rather than assume: a test ticks one and checks.
+It does.
+
+Goals written before this have no `updatedAt`, and the check will fail closed
+on a chunk it cannot prove current — so every existing goal would vanish from
+the Copilot until someone happened to edit it. `scripts/backfill-goal-
+timestamps.cjs` sets `updatedAt = createdAt`, with an update pipeline so the
+value comes from each goal's own field in one statement. Run by hand; safe to
+run twice, because it only matches goals without one; a goal with neither
+field is reported and left alone rather than given an invented date. Its test
+runs against its own throwaway database, because the script itself is meant to
+be pointed at the dev one. Against dev, today: zero goals, nothing to do.
+
+**A hand-in's version is the later of its own and its assignment's.** The
+inventory found that a hand-in chunk's title — "Hand-in: Caching exercise" —
+comes from the assignment, so renaming the brief made the chunk stale while
+the hand-in's own `updatedAt` stood still. S2 will put that title in a
+citation, so it is fixed rather than documented: the version takes the later
+of the two, and a test renames a brief and watches the hand-in's version move.
+
+**Attachments are versioned differently, on purpose.** A file's chunks show its
+filename, not the assignment's title, and a GridFS file is written once and
+never changed — so its upload time is its version, and the only things that
+can make its chunks stale are the file leaving the record or the record
+leaving the index. The *parent's* title does come from the assignment, but
+versioning every file by its brief would mean re-extracting every attached PDF
+whenever a due date moved. Search fills the parent title in from the live
+record instead (step 2), which makes it impossible to be stale rather than
+merely detectable.
+
+**A record with no version is indexed with none**, and the check will drop it.
+Inventing one — "now", say — would let it pass as current forever.
+
+**One copy of each rule.** `sources.py` now states each rule once, as a pure
+function over records already loaded: `is_active`, `parties`, and one
+`*_entry` per type that says whether a record is indexed in a given
+mentorship, who sees it, and at which version. Three paths call them — the
+full walk, the new single-source `source_documents`, and next step's read-time
+check. A check that re-implemented these would agree with the indexer until the
+day one of them changed, and on that day it would let through exactly the
+chunks it exists to stop. A test indexes one of everything both ways — the
+whole walk, and each record on its own — and asserts the two agree on every
+key, audience, version and line of text. Reading a file's bytes is split out
+of the rules (`attachment_entries` versus `extract_attachment`), so the check
+can ask "is this file still attached, and who may see it?" without reading a
+PDF on the search path.
+
+Behaviour is unchanged: `check_retrieval.py` 9/9 and every metric of
+`evaluate.py --ablation` identical on the fixture, and the served index was
+rebuilt from the app's database with a version on all nine of its chunks.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

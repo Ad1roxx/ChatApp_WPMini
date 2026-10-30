@@ -9,7 +9,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { USERS, start, stop, api } = require('./helpers/harness');
+const { USERS, start, stop, api, db, mongoose } = require('./helpers/harness');
 
 let mentorship;
 
@@ -206,5 +206,42 @@ test('listing and the usual refusals', async (t) => {
   await t.test('no token', async () => {
     const res = await api(`/api/mentorships/${mentorship._id}/goals`);
     assert.equal(res.status, 401);
+  });
+});
+
+test('every change to a goal moves its updatedAt', async (t) => {
+  // The retrieval index decides whether a goal's chunks are current by
+  // comparing versions, and a milestone is an embedded subdocument: whether
+  // Mongoose bumps the PARENT's timestamp when only a child changes is
+  // exactly the kind of thing to assert rather than assume.
+  const created = await (
+    await setGoal(USERS.mentor, { title: 'Versioned goal', milestones: ['One', 'Two'] })
+  ).json();
+  const updatedAt = async () =>
+    (await db().collection('goals').findOne({ _id: new mongoose.Types.ObjectId(created._id) }))
+      .updatedAt;
+
+  const atCreation = await updatedAt();
+  await t.test('a new goal has one', () => {
+    assert.ok(atCreation instanceof Date);
+  });
+
+  await t.test('ticking a milestone moves it', async () => {
+    await new Promise((r) => setTimeout(r, 5)); // a different millisecond
+    const res = await tick(created._id, created.milestones[0]._id, USERS.student, true);
+    assert.equal(res.status, 200);
+    assert.ok((await updatedAt()) > atCreation);
+  });
+
+  await t.test('editing the title moves it', async () => {
+    const before = await updatedAt();
+    await new Promise((r) => setTimeout(r, 5));
+    const res = await api(`/api/goals/${created._id}`, {
+      as: USERS.mentor,
+      method: 'PATCH',
+      body: { title: 'Renamed goal' }
+    });
+    assert.equal(res.status, 200);
+    assert.ok((await updatedAt()) > before);
   });
 });

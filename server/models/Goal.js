@@ -89,13 +89,14 @@ const goalSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
-});
+},
+// `createdAt` was set by hand before S1.5, and nothing recorded a change. The
+// retrieval service needs to know whether the copy it indexed is the current
+// one, and `updatedAt` is that answer - the same field assignments, hand-ins
+// and resources already carry. Goals that predate this get theirs from
+// scripts/backfill-goal-timestamps.cjs.
+{ timestamps: true });
 
 // The only query the app makes: this mentorship's goals, newest first.
 goalSchema.index({ mentorship: 1, createdAt: -1 });

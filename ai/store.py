@@ -317,6 +317,7 @@ class ChunkStore:
                     "parentTitle": doc.get("parent_title"),
                     "attachmentId": doc.get("attachment_id"),
                     "fileKind": doc.get("file_kind"),
+                    "assignmentId": doc.get("assignment_id"),
                     "heading": piece.get("heading"),
                     "sectionIndex": piece.get("section_index"),
                     "startPage": piece.get("start_page"),
@@ -324,6 +325,11 @@ class ChunkStore:
                     # Which model made this vector, so a search by another one
                     # can be refused rather than quietly answered at random.
                     "embeddingModel": EMBEDDING_MODEL,
+                    # Which version of the source this was built from. The
+                    # read-time check drops a chunk older than its record, and
+                    # one with no version at all: written before S1.5, it
+                    # cannot prove it is current, so it fails closed.
+                    "sourceVersion": doc.get("version"),
                     "embedding": vector,
                 }
                 for i, (piece, vector) in enumerate(zip(pieces, vectors))

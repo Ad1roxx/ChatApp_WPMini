@@ -149,6 +149,19 @@ never another student's on the same brief. Today only hand-ins can carry files
 — briefs and resources have no attachment field — but all three are walked, so
 the day either gains uploads nothing here changes.
 
+### Versions
+
+Every chunk records `sourceVersion`, the version of the record it was built
+from — the record's `updatedAt`, which Mongoose moves on every save. A hand-in
+takes the later of its own and its assignment's, because its title comes from
+the assignment. A file takes its upload time: GridFS files are never rewritten.
+Chunks written before S1.5 have no version, and from S1.5 step 2 search drops
+them. **A re-index fixes that** (`ingest.py --drop`).
+
+Goals had no `updatedAt` before S1.5. Run `node scripts/backfill-goal-timestamps.cjs`
+once against each database that has goals (it is safe to run twice), or every
+goal written before then is dropped from search until it is next edited.
+
 ### Deletion
 
 Re-indexing a source replaces its chunks, which only works for sources that

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import io
 import logging
+from datetime import datetime
 
 import gridfs
 import pymupdf
@@ -114,6 +115,11 @@ class Corpus:
                 "title": "Caching exercise",
                 "instructions": "Add caching to the reading list endpoint.",
                 "mentorships": [ObjectId(self.M1), ObjectId(self.M2)],
+                # What Mongoose's timestamps would have written. Whole seconds:
+                # Mongo keeps milliseconds, and a fixture with microseconds
+                # would not survive the round trip it is compared after.
+                "createdAt": datetime(2026, 1, 1),
+                "updatedAt": datetime(2026, 1, 1),
             }
         )
 
@@ -136,7 +142,7 @@ class Corpus:
                     "name": name,
                     "size": len(data),
                     "contentType": content_type,
-                    "uploadedAt": None,
+                    "uploadedAt": datetime(2026, 1, 3),
                 }
             )
 
@@ -149,6 +155,8 @@ class Corpus:
                 "student": ObjectId(student),
                 "text": text,
                 "attachments": attachments,
+                "createdAt": datetime(2026, 1, 2),
+                "updatedAt": datetime(2026, 1, 2),
             }
         )
         return sid
