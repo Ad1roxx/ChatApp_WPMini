@@ -58,14 +58,18 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **736** lines of Python across **7** files — ingestion, chunking, embeddings, filtered vector search and a FastAPI endpoint | `ai/*.py` |
+| **2,253** lines of Python across **9** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
+| PDF and Word attachments are extracted into sections with page numbers, chunked in the embedding model's own tokens, and indexed with the viewers of the record they hang off | `ai/extract.py`, `ai/chunking.py`, `ai/sources.py` |
+| A scan with no text layer produces **zero** chunks and logs that it needs OCR, rather than indexing a filename that looks readable | `ai/check_retrieval.py`, check 8 |
+| Ingestion **reconciles**: a source that was not seen in a run has its chunks deleted, so a removed attachment, a deleted hand-in or an ended mentorship cannot stay retrievable | `ai/ingest.py` · `ai/store.py`, `reconcile()` |
 | Embeddings are **384**-dimensional, from `BAAI/bge-small-en-v1.5` running locally on CPU: no API key, no per-token cost, works offline. Chosen over `all-MiniLM-L6-v2` because it reads **512** tokens rather than 256 at the same width, and that limit is a hard ceiling on chunk size | `ai/config.py`, `ai/store.py` |
 | The mentorship filter is passed **inside** `$vectorSearch`, not applied to its results, so the index cannot spend its candidate budget on chunks the caller may not see | `ai/store.py`, `search()` |
 | Cross-mentorship isolation is checked against a corpus where both mentorships cover the same topics in similar words | `ai/check_retrieval.py` |
 | `$vectorSearch` needs Atlas; local MongoDB 8.0.8 Community has no such operator, so development runs the `mongodb/mongodb-atlas-local` container | `docker run -d -p 27018:27017 mongodb/mongodb-atlas-local` |
-| A **45**-question labelled set: **31** answerable from the mentorship's own material, **14** not — and 5 of those are answerable only inside a *different* mentorship, so they double as leak probes | `ai/eval/questions.jsonl` |
-| Best measured configuration: **recall@1 0.81**, recall@3 0.90, **MRR 0.855**, with 400-character chunks and a cross-encoder reranker; the baseline configuration scores 0.68 / 1.00 / 0.828 | `ai/evaluate.py --compare --rerank` · `ai/eval/baseline-2026-09-26.txt` |
-| **No similarity threshold separates answerable from unanswerable questions** in any of the six configurations measured: the most confident unanswerable question outscores the least confident answerable one | same run — the gap is printed as `separation` |
+| A **65**-question labelled set in two groups, reported separately and never averaged: **45** about text people typed into the application and **20** about attached documents. Seven of the unanswerable ones are answerable only inside a *different* mentorship, so they double as leak probes | `ai/eval/questions.jsonl` |
+| Best measured configuration: **recall@1 0.74**, MRR 0.821 on the record questions and **0.93**, MRR 0.967 on the document questions — bge-small, dense, no reranker. Switching the embedding model from `all-MiniLM-L6-v2` raised the record figure from 0.61 | `ai/evaluate.py --ablation` · `ai/eval/s1-final-ablation.txt` |
+| The cross-encoder reranker, re-measured on this corpus, **gains nothing**: 0.74 → 0.74 on records, 0.93 → 0.87 on documents, ~370 ms added per search. It is served by default and switchable, and the decision is recorded as open | same run · `AI_RERANK=0` |
+| **Almost no configuration separates answerable from unanswerable questions**: the most confident unanswerable question outscores the least confident answerable one in every configuration but one. The exception is bge-small, dense, on the document questions, at **+0.014** — thin, on 20 questions, and the first positive separation measured in this project | same run — the gap is printed as `separation` |
 
 ### Authentication
 
@@ -374,11 +378,15 @@ Drawn only from section 2. Each is defensible if questioned.
 > outside a mentorship retrieves nothing from it and that the access check
 > happens in Express, before the service is reachable.
 
-> Evaluated that pipeline against a 45-question labelled set, raising recall@1
-> from 0.68 to 0.81 and MRR from 0.828 to 0.855 by halving the chunk size and
-> adding a cross-encoder reranker — and established that no similarity
-> threshold separates answerable from unanswerable questions, so abstention has
-> to come from a grounding check rather than a score.
+> Evaluated that pipeline against a 65-question labelled set in two groups,
+> raising recall@1 on the application's own text from 0.61 to 0.74 by changing
+> the embedding model for a measured reason — its 512-token window against the
+> previous model's 256, which was silently truncating chunks — and reaching
+> 0.93 on questions about attached documents. Established that a cross-encoder
+> reranker, having been adopted on an earlier corpus, gained nothing on this
+> one and cost 370 ms, and that almost no configuration separates answerable
+> from unanswerable questions by score, so abstention has to come from a
+> grounding check rather than a threshold.
 
 > Designed a Classroom-style assignment model: one brief shared across several
 > students, each with an independent hand-in, draft and unsubmit states, an

@@ -8,6 +8,15 @@
  * Karan→Zara both cover indexing and caching. If retrieval ever leaks across
  * mentorships, similar wording is how it will happen, so the corpus is built
  * to make that failure visible rather than unlikely.
+ *
+ * Files are NOT seeded here. The synthetic PDFs and Word documents are built
+ * by `ai/eval/seed_documents.py`, which runs after this and attaches them to
+ * these hand-ins. Writing a PDF needs PyMuPDF, which the Python service
+ * already depends on; a second PDF writer in Node, for test fixtures, would
+ * be a dependency bought to avoid crossing a language boundary once.
+ *
+ *     node scripts/seed-rag-corpus.cjs
+ *     cd ai && .venv/Scripts/python.exe eval/seed_documents.py
  */
 
 const ROOT = 'C:/Users/Aditya Dubey/Documents/Aditya_dubey_16010423006/chat_app_miniproject/server';
@@ -194,6 +203,23 @@ addition.`,
   await db.collection('assignments').insertMany([a1, a2, a3, a4]);
 
   await db.collection('submissions').insertMany([
+    // A hand-in whose substance is in the attached report rather than in the
+    // text box. Common in real coursework, and the case that used to be
+    // skipped entirely before an attachment could be indexed.
+    submission(
+      a1,
+      M1,
+      ADITYA,
+      'Report attached. The plans before and after are in it, with the row counts.',
+      'Read it — the third query is the interesting one. See my note on the table.'
+    ),
+    submission(
+      a3,
+      M1,
+      ADITYA,
+      'Design document attached. Still unsure about the refresh token rotation.',
+      ''
+    ),
     submission(
       a2,
       M1,

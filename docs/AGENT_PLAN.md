@@ -441,16 +441,35 @@ with no attribution trailers, `docs/PROJECT_BRIEF.md` kept true.
 Deliverables: PDF text extraction with page numbers; DOCX extraction
 (`python-docx` — RAG-Project has no DOCX path, this is new); token-budgeted
 section-aware chunking; attachment chunks in `knowledge_chunks` carrying the
-**same `viewers` as their submission**; the embedding-model switch (D1) with
-its re-embed; reranker and soft-cap diversity moved into the served path (C6,
-C7).
+viewers of the record they hang off, **computed by that record's own rule** in
+`ai/sources.py` (a hand-in's file is the student's and their mentor's; a brief's
+would be the whole mentorship's) — not "the same as a submission's" for all
+three, which would publish a mentor's document to every student the day briefs
+gain uploads; the embedding-model switch (D1) with its re-embed; reranker and
+soft-cap diversity moved into the served path (C6, C7).
+
+**Corrected against the code as S1 landed:** only submissions can carry an
+attachment. `attachmentSchema` appears once in the models, on `Submission`, and
+there is one upload route, scoped to a hand-in. The attachment walk is written
+against that schema's shape and called from the assignment, submission and
+resource loops, so the other two yield nothing today and need no change in
+`ai/` when they gain uploads.
 
 Do **not** port: the references-section cut (C10).
 
 Tests (pytest — new dependency): hyphenation joins `representa-\ntion` and
 keeps `task-specific`; a flattened table row is dropped; chunk token counts
 never exceed the model limit; a chunk never spans two sections; an attachment
-chunk's `viewers` equals its submission's.
+chunk's `viewers` equals its parent record's, and never contains another
+student or another mentor.
+
+**Reconciliation identity, corrected by its own test:** a source is
+`(mentorshipId, sourceType, sourceId)`, not `(sourceType, sourceId)` as D-note
+(B) put it. One assignment set to several mentorships is one source in each of
+them under the same id, so keying on the pair lets any live copy vouch for
+every dead one, and a mentorship removed from a brief keeps its chunks forever.
+The pass is still over the whole index on a full run; it was the identity that
+was wrong, not the scope.
 
 Measured: re-run all 45 questions plus new document questions. **RAG-Project's
 0.984 paper recall does not carry over** — different corpus, different
@@ -460,6 +479,36 @@ diversity.
 
 BUILD_NOTES: *"Index what students actually hand in"* — must record the port's
 origin (RAG-Project `695795a`), what was taken, what was rejected and why.
+Landed as entries 46–50.
+
+**Measured outcome, for S2 to build on** (BUILD_NOTES Entry 50; 30 chunks, 23
+sources, reported per question set and never averaged):
+
+| | records (45) | documents (20) |
+| --- | --- | --- |
+| all-MiniLM-L6-v2, dense | 0.61 recall@1, MRR 0.774 | 0.93, MRR 0.967 |
+| bge-small, dense | **0.74**, MRR 0.821, sep −0.104 | **0.93**, MRR 0.967, sep **+0.014** |
+| + reranker | 0.74, MRR 0.823, sep −16.4 | 0.87, MRR 0.933, sep −4.5 |
+| + soft cap | 0.74, MRR 0.823 | 0.87, MRR 0.933 |
+
+Two things S2 must take account of:
+
+- **D7's reranker did not survive its own re-measurement.** It gains nothing on
+  the record questions, costs 0.06 recall@1 on the document questions, destroys
+  the separation on both, and adds ~370 ms. It is left on as approved and
+  switchable with `AI_RERANK=0`; S2 should decide with the numbers above rather
+  than inherit the default.
+- **The first positive separation ever measured here** is bge-small, dense, on
+  the document questions: +0.014. Thin, and on 20 questions — but Entry 41's
+  "no threshold exists" is no longer unanimous, which is what S2's abstention
+  prompt has to be designed around.
+
+**Known limitation carried out of S1:** a PDF heading is recognised from a
+coursework vocabulary or a number. A report with a bolded, unnumbered "Method"
+becomes one section called "Document" — citations lose their section, and
+chunks lose a boundary they should not cross. The fix is to use the font sizes
+PyMuPDF already reports. It changes every chunk in the index, so it belongs at
+the start of a sprint, not bolted onto the end of one.
 
 Probes: why chunk in tokens not characters; why the same 384 dims meant no
 index change; why the heading-aware chunker was null in Entry 41 and may not be
@@ -675,14 +724,30 @@ hard.
 Mentor-only, own mentorships only. MentorConnect has no rubric feature; mentors
 already write rubrics as documents.
 
+**Prerequisite, found in S1: assignments cannot carry attachments yet.** Step
+(a) below has a mentor attach a rubric to an assignment, but the only
+`attachmentSchema` in the models is on `Submission`, and the only upload route
+is scoped to one hand-in. S8 therefore starts with server work that S1 did not
+do: an `attachments` field on `Assignment`, mentor-only upload, download and
+delete routes for it (reusing `server/lib/fileStore.js` and its limits), the
+rubric flag from D5 on that attachment record, and the permission tests for
+all of it. `ai/sources.py` already walks assignment attachments with the
+brief's viewers, so the indexing side needs only the rubric branch described
+in (a); the server side is the larger half and must be estimated as such.
+
 **Pipeline**
 
 a) **Rubric upload.** A mentor attaches a document to an assignment and marks
    it as the rubric (D5: a flag on the attachment record). It is indexed
    **separately** from submissions.
 
-   **Rubrics are mentor-only by default**, with a per-rubric *"share with
-   students"* option. Rubric chunks carry `viewers` to match: mentor-only
+   **Rubrics are mentor-only by default** — the one exception to S1's rule
+   that an attachment inherits its parent record's viewers, because a brief is
+   shared with the student and a marking scheme attached to it must not be.
+   The flag is on the attachment record (D5), and `ai/sources.py` will need a
+   per-attachment branch rather than the per-record one S1 built.
+   There is a per-rubric *"share with students"* option. Rubric chunks carry
+   `viewers` to match: mentor-only
    unless shared, both parties once shared. A marking scheme the mentor has not
    released must be invisible to the student's agent **at the vector-search
    level** — the same in-search filter that enforces tenancy — not merely

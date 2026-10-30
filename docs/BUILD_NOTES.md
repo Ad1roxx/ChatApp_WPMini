@@ -4007,6 +4007,129 @@ untouched.
 
 ---
 
+### Entry 50 — S1 step 8: a corpus with documents in it, and what it said
+
+Every number in entries 46 to 49 came from a corpus of 15 single-chunk sources,
+and three of those entries had to say some version of "this corpus cannot tell
+these configurations apart". This step builds the corpus that can: seven
+synthetic attachments, twenty new questions, and the whole retrieval stack
+measured again on both question sets separately.
+
+**The documents, and why each one is there.** Built by
+`ai/eval/seed_documents.py` — invented, committed as the code that generates
+them rather than as binaries, and written so that each carries a fact appearing
+nowhere else in the corpus, which is what makes a question about it a test of
+retrieval rather than of luck.
+
+| File | What it exercises |
+| --- | --- |
+| `indexing-report.pdf` | three pages, numbered headings, a fact on each page |
+| `cache-notes.pdf` | two pages, and a table that arrives **flattened** |
+| `auth-design.docx` | Word headings from styles, three sections |
+| `n-plus-one.docx` | two sections, one of them the answer to a record question |
+| `marking-scheme.docx` | a real table, cells intact — the S8 rubric case |
+| `whiteboard-scan.pdf` | images of text, no text layer: must yield **zero** chunks |
+| `zara-indexing-report.pdf` | M2's version of the same work, in the same words |
+
+**They are built in Python, not in the seeder.** Writing a PDF needs PyMuPDF;
+the seeder is Node. A second PDF writer in Node, bought for fixtures, is a
+worse trade than crossing the boundary once, so `scripts/seed-rag-corpus.cjs`
+seeds the records (two more hand-ins, so the files have somewhere to hang) and
+says what to run next.
+
+**Two fixtures were wrong in ways worth keeping.** The scan came out at
+**12.5 MB** at 150 DPI in colour, so the pipeline skipped it for exceeding the
+upload route's 10 MB limit and never reached the OCR path it existed to test.
+Greyscale at 96 DPI fixed it — and the size guard proving itself on an accident
+is better evidence than the test that asserts it. The report PDFs then produced
+**one** section called "Document" instead of three: a PDF heading is recognised
+from a coursework word ("Requirements", "Marking scheme") or from a number, and
+"Method" is neither. This is a real limitation of the extractor and is recorded
+as one below; the fixtures now use numbered headings, which is what a report
+actually looks like, and Zara's keeps plain ones so the fallback stays
+exercised.
+
+**The apparent regression that was not one.** On first measurement the original
+45 questions dropped from 0.74 recall@1 to **0.55**, and MRR from 0.848 to
+0.696. The cause was not retrieval: **eight** of the 45 now have an attached
+document as their best answer, and the labels were written when no such file
+existed. "How long should the access token last?" is answered by
+`auth-design.docx` saying fifteen minutes; "What TTL did I use?" by the table in
+`cache-notes.pdf`. Those eight `expected` lists were widened, each one checked
+by reading the file. With the original labels the number is 0.55; with the
+corrected ones it is 0.74. Both are recorded here, because a label change that
+is not disclosed is the easiest way to manufacture an improvement.
+
+**The ablation, on one corpus, reported per question set.** 30 chunks from 23
+sources. The record questions are the same 45 as every earlier sprint; the
+document questions are new. They are never averaged together: a single headline
+over both would move whenever the mix of questions changed and look like a
+change in the retrieval.
+
+*Record questions (45), corrected labels:*
+
+| Configuration | recall@1 | @3 | @5 | MRR | separation | median |
+| --- | --- | --- | --- | --- | --- | --- |
+| all-MiniLM-L6-v2, dense | 0.61 | 0.94 | 1.00 | 0.774 | −0.208 | 18 ms |
+| bge-small, dense | **0.74** | 0.90 | 0.97 | 0.821 | −0.104 | 30 ms |
+| + reranker | 0.74 | 0.90 | 0.90 | 0.823 | −16.393 | 402 ms |
+| + soft cap | 0.74 | 0.90 | 0.90 | 0.823 | −16.393 | 395 ms |
+
+*Document questions (20):*
+
+| Configuration | recall@1 | @3 | @5 | MRR | separation | median |
+| --- | --- | --- | --- | --- | --- | --- |
+| all-MiniLM-L6-v2, dense | 0.93 | 1.00 | 1.00 | 0.967 | −0.027 | 22 ms |
+| bge-small, dense | **0.93** | 1.00 | 1.00 | **0.967** | **+0.014** | 30 ms |
+| + reranker | 0.87 | 1.00 | 1.00 | 0.933 | −4.505 | 399 ms |
+| + soft cap | 0.87 | 1.00 | 1.00 | 0.933 | −4.505 | 407 ms |
+
+For the historic row — MiniLM with the 800-character splitter, on the corpus
+before documents existed — see `ai/eval/s1-before.txt`: 0.68 / 1.00 / 1.00, MRR
+0.828. It is not in the tables above because it cannot be re-run: the character
+splitter is gone. The rows that are there all ran on one corpus, one chunker,
+one command.
+
+**What the tables say, including the parts that are unwelcome.**
+
+1. **The model switch is the win.** On the record questions bge-small takes
+   recall@1 from 0.61 to 0.74 and halves the separation gap. On the document
+   questions the two models tie on recall, and only bge-small produces a
+   **positive** separation — the first configuration measured in this project
+   where some threshold separates answerable from unanswerable at all. It is
+   +0.014 on 20 questions, which is thin enough that the honest reading is
+   "not clearly negative" rather than "solved", but Entry 41's finding has at
+   last stopped being unanimous.
+2. **The reranker, approved in D7 and re-measured here as D7 asked, does not
+   earn its place.** It buys nothing on the record questions (0.74 → 0.74,
+   MRR +0.002), **costs** 0.06 recall@1 on the document questions, costs 0.07
+   recall@5 on the records, destroys the separation on both, and adds roughly
+   370 ms per search. Four facts in one direction. The default is left as
+   approved rather than changed unilaterally — `AI_RERANK=0` turns it off, and
+   S2 should decide with these numbers in front of it.
+3. **The soft cap is neutral on the metrics and does something real.** It fires
+   on 10 of the 65 questions, always replacing a third or fourth chunk of one
+   record with a different record's chunk, and never once costing recall. The
+   metrics cannot see it because they score the first expected hit, not the
+   coverage of the rest — and coverage is what matters from S2, where these
+   four chunks become a prompt. Kept on, as approved, with the honest note
+   that this evaluation cannot currently measure the thing it is for.
+
+**`check_retrieval.py` gained three checks** the old corpus could not support:
+a question only an attached file answers retrieves that file; the other
+student's near-identical report never appears for this one; the scan
+contributes no chunks at all. Nine checks, all passing.
+
+**A limitation to carry forward.** PDF headings are detected from a vocabulary
+or a number. A student's report with "Method" in bold 14pt is one section
+called "Document" — not wrong, but it loses the structure that makes a citation
+useful and keeps chunks from crossing boundaries. The fix is to read the font
+sizes PyMuPDF already reports and treat a short line above the body size as a
+heading. That is a change to extraction, which changes every chunk, so it
+belongs at the start of a sprint rather than the end of this one.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -4046,6 +4169,16 @@ untouched.
 - ~~**Achievements**~~ — built in Entry 31, **removed** in Entry 37. The badges
   set challenges the platform is not about; assignment streaks replace them,
   and keep the one idea worth keeping: derived on read, never stored.
+- **PDF headings are detected by vocabulary or number, not by font size** — a
+  report with a bolded, unnumbered "Method" becomes one section called
+  "Document". Citations lose the section, and chunks lose a boundary they
+  should not cross. PyMuPDF already reports span sizes; the fix is a short line
+  above the body size. It re-chunks the whole index, so it belongs at the start
+  of a sprint. Entry 50.
+- **The reranker is on by default and earns nothing on this corpus** — D7
+  approved it, Entry 50 re-measured it as asked, and it gained 0.00 recall@1 on
+  the record questions, cost 0.06 on the document questions and added ~370 ms.
+  `AI_RERANK=0` turns it off; the decision is S2's to make.
 - **Deployment** and **frontend tests** are what remain, both infrastructure.
 - ~~**Feedback ratings**~~ — built in Entry 29, switched **off** in Entry 32.
   The server half and its 27 tests stay live so the code cannot rot while

@@ -63,10 +63,23 @@ python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements.txt   # Windows
 cp .env.example .env
 
+node ../scripts/seed-rag-corpus.cjs             # the corpus, from the repo root
+.venv/Scripts/python.exe eval/seed_documents.py  # its PDFs and Word files
 .venv/Scripts/python.exe ingest.py --drop        # build the index
 .venv/Scripts/python.exe check_retrieval.py      # prove the isolation
+.venv/Scripts/python.exe evaluate.py --ablation  # measure it, stage by stage
 .venv/Scripts/python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
+
+`eval/seed_documents.py` is a **separate step**, run after the Node seeder; the
+seeder does not call it. It builds the synthetic PDFs and Word files and
+attaches them to the seeded hand-ins, and writing a PDF needs PyMuPDF, which
+only the Python side has. Run the seeder alone and the index has no documents
+in it, and every document question in the evaluation fails.
+
+Both seeding commands are idempotent, and `ingest.py` deletes the chunks of any
+source it did not see, so running the lot twice leaves one index rather than
+two.
 
 ## The files
 

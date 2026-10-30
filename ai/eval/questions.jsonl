@@ -4,25 +4,25 @@
 {"id": "idx-04", "question": "Should I run EXPLAIN before adding an index?", "expected": ["Database indexing exercise"], "answerable": true}
 {"id": "idx-05", "question": "Which book did my mentor share about indexing?", "expected": ["Use The Index, Luke"], "answerable": true}
 {"id": "idx-06", "question": "What should I read about B-trees?", "expected": ["Use The Index, Luke"], "answerable": true}
-{"id": "idx-07", "question": "Does my mentor care about timings or about reasoning?", "expected": ["Database indexing exercise"], "answerable": true}
+{"id": "idx-07", "question": "Does my mentor care about timings or about reasoning?", "expected": ["Database indexing exercise", "marking-scheme.docx"], "answerable": true}
 {"id": "idx-08", "question": "What is a collection scan and how do I spot one?", "expected": ["Database indexing exercise"], "answerable": true}
 {"id": "cache-01", "question": "What do I have to build for the caching assignment?", "expected": ["Add caching to the reading list endpoint"], "answerable": true}
 {"id": "cache-02", "question": "Should I use Redis for the cache?", "expected": ["Add caching to the reading list endpoint"], "answerable": true}
-{"id": "cache-03", "question": "Why does my mentor want the invalidation rule written down first?", "expected": ["Add caching to the reading list endpoint"], "answerable": true}
-{"id": "cache-04", "question": "What TTL did I use on the cache I submitted?", "expected": ["Hand-in: Add caching to the reading list endpoint"], "answerable": true}
+{"id": "cache-03", "question": "Why does my mentor want the invalidation rule written down first?", "expected": ["Add caching to the reading list endpoint", "cache-notes.pdf"], "answerable": true}
+{"id": "cache-04", "question": "What TTL did I use on the cache I submitted?", "expected": ["Hand-in: Add caching to the reading list endpoint", "cache-notes.pdf"], "answerable": true}
 {"id": "cache-05", "question": "What is the thundering herd problem I ran into?", "expected": ["Hand-in: Add caching to the reading list endpoint"], "answerable": true}
 {"id": "cache-06", "question": "What did my mentor tell me to try about caching the promise?", "expected": ["Hand-in: Add caching to the reading list endpoint"], "answerable": true}
 {"id": "cache-07", "question": "What did the article about write-through versus write-around explain?", "expected": ["A post on cache invalidation"], "answerable": true}
 {"id": "cache-08", "question": "How does my cache invalidate when an item is added?", "expected": ["Hand-in: Add caching to the reading list endpoint", "Add caching to the reading list endpoint"], "answerable": true}
-{"id": "auth-01", "question": "How long should the access token last?", "expected": ["REST authentication with refresh tokens"], "answerable": true}
-{"id": "auth-02", "question": "Where should the refresh token be stored and why?", "expected": ["REST authentication with refresh tokens", "OWASP cheat sheet on token storage"], "answerable": true}
-{"id": "auth-03", "question": "What can an attacker with XSS do to my tokens?", "expected": ["REST authentication with refresh tokens"], "answerable": true}
+{"id": "auth-01", "question": "How long should the access token last?", "expected": ["REST authentication with refresh tokens", "auth-design.docx"], "answerable": true}
+{"id": "auth-02", "question": "Where should the refresh token be stored and why?", "expected": ["REST authentication with refresh tokens", "OWASP cheat sheet on token storage", "auth-design.docx"], "answerable": true}
+{"id": "auth-03", "question": "What can an attacker with XSS do to my tokens?", "expected": ["REST authentication with refresh tokens", "auth-design.docx"], "answerable": true}
 {"id": "auth-04", "question": "Which cheat sheet covers session management?", "expected": ["OWASP cheat sheet on token storage"], "answerable": true}
 {"id": "auth-05", "question": "What is left to do on my goal about authentication?", "expected": ["Be ready for backend interviews"], "answerable": true}
 {"id": "nplus1-01", "question": "What is an N+1 query?", "expected": ["Explain N+1 queries with a worked example", "Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
 {"id": "nplus1-02", "question": "Where was the N+1 in the sample repository?", "expected": ["Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
-{"id": "nplus1-03", "question": "How many queries did the lookup fix save?", "expected": ["Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
-{"id": "nplus1-04", "question": "When would denormalising the author name be better than a lookup?", "expected": ["Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
+{"id": "nplus1-03", "question": "How many queries did the lookup fix save?", "expected": ["Hand-in: Explain N+1 queries with a worked example", "n-plus-one.docx"], "answerable": true}
+{"id": "nplus1-04", "question": "When would denormalising the author name be better than a lookup?", "expected": ["Hand-in: Explain N+1 queries with a worked example", "n-plus-one.docx"], "answerable": true}
 {"id": "nplus1-05", "question": "Why do ORMs make N+1 easy to write by accident?", "expected": ["Explain N+1 queries with a worked example"], "answerable": true}
 {"id": "goal-01", "question": "What am I working towards overall?", "expected": ["Be ready for backend interviews"], "answerable": true}
 {"id": "goal-02", "question": "Which milestones have I already finished?", "expected": ["Be ready for backend interviews"], "answerable": true}
@@ -43,3 +43,23 @@
 {"id": "leak-03", "question": "What is the indexing homework for this week?", "expected": ["Database indexing exercise"], "answerable": true, "why": "Worded almost exactly like the other mentorship's assignment title."}
 {"id": "leak-04", "question": "What does the caching exercise say about stale reads?", "expected": [], "answerable": false, "why": "Stale reads are only discussed in the other mentorship's brief."}
 {"id": "leak-05", "question": "Why is an index nothing uses expensive?", "expected": [], "answerable": false, "why": "Said only in the other mentorship's review note."}
+{"id": "doc-01", "group": "documents", "question": "What did the indexing report find about the member lookup query?", "expected": ["indexing-report.pdf"], "answerable": true}
+{"id": "doc-02", "group": "documents", "question": "How many documents was the collection scan over before the index was added?", "expected": ["indexing-report.pdf"], "answerable": true}
+{"id": "doc-03", "group": "documents", "question": "Which query did not improve at all, and why not?", "expected": ["indexing-report.pdf"], "answerable": true}
+{"id": "doc-04", "group": "documents", "question": "What did the report conclude should be kept?", "expected": ["indexing-report.pdf"], "answerable": true}
+{"id": "doc-05", "group": "documents", "question": "What is the TTL on the item detail endpoint?", "expected": ["cache-notes.pdf"], "answerable": true}
+{"id": "doc-06", "group": "documents", "question": "Which endpoint is never cached?", "expected": ["cache-notes.pdf"], "answerable": true}
+{"id": "doc-07", "group": "documents", "question": "What happens to the cache when an item's title is edited?", "expected": ["cache-notes.pdf"], "answerable": true}
+{"id": "doc-08", "group": "documents", "question": "How long does the access token last, and how long the refresh token?", "expected": ["auth-design.docx"], "answerable": true}
+{"id": "doc-09", "group": "documents", "question": "What is still undecided about refresh token rotation?", "expected": ["auth-design.docx"], "answerable": true}
+{"id": "doc-10", "group": "documents", "question": "What attacker is the authentication design written against?", "expected": ["auth-design.docx"], "answerable": true}
+{"id": "doc-11", "group": "documents", "question": "How many marks are the query plans worth?", "expected": ["marking-scheme.docx"], "answerable": true}
+{"id": "doc-12", "group": "documents", "question": "What does a hand-in with plans but no reasoning score?", "expected": ["marking-scheme.docx"], "answerable": true}
+{"id": "doc-13", "group": "documents", "question": "How many marks does late work lose?", "expected": ["marking-scheme.docx"], "answerable": true}
+{"id": "doc-14", "group": "documents", "question": "What would you do differently at a million posts instead of the lookup?", "expected": ["n-plus-one.docx"], "answerable": true}
+{"id": "doc-15", "group": "documents", "question": "How many queries did the comments page issue before the fix?", "expected": ["n-plus-one.docx", "Hand-in: Explain N+1 queries with a worked example"], "answerable": true}
+{"id": "doc-leak-01", "group": "documents", "question": "How many documents did Zara's status lookup scan before her index?", "expected": [], "answerable": false}
+{"id": "doc-leak-02", "group": "documents", "question": "What did the other student's report say about their second index?", "expected": [], "answerable": false}
+{"id": "doc-none-01", "group": "documents", "question": "What did we write on the whiteboard about TTL being a lie you agree to?", "expected": [], "answerable": false}
+{"id": "doc-none-02", "group": "documents", "question": "What does the scanned whiteboard say about the herd problem?", "expected": [], "answerable": false}
+{"id": "doc-none-03", "group": "documents", "question": "What did the attached report say about sharding the orders collection?", "expected": [], "answerable": false}

@@ -6,9 +6,17 @@ Ingests the seeded corpus and then asserts four properties. It exits non-zero
 on the first failure, so it can go in CI later beside the Node suite.
 
 The corpus is built to make leakage likely rather than unlikely: both
-mentorships cover indexing and caching, in similar words. If the mentorship
-filter were applied to the *results* of the vector search rather than inside
-it, the second mentorship's chunks would be the ones crowding out the first's.
+mentorships cover indexing and caching, in similar words, and both students
+attached an indexing report saying much the same thing with different numbers.
+If the mentorship filter were applied to the *results* of the vector search
+rather than inside it, the second mentorship's chunks would be the ones
+crowding out the first's.
+
+Run after seeding, including the documents:
+
+    node scripts/seed-rag-corpus.cjs
+    .venv/Scripts/python.exe eval/seed_documents.py
+    .venv/Scripts/python.exe check_retrieval.py
 """
 
 from __future__ import annotations
@@ -106,6 +114,36 @@ def main() -> None:
         "a hand-in and its review are retrievable",
         any(h["sourceType"] == "submission" for h in handins),
         f"types: {[h['sourceType'] for h in handins]}",
+    )
+
+    # 6. A question only an attached file can answer retrieves that file. Its
+    #    text appears in no record's own text, so a hit here is extraction,
+    #    chunking and embedding of a real PDF working end to end.
+    attached = store.search(M1, ADITYA, "what is the TTL on the item detail endpoint?", k=4)
+    check(
+        "a question only an attached document answers retrieves the attachment",
+        any(h["sourceType"] == "attachment" for h in attached),
+        f"titles: {[h['title'] for h in attached]}",
+    )
+
+    # 7. The other student's near-identical report never appears. This is check
+    #    2 again, aimed at the case the corpus was built for: two documents
+    #    about the same work, in the same words, in different mentorships.
+    numbers = store.search(M1, ADITYA, "how many documents did the status lookup scan?", k=4)
+    check(
+        "the other mentorship's version of the same report never appears",
+        bool(numbers)
+        and all(h["title"] != "zara-indexing-report.pdf" for h in numbers),
+        f"titles: {[h['title'] for h in numbers]}",
+    )
+
+    # 8. The scan has no text layer, so nothing of it is retrievable. Indexing
+    #    its filename would make an unreadable file look answerable.
+    scanned = store.chunks.count_documents({"title": "whiteboard-scan.pdf"})
+    check(
+        "a scan with no text layer contributes no chunks at all",
+        scanned == 0,
+        f"chunks from the scan: {scanned}",
     )
 
     print()

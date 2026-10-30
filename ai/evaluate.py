@@ -6,7 +6,20 @@
     python evaluate.py --ablation               one retrieval stage at a time
 
 Each question in eval/questions.jsonl carries the source that should answer it,
-or none at all. Three kinds of question, and the third is the interesting one:
+or none at all, and the group it belongs to:
+
+- **records** — the 45 original questions, about text people typed into the
+  application: briefs, hand-ins, review notes, goals, resource notes.
+- **documents** — questions about attached PDFs and Word files, answerable only
+  by retrieving the right section of the right file.
+
+They are reported separately and never averaged together. A single headline
+number over both would move when the mix of questions changed and look like a
+change in the retrieval, which is the easiest way to mislead yourself with an
+evaluation. The record questions also pin the earlier sprints' numbers: they
+are the same 45, so a regression there is visible rather than diluted.
+
+Three kinds of question within each group, and the third is the interesting one:
 
 - answerable from this mentorship's material
 - unanswerable by anyone — the topic is simply not in the corpus
@@ -60,7 +73,21 @@ STAGES = (
 
 def load_questions() -> list[dict]:
     with QUESTIONS.open(encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
+        questions = [json.loads(line) for line in fh if line.strip()]
+
+    # The original 45 carry no group, and are not rewritten to add one: the
+    # file would then differ from the one every earlier number was measured
+    # against, for no gain.
+    for question in questions:
+        question.setdefault("group", "records")
+    return questions
+
+
+def by_group(questions: list[dict]) -> dict[str, list[dict]]:
+    groups: dict[str, list[dict]] = {}
+    for question in questions:
+        groups.setdefault(question["group"], []).append(question)
+    return groups
 
 
 def build_index(store: ChunkStore, budget: int) -> int:
@@ -195,7 +222,11 @@ def main() -> None:
     args = parser.parse_args()
 
     questions = load_questions()
-    print(f"{len(questions)} questions from {QUESTIONS.name}")
+    groups = by_group(questions)
+    print(
+        f"{len(questions)} questions from {QUESTIONS.name}: "
+        + ", ".join(f"{len(qs)} {name}" for name, qs in groups.items())
+    )
 
     store = ChunkStore()
     store.ensure_vector_index()
@@ -218,11 +249,20 @@ def main() -> None:
     for name, budget in configurations:
         chunks = build_index(store, budget)
 
-        if args.ablation:
-            for stage, settings in STAGES:
-                report(f"{name}, {stage}", chunks, evaluate(store, questions, **settings))
-        else:
-            report(f"{name}, as served", chunks, evaluate(store, questions))
+        for group, questions_in_group in groups.items():
+            if args.ablation:
+                for stage, settings in STAGES:
+                    report(
+                        f"{group}: {name}, {stage}",
+                        chunks,
+                        evaluate(store, questions_in_group, **settings),
+                    )
+            else:
+                report(
+                    f"{group}: {name}, as served",
+                    chunks,
+                    evaluate(store, questions_in_group),
+                )
 
     print()
 

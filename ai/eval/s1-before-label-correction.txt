@@ -1,0 +1,105 @@
+65 questions from questions.jsonl: 45 records, 20 documents
+whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
+
+=== records: tokens 400, dense only ===
+  chunks indexed        30
+  recall@1 / @3 / @5    0.55 / 0.87 / 0.90
+  MRR                   0.696
+  top score             answerable mean 0.854 (min 0.780) · unanswerable mean 0.805 (max 0.883)
+  median latency        33 ms
+  separation            -0.104 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    0.883  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    0.848  leak-05: Why is an index nothing uses expensive?
+           -> indexing-report.pdf
+    0.822  none-02: What did my mentor say about GraphQL subscriptions?
+           -> Hand-in: Explain N+1 queries with a worked example
+  missed (3):
+    idx-07: Does my mentor care about timings or about reasoning? -> ['marking-scheme.docx', 'Hand-in: Database indexing exercise', 'indexing-report.pdf']
+    cache-03: Why does my mentor want the invalidation rule written down first? -> ['indexing-report.pdf', 'auth-design.docx', 'Hand-in: Explain N+1 queries with a worked example']
+    goal-02: Which milestones have I already finished? -> ['Hand-in: Database indexing exercise', 'marking-scheme.docx', 'A post on cache invalidation']
+
+=== records: tokens 400, + reranker ===
+  chunks indexed        30
+  recall@1 / @3 / @5    0.68 / 0.90 / 0.90
+  MRR                   0.790
+  top score             answerable mean 1.557 (min -10.807) · unanswerable mean -7.835 (max 5.586)
+  median latency        408 ms
+  separation            -16.393 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    5.586  leak-05: Why is an index nothing uses expensive?
+           -> indexing-report.pdf
+    2.112  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    -6.082  none-04: What is my mentor's phone number?
+           -> Hand-in: Database indexing exercise
+  missed (3):
+    goal-01: What am I working towards overall? -> ['Database indexing exercise', 'marking-scheme.docx', 'indexing-report.pdf']
+    goal-02: Which milestones have I already finished? -> ['indexing-report.pdf', 'marking-scheme.docx', 'cache-notes.pdf']
+    goal-04: What should I focus on next? -> ['Database indexing exercise', 'Hand-in: Add caching to the reading list endpoint', 'Add caching to the reading list endpoint']
+
+=== records: tokens 400, + soft cap ===
+  chunks indexed        30
+  recall@1 / @3 / @5    0.68 / 0.90 / 0.90
+  MRR                   0.790
+  top score             answerable mean 1.557 (min -10.807) · unanswerable mean -7.835 (max 5.586)
+  median latency        405 ms
+  separation            -16.393 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    5.586  leak-05: Why is an index nothing uses expensive?
+           -> indexing-report.pdf
+    2.112  leak-04: What does the caching exercise say about stale reads?
+           -> Add caching to the reading list endpoint
+    -6.082  none-04: What is my mentor's phone number?
+           -> Hand-in: Database indexing exercise
+  missed (3):
+    goal-01: What am I working towards overall? -> ['Database indexing exercise', 'marking-scheme.docx', 'indexing-report.pdf']
+    goal-02: Which milestones have I already finished? -> ['indexing-report.pdf', 'marking-scheme.docx', 'cache-notes.pdf']
+    goal-04: What should I focus on next? -> ['Database indexing exercise', 'Hand-in: Add caching to the reading list endpoint', 'Add caching to the reading list endpoint']
+
+=== documents: tokens 400, dense only ===
+  chunks indexed        30
+  recall@1 / @3 / @5    0.93 / 1.00 / 1.00
+  MRR                   0.967
+  top score             answerable mean 0.878 (min 0.835) · unanswerable mean 0.810 (max 0.821)
+  median latency        31 ms
+  separation            +0.014 (a threshold exists)
+  most confident on a question it cannot answer:
+    0.821  doc-none-03: What did the attached report say about sharding the orders collection?
+           -> Hand-in: Database indexing exercise
+    0.814  doc-leak-02: What did the other student's report say about their second index?
+           -> Hand-in: Database indexing exercise
+    0.813  doc-leak-01: How many documents did Zara's status lookup scan before her index?
+           -> indexing-report.pdf
+
+=== documents: tokens 400, + reranker ===
+  chunks indexed        30
+  recall@1 / @3 / @5    0.87 / 1.00 / 1.00
+  MRR                   0.933
+  top score             answerable mean 5.613 (min -3.161) · unanswerable mean -1.543 (max 1.344)
+  median latency        409 ms
+  separation            -4.505 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    1.344  doc-leak-01: How many documents did Zara's status lookup scan before her index?
+           -> indexing-report.pdf
+    1.293  doc-leak-02: What did the other student's report say about their second index?
+           -> indexing-report.pdf
+    -2.425  doc-none-02: What does the scanned whiteboard say about the herd problem?
+           -> Hand-in: Add caching to the reading list endpoint
+
+=== documents: tokens 400, + soft cap ===
+  chunks indexed        30
+  recall@1 / @3 / @5    0.87 / 1.00 / 1.00
+  MRR                   0.933
+  top score             answerable mean 5.613 (min -3.161) · unanswerable mean -1.543 (max 1.344)
+  median latency        410 ms
+  separation            -4.505 (no single threshold separates them)
+  most confident on a question it cannot answer:
+    1.344  doc-leak-01: How many documents did Zara's status lookup scan before her index?
+           -> indexing-report.pdf
+    1.293  doc-leak-02: What did the other student's report say about their second index?
+           -> indexing-report.pdf
+    -2.425  doc-none-02: What does the scanned whiteboard say about the herd problem?
+           -> Hand-in: Add caching to the reading list endpoint
+
