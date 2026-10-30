@@ -505,8 +505,10 @@ Two things S2 must take account of:
 - **D7's reranker is a mixed result on its own re-measurement.** It gains
   0.03 recall@1 on the record questions, costs 0.06 on the document questions,
   destroys the separation on both, and adds ~370 ms. (An earlier reading of
-  "no gain on records" held only under a label set we do not quote.) It is
-  left on as approved and switchable with `AI_RERANK=0`. But the corpus (25 chunks visible to the
+  "no gain on records" held only under a label set we do not quote.) **It is
+  now off by default** (D7 revised, §10); `AI_RERANK=1` turns it back on.
+  The served path is bge-small dense + soft cap, `k=4`: 0.71 on records, 0.93
+  on documents, ~25 ms. But the corpus (25 chunks visible to the
   evaluated student) is smaller than the 30-candidate pool, so the measurement
   is the cross-encoder ranking the whole mentorship, not the two-stage
   pipeline. **S2 should grow the evaluation corpus past the candidate pool
@@ -912,7 +914,7 @@ so the sprints do not re-litigate them.
 | **D4** | Writes execute in the browser with the user's own token, after confirmation | **Approved**, with the client-result caveat in §2.4 |
 | **D5** | Rubric as a flagged attachment — **mentor-only by default, with a per-rubric "share with students" option** | **Approved, modified** |
 | **D6** | Extracted criteria in a versioned collection, one version per mentor confirmation | **Approved** |
-| **D7** | Reranker in the served path, `k=4`, re-measured in S1 | **Approved** |
+| **D7** | Reranker in the served path, `k=4`, re-measured in S1 | **Revised after S1:** `k=4` kept; reranker **off** by default, revisit in S2 |
 
 **D1.** 512 vs 256 tokens is the deciding argument, and it costs nothing at the
 index level: identical 384 dimensions means `numDimensions` is unchanged
@@ -949,3 +951,13 @@ per confirmation answers it exactly.
 (Entry 41), and `k=4` keeps the prompt small enough to matter under the 8K TPM
 ceiling in §2.6. Re-measure in S1 once PDFs are in the corpus, because that
 trade was measured on a corpus with no documents in it.
+
+**Revised at the end of S1 (BUILD_NOTES Entry 52): `k=4` stands; the reranker
+is OFF by default.** Re-measured as this decision required, on one label set:
+records 0.71 → 0.74 recall@1 (a small gain), documents 0.93 → 0.87 (a loss),
+and about 370 ms added to every search. The S1 corpus also could not test the
+two-stage design — 25 visible chunks against a 30-candidate pool means the
+cross-encoder only re-sorted the whole mentorship. **S2 revisits it on a
+corpus larger than the candidate pool, labelled before measuring.**
+`AI_RERANK=1` turns it back on. The soft cap stays on: it costs nothing
+measurable and buys coverage at ranks four and five.

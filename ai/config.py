@@ -83,7 +83,14 @@ CANDIDATE_K = int(os.getenv("AI_CANDIDATE_K", "30"))
 # other - far more accurate than two separate vectors, and impossible to
 # precompute, which is why it only ever sees the candidates.
 RERANK_MODEL = os.getenv("AI_RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
-RERANK = os.getenv("AI_RERANK", "1") != "0"
+# OFF by default since the end of S1 (BUILD_NOTES Entry 52). Re-measured on a
+# corpus with documents in it, as D7 required, it was a mixed result: +0.03
+# recall@1 on the record questions, -0.06 on the document questions, and about
+# 370 ms added to every search. And the measurement could not test the
+# two-stage design it exists for: the evaluated student sees 25 chunks against
+# a 30-candidate pool, so it only ever re-sorted the whole mentorship. S2
+# revisits it on a corpus larger than the pool. AI_RERANK=1 turns it back on.
+RERANK = os.getenv("AI_RERANK", "0") == "1"
 
 # Diversity: at most this many chunks from one record, and the relevance gap
 # below which that cap is allowed to displace a more relevant chunk. A blind

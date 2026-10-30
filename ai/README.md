@@ -81,6 +81,15 @@ Both seeding commands are idempotent, and `ingest.py` deletes the chunks of any
 source it did not see, so running the lot twice leaves one index rather than
 two.
 
+### What the served search does
+
+bge-small dense search over 30 candidates, then a soft per-record cap, cut to
+`k=4`. The cross-encoder reranker is **off by default**: on the S1 corpus it
+gained 0.03 recall@1 on record questions, lost 0.06 on document questions and
+added about 370 ms a search, and the corpus was too small to test the two-stage
+design it is for (BUILD_NOTES Entry 52). `AI_RERANK=1` turns it on;
+`evaluate.py --ablation` measures every stage, including the served one.
+
 `evaluate.py` rebuilds the index with whatever model it is run with. Every chunk
 records the model that embedded it, and the first search in a process refuses
 an index from a different one — two 384-wide models are accepted by the vector

@@ -68,6 +68,9 @@ STAGES = (
     ("dense only", {"rerank": False, "diversity": "none"}),
     ("+ reranker", {"rerank": True, "diversity": "none"}),
     ("+ soft cap", {"rerank": True, "diversity": "soft_cap"}),
+    # The served configuration since Entry 52: the cap without the reranker.
+    # Measured as its own row because it is not any of the rows above.
+    ("dense + soft cap", {"rerank": False, "diversity": "soft_cap"}),
 )
 
 

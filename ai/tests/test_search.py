@@ -144,7 +144,7 @@ def test_reranking_reorders_and_never_adds(served):
     # The cross-encoder disagrees with the index, which is the whole point.
     store = served(rows, rerank_scores={"text of near": -4.0, "text of far": 7.5})
 
-    results = store.search(M1, ADITYA, "anything", k=4, diversity="none")
+    results = store.search(M1, ADITYA, "anything", k=4, rerank=True, diversity="none")
 
     assert [r["title"] for r in results] == ["far", "near"]
     assert {r["title"] for r in results} <= {"near", "far"}
@@ -203,6 +203,36 @@ def test_k_is_honoured(served):
     results = store.search(M1, ADITYA, "anything", k=2, rerank=False)
 
     assert len(results) == 2
+
+
+def test_the_reranker_is_off_by_default(served, monkeypatch):
+    """Entry 52. A default that loads a second model and costs ~370 ms a search
+    has to be earned, and on the S1 corpus it was not."""
+    from config import RERANK
+
+    called = []
+    monkeypatch.setattr(store_module, "reranker", lambda: called.append(1))
+    store = served([chunk("near", 0.9), chunk("far", 0.1)])
+
+    results = store.search(M1, ADITYA, "anything")
+
+    assert RERANK is False
+    assert called == [], "the cross-encoder was loaded"
+    assert [r["score"] for r in results] == [0.9, 0.1], "the cosine order changed"
+
+
+def test_the_soft_cap_stays_on_by_default(served):
+    """Off goes the reranker only: the cap still over-fetches so it has
+    alternatives to choose between."""
+    from config import DIVERSITY
+
+    rows = [chunk(f"c{n}", 1.0 - n / 100) for n in range(30)]
+    store = served(rows)
+
+    store.search(M1, ADITYA, "anything", k=4)
+
+    assert DIVERSITY == "soft_cap"
+    assert vector_stage(store.chunks.pipelines[0])["limit"] >= 30
 
 
 def test_the_served_default_is_four(served):

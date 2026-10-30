@@ -4254,6 +4254,64 @@ That is the review question to ask of every S2 test before it is trusted.
 
 ---
 
+### Entry 52 — The reranker goes off by default; the soft cap stays
+
+D7 put the cross-encoder in the served path on the strength of Entry 41's
++0.13 recall@1, and said to re-measure once documents were in the corpus. Entry
+50 did, Entry 51 put every figure on one label set, and this entry acts on the
+result: `AI_RERANK` now defaults to **off**.
+
+**The reasons, all from `ai/eval/s1-final-ablation.txt` and
+`ai/eval/s1-label-sets.txt`, bge-small, six clear-cut labels:**
+
+| | dense | dense + reranker |
+| --- | --- | --- |
+| record questions, recall@1 / MRR | 0.71 / 0.782 | 0.74 / 0.823 |
+| document questions, recall@1 / MRR | **0.93** / **0.967** | 0.87 / 0.933 |
+| median latency per search | ~30 ms | ~400 ms |
+
+1. **Records: a small gain, not none.** +0.03 recall@1 — one question in 45.
+   An earlier reading in Entry 50 said "no gain", and that held only under
+   the label set Entry 51 says not to quote; this entry states the gain.
+2. **Documents: a loss.** 0.93 → 0.87 recall@1. Documents are what S1 exists
+   to add, and what S8 will lean on hardest.
+3. **About 370 ms on every search**, plus a second model loaded into the
+   service. Under the 8K-tokens-per-minute ceiling in AGENT_PLAN §2.6, time
+   spent per tool call is time an agent turn holds the user waiting.
+4. **The measurement could not test what the reranker is for.** The
+   evaluated student can see 25 chunks and the candidate pool is 30, so with
+   reranking on the vector search returns everything and the cross-encoder
+   re-sorts the whole mentorship. Two-stage retrieval is a bet that a cheap
+   model narrows and an expensive one orders; with nothing to narrow, half the
+   bet was never placed. That is why this is "off, and revisit", not "removed".
+
+A default that loads a second model and costs ten times the latency has to
+earn its place, and on this corpus it did not. It stays one variable away —
+`AI_RERANK=1` — and S2 revisits it on a corpus larger than the candidate pool,
+labelled before it is measured.
+
+**The soft cap stays on**, and was measured in the configuration it now runs
+in, which no earlier row covered: the ablation had only ever run it *after*
+the reranker. Dense + soft cap scores exactly as dense alone on every metric
+(records 0.71 / 0.782, documents 0.93 / 0.967, separation +0.014 on
+documents) at 23–26 ms, because the cap only ever changes ranks four and five.
+What it buys is coverage — a fourth chunk from a different record instead of
+a third from the same one — which no rank-of-first-hit metric can see, and
+which matters from S2 onward, when those chunks become the prompt. It costs
+nothing measurable, so it stays.
+
+**What the served path is now:** bge-small dense search over 30 candidates,
+soft cap, `k=4`. Its record figure is 0.71, its document figure 0.93, and its
+document separation is the one positive separation measured in this project.
+
+Two tests changed. `test_reranking_reorders_and_never_adds` now asks for the
+reranker explicitly instead of relying on the default, and two new tests
+assert the defaults themselves: no cross-encoder is loaded and the cosine
+order is untouched, and the cap still over-fetches so it has alternatives.
+141 in the Python suite.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -4299,12 +4357,11 @@ That is the review question to ask of every S2 test before it is trusted.
   should not cross. PyMuPDF already reports span sizes; the fix is a short line
   above the body size. It re-chunks the whole index, so it belongs at the start
   of a sprint. Entry 50.
-- **The reranker is on by default and its value is unsettled** — D7 approved
-  it; re-measured, it gains 0.03 recall@1 on the record questions (six
-  clear-cut labels), costs 0.06 on the document questions and adds ~370 ms.
-  `AI_RERANK=0` turns it off; the decision is S2's to make, on a corpus larger
-  than the 30-chunk candidate pool, or the row measures the cross-encoder
-  ranking the whole mentorship (Entry 51).
+- **Revisit the reranker in S2** — off by default since Entry 52 (+0.03 on
+  records, −0.06 on documents, ~370 ms). The S1 corpus is smaller than the
+  30-chunk candidate pool, so it could only measure the cross-encoder
+  re-sorting the whole mentorship. Re-measure on a larger corpus, labelled
+  before measuring; `AI_RERANK=1` turns it back on.
 - **Deployment** and **frontend tests** are what remain, both infrastructure.
 - ~~**Feedback ratings**~~ — built in Entry 29, switched **off** in Entry 32.
   The server half and its 27 tests stay live so the code cannot rot while
