@@ -3822,8 +3822,12 @@ app.post('/api/mentorships/:id/copilot/search', requireAuth, async (req, res) =>
           mentorshipId: String(req.params.id),
           // From the verified identity, never from the request body.
           viewerId: String(req.authUser._id),
+          // Four by default, matching the retrieval service's own default:
+          // from S2 these chunks go into a prompt, where every extra one is
+          // both more context and more chance of a distractor. Still clamped
+          // to 1-10, so a caller cannot ask for the whole index.
           query,
-          k: Math.min(Math.max(Number(req.body?.k) || 5, 1), 10)
+          k: Math.min(Math.max(Number(req.body?.k) || 4, 1), 10)
         }),
         signal: controller.signal
       });

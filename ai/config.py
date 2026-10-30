@@ -65,6 +65,34 @@ MIN_CHUNK_TOKENS = int(os.getenv("AI_MIN_CHUNK_TOKENS", "32"))
 # trusting the comment, so a model switch that forgets it fails loudly.
 EMBEDDING_MAX_TOKENS = int(os.getenv("AI_EMBEDDING_MAX_TOKENS", "512"))
 
+# ---------------------------------------------------------------------------
+# What the served search does
+# ---------------------------------------------------------------------------
+# How many chunks a caller gets by default. Four rather than five because from
+# S2 these go into a prompt: every extra chunk is both more context and more
+# chance of a distractor, and D7 settled on four.
+SERVED_K = int(os.getenv("AI_SERVED_K", "4"))
+
+# How many the index is asked for before reranking. The bi-encoder is good at
+# getting the right passage somewhere into a top-30 and unreliable about the
+# exact order, so it is used to narrow rather than to rank.
+CANDIDATE_K = int(os.getenv("AI_CANDIDATE_K", "30"))
+
+# A small cross-encoder trained on MS MARCO relevance judgements. It reads the
+# question and the passage TOGETHER, so every token of one can attend to the
+# other - far more accurate than two separate vectors, and impossible to
+# precompute, which is why it only ever sees the candidates.
+RERANK_MODEL = os.getenv("AI_RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+RERANK = os.getenv("AI_RERANK", "1") != "0"
+
+# Diversity: at most this many chunks from one record, and the relevance gap
+# below which that cap is allowed to displace a more relevant chunk. A blind
+# cap costs precision on questions one document genuinely owns; the margin
+# makes diversity the tie-breaker rather than a quota.
+DIVERSITY = os.getenv("AI_DIVERSITY", "soft_cap")
+DIVERSITY_CAP = int(os.getenv("AI_DIVERSITY_CAP", "3"))
+DIVERSITY_MARGIN = float(os.getenv("AI_DIVERSITY_MARGIN", "0.2"))
+
 # The shared secret Express presents. The service also binds to localhost, so
 # this is the second lock rather than the only one.
 SERVICE_SECRET = os.getenv("AI_SERVICE_SECRET", "")

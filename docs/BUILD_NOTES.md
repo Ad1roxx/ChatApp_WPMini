@@ -3921,6 +3921,92 @@ exists, a stale chunk is not merely a wrong search result, it is wrong text
 quoted back to someone as though it were current.
 ---
 
+### Entry 49 — S1 step 7: the reranker and the soft cap move into the served search
+
+Until now the cross-encoder lived in `evaluate.py` and nothing a user touched
+ever ran it. The measured configuration and the served one were different
+pipelines, which makes every number in Entry 41 a claim about something nobody
+uses. D7 approved serving it; this is that, plus the diversity stage from
+RAG-Project, with `k` at four.
+
+    vector search (30)  ->  cross-encoder  ->  soft cap  ->  4
+          recall             precision         coverage
+
+**Why three stages and not one.** A bi-encoder embeds question and passage
+separately, which is what makes passages indexable — and what limits it: the
+passage's vector was computed without knowing the question, so it must
+summarise that passage for every possible question at once. A cross-encoder
+reads the pair together, so every token of the question can attend to the
+passage, and it cannot be precomputed, so it only ever sees the candidates. The
+cap exists because relevance ranking has no reason to spread results across
+records: the four nearest chunks to a question are often four chunks of one
+document.
+
+**Over-fetching happens only when something downstream will reorder.** With
+both stages off the search asks for exactly `k`; asking the index for 30 and
+keeping the first four of the same ordering would cost it 26 candidates' work
+and change nothing. A test asserts both limits.
+
+**The security property is unchanged, and now asserted against the pipeline.**
+The mentorship and viewer filter stays inside `$vectorSearch`. Reranking and
+capping only ever *reorder* what that filtered search returned — no stage after
+it can widen the set — which is the reason they are allowed to be on by
+default. Two tests check it: one that the filter is in the `$vectorSearch`
+stage, one that no later stage filters at all.
+
+**The cap is keyed on the record, not the file or the chunk.** Ported from
+`rag/retrieve.py` at 695795a with `arxiv_id` replaced by
+`(parentType, parentId)`, falling back to the source's own identity. So a
+twenty-page PDF and the hand-in text it was attached to count as one hand-in: a
+long attachment cannot win every slot by being its own source. Nothing is ever
+dropped to satisfy the cap — deferred chunks come back at the end rather than
+returning fewer than `k`, because a cap that silently shrinks the context is
+worse than one that bends.
+
+**The margin is on a normalised scale, and the tests had to be rewritten to
+say so.** `soft_cap` min-maxes the candidate scores before comparing them, so
+"within 0.2" means within 0.2 of the spread of *this query's* candidates, not
+0.2 of a score. Two tests written as though it were a raw gap failed, and they
+were wrong rather than the port: among candidates spanning 0.05 a 0.02 gap is
+decisive, and among candidates spanning 0.9 the same gap is noise. There is now
+a test that asserts exactly that — identical records, identical raw gap,
+opposite outcomes — because it is the one thing a reader of this function will
+otherwise get wrong. It is also the same caveat as Entry 41's: these numbers
+order results within a query and mean nothing across queries, which is why
+nothing thresholds on them.
+
+**Measured, per stage, on the 45 questions.**
+
+| Stage | recall@1 | @3 | @5 | MRR | median latency |
+| --- | --- | --- | --- | --- | --- |
+| dense only | 0.74 | 0.94 | 1.00 | 0.848 | 36 ms |
+| + reranker | 0.77 | 0.90 | 0.90 | 0.839 | 196 ms |
+| + soft cap | 0.77 | 0.90 | 0.90 | 0.839 | 190 ms |
+
+Read honestly, that table says the reranker buys 0.03 recall@1 for 160 ms and
+costs 0.10 recall@5, and **the soft cap does nothing at all**. The second is not
+a bug: the seeded corpus produces 15 chunks from 15 sources, one chunk each, so
+no record ever holds two of the four slots and the cap has nothing to cap. A
+stage that cannot act is being measured on a corpus that cannot exercise it.
+
+That is the strongest argument yet for step 8. Both of these defaults — the
+reranker on, `diversity="soft_cap"` — are approved decisions measured on a
+corpus that cannot distinguish them, and `evaluate.py --ablation` now runs the
+real served path stage by stage, so step 8's documents will produce a table
+that can.
+
+**`evaluate.py` no longer owns a copy of the pipeline.** It calls
+`store.search` with the stage flags, so a measurement is a measurement of the
+thing that runs. It also reports median wall-clock latency per search, which is
+how the 160 ms above is known rather than assumed.
+
+Nineteen new tests, 123 in the Python suite, 490 in the Node suite. The Copilot
+route's default `k` moves from 5 to 4 to match the service; the 1–10 clamp,
+the 503 when the service is not configured and the 502 on a bad upstream are
+untouched.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

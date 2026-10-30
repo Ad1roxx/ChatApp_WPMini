@@ -21,7 +21,7 @@ import hmac
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from config import SERVICE_SECRET
+from config import SERVED_K, SERVICE_SECRET
 from store import ChunkStore
 
 app = FastAPI(title="MentorConnect retrieval", docs_url=None, redoc_url=None)
@@ -39,7 +39,7 @@ class SearchRequest(BaseModel):
     mentorshipId: str
     viewerId: str
     query: str = Field(min_length=1, max_length=1000)
-    k: int = Field(default=5, ge=1, le=20)
+    k: int = Field(default=SERVED_K, ge=1, le=20)
 
 
 class Chunk(BaseModel):
@@ -50,6 +50,17 @@ class Chunk(BaseModel):
     chunkIndex: int
     score: float
     url: str | None = None
+
+    # Where a chunk came from, so an answer can cite something a person can
+    # open. Empty for a record's own text, which has no position inside it.
+    parentType: str | None = None
+    parentId: str | None = None
+    parentTitle: str | None = None
+    attachmentId: str | None = None
+    fileKind: str | None = None
+    heading: str | None = None
+    startPage: int | None = None
+    endPage: int | None = None
 
 
 @app.get("/health")
@@ -63,6 +74,10 @@ def search(body: SearchRequest) -> dict:
 
     # No answer text yet, on purpose: retrieval is the part worth measuring,
     # and an LLM would only obscure whether the right chunks came back.
+    #
+    # `score` is the cross-encoder's logit when reranking is on, not a cosine:
+    # a raw, query-relative number that orders these chunks and means nothing
+    # compared against another query's. Nothing thresholds on it (Entry 41).
     return {
         "query": body.query,
         "chunks": [Chunk(**hit).model_dump() for hit in hits],

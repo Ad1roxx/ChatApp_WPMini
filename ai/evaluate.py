@@ -1,8 +1,9 @@
 """Measure the retrieval, rather than assert that it exists.
 
-    python evaluate.py                          the default configuration
+    python evaluate.py                          the served configuration
     python evaluate.py --budget 256             a smaller token budget
-    python evaluate.py --compare                every configuration, side by side
+    python evaluate.py --compare                several token budgets
+    python evaluate.py --ablation               one retrieval stage at a time
 
 Each question in eval/questions.jsonl carries the source that should answer it,
 or none at all. Three kinds of question, and the third is the interesting one:
@@ -20,6 +21,7 @@ matters, and a leak would look exactly like a good answer.
 recall@k   did any expected source appear in the top k
 MRR        1/rank of the first expected source, averaged
 separation the gap between top scores on answerable and unanswerable questions
+latency    median wall-clock time for one search, as served
 
 There is no LLM here, so "abstention" is measured as the score a generation
 step would have to threshold on. A retriever whose best unanswerable score sits
@@ -32,6 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import time
 from pathlib import Path
 
 from chunking import chunk_document, effective_budget
@@ -45,22 +48,14 @@ ADITYA = "0000000000000000000000a1"
 QUESTIONS = Path(__file__).parent / "eval" / "questions.jsonl"
 KS = (1, 3, 5)
 
-# A bi-encoder embeds the question and the chunk separately and compares the
-# two vectors, which is what makes the index searchable at all. A cross-encoder
-# reads the pair together and scores the match, which is far sharper and far
-# too slow to run over a whole corpus. The standard arrangement is both: the
-# index proposes, the cross-encoder disposes.
-RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-_reranker = None
-
-
-def reranker():
-    global _reranker
-    if _reranker is None:
-        from sentence_transformers import CrossEncoder
-
-        _reranker = CrossEncoder(RERANK_MODEL)
-    return _reranker
+# The stages being measured, in the order they were added. Each row turns one
+# thing on, so a number can be attributed to the thing that produced it rather
+# than to "the new pipeline".
+STAGES = (
+    ("dense only", {"rerank": False, "diversity": "none"}),
+    ("+ reranker", {"rerank": True, "diversity": "none"}),
+    ("+ soft cap", {"rerank": True, "diversity": "soft_cap"}),
+)
 
 
 def load_questions() -> list[dict]:
@@ -82,7 +77,12 @@ def build_index(store: ChunkStore, budget: int) -> int:
     return written
 
 
-def evaluate(store: ChunkStore, questions: list[dict], rerank: bool = False) -> dict:
+def evaluate(
+    store: ChunkStore,
+    questions: list[dict],
+    rerank: bool | None = None,
+    diversity: str | None = None,
+) -> dict:
     hits = {k: 0 for k in KS}
     reciprocal: list[float] = []
     answerable_scores: list[float] = []
@@ -92,22 +92,23 @@ def evaluate(store: ChunkStore, questions: list[dict], rerank: bool = False) -> 
 
     answerable = [q for q in questions if q["answerable"]]
 
+    latencies: list[float] = []
+
     for q in questions:
-        if rerank:
-            # Over-fetch, then let the cross-encoder decide the order. The
-            # permission filter still runs inside the vector search, so
-            # reranking only ever reorders chunks the caller may already see.
-            candidates = store.search(M1, ADITYA, q["question"], k=max(KS) * 4)
-            if candidates:
-                scores = reranker().predict(
-                    [(q["question"], c["content"]) for c in candidates]
-                )
-                for c, score in zip(candidates, scores):
-                    c["score"] = float(score)
-                candidates.sort(key=lambda c: c["score"], reverse=True)
-            results = candidates[: max(KS)]
-        else:
-            results = store.search(M1, ADITYA, q["question"], k=max(KS))
+        # The served search, not a copy of it: a measurement of a pipeline
+        # nobody runs is worth nothing. k is max(KS) so recall@5 can be
+        # computed; the served default is smaller, which only ever helps
+        # precision and cannot change recall@1.
+        started = time.perf_counter()
+        results = store.search(
+            M1,
+            ADITYA,
+            q["question"],
+            k=max(KS),
+            rerank=rerank,
+            diversity=diversity,
+        )
+        latencies.append(time.perf_counter() - started)
         titles = [r["title"] for r in results]
         top_score = results[0]["score"] if results else 0.0
 
@@ -143,6 +144,7 @@ def evaluate(store: ChunkStore, questions: list[dict], rerank: bool = False) -> 
         "unanswerable_top_max": max(unanswerable_scores),
         "confident_on_unanswerable": leaks,
         "misses": misses,
+        "median_latency_ms": statistics.median(latencies) * 1000,
     }
 
 
@@ -161,6 +163,7 @@ def report(name: str, chunks: int, result: dict) -> None:
             result["unanswerable_top_max"],
         )
     )
+    print(f"  median latency        {result['median_latency_ms']:.0f} ms")
     gap = result["answerable_top_min"] - result["unanswerable_top_max"]
     print(
         f"  separation            {gap:+.3f} "
@@ -183,8 +186,12 @@ def report(name: str, chunks: int, result: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Measure retrieval quality.")
     parser.add_argument("--budget", type=int, default=CHUNK_BUDGET_TOKENS)
-    parser.add_argument("--compare", action="store_true", help="every configuration")
-    parser.add_argument("--rerank", action="store_true", help="add a cross-encoder reranker")
+    parser.add_argument("--compare", action="store_true", help="several token budgets")
+    parser.add_argument(
+        "--ablation",
+        action="store_true",
+        help="dense only, then the reranker, then the soft cap",
+    )
     args = parser.parse_args()
 
     questions = load_questions()
@@ -210,9 +217,12 @@ def main() -> None:
 
     for name, budget in configurations:
         chunks = build_index(store, budget)
-        report(name, chunks, evaluate(store, questions, rerank=False))
-        if args.rerank:
-            report(f"{name} + reranker", chunks, evaluate(store, questions, rerank=True))
+
+        if args.ablation:
+            for stage, settings in STAGES:
+                report(f"{name}, {stage}", chunks, evaluate(store, questions, **settings))
+        else:
+            report(f"{name}, as served", chunks, evaluate(store, questions))
 
     print()
 

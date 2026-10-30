@@ -17,12 +17,19 @@ from pymongo import MongoClient
 from pymongo.operations import SearchIndexModel
 
 from config import (
+    CANDIDATE_K,
     CHUNKS_COLLECTION,
     DB_NAME,
+    DIVERSITY,
+    DIVERSITY_CAP,
+    DIVERSITY_MARGIN,
     EMBEDDING_DIMS,
     EMBEDDING_MODEL,
     MONGODB_URI,
     QUERY_INSTRUCTION,
+    RERANK,
+    RERANK_MODEL,
+    SERVED_K,
     VECTOR_INDEX,
 )
 
@@ -37,6 +44,113 @@ def embedder():
 
         _model = SentenceTransformer(EMBEDDING_MODEL)
     return _model
+
+
+_reranker = None
+
+
+def reranker():
+    """The cross-encoder, loaded once. Same reasoning as `embedder`."""
+    global _reranker
+    if _reranker is None:
+        from sentence_transformers import CrossEncoder
+
+        _reranker = CrossEncoder(RERANK_MODEL)
+    return _reranker
+
+
+def _normalise(scores: list[float]) -> list[float]:
+    """Squash scores to 0-1 across THIS query's candidates.
+
+    Cross-encoder outputs are raw logits on an arbitrary scale - roughly -11 to
+    +11 here - so a margin expressed as a number only means something once they
+    are on a fixed scale. Min-max over the candidate set is the simplest mapping
+    that gives one.
+
+    The caveat is worth stating because it has bitten this project once already
+    (Entry 41): a normalised 1.0 means "the best of these candidates", not
+    "good". It is right for ordering inside one query and wrong for comparing
+    across queries, which is exactly why no threshold is built on it.
+    """
+    if not scores:
+        return []
+    low, high = min(scores), max(scores)
+    if high - low < 1e-9:
+        return [1.0] * len(scores)
+    return [(s - low) / (high - low) for s in scores]
+
+
+def _record_of(chunk: dict) -> tuple:
+    """Which record a chunk belongs to, for the purpose of diversity.
+
+    A file's chunks and the hand-in text they were attached to are one record,
+    not two: the thing being limited is "one record taking every slot", and a
+    PDF plus the note above it is still one hand-in. For a record's own text
+    the parent fields are empty and this is just its own identity.
+    """
+    return (
+        chunk.get("parentType") or chunk["sourceType"],
+        chunk.get("parentId") or chunk["sourceId"],
+    )
+
+
+def soft_cap(chunks: list[dict], k: int, cap: int, margin: float) -> list[dict]:
+    """Take chunks in rank order, yielding a capped record's slot only when the
+    alternative is close behind.
+
+    Ported from RAG-Project `rag/retrieve.py` at commit 695795a, with the key
+    changed from the arXiv id to the mentorship record.
+
+    A fixed cap is unconditional, and that is its flaw: there it left
+    comparison questions at full recall while dropping single-source precision
+    from 0.88 to 0.64, because when one document genuinely owns the answer,
+    forcing two foreign chunks into the results buys no recall and costs two
+    slots. Here a capped record's chunk is skipped only if some under-cap
+    record has a candidate within `margin` of it. Diversity is what decides
+    when relevance cannot, rather than a quota imposed on top of it.
+
+    Nothing is ever dropped to satisfy the cap: deferred chunks come back at
+    the end rather than returning fewer than `k`. A cap that silently shrinks
+    the context is worse than one that bends.
+    """
+    if not chunks:
+        return []
+
+    relevance = _normalise([c["score"] for c in chunks])
+    selected: list[dict] = []
+    deferred: list[dict] = []
+    per_record: dict[tuple, int] = {}
+
+    for index, chunk in enumerate(chunks):
+        if len(selected) >= k:
+            break
+        record = _record_of(chunk)
+
+        if per_record.get(record, 0) < cap:
+            selected.append(chunk)
+            per_record[record] = per_record.get(record, 0) + 1
+            continue
+
+        best_alternative = max(
+            (
+                relevance[j]
+                for j in range(index + 1, len(chunks))
+                if per_record.get(_record_of(chunks[j]), 0) < cap
+            ),
+            default=None,
+        )
+        if best_alternative is not None and relevance[index] - best_alternative <= margin:
+            deferred.append(chunk)
+        else:
+            selected.append(chunk)
+            per_record[record] = per_record.get(record, 0) + 1
+
+    for chunk in deferred:
+        if len(selected) >= k:
+            break
+        selected.append(chunk)
+
+    return selected
 
 
 def _encode(texts: list[str]) -> list[list[float]]:
@@ -302,9 +416,36 @@ class ChunkStore:
         mentorship_id: str,
         viewer_id: str,
         query: str,
-        k: int = 5,
+        k: int = SERVED_K,
         candidates: int | None = None,
+        rerank: bool | None = None,
+        diversity: str | None = None,
     ) -> list[dict]:
+        """The served search: over-fetch, rerank, diversify, cut to k.
+
+            vector search (30)  ->  cross-encoder  ->  soft cap  ->  k
+                  recall             precision          coverage
+
+        Each stage fixes a different failure. The bi-encoder encodes question
+        and passage separately, which is what makes passages indexable and what
+        limits it: a passage's vector was computed without knowing the question.
+        The cross-encoder reads both together and cannot be precomputed, so it
+        only ever sees the candidates. The cap exists because relevance ranking
+        has no reason to spread results across records, and the nearest four
+        chunks to a question are often four chunks of one document.
+
+        `rerank` and `diversity` default to the configured behaviour and are
+        parameters so that `evaluate.py` can measure each stage on its own -
+        which is the only way the defaults were chosen.
+        """
+        rerank = RERANK if rerank is None else rerank
+        diversity = DIVERSITY if diversity is None else diversity
+
+        # Over-fetch only when something downstream will re-order the results.
+        # Asking for 30 and keeping the first 4 of the same ordering would cost
+        # the index 26 candidates' work and change nothing.
+        wanted = max(k, CANDIDATE_K) if (rerank or diversity != "none") else k
+
         vector = embed_query(query)
 
         pipeline = [
@@ -313,8 +454,8 @@ class ChunkStore:
                     "index": VECTOR_INDEX,
                     "path": "embedding",
                     "queryVector": vector,
-                    "numCandidates": candidates or max(k * 10, 50),
-                    "limit": k,
+                    "numCandidates": candidates or max(wanted * 10, 50),
+                    "limit": wanted,
                     "filter": {
                         "mentorshipId": {"$eq": mentorship_id},
                         "viewers": {"$in": [viewer_id]},
@@ -330,8 +471,30 @@ class ChunkStore:
                     "sourceId": 1,
                     "chunkIndex": 1,
                     "url": 1,
+                    "parentType": 1,
+                    "parentId": 1,
+                    "parentTitle": 1,
+                    "attachmentId": 1,
+                    "fileKind": 1,
+                    "heading": 1,
+                    "startPage": 1,
+                    "endPage": 1,
                     "score": {"$meta": "vectorSearchScore"},
                 }
             },
         ]
-        return list(self.chunks.aggregate(pipeline))
+        hits = list(self.chunks.aggregate(pipeline))
+
+        # Reranking and capping only ever REORDER chunks the caller may already
+        # see. The permission filter ran inside `$vectorSearch` above, so no
+        # stage after this point can widen what came back - which is why these
+        # are allowed to be the default at all.
+        if rerank and hits:
+            scores = reranker().predict([(query, hit["content"]) for hit in hits])
+            for hit, score in zip(hits, scores):
+                hit["score"] = float(score)
+            hits.sort(key=lambda hit: hit["score"], reverse=True)
+
+        if diversity == "soft_cap":
+            return soft_cap(hits, k, DIVERSITY_CAP, DIVERSITY_MARGIN)
+        return hits[:k]

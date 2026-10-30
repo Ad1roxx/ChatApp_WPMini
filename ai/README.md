@@ -76,7 +76,7 @@ cp .env.example .env
 | `sources.py` | Application data | Documents worth indexing, each with its `viewers` |
 | `extract.py` | PDF and Word attachments | Text in sections, with page numbers where the format has them |
 | `chunking.py` | Text | Chunks sized in the embedding model's own tokens, never crossing a section boundary |
-| `store.py` | Chunks, queries | Embeddings, the vector index, and the filtered search |
+| `store.py` | Chunks, queries | Embeddings, the vector index, and the filtered search: over-fetch, rerank, cap, cut to k |
 | `ingest.py` | CLI | A built or rebuilt index |
 | `check_retrieval.py` | CLI | End-to-end checks, including that another mentorship's material never appears |
 | `app.py` | HTTP | FastAPI `/search`, behind the shared secret |
