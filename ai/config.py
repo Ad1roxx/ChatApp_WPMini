@@ -121,6 +121,12 @@ DIVERSITY = os.getenv("AI_DIVERSITY", "soft_cap")
 DIVERSITY_CAP = int(os.getenv("AI_DIVERSITY_CAP", "3"))
 DIVERSITY_MARGIN = float(os.getenv("AI_DIVERSITY_MARGIN", "0.2"))
 
+# What the service does when it starts: "full" re-indexes everything and
+# reconciles, catching up on any change whose sync was lost while it was down;
+# "off" skips it. Full costs one embedding pass over the app's content, which is
+# nothing at this scale and would want revisiting at a real one.
+CATCHUP = os.getenv("AI_CATCHUP", "full")
+
 # The shared secret Express presents. The service also binds to localhost, so
 # this is the second lock rather than the only one.
 SERVICE_SECRET = os.getenv("AI_SERVICE_SECRET", "")

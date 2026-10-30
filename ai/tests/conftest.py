@@ -105,17 +105,24 @@ TEST_SEARCH_DB_NAME = "chatapp_rag_pytest_search"
 
 
 @pytest.fixture(scope="module")
-def search_store(mongo_client, mongo_uri):
+def search_store(request, mongo_client, mongo_uri):
     """A chunk store with a real vector index, shared by one test module.
 
     Creating an Atlas search index takes seconds, so it is built once per
     module rather than per test; `clean_search_store` empties the chunks
     between tests instead. The tests that use it exercise the real
     `$vectorSearch` and the real `search()`, not a stand-in.
+
+    One database per MODULE, never shared. The first version reused one name:
+    the second module re-created a search index on a namespace the first had
+    just dropped, the search node never indexed the new documents, and every
+    wait for it timed out at 90 seconds - six failures and a ten-minute suite
+    that passed module by module.
     """
     from store import ChunkStore
 
-    name = forbid_real_databases(TEST_SEARCH_DB_NAME)
+    module = request.module.__name__.rsplit(".", 1)[-1].removeprefix("test_")
+    name = forbid_real_databases(f"{TEST_SEARCH_DB_NAME}_{module}")
     mongo_client.drop_database(name)
     store = ChunkStore(uri=mongo_uri, db_name=name)
     store.ensure_vector_index()

@@ -4531,6 +4531,109 @@ it is what step 3's sync is for.
 
 ---
 
+### Entry 56 — S1.5 step 3: sync a record, don't apply a delta
+
+Step 2 made the index *correct* whether or not it is told about a change. This
+step makes it *fresh*: Express says which record changed, and within seconds the
+index matches it.
+
+**The endpoint takes an identifier and nothing else.** `POST /index/sync` accepts
+`{sourceType, sourceId}`, or `{mentorshipId}` for a change to the mentorship
+itself. `extra="forbid"` on both bodies is the security property rather than
+tidiness: a body carrying text, viewers or a mentorship alongside a record is
+refused with 422, so nothing that reaches this endpoint can put content into the
+index or choose who sees it. The service reads the record from the app's
+database and derives its text, chunks and audience with the same `sources.py`
+rules as a full re-index — and since a record's mentorship comes from the
+record, it cannot be indexed into a different one either. Behind the shared
+secret, as before, and now also behind an explicit localhost check on the
+endpoint itself, so a later `--host 0.0.0.0` would not quietly open the one
+route that changes the index. Unknown types and malformed ids are 422.
+
+**Sync, not deltas.** There is no "add" and no "delete" — every call asks what the
+index should hold for this source *now* and replaces whatever is there with the
+answer. So it is idempotent, and event order cannot matter: an upload's event
+and its deletion's event, delivered deletion-first with the upload's arriving
+late, both read the record as it is when they run, which has no file. A test
+does exactly that and then compares the index, chunk for chunk, with a fresh
+re-index of the final state. A delta design would have re-added the file.
+
+**What a sync removes.** Whatever the source contributed before and no longer
+does: its text in a mentorship it has left, and any file no longer on the
+record. A hand-in deleted with its assignment is found through the
+`assignmentId` every hand-in chunk and file chunk now carries — so the
+assignment's event alone clears the brief, every hand-in and every file, even a
+hand-in with no text and therefore no chunk of its own to be found by.
+
+**Reused, not rewritten.** `sync_source` calls `sources.source_documents`, the
+chunker and `store.replace_source`; `sync_mentorship` and the start-up catch-up
+call `ingest.run` — S1's scoped reconciliation is what empties an ended
+mentorship. There is no second copy of extraction, chunking, embedding or
+reconciliation.
+
+**One worker, one lock, one index.** Syncs run on a single background thread,
+off the request path — a 10 MB PDF takes seconds to extract and embed, and
+Express should not wait for that, nor for anything: the endpoint answers 202 as
+soon as the job is queued. One thread rather than a pool, because syncs are
+serialised anyway and a pool would only add threads waiting on the lock. A job
+already waiting is not queued twice, so ten events for one hand-in become one
+sync, which still reads the latest state; a job already *running* is queued
+again, because the record may have changed after it read it. One failing job is
+logged and the worker carries on — a test feeds it a nonsense job between two
+real ones.
+
+Every sync in the process takes one lock, because replacing a source is
+delete-then-insert and two interleaved would leave both sets behind. Across
+processes — the `ingest.py` CLI while the service runs — a unique index on
+`(mentorshipId, sourceType, sourceId, chunkIndex)` makes a second copy fail to
+insert rather than sit beside the first. Removing the lock by hand made the
+two-concurrent-syncs test fail three runs out of three; with it, it passes.
+
+**Start-up catch-up.** The service's first job is a full re-index and
+reconciliation (`AI_CATCHUP=full`, the default; `off` skips it). That is what
+puts back anything a lost sync would have added, and removes anything deleted
+while the service was down. It costs one embedding pass over the app's content —
+nothing at this scale, and the first thing to revisit at a real one. Searches
+run while it does, and are correct while it does: the read-time check depends on
+the records, not on the index being current.
+
+**A cost found by the tests.** Syncing a record re-writes all of it, unchanged
+files included, and Atlas indexes new documents asynchronously — so for the
+moment between the re-insert and the search node catching up, a file that did
+not change is briefly unfindable. One test failed on exactly this before it was
+made to wait for the search node. It is a freshness cost, not a correctness one,
+and step 5 measures it; skipping unchanged files would remove it, at the price
+of a cache whose invalidation would need its own tests.
+
+**A test-infrastructure trap, worth a line.** The search tests share one
+vector index per module, because an Atlas index takes seconds to build. The
+first version gave every module the *same* database name: the second module
+re-created a search index on a namespace the first had just dropped, the search
+node never indexed the new documents, and every wait for it timed out at 90
+seconds. Each module passed alone; together, six failures and a ten-minute
+suite. Running just those two modules reproduced it exactly, and one database
+per module fixed it.
+
+**Rejected, for the record.**
+
+- *An outbox collection with retries.* Durable delivery is what an outbox buys,
+  and with the read-time check a lost event is only ever late, never wrong. A
+  restart losing the in-memory queue is covered by the catch-up. Revisit if the
+  app is ever deployed and "within seconds" becomes a promise.
+- *Change streams.* They would catch every write path, hooks or no hooks. The
+  app's database is a standalone server and cannot open one, and moving the app
+  onto the replica-set container would make it depend on Docker (Entry 53).
+- *Indexing inside the request.* A 10 MB PDF would hold the user's upload open
+  while it was extracted and embedded, and a slow or absent indexer would become
+  a failed upload — a worse bug than a late index.
+
+**What remains eventually consistent:** additions. A new upload, a new goal, an
+edited brief's new text — each is findable once its sync has run and the search
+node has indexed it, and until then it is simply not found. Nothing removed,
+changed or hidden is ever returned in the meantime.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

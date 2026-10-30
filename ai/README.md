@@ -149,6 +149,33 @@ never another student's on the same brief. Today only hand-ins can carry files
 — briefs and resources have no attachment field — but all three are walked, so
 the day either gains uploads nothing here changes.
 
+### Keeping the index in step: `POST /index/sync`
+
+Express calls this after a write succeeds, with an identifier and nothing else:
+
+```json
+{"sourceType": "submission", "sourceId": "<24 hex>"}     // assignment, submission, goal, resource
+{"mentorshipId": "<24 hex>"}                             // the mentorship itself changed
+```
+
+The service reads that record from the app's database and makes the index match
+it as it is now — re-extracting, re-chunking and re-embedding it, or removing it
+if it is gone or no longer indexed. It answers `202` at once and does the work on
+one background thread. A body carrying text, viewers, or a mentorship beside a
+record is refused (`422`), so a caller can say *which* record changed but never
+*what* it says or *who* may see it. Shared secret, as for `/search`, and local
+callers only.
+
+Because a sync reads current state rather than applying a change, it is
+idempotent and the order events arrive in does not matter. On start-up the
+service re-indexes everything and reconciles (`AI_CATCHUP=full`, or `off`), which
+catches up on anything missed while it was down.
+
+**What a full re-index (`ingest.py --drop`) still does:** everything a lost event
+or a restart would otherwise leave late, in one pass — and it is the only thing
+that stamps versions onto chunks written before S1.5, which search otherwise
+drops.
+
 ### The read-time check
 
 Every search checks its candidates against the records as they are now, after

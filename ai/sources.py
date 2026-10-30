@@ -183,6 +183,9 @@ def submission_parent(s: dict, assignment: dict | None, mentorship: dict | None)
         "parent_type": "submission",
         "parent_id": _ids(s["_id"]),
         "parent_title": f"Hand-in: {(assignment or {}).get('title', 'assignment')}",
+        # Carried onto every chunk of the hand-in and its files, so deleting an
+        # assignment can find them after the hand-ins themselves are gone.
+        "assignment_id": _ids(s["assignment"]),
         # The student's own, and their mentor's. Not the other students' on
         # the same brief - which is why this is the submission's rule and not
         # the assignment's.
@@ -214,7 +217,7 @@ def submission_entry(s: dict, assignment: dict | None, mentorship: dict | None) 
         "viewers": parent["viewers"],
         "visibility": parent["visibility"],
         "owner_id": parent["owner_id"],
-        "assignment_id": _ids(s["assignment"]),
+        "assignment_id": parent["assignment_id"],
         # The title comes from the assignment, so a renamed brief makes this
         # chunk stale even though the hand-in never changed. Taking the later
         # of the two versions is what lets the read-time check see that - and

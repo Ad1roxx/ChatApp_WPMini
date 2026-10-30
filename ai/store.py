@@ -320,6 +320,16 @@ class ChunkStore:
         if CHUNKS_COLLECTION not in self.db.list_collection_names():
             self.db.create_collection(CHUNKS_COLLECTION)
 
+        # One copy of each chunk, enforced by the database. Syncs in this
+        # process are serialised by a lock (sync.py); this covers what a lock
+        # cannot - the ingest CLI running while the service is - by making a
+        # second copy fail to insert rather than sit beside the first.
+        self.chunks.create_index(
+            [("mentorshipId", 1), ("sourceType", 1), ("sourceId", 1), ("chunkIndex", 1)],
+            unique=True,
+            name="one_copy_per_chunk",
+        )
+
         existing = {i["name"] for i in self.chunks.list_search_indexes()}
         if VECTOR_INDEX in existing:
             return "already there"
