@@ -536,6 +536,42 @@ now.
 
 ### S1.5 — Keep the index in step with the app
 
+**Done** (BUILD_NOTES entries 53–58). Records come from the app's database,
+read-only; every chunk carries its source's version; every search checks its
+results against the records at read time; Express notifies the index after
+every write the inventory found; a background worker syncs. Measured: upload →
+searchable in about a second (four for fifty pages of text), delete → gone at
+the next search (`ai/eval/s15-freshness.txt`). Scope widened from the four
+moments first planned to fourteen routes, and to the database topology itself.
+
+**Closed:** new uploads invisible until a re-index; deletions, unsubmits and
+ended mentorships searchable until a re-index; evaluation runs emptying the
+served index; the Copilot never having searched the app's real records.
+
+**Still open, by design:** additions made outside the routes wait for the next
+start-up catch-up; the sync queue is in memory (BUILD_NOTES open items).
+
+#### What S2 should take from S1.5
+
+- **Search can return fewer than `k` chunks**, because the check drops what is
+  stale. The prompt must handle a short context, and abstain on an empty one.
+- **"Not found" can mean "not indexed yet"** for a second or so after a write.
+  Answers should say *what the assistant can see*, not that something does not
+  exist.
+- **Cite the fields search returns, never stored copies.** A file's parent
+  title is filled in live at read time; anything S2 caches or stores beside a
+  chunk would bring back the staleness this sprint removed.
+- **Generation must not be able to read the app's database.** A test lists the
+  modules that may (`ai/tests/test_appdb.py`); S2's code must not be added to it.
+- **Load models before taking requests.** S1.5 found the first search after a
+  restart timing out behind a lazy model load. S2's LLM client and any local
+  model must be ready at start-up, and S2's latency must fit — or change —
+  Express's 15-second timeout on the Copilot route, which generation will
+  stress far more than retrieval did.
+- **Evaluations must wait for the index.** Atlas indexes asynchronously, and a
+  sync re-writes a record's unchanged files too; a faithfulness test that
+  searches straight after a write measures the lag, not the model.
+
 **Must land before S2.** Once generation exists, a stale chunk stops being a
 wrong search result and becomes a **sentence quoted back to a user with a
 citation attached**.

@@ -24,8 +24,8 @@ from typing import Literal, Union
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from config import CATCHUP, SERVED_K, SERVICE_SECRET
-from store import ChunkStore
+from config import CATCHUP, RERANK, SERVED_K, SERVICE_SECRET
+from store import ChunkStore, embed_query, reranker
 from sync import SyncWorker
 
 # Every chunk the read-time check drops is logged with its reason, at INFO. Python's
@@ -50,6 +50,12 @@ async def lifespan(_app):
     """
     global worker
     store.ensure_vector_index()
+    # Load the models before taking a request, not on the first one. Lazily,
+    # the first search after start-up waited behind the load and the catch-up's
+    # embedding, and ran past Express's 15-second timeout (check_freshness.py).
+    embed_query("warm-up")
+    if RERANK:
+        reranker()
     worker = SyncWorker(store, store.records)
     worker.start()
     if CATCHUP == "full":

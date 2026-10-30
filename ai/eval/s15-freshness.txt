@@ -1,0 +1,27 @@
+fixture: chatapp_freshness on both servers; starting the app and the retrieval service
+
+correctness
+  ok   the student finds their upload
+  ok   their mentor finds it
+  ok   an outsider is refused by the route
+       answered 403
+  ok   a deleted file is gone at the very next search, while its chunks are still in the index
+       chunks of the deleted file still indexed at that moment: 1
+
+freshness
+
+  file         size   n   upload -> searchable (median / p95)   delete -> gone (median / max)
+  small      0.00MB  20       0.94 s /   0.96 s                  37 ms /   55 ms   gone at first search: 20/20
+  ok   small: every deleted file was gone at the first search after the delete
+  large      9.28MB   5       0.71 s /   0.72 s                  37 ms /   40 ms   gone at first search: 5/5
+  ok   large: every deleted file was gone at the first search after the delete
+  long       0.04MB   3       3.78 s /   3.97 s                  40 ms /   41 ms   gone at first search: 3/3
+  ok   long: every deleted file was gone at the first search after the delete
+
+the read-time check across two servers (the served topology)
+  records    search    30 ms median, of which the check   3.5 ms; 0 dropped; recall@1 0.74
+  ok   records: the check dropped nothing across servers
+  documents  search    31 ms median, of which the check   3.4 ms; 0 dropped; recall@1 0.93
+  ok   documents: the check dropped nothing across servers
+
+all checks passed

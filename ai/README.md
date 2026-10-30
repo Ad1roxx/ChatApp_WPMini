@@ -84,6 +84,7 @@ cp .env.example .env
 node ../scripts/seed-rag-corpus.cjs             # the corpus, from the repo root
 .venv/Scripts/python.exe eval/seed_documents.py  # its PDFs and Word files
 .venv/Scripts/python.exe check_retrieval.py      # prove the isolation
+.venv/Scripts/python.exe check_freshness.py      # the app and this service, end to end
 .venv/Scripts/python.exe evaluate.py --ablation  # measure it, stage by stage
 ```
 
@@ -175,6 +176,16 @@ catches up on anything missed while it was down.
 or a restart would otherwise leave late, in one pass — and it is the only thing
 that stamps versions onto chunks written before S1.5, which search otherwise
 drops.
+
+### How fresh, measured
+
+`check_freshness.py` starts Express and this service on fixture databases of
+their own and uses only the app's HTTP routes. From an upload's response until
+the Copilot finds it: under a second for a short PDF or a 9 MB mostly-image
+one, about four seconds for fifty pages of text — the cost is text to embed,
+not bytes. From a delete's response until it is gone: immediate, at the very
+next search, even with the deleted file's chunks still in the index
+(`ai/eval/s15-freshness.txt`).
 
 ### The read-time check
 

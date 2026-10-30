@@ -4692,6 +4692,70 @@ cannot on a standalone server (Entry 53).
 
 ---
 
+### Entry 58 — S1.5 step 5: measured end to end, and a cold start it found
+
+The last step measures what S1.5 promised, through the app's own routes, and
+found one more thing to fix before it could.
+
+**`ai/check_freshness.py`** starts the real Express server and the real
+retrieval service itself, each on a fixture database of its own
+(`chatapp_freshness` on both MongoDBs), seeds three users, and from then on
+uses only HTTP — uploads as multipart, deletes, and the Copilot route — as a
+browser would. It never touches `chatapp` or the served index, and reads the
+evaluation fixture for one measurement without writing it.
+
+**Measured** (`ai/eval/s15-freshness.txt`; every number from that command):
+
+| File | Size | n | Upload → searchable, median / p95 | Delete → gone, median / max |
+| --- | --- | --- | --- | --- |
+| one-page PDF | 0.00 MB | 20 | 0.94 s / 0.96 s | 37 ms / 55 ms |
+| near the limit, mostly images | 9.28 MB | 5 | 0.71 s / 0.72 s | 37 ms / 40 ms |
+| fifty pages of text | 0.04 MB | 3 | 3.78 s / 3.97 s | 40 ms / 41 ms |
+
+With five and three runs, "p95" for the last two rows is simply the slowest
+run; the table says so by giving *n*.
+
+Three readings. **Bytes are not the cost — text is.** The 9.28 MB file is five
+pages of text and noise images, because a real report reaches the limit that
+way and noise does not compress; it indexes faster than the one-page file.
+The fifty-page file, a twentieth of a megabyte, takes four seconds: that is the
+embedding. **Most of the first second is the search node, not the sync.**
+Atlas indexes new documents asynchronously, and roughly a second of every
+upload's figure is that lag — the same one step 3's test tripped over.
+**Deletion is immediate, and the proof is in the index.** Every measured deletion,
+28 of 28, was gone at the first search after the delete returned, so the
+delete figure is the cost of one search. And the check deletes one file while
+the worker is busy embedding the fifty-page one, then counts the deleted
+file's chunks in the index at that instant: still there. Its sync had not run.
+The read-time check alone hid it.
+
+**The check's cost where it actually runs.** The evaluation measured it with
+the records on the same server as the chunks (6.6 ms). Served, the records are
+on the app's MongoDB and the chunks on the container, so the check copies the
+evaluation's records to 27017 and runs the 65 questions across that hop:
+**3.5 ms** of a 30 ms search on the record questions, **3.4 ms** of 31 ms on
+the documents — lower than on one server, plausibly because the container is
+no longer serving both the vector search and the record reads. It dropped
+nothing, and recall@1 was 0.74 and 0.93, as before.
+
+**The cold start it found.** The first run failed before it measured anything:
+the first search answered **502**. The service loaded its embedding model on
+first use, and since step 3 two threads use it — the request and the sync
+worker. The first search after a start arrived as the worker began its first
+job, `embedder()` was not thread-safe, so both could load a copy, and the
+request waited behind seconds of model loading and embedding until Express's
+15-second timeout gave up. So the models now load under a lock, at start-up,
+before the service takes a request. The first person to ask after a restart was
+the one this would have failed — the case nobody's test reaches, because tests
+warm the model as a side effect of the test before.
+
+**What remains eventually consistent, now measured:** additions. A new file is
+findable in about a second, a long one in a few; until then it is simply not
+found. Nothing removed, changed or hidden is returned in the meantime — not
+after a lost event, not while the worker is busy, not with the service down.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -4742,6 +4806,17 @@ cannot on a standalone server (Entry 53).
   30-chunk candidate pool, so it could only measure the cross-encoder
   re-sorting the whole mentorship. Re-measure on a larger corpus, labelled
   before measuring; `AI_RERANK=1` turns it back on.
+- ~~**The index is only updated by re-indexing**~~ — closed in S1.5
+  (entries 53–58): records come from the app's database, every write notifies
+  the index, and the read-time check keeps search correct whether or not the
+  notice arrives.
+- **Writes outside the routes send no notice** — a script, a manual database
+  edit. Search stays correct (the read-time check); an *addition* made that way
+  waits for the next start-up catch-up or `ingest.py`. Change streams would
+  close it and need a replica set the app's database is not. Entry 57.
+- **The sync queue is in memory** — a restart loses queued syncs. Correctness
+  is unaffected; the start-up catch-up re-adds what they would have. An outbox
+  is the fix if the app is ever deployed. Entry 56.
 - **Deployment** and **frontend tests** are what remain, both infrastructure.
 - ~~**Feedback ratings**~~ — built in Entry 29, switched **off** in Entry 32.
   The server half and its 27 tests stay live so the code cannot rot while

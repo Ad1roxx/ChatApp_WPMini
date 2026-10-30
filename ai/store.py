@@ -11,6 +11,7 @@ the fix would look like "ask for more candidates" rather than "this is wrong".
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Iterable
 
@@ -42,28 +43,39 @@ DIVERSITY_MODES = ("none", "soft_cap")
 log = logging.getLogger(__name__)
 
 _model = None
+_reranker = None
+
+# Since S1.5 two threads use the models at once: the request thread searching
+# and the sync worker indexing. Without a lock both can find `_model` empty and
+# each load a copy - seconds of CPU apiece, while a search waits behind them.
+_load_lock = threading.Lock()
 
 
 def embedder():
-    """Loaded once, on first use: importing torch costs seconds, not milliseconds."""
+    """Loaded once: importing torch costs seconds, not milliseconds.
+
+    The service loads it at start-up (app.py) rather than on the first search.
+    check_freshness.py found why: lazily, the first search after a start
+    queued behind the model loading and the worker's first embedding pass, and
+    ran past Express's 15-second timeout - a 502 for the first person to ask.
+    """
     global _model
-    if _model is None:
-        from sentence_transformers import SentenceTransformer
+    with _load_lock:
+        if _model is None:
+            from sentence_transformers import SentenceTransformer
 
-        _model = SentenceTransformer(EMBEDDING_MODEL)
+            _model = SentenceTransformer(EMBEDDING_MODEL)
     return _model
-
-
-_reranker = None
 
 
 def reranker():
     """The cross-encoder, loaded once. Same reasoning as `embedder`."""
     global _reranker
-    if _reranker is None:
-        from sentence_transformers import CrossEncoder
+    with _load_lock:
+        if _reranker is None:
+            from sentence_transformers import CrossEncoder
 
-        _reranker = CrossEncoder(RERANK_MODEL)
+            _reranker = CrossEncoder(RERANK_MODEL)
     return _reranker
 
 

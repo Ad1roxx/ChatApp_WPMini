@@ -33,6 +33,9 @@ AI_ROOT = Path(__file__).resolve().parent.parent
 # of the app's data, and should have to change this list to do it.
 ALLOWED_IMPORTERS = {
     "app.py",
+    # Measures the read-time check across two servers, over a COPY of the
+    # evaluation fixture's records; never the app's real database.
+    "check_freshness.py",
     "check_retrieval.py",
     "evaluate.py",
     "ingest.py",
