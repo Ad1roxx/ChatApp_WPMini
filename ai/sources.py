@@ -149,7 +149,23 @@ def attachment_documents(
         if data is None:
             continue
 
-        extracted = extractor(data, filename=name)
+        try:
+            extracted = extractor(data, filename=name)
+        except Exception as err:  # noqa: BLE001 - see below
+            # Broad on purpose. A truncated PDF raises from PyMuPDF, a renamed
+            # zip raises BadZipFile from python-docx, and a malformed part
+            # raises something else again; the list is open-ended because the
+            # input is anything a student can upload. Whatever it is, one bad
+            # file must not end the run: that would skip reconciliation too,
+            # freezing every deletion behind one student's broken upload.
+            log.warning(
+                "%s could not be read (%s: %s) - skipped",
+                name,
+                type(err).__name__,
+                err,
+            )
+            continue
+
         if not extracted["sections"]:
             # A scan with no text layer lands here, having already logged that
             # it needs OCR. Zero chunks is the correct outcome, not an error:

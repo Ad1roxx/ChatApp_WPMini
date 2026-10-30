@@ -15,6 +15,8 @@ anything: a character count would pass while the model silently truncated.
 
 from __future__ import annotations
 
+import pytest
+
 import chunking
 from chunking import (
     HEADROOM_TOKENS,
@@ -88,6 +90,60 @@ def test_no_chunk_exceeds_the_limit_even_when_a_larger_budget_is_asked_for():
 
     assert chunks
     assert max(token_count(c) for c in chunks) <= EMBEDDING_MAX_TOKENS
+
+
+UNIT = "the cache invalidation rule must clear every stale entry for that user"
+
+
+def sentence_of(repeats: int) -> str:
+    return " ".join([UNIT] * repeats) + "."
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        # The shape the review found: two short sentences, then one long
+        # enough that it plus a carried overlap exceeds the budget. It produced
+        # a 431-token chunk against a 400-token budget.
+        [4, 4, 29],
+        [4, 29, 4, 29, 4],
+        [1, 1, 1, 30, 1, 1, 30],
+        [28, 28, 28],
+        [2] * 60,
+    ],
+)
+def test_no_chunk_exceeds_its_budget_whatever_the_sentence_lengths(shape):
+    """The budget, not merely the model's ceiling, is the guarantee.
+
+    Asserting only "under the model limit" let a chunk run over budget for as
+    long as the model happened to have room - true with bge-small's 512, and
+    false with MiniLM's 256, where the same chunk would have been truncated.
+    Uniform short sentences never exercise this, which is how it got past the
+    first version of these tests.
+    """
+    text = " ".join(sentence_of(r) for r in shape)
+
+    chunks = chunk_text(text)
+
+    assert chunks
+    assert max(token_count(c) for c in chunks) <= effective_budget()
+
+
+def test_no_chunk_exceeds_a_small_budget_either():
+    """The same guarantee where the overlap is a large share of the budget."""
+    text = " ".join(sentence_of(r) for r in [3, 3, 9, 3, 9, 9, 3])
+
+    chunks = chunk_text(text, budget=128, overlap=60)
+
+    assert max(token_count(c) for c in chunks) <= 128
+
+
+def test_a_hard_split_never_runs_over_by_the_last_word():
+    sentence = " ".join(f"requirement{n} must be met" for n in range(300))
+
+    parts = split_oversized_sentence(sentence, 50)
+
+    assert max(token_count(p) for p in parts) <= 50
 
 
 def test_effective_budget_clamps_to_the_model_with_headroom():

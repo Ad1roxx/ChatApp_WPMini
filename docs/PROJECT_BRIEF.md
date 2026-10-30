@@ -58,7 +58,7 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **2,253** lines of Python across **9** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
+| **2,354** lines of Python across **9** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
 | PDF and Word attachments are extracted into sections with page numbers, chunked in the embedding model's own tokens, and indexed with the viewers of the record they hang off | `ai/extract.py`, `ai/chunking.py`, `ai/sources.py` |
 | A scan with no text layer produces **zero** chunks and logs that it needs OCR, rather than indexing a filename that looks readable | `ai/check_retrieval.py`, check 8 |
 | Ingestion **reconciles**: a source that was not seen in a run has its chunks deleted, so a removed attachment, a deleted hand-in or an ended mentorship cannot stay retrievable | `ai/ingest.py` · `ai/store.py`, `reconcile()` |
@@ -67,8 +67,9 @@ behind an Express and Socket.IO server written for this project.
 | Cross-mentorship isolation is checked against a corpus where both mentorships cover the same topics in similar words | `ai/check_retrieval.py` |
 | `$vectorSearch` needs Atlas; local MongoDB 8.0.8 Community has no such operator, so development runs the `mongodb/mongodb-atlas-local` container | `docker run -d -p 27018:27017 mongodb/mongodb-atlas-local` |
 | A **65**-question labelled set in two groups, reported separately and never averaged: **45** about text people typed into the application and **20** about attached documents. Seven of the unanswerable ones are answerable only inside a *different* mentorship, so they double as leak probes | `ai/eval/questions.jsonl` |
-| Best measured configuration: **recall@1 0.74**, MRR 0.821 on the record questions and **0.93**, MRR 0.967 on the document questions — bge-small, dense, no reranker. Switching the embedding model from `all-MiniLM-L6-v2` raised the record figure from 0.61 | `ai/evaluate.py --ablation` · `ai/eval/s1-final-ablation.txt` |
-| The cross-encoder reranker, re-measured on this corpus, **gains nothing**: 0.74 → 0.74 on records, 0.93 → 0.87 on documents, ~370 ms added per search. It is served by default and switchable, and the decision is recorded as open | same run · `AI_RERANK=0` |
+| Embedding model, measured like for like: bge-small scores **recall@1 0.71** on the 45 record questions (0.55 under the original, pre-document labels) and **0.93**, MRR 0.967 on the 20 document questions, dense. `all-MiniLM-L6-v2` on the same corpus and labels scores 0.55 and 0.93. Every figure here uses one label set; the eight post-hoc label changes and their effect (0.55 / 0.71 / 0.74) are disclosed in BUILD_NOTES Entry 51 | `ai/eval/s1-label-sets.txt` |
+| The cross-encoder reranker, re-measured on this corpus, is **mixed**: +0.03 recall@1 on records (0.71 → 0.74), −0.06 on documents (0.93 → 0.87), ~370 ms added per search. The corpus is smaller than the 30-chunk candidate pool, so this compares the cross-encoder with the bi-encoder rather than measuring the two-stage pipeline; served by default and switchable, decision open | same file · `AI_RERANK=0` |
+| The service **refuses to search an index embedded by a different model**: two 384-wide models are accepted by the index and mean nothing to each other, and a mismatch measured 0.16 recall@1 against 0.74 with no error | `ai/store.py`, `assert_model_matches()` |
 | **Almost no configuration separates answerable from unanswerable questions**: the most confident unanswerable question outscores the least confident answerable one in every configuration but one. The exception is bge-small, dense, on the document questions, at **+0.014** — thin, on 20 questions, and the first positive separation measured in this project | same run — the gap is printed as `separation` |
 
 ### Authentication
@@ -379,12 +380,13 @@ Drawn only from section 2. Each is defensible if questioned.
 > happens in Express, before the service is reachable.
 
 > Evaluated that pipeline against a 65-question labelled set in two groups,
-> raising recall@1 on the application's own text from 0.61 to 0.74 by changing
-> the embedding model for a measured reason — its 512-token window against the
-> previous model's 256, which was silently truncating chunks — and reaching
-> 0.93 on questions about attached documents. Established that a cross-encoder
-> reranker, having been adopted on an earlier corpus, gained nothing on this
-> one and cost 370 ms, and that almost no configuration separates answerable
+> raising recall@1 on the application's own text from 0.55 to 0.71 by moving
+> to an embedding model with twice the context window, and reaching 0.93 on
+> questions about attached documents. Found that a cross-encoder reranker
+> adopted on an earlier corpus was a mixed result on this one (+0.03 on
+> records, −0.06 on documents, 370 ms per search) — and that its apparent
+> "no gain" depended on which labels were used, so labelling now precedes
+> measurement. Established that almost no configuration separates answerable
 > from unanswerable questions by score, so abstention has to come from a
 > grounding check rather than a threshold.
 

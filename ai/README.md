@@ -81,6 +81,12 @@ Both seeding commands are idempotent, and `ingest.py` deletes the chunks of any
 source it did not see, so running the lot twice leaves one index rather than
 two.
 
+`evaluate.py` rebuilds the index with whatever model it is run with. Every chunk
+records the model that embedded it, and the first search in a process refuses
+an index from a different one — two 384-wide models are accepted by the vector
+index and mean nothing to each other. After an evaluation run with a model
+override, run `ingest.py --drop` before serving.
+
 ## The files
 
 | File | In | Out |

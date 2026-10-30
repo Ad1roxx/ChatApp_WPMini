@@ -3652,7 +3652,7 @@ problem that cannot occur.
 reason *"no text found"* and `needs_ocr` false. Nothing to read and unreadable
 are different states, and S7 only cares about the second.
 
-Nineteen tests, built in memory rather than as checked-in binaries. A .docx
+Twelve tests (corrected in Entry 51 from a miscounted nineteen), built in memory rather than as checked-in binaries. A .docx
 fixture is unreadable in a diff; a builder states the structure being tested.
 
 ---
@@ -4056,9 +4056,12 @@ document as their best answer, and the labels were written when no such file
 existed. "How long should the access token last?" is answered by
 `auth-design.docx` saying fifteen minutes; "What TTL did I use?" by the table in
 `cache-notes.pdf`. Those eight `expected` lists were widened, each one checked
-by reading the file. With the original labels the number is 0.55; with the
-corrected ones it is 0.74. Both are recorded here, because a label change that
-is not disclosed is the easiest way to manufacture an improvement.
+by reading the file — but chosen *after* seeing which questions a document had
+won, so the change is disclosed in full. With the original labels the number
+is 0.55; with the six clear-cut widenings, 0.71; with all eight, 0.74. Two
+(`idx-07`, `cache-03`) are judgment calls, so **0.71 is the figure to quote**.
+Measured in Entry 51; recorded here because a label change that is not
+disclosed is the easiest way to manufacture an improvement.
 
 **The ablation, on one corpus, reported per question set.** 30 chunks from 23
 sources. The record questions are the same 45 as every earlier sprint; the
@@ -4093,20 +4096,27 @@ one command.
 **What the tables say, including the parts that are unwelcome.**
 
 1. **The model switch is the win.** On the record questions bge-small takes
-   recall@1 from 0.61 to 0.74 and halves the separation gap. On the document
+   recall@1 from 0.61 to 0.74 and halves the separation gap (0.55 → 0.71 under
+   the six clear-cut labels, which Entry 51 makes the quoted set). On the document
    questions the two models tie on recall, and only bge-small produces a
    **positive** separation — the first configuration measured in this project
    where some threshold separates answerable from unanswerable at all. It is
    +0.014 on 20 questions, which is thin enough that the honest reading is
    "not clearly negative" rather than "solved", but Entry 41's finding has at
    last stopped being unanimous.
-2. **The reranker, approved in D7 and re-measured here as D7 asked, does not
-   earn its place.** It buys nothing on the record questions (0.74 → 0.74,
-   MRR +0.002), **costs** 0.06 recall@1 on the document questions, costs 0.07
-   recall@5 on the records, destroys the separation on both, and adds roughly
-   370 ms per search. Four facts in one direction. The default is left as
-   approved rather than changed unilaterally — `AI_RERANK=0` turns it off, and
-   S2 should decide with these numbers in front of it.
+2. **The reranker, approved in D7 and re-measured here as D7 asked, is a
+   mixed result on this corpus.** Under the all-eight labels above it ties on
+   the record questions (0.74 → 0.74) — but Entry 51 found that tie is an
+   artefact of the two borderline labels, and under the six clear-cut ones it
+   **gains** 0.03 recall@1. It **costs** 0.06 recall@1 on the document
+   questions, destroys the separation on both, and adds roughly 370 ms per
+   search. The default is left as approved
+   rather than changed unilaterally — `AI_RERANK=0` turns it off. **One caveat
+   that limits what this shows** (found in Entry 51's review): Aditya can see
+   25 chunks and the candidate pool is 30, so with reranking on the vector
+   search returns everything and the cross-encoder ranks the whole mentorship.
+   This measures the cross-encoder against the bi-encoder, not the two-stage
+   pipeline; deciding that needs a corpus larger than the pool.
 3. **The soft cap is neutral on the metrics and does something real.** It fires
    on 10 of the 65 questions, always replacing a third or fourth chunk of one
    record with a different record's chunk, and never once costing recall. The
@@ -4127,6 +4137,120 @@ useful and keeps chunks from crossing boundaries. The fix is to read the font
 sizes PyMuPDF already reports and treat a short line above the body size as a
 heading. That is a change to extraction, which changes every chunk, so it
 belongs at the start of a sprint rather than the end of this one.
+
+---
+
+### Entry 51 — S1 review: six defects the tests did not catch
+
+S1 was re-checked line by line before its last commit, and every claim in
+entries 46 to 50 was re-run rather than re-read. Six defects came out. Each one
+below was **demonstrated before it was fixed** — on the real container or
+against the committed code — because a fix for a bug nobody has seen fail is a
+guess.
+
+**1. Ending the last mentorship left its chunks retrievable.** `ingest.py`
+returned early when nothing was indexed — *before* reconciling. But "nothing to
+index" is exactly what a run sees once the last active mentorship ends, or when
+it is scoped to one that has ended, and those are the runs with the most to
+delete. Demonstrated on the container: with both mentorships ended, the
+committed `ingest.py` left all **30** chunks in place; the fixed one removed
+all 30. Entry 48's tests passed throughout because they called a *copy* of the
+ingest loop, which reconciled every time. The loop is now `ingest.run()`, the
+tests call it, and two new tests cover the cases the copy hid.
+
+**2. One corrupt upload stopped the whole run.** A truncated PDF raises from
+PyMuPDF, a renamed zip raises `BadZipFile` from python-docx, and neither was
+caught — so one student's broken file ended ingestion before reconciliation,
+freezing every deletion behind it. Demonstrated by two new tests, which failed
+with `BadZipFile` before the fix. Extraction failures are now logged and
+skipped, broadly on purpose: the input is anything a student can upload.
+
+**3. The chunk budget was a target, not a guarantee.** The carried overlap
+plus a long next sentence could exceed it: measured at **431 tokens** against a
+budget of 400. Under bge-small's 512 that is still embedded whole, so no
+number in this sprint was affected — but with MiniLM's 240 budget the same
+shape overflows the model and is silently truncated, which is the failure the
+chunker exists to prevent. Entry 46's tests asserted "under the model limit"
+with uniform short sentences, which never exercise the case. The hard split of
+an oversized sentence had the same flaw on a smaller scale: it checked after
+adding a word, so a part could run a word over. Five new tests, with varied
+sentence lengths, failed against the committed chunker and pass now. The
+overlap gives way, oldest sentence first; a trailing fragment is folded in only
+if it fits.
+
+**4. An index built by one model was searched by another, with no error.**
+Found by accident during this review: `evaluate.py` rebuilds the shared index
+with whatever model it was run with, and after a MiniLM comparison run the next
+bge-small search scored **0.16** recall@1 instead of 0.74. Same 384 width, so
+`numDimensions` accepted it; plausible-looking chunks, ranked at random. The
+served Copilot would have done exactly this after any evaluation run with a
+model override. RAG-Project guards against it with `assert_matches`; S1 had
+not ported that. Every chunk now records `embeddingModel`, and the first search
+in a process refuses an index from another model. Demonstrated on the
+container: indexed with MiniLM, then searched with bge-small — refused with the
+model names and the command to fix it. Chunks written before this change carry
+no stamp and pass the check, so the protection starts from the next re-index.
+
+**5. "Skipped, with a logged reason" was not logged.** The skip messages are
+INFO, and `ingest.py` never configured logging, so Python's default WARNING
+level discarded them. The OCR warning showed only because it happens to be a
+warning. Now INFO for this service's own modules — not the root, which turns on
+every HTTP request the model hub client makes.
+
+**6. A typo in `AI_DIVERSITY` switched the cap off silently.** An unknown value
+fell through to "no diversity". It now raises.
+
+**Two claims corrected, not just code.**
+
+- *The "+ reranker" rows in Entry 50 are not a two-stage measurement.* Aditya
+  can see 25 chunks and the candidate pool is 30, so the vector search returns
+  all of them and the embedder's ranking is discarded: the row measures the
+  cross-encoder ranking the entire mentorship, which is why it is identical for
+  MiniLM and bge-small. What it can show is the cross-encoder against the
+  bi-encoder on this corpus — mixed, as the next bullet but one finds — and
+  not the two-stage pipeline at scale, which needs a corpus larger than the
+  candidate pool.
+- *The record-question figure depends on labels widened after seeing results.*
+  Measured three ways: **0.55** with the original labels, **0.71** with the six
+  clear-cut widenings, **0.74** with all eight. Two (`idx-07`, `cache-03`) are
+  judgment calls — the rubric does not mention timings, and the cache notes are
+  the student's restatement of the mentor's reason rather than the mentor's.
+  0.71 is the figure to quote.
+- *Every row on one label set.* The tables in Entry 50 used all eight
+  widened labels throughout, while the figure quoted beside them, 0.71, came
+  from the six clear-cut ones. Re-run per label set, every stage, both models
+  (`ai/eval/s1-label-sets.txt`; records, recall@1 / MRR):
+
+  | Stage | original labels | 6 clear-cut | all 8 |
+  | --- | --- | --- | --- |
+  | MiniLM, dense | 0.42 / 0.659 | **0.55 / 0.728** | 0.61 / 0.774 |
+  | bge-small, dense | 0.55 / 0.696 | **0.71 / 0.782** | 0.74 / 0.821 |
+  | + reranker | 0.68 / 0.790 | **0.74 / 0.823** | 0.74 / 0.823 |
+  | + soft cap | 0.68 / 0.790 | 0.74 / 0.823 | 0.74 / 0.823 |
+
+  The document questions are unaffected — none of their labels changed.
+  The like-for-like model comparison is **0.55 → 0.71**.
+
+  And this reverses one of Entry 50's conclusions. *"The reranker buys nothing
+  on the record questions"* holds only under all eight labels — the set this
+  entry says not to quote. Under the six clear-cut ones it **gains** 0.03
+  recall@1 and 0.041 MRR; under the original labels, 0.13. The tie under all
+  eight came from the two borderline labels crediting dense retrieval. What
+  survives is the documents result (0.93 → 0.87) and the ~370 ms. A
+  conclusion that flips with the label set was never a conclusion about the
+  reranker, which is the strongest argument yet for labelling before
+  measuring.
+
+Entry 45 also claimed nineteen Word-extraction tests; there are **twelve** (ten
+functions, one parametrised three ways), corrected in place.
+
+Re-measured after every fix: all retrieval metrics identical to Entry 50 — the
+fixes change behaviour on inputs this corpus does not contain, which is what
+their tests are for. 139 tests in the Python suite; `check_retrieval.py` 9/9.
+
+The pattern across all six is the same one: **a test that exercises a copy, a
+proxy or only the easy shape of the input passes while the property fails.**
+That is the review question to ask of every S2 test before it is trusted.
 
 ---
 
@@ -4175,10 +4299,12 @@ belongs at the start of a sprint rather than the end of this one.
   should not cross. PyMuPDF already reports span sizes; the fix is a short line
   above the body size. It re-chunks the whole index, so it belongs at the start
   of a sprint. Entry 50.
-- **The reranker is on by default and earns nothing on this corpus** — D7
-  approved it, Entry 50 re-measured it as asked, and it gained 0.00 recall@1 on
-  the record questions, cost 0.06 on the document questions and added ~370 ms.
-  `AI_RERANK=0` turns it off; the decision is S2's to make.
+- **The reranker is on by default and its value is unsettled** — D7 approved
+  it; re-measured, it gains 0.03 recall@1 on the record questions (six
+  clear-cut labels), costs 0.06 on the document questions and adds ~370 ms.
+  `AI_RERANK=0` turns it off; the decision is S2's to make, on a corpus larger
+  than the 30-chunk candidate pool, or the row measures the cross-encoder
+  ranking the whole mentorship (Entry 51).
 - **Deployment** and **frontend tests** are what remain, both infrastructure.
 - ~~**Feedback ratings**~~ — built in Entry 29, switched **off** in Entry 32.
   The server half and its 27 tests stay live so the code cannot rot while

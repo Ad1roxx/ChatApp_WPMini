@@ -22,8 +22,7 @@ from bson import ObjectId
 from docx import Document
 
 import sources
-from chunking import chunk_document
-from sources import documents
+from ingest import run
 from store import ChunkStore
 
 pytestmark = pytest.mark.needs_mongo
@@ -164,14 +163,15 @@ def store(test_db, mongo_uri):
     return ChunkStore(uri=mongo_uri, db_name=test_db.name)
 
 
-def index_everything(store, mentorship_id=None) -> tuple[int, set]:
-    """What `ingest.py` does, without the CLI: index, then reconcile."""
-    seen = set()
-    written = 0
-    for doc in documents(store.db, mentorship_id):
-        written += store.replace_source(doc, chunk_document(doc))
-        seen.add((doc["mentorship_id"], doc["source_type"], doc["source_id"]))
-    removed = store.reconcile(seen, [mentorship_id] if mentorship_id else None)
+def index_everything(store, mentorship_id=None) -> tuple[int, int]:
+    """`ingest.run` itself, not a copy of it.
+
+    The first version of this helper re-implemented the loop, and reconciled on
+    every call. `ingest.py` did not: it returned early when nothing was
+    indexed, so ending the last mentorship left its chunks behind - and every
+    test here passed, because none of them ran the code that shipped.
+    """
+    _, written, removed = run(store, mentorship_id)
     return written, removed
 
 
@@ -568,6 +568,77 @@ def test_a_brief_shared_by_two_mentorships_is_two_sources(corpus, store):
     assert {c["mentorshipId"] for c in remaining} == {Corpus.M1}
 
 
+def test_ending_the_last_active_mentorship_removes_its_chunks(corpus, store):
+    """The case the early return in ingest.py got wrong.
+
+    With every mentorship ended, a run finds nothing to index - and nothing to
+    index is exactly when reconciliation has the most to delete.
+    """
+    corpus.submission(
+        Corpus.M1,
+        Corpus.ADITYA,
+        files=[(pdf_bytes([f"Requirements\n\n{BRIEF}"]), "mine.pdf", PDF_TYPE)],
+    )
+    index_everything(store)
+    assert store.chunks.count_documents({}) > 0
+
+    store.db.mentorships.update_many({}, {"$set": {"status": "ended"}})
+    _, removed = index_everything(store)
+
+    assert removed > 0
+    assert store.chunks.count_documents({}) == 0
+
+
+def test_a_run_scoped_to_an_ended_mentorship_removes_its_chunks(corpus, store):
+    """`--mentorship <id>` on a mentorship that has ended finds nothing, and
+    must still empty it - while leaving every other mentorship alone."""
+    corpus.submission(
+        Corpus.M1,
+        Corpus.ADITYA,
+        files=[(pdf_bytes([f"Requirements\n\n{BRIEF}"]), "mine.pdf", PDF_TYPE)],
+    )
+    index_everything(store)
+    other = store.chunks.count_documents({"mentorshipId": Corpus.M2})
+    assert store.chunks.count_documents({"mentorshipId": Corpus.M1}) > 0
+
+    store.db.mentorships.update_one(
+        {"_id": ObjectId(Corpus.M1)}, {"$set": {"status": "ended"}}
+    )
+    index_everything(store, Corpus.M1)
+
+    assert store.chunks.count_documents({"mentorshipId": Corpus.M1}) == 0
+    assert store.chunks.count_documents({"mentorshipId": Corpus.M2}) == other
+
+
+@pytest.mark.parametrize(
+    "name,content_type",
+    [("broken.pdf", PDF_TYPE), ("broken.docx", DOCX_TYPE)],
+)
+def test_a_corrupt_file_is_skipped_without_stopping_the_run(
+    corpus, store, caplog, name, content_type
+):
+    """One student's broken upload must not take the index down for everyone.
+
+    Before this, an exception from the extractor ended the run before
+    reconciliation, so a single bad file also froze every deletion.
+    """
+    corpus.submission(
+        Corpus.M1,
+        Corpus.ADITYA,
+        files=[
+            (b"%PDF-1.7 this is not really a pdf", name, content_type),
+            (pdf_bytes([f"Requirements\n\n{BRIEF}"]), "fine.pdf", PDF_TYPE),
+        ],
+    )
+
+    with caplog.at_level(logging.WARNING):
+        index_everything(store)
+
+    titles = {c["title"] for c in attachment_chunks(store)}
+    assert titles == {"fine.pdf"}
+    assert "could not be read" in caplog.text
+
+
 def test_a_scoped_run_never_deletes_another_mentorship_s_chunks(corpus, store):
     """The reason `reconcile` takes a scope at all.
 
@@ -608,6 +679,21 @@ def test_reconciliation_keeps_a_source_that_produced_no_chunks(corpus, store):
 
     assert removed == 0
     assert store.chunks.count_documents({"sourceType": "submission"}) > 0
+
+
+def test_every_chunk_records_the_model_that_embedded_it(corpus, store):
+    """What lets a search by a different model be refused instead of answered."""
+    from config import EMBEDDING_MODEL
+
+    corpus.submission(
+        Corpus.M1,
+        Corpus.ADITYA,
+        files=[(pdf_bytes([f"Requirements\n\n{BRIEF}"]), "brief.pdf", PDF_TYPE)],
+    )
+    index_everything(store)
+
+    assert store.chunks.distinct("embeddingModel") == [EMBEDDING_MODEL]
+    assert store.chunks.count_documents({"embeddingModel": {"$exists": False}}) == 0
 
 
 def test_re_indexing_twice_leaves_the_same_index(corpus, store):

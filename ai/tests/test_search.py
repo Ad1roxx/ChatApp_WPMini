@@ -29,9 +29,14 @@ ADITYA = "0000000000000000000000a1"
 class Recorder:
     """Stands in for the collection: remembers the pipeline, returns the rows."""
 
-    def __init__(self, rows):
+    def __init__(self, rows, models=("BAAI/bge-small-en-v1.5",)):
         self.rows = rows
+        self.models = list(models)
         self.pipelines = []
+
+    def distinct(self, field):
+        assert field == "embeddingModel"
+        return self.models
 
     def aggregate(self, pipeline):
         self.pipelines.append(pipeline)
@@ -154,6 +159,41 @@ def test_without_the_reranker_the_index_order_is_kept(served):
 
     assert [r["title"] for r in results] == ["near", "far"]
     assert [r["score"] for r in results] == [0.90, 0.10]
+
+
+def test_an_unknown_diversity_mode_is_refused(served):
+    """A typo in AI_DIVERSITY must fail, not quietly turn the stage off."""
+    store = served([chunk("a", 0.9)])
+
+    with pytest.raises(ValueError, match="unknown diversity"):
+        store.search(M1, ADITYA, "anything", rerank=False, diversity="softcap")
+
+
+def test_an_index_from_another_model_is_refused(served):
+    """Same width, different model: the vectors mean nothing to each other.
+
+    The review that found this measured it: a bge-small query over MiniLM
+    vectors scored 0.16 recall@1 against 0.74, and raised nothing.
+    """
+    store = served([chunk("a", 0.9)])
+    store.chunks.models = ["all-MiniLM-L6-v2"]
+
+    with pytest.raises(store_module.ModelMismatch, match="all-MiniLM-L6-v2"):
+        store.search(M1, ADITYA, "anything", rerank=False)
+    assert store.chunks.pipelines == [], "it searched before refusing"
+
+
+def test_an_index_from_this_model_is_searched(served):
+    store = served([chunk("a", 0.9)])
+
+    assert store.search(M1, ADITYA, "anything", rerank=False)
+
+
+def test_an_empty_index_is_not_a_mismatch(served):
+    store = served([])
+    store.chunks.models = []
+
+    assert store.search(M1, ADITYA, "anything", rerank=False) == []
 
 
 def test_k_is_honoured(served):

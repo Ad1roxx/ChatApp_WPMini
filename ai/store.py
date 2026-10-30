@@ -33,6 +33,8 @@ from config import (
     VECTOR_INDEX,
 )
 
+DIVERSITY_MODES = ("none", "soft_cap")
+
 _model = None
 
 
@@ -186,11 +188,40 @@ def embed_query(query: str) -> list[float]:
     return _encode([f"{QUERY_INSTRUCTION}{query}"])[0]
 
 
+class ModelMismatch(RuntimeError):
+    """The index was embedded by a different model than this process uses."""
+
+
 class ChunkStore:
     def __init__(self, uri: str = MONGODB_URI, db_name: str = DB_NAME):
         self.client = MongoClient(uri)
         self.db = self.client[db_name]
         self.chunks = self.db[CHUNKS_COLLECTION]
+        self._model_checked = False
+
+    def assert_model_matches(self) -> None:
+        """Refuse to search vectors made by a different model.
+
+        Two models of the same width produce vectors the index accepts without
+        complaint and that mean nothing to each other: a bge-small query
+        against MiniLM vectors returns plausible-looking chunks, ranked at
+        random. `numDimensions` cannot catch it - both are 384 - and nothing
+        downstream looks wrong. It happened during this sprint's own review:
+        `evaluate.py` rebuilds the index with whatever model it was run with,
+        and a run with a MiniLM override left the next bge-small search at
+        0.16 recall@1 instead of 0.74, with no error anywhere.
+
+        Ported in spirit from RAG-Project's `store.assert_matches(embedder)`,
+        which S1 had not brought across. Checked once per process, on the
+        first search, because the answer cannot change without a re-index.
+        """
+        models = [m for m in self.chunks.distinct("embeddingModel") if m]
+        if models and models != [EMBEDDING_MODEL]:
+            raise ModelMismatch(
+                f"the index holds vectors from {models}, but this process embeds "
+                f"queries with {EMBEDDING_MODEL!r}. Re-run ingest.py --drop."
+            )
+        self._model_checked = True
 
     # ---------------- index ----------------
 
@@ -290,6 +321,9 @@ class ChunkStore:
                     "sectionIndex": piece.get("section_index"),
                     "startPage": piece.get("start_page"),
                     "endPage": piece.get("end_page"),
+                    # Which model made this vector, so a search by another one
+                    # can be refused rather than quietly answered at random.
+                    "embeddingModel": EMBEDDING_MODEL,
                     "embedding": vector,
                 }
                 for i, (piece, vector) in enumerate(zip(pieces, vectors))
@@ -440,6 +474,16 @@ class ChunkStore:
         """
         rerank = RERANK if rerank is None else rerank
         diversity = DIVERSITY if diversity is None else diversity
+        if diversity not in DIVERSITY_MODES:
+            # Loud rather than lenient: an unknown value used to fall through
+            # to "no diversity", so a typo in AI_DIVERSITY silently switched a
+            # stage off while every number still looked plausible.
+            raise ValueError(
+                f"unknown diversity {diversity!r}; expected one of {DIVERSITY_MODES}"
+            )
+
+        if not self._model_checked:
+            self.assert_model_matches()
 
         # Over-fetch only when something downstream will re-order the results.
         # Asking for 30 and keeping the first 4 of the same ordering would cost

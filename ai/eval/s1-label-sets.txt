@@ -1,0 +1,27 @@
+model all-MiniLM-L6-v2, 30 chunks
+  records   dense only   original (0 widened)   r@1 0.42  r@3 0.90  MRR 0.659
+  records   dense only   6 clear-cut widened    r@1 0.55  r@3 0.90  MRR 0.728
+  records   dense only   all 8 widened          r@1 0.61  r@3 0.94  MRR 0.774
+  documents dense only   (no labels changed)    r@1 0.93  r@3 1.00  MRR 0.967
+  records   + reranker   original (0 widened)   r@1 0.68  r@3 0.90  MRR 0.790
+  records   + reranker   6 clear-cut widened    r@1 0.74  r@3 0.90  MRR 0.823
+  records   + reranker   all 8 widened          r@1 0.74  r@3 0.90  MRR 0.823
+  documents + reranker   (no labels changed)    r@1 0.87  r@3 1.00  MRR 0.933
+  records   + soft cap   original (0 widened)   r@1 0.68  r@3 0.90  MRR 0.790
+  records   + soft cap   6 clear-cut widened    r@1 0.74  r@3 0.90  MRR 0.823
+  records   + soft cap   all 8 widened          r@1 0.74  r@3 0.90  MRR 0.823
+  documents + soft cap   (no labels changed)    r@1 0.87  r@3 1.00  MRR 0.933
+
+model BAAI/bge-small-en-v1.5, 30 chunks
+  records   dense only   original (0 widened)   r@1 0.55  r@3 0.87  MRR 0.696
+  records   dense only   6 clear-cut widened    r@1 0.71  r@3 0.87  MRR 0.782
+  records   dense only   all 8 widened          r@1 0.74  r@3 0.90  MRR 0.821
+  documents dense only   (no labels changed)    r@1 0.93  r@3 1.00  MRR 0.967
+  records   + reranker   original (0 widened)   r@1 0.68  r@3 0.90  MRR 0.790
+  records   + reranker   6 clear-cut widened    r@1 0.74  r@3 0.90  MRR 0.823
+  records   + reranker   all 8 widened          r@1 0.74  r@3 0.90  MRR 0.823
+  documents + reranker   (no labels changed)    r@1 0.87  r@3 1.00  MRR 0.933
+  records   + soft cap   original (0 widened)   r@1 0.68  r@3 0.90  MRR 0.790
+  records   + soft cap   6 clear-cut widened    r@1 0.74  r@3 0.90  MRR 0.823
+  records   + soft cap   all 8 widened          r@1 0.74  r@3 0.90  MRR 0.823
+  documents + soft cap   (no labels changed)    r@1 0.87  r@3 1.00  MRR 0.933

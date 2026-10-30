@@ -127,10 +127,13 @@ def split_oversized_sentence(sentence: str, limit: int) -> list[str]:
     current: list[str] = []
 
     for word in sentence.split():
-        current.append(word)
-        if token_count(" ".join(current)) >= limit:
+        # Check BEFORE adding: emitting once the count reaches the limit lets
+        # the word that crossed it ride along, so a part could end a few
+        # tokens over - the exact overflow this function exists to prevent.
+        if current and token_count(" ".join(current + [word])) > limit:
             parts.append(" ".join(current))
             current = []
+        current.append(word)
 
     if current:
         parts.append(" ".join(current))
@@ -169,6 +172,12 @@ def pack_sentences(
                     break
                 carried.insert(0, previous)
                 carried_tokens += previous_tokens
+            # The overlap is a want; the budget is a guarantee. A long next
+            # sentence plus a full overlap can exceed the budget - measured at
+            # 431 tokens against 400 before this - so the carried tail gives
+            # way, oldest sentence first, until the new one fits.
+            while carried and carried_tokens + sentence_tokens > budget:
+                carried_tokens -= token_count(carried.pop(0))
             current, current_tokens = carried, carried_tokens
 
         current.append(sentence)
@@ -191,11 +200,16 @@ def chunk_text(
 
     chunks: list[str] = []
     for piece in pack_sentences(sentences, budget, overlap):
-        if token_count(piece) < MIN_CHUNK_TOKENS and chunks:
+        if (
+            chunks
+            and token_count(piece) < MIN_CHUNK_TOKENS
+            and token_count(f"{chunks[-1]} {piece}") <= budget
+        ):
             # A tiny trailing remainder is folded into the previous chunk
             # rather than indexed as a fragment. Dropping it would lose real
             # text; indexing it alone would add a weak competitor for the
-            # queries its own neighbours should win.
+            # queries its own neighbours should win. Only when it fits,
+            # though: a fragment is a lesser evil than an over-budget chunk.
             chunks[-1] = f"{chunks[-1]} {piece}"
             continue
         chunks.append(piece)

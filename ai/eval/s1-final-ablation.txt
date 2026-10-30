@@ -6,7 +6,7 @@ whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
   recall@1 / @3 / @5    0.74 / 0.90 / 0.97
   MRR                   0.821
   top score             answerable mean 0.854 (min 0.780) · unanswerable mean 0.805 (max 0.883)
-  median latency        30 ms
+  median latency        29 ms
   separation            -0.104 (no single threshold separates them)
   most confident on a question it cannot answer:
     0.883  leak-04: What does the caching exercise say about stale reads?
@@ -23,7 +23,7 @@ whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
   recall@1 / @3 / @5    0.74 / 0.90 / 0.90
   MRR                   0.823
   top score             answerable mean 1.557 (min -10.807) · unanswerable mean -7.835 (max 5.586)
-  median latency        402 ms
+  median latency        400 ms
   separation            -16.393 (no single threshold separates them)
   most confident on a question it cannot answer:
     5.586  leak-05: Why is an index nothing uses expensive?
@@ -61,7 +61,7 @@ whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
   recall@1 / @3 / @5    0.93 / 1.00 / 1.00
   MRR                   0.967
   top score             answerable mean 0.878 (min 0.835) · unanswerable mean 0.810 (max 0.821)
-  median latency        30 ms
+  median latency        31 ms
   separation            +0.014 (a threshold exists)
   most confident on a question it cannot answer:
     0.821  doc-none-03: What did the attached report say about sharding the orders collection?
@@ -76,7 +76,7 @@ whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
   recall@1 / @3 / @5    0.87 / 1.00 / 1.00
   MRR                   0.933
   top score             answerable mean 5.613 (min -3.161) · unanswerable mean -1.543 (max 1.344)
-  median latency        399 ms
+  median latency        405 ms
   separation            -4.505 (no single threshold separates them)
   most confident on a question it cannot answer:
     1.344  doc-leak-01: How many documents did Zara's status lookup scan before her index?
@@ -91,7 +91,7 @@ whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
   recall@1 / @3 / @5    0.87 / 1.00 / 1.00
   MRR                   0.933
   top score             answerable mean 5.613 (min -3.161) · unanswerable mean -1.543 (max 1.344)
-  median latency        407 ms
+  median latency        410 ms
   separation            -4.505 (no single threshold separates them)
   most confident on a question it cannot answer:
     1.344  doc-leak-01: How many documents did Zara's status lookup scan before her index?

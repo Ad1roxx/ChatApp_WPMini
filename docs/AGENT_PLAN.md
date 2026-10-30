@@ -38,6 +38,12 @@ recall@1 is *not* what the Copilot route currently delivers (it delivers the
 0.68 baseline). And `sources.py` has no attachment path at all, so every PDF a
 student hands in is invisible to retrieval.
 
+> **Superseded by S1.** The table above is the state this plan was written
+> against, and is kept as such. After S1, attachments are indexed, the model is
+> bge-small, chunks are sized in tokens, and the reranker is in the served
+> path. The 0.81 above was measured on a corpus without documents and does not
+> carry over; S1's measured figures, on one label set, are in §5 S1.
+
 ### 1.2 RAG-Project — what is being ported
 
 Frozen at stage 3 of 11. `HANDOFF.md` §1. Verified against the live data
@@ -484,20 +490,32 @@ Landed as entries 46–50.
 **Measured outcome, for S2 to build on** (BUILD_NOTES Entry 50; 30 chunks, 23
 sources, reported per question set and never averaged):
 
+Records under the six clear-cut widened labels — the quoted set; every row
+on the same one (BUILD_NOTES Entry 51, `ai/eval/s1-label-sets.txt`):
+
 | | records (45) | documents (20) |
 | --- | --- | --- |
-| all-MiniLM-L6-v2, dense | 0.61 recall@1, MRR 0.774 | 0.93, MRR 0.967 |
-| bge-small, dense | **0.74**, MRR 0.821, sep −0.104 | **0.93**, MRR 0.967, sep **+0.014** |
-| + reranker | 0.74, MRR 0.823, sep −16.4 | 0.87, MRR 0.933, sep −4.5 |
+| all-MiniLM-L6-v2, dense | 0.55 recall@1, MRR 0.728 | 0.93, MRR 0.967 |
+| bge-small, dense | **0.71**, MRR 0.782 | **0.93**, MRR 0.967, sep **+0.014** |
+| + reranker | 0.74, MRR 0.823 | 0.87, MRR 0.933 |
 | + soft cap | 0.74, MRR 0.823 | 0.87, MRR 0.933 |
 
 Two things S2 must take account of:
 
-- **D7's reranker did not survive its own re-measurement.** It gains nothing on
-  the record questions, costs 0.06 recall@1 on the document questions, destroys
-  the separation on both, and adds ~370 ms. It is left on as approved and
-  switchable with `AI_RERANK=0`; S2 should decide with the numbers above rather
-  than inherit the default.
+- **D7's reranker is a mixed result on its own re-measurement.** It gains
+  0.03 recall@1 on the record questions, costs 0.06 on the document questions,
+  destroys the separation on both, and adds ~370 ms. (An earlier reading of
+  "no gain on records" held only under a label set we do not quote.) It is
+  left on as approved and switchable with `AI_RERANK=0`. But the corpus (25 chunks visible to the
+  evaluated student) is smaller than the 30-candidate pool, so the measurement
+  is the cross-encoder ranking the whole mentorship, not the two-stage
+  pipeline. **S2 should grow the evaluation corpus past the candidate pool
+  before deciding**, rather than inherit either the default or this result.
+- **Quote 0.71, not 0.74, for the record questions.** Eight labels were widened
+  after the documents arrived; two are judgment calls. 0.55 / 0.71 / 0.74 are
+  all measured (BUILD_NOTES Entry 51). **Label before measuring in S2**: a
+  conclusion that flips with the label set — as the reranker's did — is not a
+  conclusion about the system.
 - **The first positive separation ever measured here** is bge-small, dense, on
   the document questions: +0.014. Thin, and on 20 questions — but Entry 41's
   "no threshold exists" is no longer unanimous, which is what S2's abstention
