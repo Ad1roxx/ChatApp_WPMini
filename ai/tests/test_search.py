@@ -57,11 +57,19 @@ def chunk(title, score, *, source_type="resource", source_id=None, **extra):
 
 @pytest.fixture
 def served(monkeypatch):
-    """A store whose search runs for real, over rows a recorder hands back."""
+    """A store whose search runs for real, over rows a recorder hands back.
+
+    The read-time check is replaced by a pass-through here, and only here:
+    these tests are about the shape of the pipeline, over rows that have no
+    records behind them. The check itself runs for real, against Mongo, in
+    test_read_check.py - and `test_the_check_runs_before_the_reranker` below
+    pins where in this pipeline it sits.
+    """
     monkeypatch.setattr(store_module, "embed_query", lambda query: [0.0] * 384)
+    monkeypatch.setattr(store_module, "read_time_check", lambda records, hits, viewer: (hits, []))
 
     def build(rows, rerank_scores=None):
-        store = ChunkStore()
+        store = ChunkStore(records=object())
         store.chunks = Recorder(rows)
         if rerank_scores is not None:
             monkeypatch.setattr(
@@ -194,6 +202,39 @@ def test_an_empty_index_is_not_a_mismatch(served):
     store.chunks.models = []
 
     assert store.search(M1, ADITYA, "anything", rerank=False) == []
+
+
+def test_the_check_runs_before_the_reranker(served, monkeypatch):
+    """A dropped chunk must never reach the cross-encoder, the cap, or the
+    caller - so the check sits between the vector search and everything else."""
+    rows = [chunk("kept", 0.9), chunk("gone", 0.8)]
+    store = served(rows, rerank_scores={"text of kept": 1.0, "text of gone": 9.0})
+    seen_by_check = []
+
+    def check(records, hits, viewer):
+        seen_by_check.extend(h["title"] for h in hits)
+        return [h for h in hits if h["title"] != "gone"], []
+
+    monkeypatch.setattr(store_module, "read_time_check", check)
+
+    results = store.search(M1, ADITYA, "anything", rerank=True, diversity="soft_cap")
+
+    assert seen_by_check == ["kept", "gone"], "the check did not see the raw candidates"
+    # "gone" outscores "kept" with the reranker; it is absent because the
+    # check removed it first, not because it lost.
+    assert [r["title"] for r in results] == ["kept"]
+
+
+def test_the_check_is_given_the_callers_id(served, monkeypatch):
+    callers = []
+    monkeypatch.setattr(
+        store_module, "read_time_check", lambda records, hits, viewer: (callers.append(viewer), (hits, []))[1]
+    )
+    store = served([chunk("a", 0.9)])
+
+    store.search(M1, ADITYA, "anything", rerank=False)
+
+    assert callers == [ADITYA]
 
 
 def test_k_is_honoured(served):

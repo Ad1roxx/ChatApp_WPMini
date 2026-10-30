@@ -4458,6 +4458,79 @@ rebuilt from the app's database with a version on all nine of its chunks.
 
 ---
 
+### Entry 55 — S1.5 step 2: every result is checked against the record, at read time
+
+This is the step that makes S1.5's first property true. *Search never returns a
+chunk whose source was deleted, changed after it was indexed, or can no longer
+be seen by the caller* — **even if the index was never told.** Telling it is
+step 3's job, and telling can fail: the service was down, the call timed out,
+someone ran a script against the database. So correctness cannot rest on
+delivery. It rests on this.
+
+**Where it sits.** In `search()`, after `$vectorSearch` and before the reranker
+and the cap. It loads the candidates' current records in one batch — at most
+six queries however many candidates — and drops a chunk if it has no version,
+its record is gone, its file has left the record, the record would no longer
+be indexed, the caller is no longer a viewer, or its version is older than the
+record's. Every rule is called from `sources.py`, the same functions the
+indexer uses (Entry 54). Every drop is logged with its reason, and the service
+now configures logging so those lines are not discarded at Python's default
+WARNING level. The check iterates the hits it was given and returns a subset;
+it cannot add one.
+
+**The permission filter stays inside `$vectorSearch`.** The check asks the same
+question again against fresher data; it is not a replacement for the first
+lock, and removing either would be a regression.
+
+**A missed event can now only delay an addition.** If a sync never arrives,
+the index still holds the old chunk, the check sees the record has moved on,
+and the chunk is not returned. The worst case is that *new* material is not
+yet findable — which is a freshness problem, measured in step 5, rather than
+a leak.
+
+**If the app's database is down, search fails.** The read raises, FastAPI
+answers 500, and the Copilot route already maps any non-2xx to its 502. A test
+points the check at a port nothing listens on and asserts the search raises
+rather than returning, and another asserts the endpoint answers an error with
+no chunks in the body. The two-second server-selection timeout from Entry 53
+is what keeps that failure inside Express's own 15-second budget. Answering
+from unchecked chunks would have been the convenient failure, and the wrong
+one: it is exactly the moment nothing could vouch for them.
+
+**A file's parent title is filled from the live record.** Entry 54 chose not
+to version attachments by their assignment; this is the other half. The check
+already holds the assignment, so a renamed brief shows its new name on every
+attached file's result with no sync at all — stale is not merely detected
+there, it is impossible.
+
+**Tests that would fail without it.** Thirteen, through the real `search()`
+over a real Atlas vector index on a test database — built once per module,
+because a search index takes seconds to become queryable. Each changes the
+records *without telling the index*: a deleted hand-in, a removed file beside
+one that stays, an ended mentorship, a deleted assignment taking its brief,
+hand-ins and files with it, a mentor changed directly in the database, edited
+text, a renamed brief, a chunk with no version, the database down. Each first
+proves the right person retrieves the chunk, then that the later state does
+not. To check they test the property and not a proxy, the check was disabled
+by hand and the module re-run: **all ten property tests failed**, and the three
+that should not care — a fresh index, an outsider, "never adds" — passed.
+
+**Cost, measured on the evaluation fixture** (`ai/eval/s15-read-check.txt`):
+the check takes **6.6 ms** median on the record questions and **6.2 ms** on the
+document questions in the served configuration, and served search went from
+23 to 31 ms and from 26 to 30 ms. It dropped **nothing** on a freshly indexed
+corpus, and every S1 metric is identical. One caveat on those milliseconds:
+on the fixture the records sit on the same server as the chunks, while the
+served path reads the app's database on another; step 5 measures that.
+
+**One consequence worth stating.** A status change that alters no text — an
+unsubmit, a review accepted with no note — still moves the record's
+`updatedAt`, so its text chunk is stale until the sync arrives, and is
+dropped meanwhile. That is the rule working as specified, failing closed, and
+it is what step 3's sync is for.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

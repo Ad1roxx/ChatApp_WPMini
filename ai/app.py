@@ -17,12 +17,21 @@ no idea who the caller is.
 from __future__ import annotations
 
 import hmac
+import logging
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from config import SERVED_K, SERVICE_SECRET
 from store import ChunkStore
+
+# Every chunk the read-time check drops is logged with its reason, at INFO. Python's
+# default level is WARNING, and uvicorn configures only its own loggers, so
+# without this those lines - the explanation for any answer that came back
+# shorter than expected - would be discarded.
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+for _name in ("store", "sources", "extract"):
+    logging.getLogger(_name).setLevel(logging.INFO)
 
 app = FastAPI(title="MentorConnect retrieval", docs_url=None, redoc_url=None)
 store = ChunkStore()

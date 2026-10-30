@@ -10,11 +10,15 @@ the fix would look like "ask for more candidates" rather than "this is wrong".
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Iterable
 
 from pymongo import MongoClient
 from pymongo.operations import SearchIndexModel
+
+import appdb
+import sources
 
 from config import (
     CANDIDATE_K,
@@ -34,6 +38,8 @@ from config import (
 )
 
 DIVERSITY_MODES = ("none", "soft_cap")
+
+log = logging.getLogger(__name__)
 
 _model = None
 
@@ -192,12 +198,93 @@ class ModelMismatch(RuntimeError):
     """The index was embedded by a different model than this process uses."""
 
 
+def read_time_check(records, hits: list[dict], viewer_id: str) -> tuple[list[dict], list[tuple]]:
+    """Keep only the candidates whose source still says what the chunk says.
+
+    This is what makes the index correct rather than merely usually fresh. A
+    sync can be missed - the service was down, the request timed out - but
+    this runs on every search, against the records as they are now, so a missed
+    event can only ever delay an *addition*. It can never let a removal be
+    seen. A chunk is dropped if:
+
+    - it carries no version (written before S1.5: it cannot prove it is current)
+    - its source record is gone
+    - its file is no longer on that record
+    - its source would no longer be indexed - an ended mentorship, a hand-in
+      whose text was cleared - by the same rule the indexer applies
+    - the caller is no longer among the source's viewers
+    - its version is older than the record's current one
+
+    Every rule is called from `sources.py`, the same functions the indexer
+    uses. The check can only remove candidates, never add one: it iterates the
+    hits it was given and returns a subset of them.
+
+    The permission filter stays inside `$vectorSearch`. This is a second test
+    of the same question against fresher data, not a replacement for the first.
+
+    Returns `(kept, dropped)`; `dropped` is `(hit, reason)` pairs, each logged.
+    """
+    if not hits:
+        return [], []
+
+    loaded = sources.load_records(records, hits)
+    kept: list[dict] = []
+    dropped: list[tuple] = []
+
+    for hit in hits:
+        version = hit.get("sourceVersion")
+        if version is None:
+            dropped.append((hit, "no version - written before S1.5; a re-index fixes it"))
+            continue
+
+        entry, reason = sources.current_entry(loaded, hit)
+        if entry is None:
+            dropped.append((hit, reason))
+        elif viewer_id not in entry["viewers"]:
+            dropped.append((hit, "caller is no longer a viewer"))
+        elif entry["version"] is None:
+            dropped.append((hit, "the record has no version"))
+        elif version < entry["version"]:
+            dropped.append((hit, "stale - the record changed after this was indexed"))
+        else:
+            if hit["sourceType"] == "attachment":
+                # The parent's title comes from the assignment and is not part
+                # of a file's version, so it is filled from the live record
+                # here and can never be stale.
+                hit["parentTitle"] = entry["parent_title"]
+            kept.append(hit)
+
+    for hit, reason in dropped:
+        log.info(
+            "dropped %s %s (%s) in %s: %s",
+            hit["sourceType"],
+            hit["sourceId"],
+            hit.get("title"),
+            hit.get("mentorshipId"),
+            reason,
+        )
+    return kept, dropped
+
+
 class ChunkStore:
-    def __init__(self, uri: str = MONGODB_URI, db_name: str = DB_NAME):
+    def __init__(self, uri: str = MONGODB_URI, db_name: str = DB_NAME, records=None):
         self.client = MongoClient(uri)
         self.db = self.client[db_name]
         self.chunks = self.db[CHUNKS_COLLECTION]
         self._model_checked = False
+        # The app's database, read-only, for the read-time check. Opened on the
+        # first search unless one is given: the evaluation hands in its fixture.
+        self._records = records
+        # What the last search's check did - read by evaluate.py to measure the
+        # check's cost and to show it drops nothing on a fresh index.
+        self.last_check_ms = 0.0
+        self.last_dropped: list[tuple] = []
+
+    @property
+    def records(self):
+        if self._records is None:
+            self._records = appdb.connect()
+        return self._records
 
     def assert_model_matches(self) -> None:
         """Refuse to search vectors made by a different model.
@@ -521,6 +608,8 @@ class ChunkStore:
                     "sourceId": 1,
                     "chunkIndex": 1,
                     "url": 1,
+                    "mentorshipId": 1,
+                    "sourceVersion": 1,
                     "parentType": 1,
                     "parentId": 1,
                     "parentTitle": 1,
@@ -534,6 +623,14 @@ class ChunkStore:
             },
         ]
         hits = list(self.chunks.aggregate(pipeline))
+
+        # Before anything reorders them: the candidates' sources, as they are
+        # now. If the app's database cannot be reached this raises, and the
+        # search fails - closed, as the route's 502 - rather than returning
+        # chunks nobody has checked.
+        started = time.perf_counter()
+        hits, self.last_dropped = read_time_check(self.records, hits, viewer_id)
+        self.last_check_ms = (time.perf_counter() - started) * 1000
 
         # Reranking and capping only ever REORDER chunks the caller may already
         # see. The permission filter ran inside `$vectorSearch` above, so no

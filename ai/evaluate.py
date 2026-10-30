@@ -102,8 +102,11 @@ def fixture() -> tuple[ChunkStore, appdb.ReadOnlyDatabase]:
     is also answering from: a MiniLM run left the next bge-small search at 0.16
     recall@1, silently.
     """
-    store = ChunkStore(db_name=EVAL_DB_NAME)
-    return store, appdb.connect(MONGODB_URI, EVAL_DB_NAME)
+    records = appdb.connect(MONGODB_URI, EVAL_DB_NAME)
+    # The search's read-time check reads the same fixture the index was built
+    # from - never the app's database.
+    store = ChunkStore(db_name=EVAL_DB_NAME, records=records)
+    return store, records
 
 
 def build_index(store: ChunkStore, records, budget: int) -> int:
@@ -136,6 +139,8 @@ def evaluate(
     answerable = [q for q in questions if q["answerable"]]
 
     latencies: list[float] = []
+    check_ms: list[float] = []
+    dropped = 0
 
     for q in questions:
         # The served search, not a copy of it: a measurement of a pipeline
@@ -152,6 +157,8 @@ def evaluate(
             diversity=diversity,
         )
         latencies.append(time.perf_counter() - started)
+        check_ms.append(store.last_check_ms)
+        dropped += len(store.last_dropped)
         titles = [r["title"] for r in results]
         top_score = results[0]["score"] if results else 0.0
 
@@ -188,6 +195,8 @@ def evaluate(
         "confident_on_unanswerable": leaks,
         "misses": misses,
         "median_latency_ms": statistics.median(latencies) * 1000,
+        "median_check_ms": statistics.median(check_ms),
+        "dropped": dropped,
     }
 
 
@@ -207,6 +216,10 @@ def report(name: str, chunks: int, result: dict) -> None:
         )
     )
     print(f"  median latency        {result['median_latency_ms']:.0f} ms")
+    print(
+        f"  read-time check       {result['median_check_ms']:.1f} ms median, "
+        f"{result['dropped']} chunks dropped"
+    )
     gap = result["answerable_top_min"] - result["unanswerable_top_max"]
     print(
         f"  separation            {gap:+.3f} "

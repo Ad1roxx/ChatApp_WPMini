@@ -510,3 +510,101 @@ def source_documents(db, source_type: str, source_id: str) -> list[dict]:
     if entry is None:
         return []
     return [entry, *with_attachments(db, record, record_parent("resource", record, mentorship))]
+
+
+# --------------------------------------------------------------------------
+# The read-time check: what each candidate chunk's source says NOW
+# --------------------------------------------------------------------------
+# Used by store.search() on every query. Two functions, split so the database
+# reads happen once per search, as a batch, and the verdicts are the same pure
+# rules the indexer runs.
+
+
+def _oid(value):
+    try:
+        return ObjectId(value)
+    except Exception:  # noqa: BLE001 - a malformed id names no record
+        return None
+
+
+def load_records(db, hits: list[dict]) -> dict:
+    """Load every record the candidates depend on: one query per collection.
+
+    At most six round trips however many candidates there are - the
+    candidates' records, their mentorships, and the assignments their hand-ins
+    take a title from.
+    """
+    wanted = {"assignments": set(), "submissions": set(), "goals": set(), "resources": set()}
+    collection_of = {
+        "assignment": "assignments",
+        "submission": "submissions",
+        "goal": "goals",
+        "resource": "resources",
+    }
+    mentorship_ids = set()
+
+    for hit in hits:
+        mentorship_ids.add(_oid(hit.get("mentorshipId")))
+        if hit["sourceType"] == "attachment":
+            wanted[collection_of.get(hit.get("parentType"), "submissions")].add(_oid(hit.get("parentId")))
+        elif hit["sourceType"] in collection_of:
+            wanted[collection_of[hit["sourceType"]]].add(_oid(hit["sourceId"]))
+
+    def by_id(collection: str, ids: set) -> dict:
+        ids = [i for i in ids if i is not None]
+        return {r["_id"]: r for r in db[collection].find({"_id": {"$in": ids}})} if ids else {}
+
+    loaded = {name: by_id(name, ids) for name, ids in wanted.items()}
+
+    # A hand-in's title and version come from its assignment.
+    missing = {s["assignment"] for s in loaded["submissions"].values()} - set(loaded["assignments"])
+    loaded["assignments"].update(by_id("assignments", missing))
+    loaded["mentorships"] = by_id("mentorships", mentorship_ids)
+    return loaded
+
+
+def current_entry(loaded: dict, hit: dict) -> tuple[dict | None, str | None]:
+    """The entry the index should hold for this chunk's source, right now.
+
+    Returns `(entry, None)` if the source is still indexed, or `(None, reason)`
+    if it is not. The reasons are what the check logs, so a dropped chunk can
+    always be explained.
+    """
+    mentorship = loaded["mentorships"].get(_oid(hit.get("mentorshipId")))
+    source_type = hit["sourceType"]
+
+    if source_type == "attachment":
+        parent_type = hit.get("parentType") or "submission"
+        collection = {"submission": "submissions", "assignment": "assignments", "resource": "resources"}.get(
+            parent_type
+        )
+        record = loaded.get(collection, {}).get(_oid(hit.get("parentId"))) if collection else None
+        if record is None:
+            return None, "source gone"
+        assignment = loaded["assignments"].get(record.get("assignment")) if parent_type == "submission" else None
+        parent = record_parent(parent_type, record, mentorship, assignment)
+        if parent is None:
+            return None, "no longer indexed"
+        for entry in attachment_entries(record, parent):
+            if entry["source_id"] == hit["sourceId"]:
+                return entry, None
+        return None, "attachment removed"
+
+    record = loaded.get(
+        {"assignment": "assignments", "submission": "submissions", "goal": "goals", "resource": "resources"}.get(
+            source_type, ""
+        ),
+        {},
+    ).get(_oid(hit["sourceId"]))
+    if record is None:
+        return None, "source gone"
+
+    if source_type == "assignment":
+        entry = assignment_entry(record, mentorship)
+    elif source_type == "submission":
+        entry = submission_entry(record, loaded["assignments"].get(record.get("assignment")), mentorship)
+    elif source_type == "goal":
+        entry = goal_entry(record, mentorship)
+    else:
+        entry = resource_entry(record, mentorship)
+    return (entry, None) if entry is not None else (None, "no longer indexed")

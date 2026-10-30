@@ -99,3 +99,34 @@ def test_app_db(mongo_client):
     db = mongo_client[name]
     yield db
     mongo_client.drop_database(name)
+
+
+TEST_SEARCH_DB_NAME = "chatapp_rag_pytest_search"
+
+
+@pytest.fixture(scope="module")
+def search_store(mongo_client, mongo_uri):
+    """A chunk store with a real vector index, shared by one test module.
+
+    Creating an Atlas search index takes seconds, so it is built once per
+    module rather than per test; `clean_search_store` empties the chunks
+    between tests instead. The tests that use it exercise the real
+    `$vectorSearch` and the real `search()`, not a stand-in.
+    """
+    from store import ChunkStore
+
+    name = forbid_real_databases(TEST_SEARCH_DB_NAME)
+    mongo_client.drop_database(name)
+    store = ChunkStore(uri=mongo_uri, db_name=name)
+    store.ensure_vector_index()
+    yield store
+    mongo_client.drop_database(name)
+
+
+@pytest.fixture
+def clean_search_store(search_store, test_app_db):
+    """The shared search store, emptied, reading records from this test's app db."""
+    search_store.drop_all()
+    search_store._records = None
+    search_store._model_checked = False
+    return search_store

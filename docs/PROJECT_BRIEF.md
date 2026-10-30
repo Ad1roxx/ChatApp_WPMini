@@ -58,7 +58,7 @@ behind an Express and Socket.IO server written for this project.
 
 | Fact | Source |
 | --- | --- |
-| **2,691** lines of Python across **10** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
+| **2,908** lines of Python across **10** files — extraction, chunking, embeddings, filtered vector search and a FastAPI endpoint | `wc -l ai/*.py` |
 | The served index is built from the app's own database, read through a handle that has no write method; evaluation runs on a separate seeded database with its own index. **Until S1.5 the served index came from that seeded copy**, so the Copilot had never searched a real user's material | `ai/appdb.py` · `ai/tests/test_appdb.py` · BUILD_NOTES Entry 53 |
 | PDF and Word attachments are extracted into sections with page numbers, chunked in the embedding model's own tokens, and indexed with the viewers of the record they hang off | `ai/extract.py`, `ai/chunking.py`, `ai/sources.py` |
 | A scan with no text layer produces **zero** chunks and logs that it needs OCR, rather than indexing a filename that looks readable | `ai/check_retrieval.py`, check 8 |

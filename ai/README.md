@@ -149,6 +149,20 @@ never another student's on the same brief. Today only hand-ins can carry files
 — briefs and resources have no attachment field — but all three are walked, so
 the day either gains uploads nothing here changes.
 
+### The read-time check
+
+Every search checks its candidates against the records as they are now, after
+`$vectorSearch` and before reranking. A chunk is dropped if its source is gone,
+its file has left the record, the record would no longer be indexed, the caller
+is no longer a viewer, or the record has changed since the chunk was built. The
+rules are the indexer's own (`sources.py`); each drop is logged with its reason.
+
+This is what keeps search correct when an update was never delivered: a missed
+event can only delay something *new* becoming findable, never let something
+removed be seen. If the app's database is unreachable, search fails (the
+Copilot route's 502) rather than returning chunks nothing has checked. Cost:
+about 6 ms a search (`ai/eval/s15-read-check.txt`).
+
 ### Versions
 
 Every chunk records `sourceVersion`, the version of the record it was built
