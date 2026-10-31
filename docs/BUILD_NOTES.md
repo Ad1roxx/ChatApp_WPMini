@@ -5029,6 +5029,40 @@ about a day and a half, which the answer cache makes resumable.
 
 ---
 
+### Entry 63 — S2 step 2b: the query prefix (D1), the reranker (D7) and the soft cap, re-measured
+
+**The decision rules, written before the run** (on the labels pushed in
+`46c68cc`):
+
+- A configuration change is adopted only if it gets **at least 3 more
+  answerable questions right at recall@1** across the original and new sets
+  combined, **and loses no more than 1** on either set alone.
+- The reranker (D7) is also adopted only if its **median latency per search
+  stays under 1 second**.
+- The prefix (D1) stays on unless turning it off meets the rule.
+- A tie or a mixed result keeps the current default, with the reason recorded.
+
+What counts, fixed before the run:
+
+- **Original set:** the 46 answerable questions of the 65 (31 records, scored
+  on the six clear-cut label changes as every quoted figure is, and 15
+  documents).
+- **New set:** the 42 answerable questions of the 55 — 38 of kind
+  `answerable` and 4 `injection` — **less the 7 extractor-limited ones**,
+  which are reported on their own row and left out of the rule: `s2-12` (its
+  answer is in the dropped table), `s2-07`–`s2-10` (`orders-schema.pdf`, bold
+  headings not seen) and `s2-34`, `s2-35` (`interview-notes.pdf`, its heading
+  lines dropped). That leaves **35** (31 answerable, 4 injection).
+- Combined, the rule is counted over **81** questions.
+- The 8 unanswerables are reported for separation only; the 5 cross-tenant
+  questions must return **zero** chunks from mentorship 2, in every
+  configuration.
+- Configurations: the served default (prefix on, dense over 30 candidates,
+  soft cap, k=4); prefix off; reranker on (the cross-encoder over the 30
+  candidates of 102, then the cap); soft cap off (dense top 4).
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
