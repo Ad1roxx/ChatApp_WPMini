@@ -22,3 +22,10 @@ numpy==2.4.6
 # every chunk derived from it, and the index would still look valid afterwards.
 PyMuPDF==1.28.2
 python-docx==1.2.0
+
+# --- S2: generation ---
+# The two providers are called over plain HTTP rather than through their SDKs,
+# which retry 429s on their own policy and hide the rate-limit headers this
+# service enforces (providers.py says why in full). Pinned because the
+# retry and timeout behaviour the tests prove is httpx's.
+httpx==0.28.1

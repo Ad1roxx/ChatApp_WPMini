@@ -5170,6 +5170,104 @@ sentence.
 
 ---
 
+### Entry 64 — S2 step 3: the provider layer
+
+`ai/providers.py`: an `LLMProvider` interface, a Gemini adapter, a Groq
+adapter, `Unconfigured` for a missing key, and `ScriptedProvider`, the fake
+every later test uses. A call returns a `Generation` whose `outcome` is one
+of `ok`, `rate_limited`, `truncated`, `unavailable`, `not_configured` or
+`failed` — never an exception — and each outcome but `ok` has one plain
+sentence for the user. No provider's error text ever reaches one.
+
+**Free tiers, synthetic data only.** Google lists free-tier content as used to
+improve its products, and Groq's terms say nothing about training
+(AGENT_PLAN §2.6). So nothing but invented students and invented work goes
+through either provider, and no billing is set up on either, for any reason.
+
+**httpx, not the SDKs.** Each provider is one POST. The rules this layer
+enforces sit exactly where an SDK hides things: the Groq SDK retries 429s
+itself, twice by default, where S2 retries once and only within the time
+left; Groq's budget is read from the `x-ratelimit-*` headers of every
+response; and `httpx.MockTransport` serves the real response shapes to the
+tests with nothing to patch. httpx was already installed (FastAPI's test
+client) and is now pinned at 0.28.1.
+
+**The limits, as Step 0 found them:**
+
+- **Gemini sends no headers, so its calls are counted.** `CallBudget` keeps
+  the last day's timestamps and refuses, before sending, a call that would
+  make 16 in a minute or 501 in any 24 hours. The windows are rolling, which is
+  stricter than Google's midnight-Pacific day and can never exceed it. The
+  timestamps live in `ai/.llm-usage.json` (gitignored), which the service,
+  an evaluation run and a smoke test all share, so they draw on one count and
+  a restart does not reset it. Two processes writing at the same instant can
+  lose one count; Google's own 429 is the backstop. A call counts when it is
+  sent, so a failed one counts too.
+- **Groq is checked against its headers.** `HeaderBudget` keeps what the last
+  response said was left. The will-it-fit check is the prompt (estimated at
+  three characters a token, which runs high), plus 70 tokens of chat
+  template, **plus the whole output cap**, because that is what Groq reserves.
+  A day's requests used up is refused the same way.
+- **A wait that fits the time budget is waited; one that does not is
+  `rate_limited`, without a request.** A 429 is retried **once**, and only if
+  its retry-after (Groq's header, or Gemini's `RetryInfo` in the body) leaves
+  at least 3 s before the deadline. A second 429 is reported.
+- **An answer stopped at the cap is `truncated`**: Gemini's `MAX_TOKENS`,
+  Groq's `length`. Its text is discarded, never shown. Step 6 counts these.
+- **A withdrawn model is `unavailable`**: a 404, or Groq's
+  `model_not_found` / `model_decommissioned`, logged as an error naming the
+  model and saying to re-check the provider's model list. A rejected key is
+  `unavailable` too. The route turns both into a 503.
+- **Gemini's thinking tokens count as output**, and parts marked as thought
+  are not part of the answer.
+
+**Keys** go into each client's headers once, when it is built at start-up:
+never a URL (which ends up in exception messages), a log line or an outcome's
+`detail`. `detail` is built only from a status code and the provider's error
+code, and only when that code is a single word. A test sends an error body
+that echoes the key and the question back and checks that neither reaches the
+outcome, the log or the message. A missing key builds `Unconfigured`, which
+answers every call `not_configured`, so the ask route can answer 503 while
+search goes on.
+
+**One log line per call**, written by `log_call`: provider, model,
+`PROMPT_VERSION`, outcome, attempts, tokens in and out, latency, and the number
+of citations stripped. The answer step (Step 4) writes it, because only it
+knows the stripped count. `Generation.text` is left out of `repr`, so logging a
+result cannot leak an answer.
+
+**Rejected:**
+
+- **An automatic fallback to Groq when Gemini fails.** It would send the same
+  student's material to a second provider without anyone deciding it should,
+  and spend a second quota on a turn that has already failed. The fallback is
+  a setting (`AI_LLM_PROVIDER=groq`).
+- **The providers' SDKs**, for the reasons above.
+- **LangChain.**
+
+**Tests:** `tests/test_providers.py` has 46, all on scripted HTTP with a fake
+clock, so there is no network and no real sleeping. They cover each outcome,
+the retry-once rule (a 429 that fits, one that does not, a second 429, none
+with no retry-after), Gemini's minute and day counts (including through the
+file across two instances), Groq's exhausted headers giving the plain message
+without a request, and what never leaks. Three rules were broken by hand and
+the tests went red each time: retrying a second time, leaving the cap out of
+Groq's reservation, and not treating `MAX_TOKENS` as a cut-off.
+
+**Live:** `tests/test_providers_live.py` is skipped unless `AI_LIVE_SMOKE=1`,
+and is one call with a synthetic one-line prompt. Run once for each provider
+on 2026-11-01:
+
+```
+llm provider=gemini model=gemini-3.5-flash-lite prompt=smoke outcome=ok attempts=1 in=13 out=1 ms=635 stripped=0
+llm provider=groq model=openai/gpt-oss-120b prompt=smoke outcome=ok attempts=1 in=86 out=35 ms=498 stripped=0
+```
+
+Groq's 35 output tokens for "OK" are its reasoning at `low` effort, counted
+as output, as Step 0 found.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -5257,10 +5355,17 @@ sentence.
   held back only by ~1.3 s a search on CPU. Not yet known: how much of that
   is 30 pairs and how much is chunk length. Try fewer candidates (10–15), a
   shorter `max_length`, or an ONNX or quantised cross-encoder, and measure
-  latency first. Any accuracy figure re-measured on the Entry 63 labels is
-  now measured on labels whose results are known, so a configuration chosen
-  that way needs new labels, committed before measuring, to be reported.
-  `AI_RERANK=1` turns it on.
+  latency first. Two kinds of speed-up, with different burdens of proof:
+  - **One that cannot change a ranking** — an optimised runtime such as
+    ONNX, batching, the thread count — needs **no new labels**. Prove the
+    rankings are identical to `s2-retrieval.txt`'s reranker column on all
+    120 questions, then hold it to the same rule: median under 1 second.
+  - **One that changes rankings** — fewer candidates, truncated inputs —
+    needs **new labels**, committed before measuring: the Entry 63 labels'
+    results are now known, so a configuration chosen on them is fitted.
+
+  The identical-ranking route is tried after Step 6; if the reranker then
+  passes, Step 6 is re-run with it on. `AI_RERANK=1` turns it on.
 - ~~**The index is only updated by re-indexing**~~ — closed in S1.5
   (entries 53–58): records come from the app's database, every write notifies
   the index, and the read-time check keeps search correct whether or not the

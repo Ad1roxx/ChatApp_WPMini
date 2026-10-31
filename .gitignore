@@ -28,6 +28,8 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+# The AI service's count of its own LLM calls (ai/config.py, LLM_USAGE_FILE)
+ai/.llm-usage.json
 
 # Keep example env files tracked
 !.env.example

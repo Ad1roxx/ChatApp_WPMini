@@ -104,13 +104,11 @@ CANDIDATE_K = int(os.getenv("AI_CANDIDATE_K", "30"))
 # other - far more accurate than two separate vectors, and impossible to
 # precompute, which is why it only ever sees the candidates.
 RERANK_MODEL = os.getenv("AI_RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
-# OFF by default since the end of S1 (BUILD_NOTES Entry 52). Re-measured on a
-# corpus with documents in it, as D7 required, it was a mixed result: +0.03
-# recall@1 on the record questions, -0.06 on the document questions, and about
-# 370 ms added to every search. And the measurement could not test the
-# two-stage design it exists for: the evaluated student sees 25 chunks against
-# a 30-candidate pool, so it only ever re-sorted the whole mentorship. S2
-# revisits it on a corpus larger than the pool. AI_RERANK=1 turns it back on.
+# OFF by default, for latency (BUILD_NOTES Entry 63, D7 settled in S2). On a
+# corpus larger than the candidate pool it is the most accurate configuration
+# measured - 62 of 81 answerable questions first, against 54 - but about 1.3 s
+# a search on CPU, over the 1 s the decision rule allowed. AI_RERANK=1 turns it
+# back on.
 RERANK = os.getenv("AI_RERANK", "0") == "1"
 
 # Diversity: at most this many chunks from one record, and the relevance gap
@@ -133,3 +131,44 @@ SERVICE_SECRET = os.getenv("AI_SERVICE_SECRET", "")
 
 HOST = os.getenv("AI_HOST", "127.0.0.1")
 PORT = int(os.getenv("AI_PORT", "8000"))
+
+
+# ---------------------------------------------------------------------------
+# Generation (S2): which model answers, and the limits it answers under
+# ---------------------------------------------------------------------------
+# AGENT_PLAN 2.6, read 2026-10-31. Gemini generates; Groq is the documented
+# fallback, chosen here rather than tried automatically after a failure - an
+# automatic fallback would send the same student's material to a second
+# provider without anyone deciding it should.
+LLM_PROVIDER = os.getenv("AI_LLM_PROVIDER", "gemini")
+
+# Pinned by name, never a "-latest" alias: a model that changes under a pinned
+# name changes every answer and every evaluation figure with it. A pinned model
+# can still be withdrawn (the 2.5 models were), which is a 404 and a plain
+# "unavailable" - never a silent switch to something else.
+GEMINI_MODEL = os.getenv("AI_GEMINI_MODEL", "gemini-3.5-flash-lite")
+GROQ_MODEL = os.getenv("AI_GROQ_MODEL", "openai/gpt-oss-120b")
+# gpt-oss is a reasoning model and its reasoning tokens count as output, both
+# against the cap below and against Groq's per-minute bucket.
+GROQ_REASONING_EFFORT = os.getenv("AI_GROQ_REASONING_EFFORT", "low")
+
+# The output cap. An answer that reaches it is cut off mid-sentence, so it is
+# reported as an error, never shown. Groq reserves prompt + this cap from its
+# 8K-a-minute bucket before generating, so it is kept tight.
+LLM_MAX_OUTPUT_TOKENS = int(os.getenv("AI_LLM_MAX_OUTPUT_TOKENS", "400"))
+
+# Gemini sends no rate-limit headers, so its budget is counted here. Calls are
+# recorded in a small file so that the service, the evaluation and a smoke test
+# - which all draw on the same project's quota - see each other's calls, and a
+# restart does not reset the count.
+GEMINI_RPM = int(os.getenv("AI_GEMINI_RPM", "15"))
+GEMINI_RPD = int(os.getenv("AI_GEMINI_RPD", "500"))
+LLM_USAGE_FILE = os.getenv(
+    "AI_LLM_USAGE_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), ".llm-usage.json")
+)
+
+# The keys. Read once, at start-up, into each provider's client headers, and
+# never into a URL, a log line or an error message. A missing key leaves the
+# ask route answering 503 while search goes on working.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
