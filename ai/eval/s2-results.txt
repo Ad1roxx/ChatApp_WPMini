@@ -1,7 +1,7 @@
 S2 step 6 - answers, counted. No correctness or faithfulness figure: read s2-answers.txt.
-PROMPT_VERSION s2-v2; provider gemini; model gemini-3.5-flash-lite; role student
+PROMPT_VERSION s2-v2, run 1; provider gemini; model gemini-3.5-flash-lite; role student
 model check before the run: 2026-10-31 20:21 UTC: gemini-3.5-flash-lite listed by Gemini, generateContent supported, input limit 1048576, output limit 65536 (as checked before the last run)
-written 2026-10-31 20:55 UTC; 120 of 120 questions answered from the cache
+written 2026-10-31 21:10 UTC; 120 of 120 questions answered from the cache
 
 original: records, answerable  (n=33)
   answered     31/33   of which cite a labelled source 28/31, contain an uncited sentence 21/31

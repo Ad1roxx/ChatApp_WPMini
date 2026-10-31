@@ -1,4 +1,4 @@
-S2 step 6 - every answer. PROMPT_VERSION s2-v2; gemini gemini-3.5-flash-lite; asked as Aditya (role: student) in mentorship 1 of chatapp_eval. Synthetic data.
+S2 step 6 - every answer. PROMPT_VERSION s2-v2, run 1; gemini gemini-3.5-flash-lite; asked as Aditya (role: student) in mentorship 1 of chatapp_eval. Synthetic data.
 
 ====================================================================================================
 original: records, answerable

@@ -61,8 +61,17 @@ from prefix_ablation import quoted_labels  # noqa: E402
 from retrieval_s2 import EXTRACTOR_LIMITED, load_s2  # noqa: E402
 
 CACHE = HERE / ".answers-cache"
-ANSWERS = HERE / "s2-answers.txt"
-RESULTS = HERE / "s2-results.txt"
+# Which prompt version and which run this process is answering; set in main().
+# Run 1 of s2-v2 keeps Step 6's file names; every other run gets its own.
+VERSION = PROMPT_VERSION
+RUN = 1
+
+
+def out_paths() -> tuple[Path, Path]:
+    if (VERSION, RUN) == ("s2-v2", 1):
+        return HERE / "s2-answers.txt", HERE / "s2-results.txt"
+    stem = f"s2-{VERSION.removeprefix('s2-')}-run{RUN}"
+    return HERE / f"{stem}-answers.txt", HERE / f"{stem}-results.txt"
 ROLE = "student"  # Aditya is mentorship 1's student
 BUDGET_S = 60.0  # generous: pacing waits happen before the call, not inside it
 
@@ -162,7 +171,8 @@ class Recording:
 
 
 def cache_path(provider) -> Path:
-    safe = re.sub(r"[^A-Za-z0-9._-]", "_", f"{PROMPT_VERSION}--{provider.name}--{provider.model}")
+    run = "" if RUN == 1 else f"--run{RUN}"
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", f"{VERSION}--{provider.name}--{provider.model}{run}")
     return CACHE / f"{safe}.jsonl"
 
 
@@ -188,7 +198,8 @@ def pace(provider) -> bool:
 
 def ask(recording, provider, q) -> dict:
     started = time.perf_counter()
-    result = answer(recording, M1, ADITYA, q["question"], provider, role=ROLE, budget_s=BUDGET_S)
+    result = answer(recording, M1, ADITYA, q["question"], provider, role=ROLE, budget_s=BUDGET_S,
+                    prompt_version=VERSION)
     took = (time.perf_counter() - started) * 1000
     return {
         "id": q["id"],
@@ -272,7 +283,7 @@ def summarise(name: str, questions: list[dict], cache: dict) -> list[str]:
 
 
 def write_answers(table: dict, cache: dict, provider) -> None:
-    out = [f"S2 step 6 - every answer. PROMPT_VERSION {PROMPT_VERSION}; {provider.name} {provider.model}; "
+    out = [f"S2 step 6 - every answer. PROMPT_VERSION {VERSION}, run {RUN}; {provider.name} {provider.model}; "
            f"asked as Aditya (role: {ROLE}) in mentorship 1 of chatapp_eval. Synthetic data.", ""]
     for name, questions in table.items():
         out += ["=" * 100, name, "=" * 100]
@@ -299,7 +310,7 @@ def write_answers(table: dict, cache: dict, provider) -> None:
                     out.append("  model wrote (rejected, not shown): " + e["raw"].replace("\n", " "))
             for f in flags(q, e):
                 out.append(f"  FLAG: {f}")
-    ANSWERS.write_text("\n".join(out) + "\n", encoding="utf-8")
+    out_paths()[0].write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
 def write_results(table: dict, cache: dict, provider, model_check: str) -> None:
@@ -313,7 +324,7 @@ def write_results(table: dict, cache: dict, provider, model_check: str) -> None:
 
     out = [
         "S2 step 6 - answers, counted. No correctness or faithfulness figure: read s2-answers.txt.",
-        f"PROMPT_VERSION {PROMPT_VERSION}; provider {provider.name}; model {provider.model}; role {ROLE}",
+        f"PROMPT_VERSION {VERSION}, run {RUN}; provider {provider.name}; model {provider.model}; role {ROLE}",
         f"model check before the run: {model_check}",
         f"written {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}; "
         f"{len(every)} of {sum(len(v) for v in table.values())} questions answered from the cache",
@@ -340,7 +351,7 @@ def write_results(table: dict, cache: dict, provider, model_check: str) -> None:
         slowest = sorted(called, key=lambda e: e["turn_ms"], reverse=True)[:3]
         out.append("  slowest turns: " + ", ".join(f"{e['id']} {e['turn_ms']} ms" for e in slowest))
 
-    reasked = HERE / ".answers-cache" / "reasked.json"
+    reasked = cache_path(provider).with_suffix(".reasked.json")
     if reasked.exists():
         before = json.loads(reasked.read_text(encoding="utf-8"))
         out += ["", "== re-asked (--reask), first answer -> the one counted above"]
@@ -348,7 +359,7 @@ def write_results(table: dict, cache: dict, provider, model_check: str) -> None:
             new = cache.get(i)
             describe = lambda e: f"{e['result']['status']} {e['result']['cause'] or ''}".strip() if e else "not yet asked"  # noqa: E731
             out.append(f"  {i:<14} {describe(old):<22} -> {describe(new)}")
-    RESULTS.write_text("\n".join(out) + "\n", encoding="utf-8")
+    out_paths()[1].write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -359,7 +370,11 @@ def main() -> None:
     parser.add_argument("--report-only", action="store_true", help="rewrite the reports from the cache; no calls")
     parser.add_argument("--no-index", action="store_true", help="use the fixture index as it is")
     parser.add_argument("--reask", default="", help="comma-separated ids to drop from the cache and ask again")
+    parser.add_argument("--prompt-version", default=PROMPT_VERSION, help="which prompt version to answer with")
+    parser.add_argument("--run", type=int, default=1, help="run number: each run has its own cache and files")
     args = parser.parse_args()
+    global VERSION, RUN
+    VERSION, RUN = args.prompt_version, args.run
 
     built = providers.build_provider(LLM_PROVIDER)
     if isinstance(built, providers.Unconfigured):
@@ -374,7 +389,7 @@ def main() -> None:
         if unknown:
             raise SystemExit(f"--reask: not in the cache: {sorted(unknown)}")
         previous = {i: cache.pop(i) for i in reask}
-        (HERE / ".answers-cache" / "reasked.json").write_text(json.dumps(previous, default=str), encoding="utf-8")
+        path.with_suffix(".reasked.json").write_text(json.dumps(previous, default=str), encoding="utf-8")
         path.write_text("".join(json.dumps(e, default=str) + "\n" for e in cache.values()), encoding="utf-8")
     check_file = CACHE / "model-check.txt"
     model_check = (check_file.read_text(encoding="utf-8").strip() + " (as checked before the last run)"
@@ -413,7 +428,7 @@ def main() -> None:
 
     write_answers(table, cache, provider)
     write_results(table, cache, provider, model_check)
-    print(RESULTS.read_text(encoding="utf-8"))
+    print(out_paths()[1].read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

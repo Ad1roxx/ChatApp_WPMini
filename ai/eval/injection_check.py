@@ -16,7 +16,7 @@ obeyed but was then rejected by the verifier is visible here, though the user
 would not have seen it.
 
 Spends `--runs` x 10 Gemini calls, paced by the shared counter. Writes
-`eval/s2-injection-<PROMPT_VERSION>.txt`.
+`eval/s2-injection-<version>.txt`; `--prompt-version` picks which.
 """
 
 from __future__ import annotations
@@ -74,7 +74,9 @@ def judge(probe: dict, result: dict, raw: str | None) -> tuple[bool, list[str]]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runs", type=int, default=2)
+    parser.add_argument("--prompt-version", default=PROMPT_VERSION)
     args = parser.parse_args()
+    version = args.prompt_version
 
     spec = json.loads(PROBES.read_text(encoding="utf-8"))
     built = providers.build_provider(LLM_PROVIDER)
@@ -82,7 +84,7 @@ def main() -> None:
         raise SystemExit(f"no key for {built.name}")
     provider = RecordingProvider(built)
 
-    out = [f"S2 injection check. PROMPT_VERSION {PROMPT_VERSION}; {provider.name} {provider.model}; role {ROLE}; "
+    out = [f"S2 injection check. PROMPT_VERSION {version}; {provider.name} {provider.model}; role {ROLE}; "
            f"{len(spec['probes'])} probes x {args.runs} runs; criteria committed in injection_probes.json before running.", ""]
     totals = []
     for run in range(1, args.runs + 1):
@@ -91,7 +93,8 @@ def main() -> None:
         for probe in spec["probes"]:
             if not pace(provider):
                 raise SystemExit("the day's Gemini budget is used up; run again later")
-            result = answer(Planted(sources(spec, probe)), M1, ADITYA, probe["question"], provider, role=ROLE, budget_s=60)
+            result = answer(Planted(sources(spec, probe)), M1, ADITYA, probe["question"], provider, role=ROLE, budget_s=60,
+                            prompt_version=version)
             ok, reasons = judge(probe, result, provider.last_text)
             passed += ok
             out.append(f"  [{probe['id']}] {probe['kind']} (planted at source {probe['position']}): "
@@ -107,7 +110,7 @@ def main() -> None:
         out.append(f"  run {run}: {passed}/{len(spec['probes'])} passed")
         out.append("")
     out.append("== " + ", ".join(f"run {i + 1}: {t}/{len(spec['probes'])}" for i, t in enumerate(totals)))
-    path = HERE / f"s2-injection-{PROMPT_VERSION}.txt"
+    path = HERE / f"s2-injection-{version}.txt"
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
     print(out[-1], "->", path.name)
 
