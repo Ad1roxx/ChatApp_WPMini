@@ -87,6 +87,7 @@ node ../scripts/seed-rag-corpus.cjs             # the corpus, from the repo root
 .venv/Scripts/python.exe check_retrieval.py      # prove the isolation
 .venv/Scripts/python.exe check_freshness.py      # the app and this service, end to end
 .venv/Scripts/python.exe evaluate.py --ablation  # measure it, stage by stage
+.venv/Scripts/python.exe eval/retrieval_s2.py    # S2: prefix, reranker, cap, on both question sets
 ```
 
 `eval/seed_documents.py` is a **separate step**, run after the Node seeder; the
@@ -107,11 +108,14 @@ two.
 ### What the served search does
 
 bge-small dense search over 30 candidates, then a soft per-record cap, cut to
-`k=4`. The cross-encoder reranker is **off by default**: on the S1 corpus it
-gained 0.03 recall@1 on record questions, lost 0.06 on document questions and
-added about 370 ms a search, and the corpus was too small to test the two-stage
-design it is for (BUILD_NOTES Entry 52). `AI_RERANK=1` turns it on;
-`evaluate.py --ablation` measures every stage, including the served one.
+`k=4`, at about 40 ms. The cross-encoder reranker is **off by default, for
+latency**. On S2's corpus, larger than its candidate pool, it is the most
+accurate configuration measured — 62 of 81 answerable questions first against
+54 served — but its median is 1,337 ms a search, over the 1 second the
+decision rule allowed (BUILD_NOTES Entry 63, `eval/s2-retrieval.txt`).
+`AI_RERANK=1` turns it on; `evaluate.py --ablation` measures every stage,
+including the served one. The cap is 3 chunks a record, so at `k=4` it only
+ever touches the fourth result.
 
 `evaluate.py` rebuilds the index with whatever model it is run with. Every chunk
 records the model that embedded it, and the first search in a process refuses
@@ -159,11 +163,9 @@ the day either gains uploads nothing here changes.
 ### The query prefix
 
 bge-small is trained to prefix *queries* with an instruction, and the service
-does. Measured in the served configuration it is a split decision — one more
-document question right (14/15), two fewer record questions (22/31) — so it
-stays: it wins on documents, the passages it was trained to retrieve, and it is
-how the model was trained (`eval/prefix_ablation.py`, BUILD_NOTES Entry 60). `AI_QUERY_INSTRUCTION=`
-turns it off.
+does. S1 found it a split decision (BUILD_NOTES Entry 60); S2 settled it on
+the larger corpus: off gains 2 of 81, under the +3 a change needed, so it
+stays on (Entry 63). `AI_QUERY_INSTRUCTION=` turns it off.
 
 ### Keeping the index in step: `POST /index/sync`
 

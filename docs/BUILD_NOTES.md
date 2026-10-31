@@ -5061,6 +5061,113 @@ What counts, fixed before the run:
   soft cap, k=4); prefix off; reranker on (the cross-encoder over the 30
   candidates of 102, then the cap); soft cap off (dense top 4).
 
+**The run** (`python ai/eval/retrieval_s2.py`, `ai/eval/s2-retrieval.txt`):
+one index of 115 chunks, 102 of them visible in M1, the read-time check on,
+120 searches per configuration, both models loaded before anything is timed.
+
+Recall@1, by row:
+
+| Row | Served | Prefix off | Reranker on | Soft cap off |
+| --- | --- | --- | --- | --- |
+| Original: records (31) | 0.65 (20/31) | 0.68 (21/31) | 0.71 (22/31) | 0.65 (20/31) |
+| Original: documents (15) | 0.93 (14/15) | 0.87 (13/15) | 0.87 (13/15) | 0.93 (14/15) |
+| New: answerable (35) | 0.57 (20/35) | 0.63 (22/35) | **0.77 (27/35)** | 0.57 (20/35) |
+| New: extractor-limited (7, outside the rule) | 0.86 (6/7) | 0.86 (6/7) | 0.71 (5/7) | 0.86 (6/7) |
+| Median latency per search | 39 ms | 36 ms | **1,337 ms** | 44 ms |
+
+Recall@3 for the same rows: served 26/31, 15/15, 29/35, 6/7; prefix off
+26/31, 15/15, 30/35, 6/7; reranker 28/31, 15/15, 31/35, 7/7; soft cap off as
+served.
+
+- **Unanswerables (separation only):** the lowest top score among answerable
+  questions minus the highest among unanswerable ones is negative in every
+  configuration — original −0.098 and new −0.141 served, −0.088 and −0.133
+  with the prefix off. There is no score that separates them, which is the
+  measured reason S2's abstention never thresholds one. The reranker's
+  figures (−16.1, −9.2) are cross-encoder logits, in different units, and not
+  comparable.
+- **Cross-tenant: 0** chunks from mentorship 2 over the 5 questions, and 0
+  over all 120, in all four configurations.
+- **Extractor-limited, by id:** `s2-07`–`s2-10`, `s2-12`, `s2-34`, `s2-35`.
+  `s2-12` counts as found at rank 1 in every configuration, because recall is
+  scored on the source's title and the right file is returned — but its
+  answer is in the table the extractor dropped, so a model reading those
+  chunks cannot answer. Retrieval metrics cannot see this, and Step 6's
+  answers will.
+- **The original set lost ground on the larger corpus:** records are 20/31
+  served, against 22/31 on S1's corpus with the same labels and
+  configuration. The new material competes for the same questions; it is not
+  a regression in the code.
+
+**The rule applied** (recall@1 counts, extractor-limited left out, against the
+served default):
+
+| Change | Original (46) | New (35) | Combined (81) | Rule |
+| --- | --- | --- | --- | --- |
+| Prefix off | 34 (+0) | 22 (+2) | 56 (+2) | not met: +2 is under +3 |
+| Reranker on | 35 (+1) | 27 (+7) | 62 (+8) | accuracy met; **latency not met** — 1,337 ms median, over 1 s |
+| Soft cap off | 34 (+0) | 20 (+0) | 54 (+0) | not met: a tie |
+
+**Decisions:**
+
+- **D1: the prefix stays on.** Turning it off gains 2 (it is right only on
+  `cache-06`, `goal-01`, `s2-24` and `s2-29`; only the served default is right
+  on `idx-08` and `doc-09`). Below the bar, so the default holds. It is the
+  third measurement in which records lean towards *off*, each time by too
+  little to count.
+- **D7: the reranker stays off — for latency, not accuracy.** On a corpus
+  larger than its candidate pool it is the largest gain measured in this
+  project: +7 on the new set (`s2-01`, `-02`, `-16`, `-19`, `-24`, `-inj-02`,
+  `-inj-04`), +1 on the original, recall@3 up on both. But it adds about
+  1.3 seconds to every search (1,328, 1,411 and 1,337 ms medians on the three
+  runs made while writing the script), against S1's ~370 ms. S1 reranked at
+  most 25 short chunks; this reranks 30, most of them attachment chunks near
+  the 400-token budget — which of the two costs more was not measured. A mixed
+  result keeps the default, as the rule says. `AI_RERANK=1` still turns it on.
+- **Soft cap: stays on, as a tie — and the rule could never have removed
+  it.** The cap is 3 chunks a record and k is 4, so it can only ever change
+  the **fourth** result: recall@1 and recall@3 cannot see it by construction.
+  It changed the result list on 3 of 120 questions. Nothing here measures
+  whether those three were better or worse; it costs about nothing either way.
+
+**The heading check — 1.15's first real test.** Every heading line drawn in
+the ten new PDFs, against what the extractor called a heading (traced at
+`heading_of` / `sized_heading`, before empty sections are dropped):
+
+| File | Drawn | Detected | False | Missed |
+| --- | --- | --- | --- | --- |
+| `queue-retries.pdf` (12 pt bold numbered, 17 pt title) | 11 | 11 | 0 | 0 |
+| `load-test-report.pdf` (15 pt, 20 pt title) | 6 | 6 | 0 | 0 |
+| `observability-slides.pdf` (28 over 18) | 9 | 9 | 0 | 0 |
+| `pagination-design.pdf` (20 / 16 / 13 over 11) | 9 | 9 | 0 | 0 |
+| `race-condition.pdf` (14, 18 pt title) | 7 | 7 | 0 | 0 |
+| `consistency-essay.pdf` (12 pt numbered over 10, two columns) | 7 | 7 | 0 | 0 |
+| `zara-retries.pdf` (15, 20 pt title) | 5 | 5 | 0 | 0 |
+| `orders-schema.pdf` (bold at body size) | 6 | 0 | 0 | 6 |
+| `interview-notes.pdf` (ALL CAPS at body size) | 6 | 0 | 0 | 6 |
+| `learning-log.pdf` (none) | 0 | 0 | 0 | 0 |
+| **All** | **66** | **54** | **0** | **12** |
+
+Read line by line: every one of the 54 is a heading that was drawn as one, and
+no body line, table header, slide bullet or running footer was promoted. The
+13-over-11 subheadings (1.18) clear the ratio and the 12-over-11 numbered ones
+(1.09) do not, as intended, and are caught by the number rule instead —
+"Appendix", unnumbered at 12 over 11, by the coursework vocabulary. All 12
+misses are the two body-size formats the rule does not claim to handle. Two
+limits on reading this as a pass: the PDFs are mine, drawn from the formats I
+expected; and five of the 54 are dropped after detection because nothing
+follows them but another heading — four document titles and the "Design" H1
+— so `pagination-design.pdf`'s "The cursor" is not recorded as part of
+"Design". The hierarchy is lost; nothing is mislabelled.
+
+**A correction to Entry 62.** It says the ALL-CAPS headings are dropped "as
+one-word lines". The filter is words per *line*, at least three
+(`MIN_WORDS_PER_LINE`), so any heading block of one or two words goes —
+"ASSUMPTIONS", "API", "GENERATING CODES", and in the bold file "Relational
+model", "Document model", "Decision" — while three words or more ("WHAT I
+MISSED", "Where each one hurts") survive, glued into the body as an ordinary
+sentence.
+
 ---
 
 ### Open items / "later" list
@@ -5116,11 +5223,44 @@ What counts, fixed before the run:
   block), no closing full stop, and body text in regular weight
   following it. Measure it before shipping it, on the false headings it adds
   as well as the sections it finds. Entries 50, 61.
-- **Revisit the reranker in S2** — off by default since Entry 52 (+0.03 on
-  records, −0.06 on documents, ~370 ms). The S1 corpus is smaller than the
-  30-chunk candidate pool, so it could only measure the cross-encoder
-  re-sorting the whole mentorship. Re-measure on a larger corpus, labelled
-  before measuring; `AI_RERANK=1` turns it back on.
+- **Short heading lines are dropped as page furniture** — the words-per-line
+  filter (`MIN_WORDS_PER_LINE`, 3) removes any block of one or two words a
+  line, so a body-size "ASSUMPTIONS", "API" or "Decision" vanishes, and a
+  three-word one ("WHAT I MISSED") survives glued into the text before it as
+  a sentence. Either way the file is one "Document" section
+  (`interview-notes.pdf`, `orders-schema.pdf`). The filter exists for page
+  numbers and running heads, and those are what a short line usually is; a
+  fix would keep a short line that is followed by a paragraph in the same
+  font and is not repeated on other pages, and treat it as a heading
+  candidate rather than drop it. Measure the false headings it adds. Entry 63.
+- **A running footer becomes content** — "Aditya Dubey - Load test report -
+  page 1 of 2" passes every filter, and is appended to whichever section the
+  page ends in (two of `load-test-report.pdf`'s six). Its effect on
+  retrieval was not measured; it is also text a model will read and may
+  quote. Fix: drop a line that repeats on most pages with only its digits
+  changed, in the same position. Entries 62, 63.
+- **A numeric table is dropped whole** — the composition filter removes rows
+  that are mostly numbers, by design, and with them every figure in a
+  results table (`load-test-report.pdf`; `s2-12` asks for a number that is
+  only there). This opens a question type the system cannot answer — "what
+  was X at Y?" over a table — as RAG-Project §7.3 found for its papers.
+  Retrieval metrics cannot see it: the right file still comes back first,
+  so `s2-12` scores as found while its chunks cannot answer. A fix keeps a
+  block of aligned numeric rows as a table chunk (rows as `cell | cell`, as
+  `.docx` tables already are) rather than filtering it as noise. Entries 62,
+  63.
+- ~~**Revisit the reranker in S2**~~ — done in Entry 63, on 102 chunks
+  against a 30-candidate pool. Still off, now for **latency**: +8 at
+  recall@1 over 81 questions (+1 original, +7 new), but 1,337 ms median a
+  search.
+- **The reranker's cost** — the largest accuracy gain measured (Entry 63),
+  held back only by ~1.3 s a search on CPU. Not yet known: how much of that
+  is 30 pairs and how much is chunk length. Try fewer candidates (10–15), a
+  shorter `max_length`, or an ONNX or quantised cross-encoder, and measure
+  latency first. Any accuracy figure re-measured on the Entry 63 labels is
+  now measured on labels whose results are known, so a configuration chosen
+  that way needs new labels, committed before measuring, to be reported.
+  `AI_RERANK=1` turns it on.
 - ~~**The index is only updated by re-indexing**~~ — closed in S1.5
   (entries 53–58): records come from the app's database, every write notifies
   the index, and the read-time check keeps search correct whether or not the
@@ -5144,11 +5284,10 @@ What counts, fixed before the run:
   yet: cap the worker's torch threads, or move the worker into its own process
   — which would also keep a crash in a PDF library away from search. Measure
   again once S2 adds generation to the same process. Entry 59.
-- **The query prefix splits the question sets** — kept (Entry 60): it wins
-  one document question (14/15 against 13/15) and loses two record questions
-  (22/31 against 24/31), the second time records have preferred it off. Re-measure on S2's
-  larger corpus, labelled before measuring. `AI_QUERY_INSTRUCTION=` turns it
-  off.
+- ~~**The query prefix splits the question sets**~~ — re-measured in
+  Entry 63 on S2's corpus: off gains 2 of 81 (0 original, +2 new), under the
+  +3 bar, so it stays on. Records have now leaned towards off three times,
+  each time by too little to count.
 - **S3 decision: ended mentorships** — the app still shows their content and
   the Copilot route accepts them, but the index holds only active ones, so the
   assistant would answer "I don't know" about material the user can open.

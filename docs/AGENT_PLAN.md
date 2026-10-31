@@ -1057,19 +1057,25 @@ so the sprints do not re-litigate them.
 
 | | Decision | Status |
 | --- | --- | --- |
-| **D1** | Switch to `bge-small-en-v1.5` in S1, with the BGE query prefix and a full re-embed | **Approved** |
+| **D1** | Switch to `bge-small-en-v1.5` in S1, with the BGE query prefix and a full re-embed | **Approved**; prefix **settled in S2**: stays on |
 | **D2** | LLM calls live in `ai/` (Python) | **Approved** |
 | **D3** | Gemini generates, Groq judges — subject to the free-tier rules in §2.6; **"Groq for both" is the documented fallback** | **Approved** |
 | **D4** | Writes execute in the browser with the user's own token, after confirmation | **Approved**, with the client-result caveat in §2.4 |
 | **D5** | Rubric as a flagged attachment — **mentor-only by default, with a per-rubric "share with students" option** | **Approved, modified** |
 | **D6** | Extracted criteria in a versioned collection, one version per mentor confirmation | **Approved** |
-| **D7** | Reranker in the served path, `k=4`, re-measured in S1 | **Revised after S1:** `k=4` kept; reranker **off** by default, revisit in S2 |
+| **D7** | Reranker in the served path, `k=4`, re-measured in S1 | **Settled in S2:** `k=4`; reranker **off** — it is more accurate but over the 1 s latency bar |
 
 **D1.** 512 vs 256 tokens is the deciding argument, and it costs nothing at the
 index level: identical 384 dimensions means `numDimensions` is unchanged
 (`ai/store.py:78`). The two risks to carry into S1 are that the query prefix
 must be applied or retrieval degrades *silently*, and that every existing chunk
 must be re-embedded — a rebuild, not a migration.
+
+**The prefix, settled in S2 (BUILD_NOTES Entry 63).** Measured on the original
+65 and S2's 55, labelled and pushed before the run, under a rule written down
+first (adopt a change only for +3 at recall@1 over the 81 answerable questions
+the rule counts, losing no more than 1 on either set). Prefix off: +2 (0 on the
+original, +2 on the new). Under the bar, so the prefix stays on.
 
 **D2.** Python holds the agent and evaluation tooling; Node stays a pure
 security boundary. The cost is a process hop per tool call, which is the price
@@ -1110,3 +1116,13 @@ cross-encoder only re-sorted the whole mentorship. **S2 revisits it on a
 corpus larger than the candidate pool, labelled before measuring.**
 `AI_RERANK=1` turns it back on. The soft cap stays on: it costs nothing
 measurable and buys coverage at ranks four and five.
+
+**Settled in S2 (BUILD_NOTES Entry 63): the reranker stays off, for latency.**
+On 102 visible chunks against the 30-candidate pool — the two-stage design S1
+could not test — it gains +8 at recall@1 over 81 questions (+1 on the
+original set, +7 on the new), which meets the accuracy rule; but its median is
+1,337 ms a search, and the rule written before the run required under 1
+second. A mixed result keeps the default. Its cost, not its value, is now the
+open question (fewer candidates, shorter inputs, a faster runtime), and any
+re-measurement needs fresh labels. The soft cap stays on as a tie: at cap 3
+and `k=4` it can only change the fourth result, and did on 3 of 120 questions.
