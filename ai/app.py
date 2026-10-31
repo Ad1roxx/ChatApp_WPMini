@@ -1,9 +1,9 @@
-"""The retrieval service.
+"""The retrieval service, and since S2 the answering one.
 
 Express is the only thing that talks to this. It verifies the Firebase token,
 checks that the caller is actually in the mentorship, and then asks here for
-chunks. This service therefore trusts the `mentorshipId` and `viewerId` it is
-given — which is exactly why it must not be reachable from anywhere else:
+chunks (`/search`) or an answer (`/ask`). This service therefore trusts the
+`mentorshipId`, `viewerId` and `role` it is given — which is exactly why it must not be reachable from anywhere else:
 
 - it binds to 127.0.0.1, so nothing off the machine can open a socket to it
 - every route requires a shared secret Express holds
@@ -22,9 +22,12 @@ from contextlib import asynccontextmanager
 from typing import Literal, Union
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from config import CATCHUP, RERANK, SERVED_K, SERVICE_SECRET
+from answer import PROMPT_VERSION, answer
+from config import ASK_BUDGET_S, CATCHUP, RERANK, SERVED_K, SERVICE_SECRET
+from providers import FAILED, NOT_CONFIGURED, PLAIN, RATE_LIMITED, TRUNCATED, UNAVAILABLE, build_provider
 from store import ChunkStore, embed_query, reranker
 from sync import SyncWorker
 
@@ -33,11 +36,15 @@ from sync import SyncWorker
 # without this those lines - the explanation for any answer that came back
 # shorter than expected - would be discarded.
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
-for _name in ("store", "sources", "extract", "sync"):
+for _name in ("store", "sources", "extract", "sync", "copilot.llm", "copilot.answer"):
     logging.getLogger(_name).setLevel(logging.INFO)
 
 store = ChunkStore()
 worker: SyncWorker | None = None
+# Built once, here, with its HTTP client: the key goes into that client's
+# headers and nowhere else. A missing key builds a provider that answers every
+# call "not configured", so /ask is a 503 and /search carries on.
+provider = build_provider()
 
 
 @asynccontextmanager
@@ -182,3 +189,55 @@ def search(body: SearchRequest) -> dict:
         "query": body.query,
         "chunks": [Chunk(**hit).model_dump() for hit in hits],
     }
+
+
+class AskRequest(BaseModel):
+    """Who is asking, where, in what role, and the question. Nothing else.
+
+    `role` is the asker's position in THIS mentorship, which Express reads from
+    the mentorship record after its membership check - never from the user's
+    account, the request body or the question. Extra fields are refused, so a
+    caller cannot pass chunks, a prompt or a provider choice through.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    mentorshipId: str = Field(pattern=_OBJECT_ID)
+    viewerId: str = Field(pattern=_OBJECT_ID)
+    role: Literal["student", "mentor"]
+    question: str = Field(min_length=1, max_length=1000)
+
+
+# A provider problem, as Express should pass it on. The body carries the
+# provider layer's plain sentence, which is all the user ever sees of it.
+ASK_STATUS = {
+    RATE_LIMITED: 429,
+    NOT_CONFIGURED: 503,
+    UNAVAILABLE: 503,
+    TRUNCATED: 502,
+    FAILED: 502,
+}
+
+
+@app.post("/ask", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def ask(body: AskRequest) -> JSONResponse:
+    """Answer from this turn's search, with verified citations, or abstain.
+
+    200 for an answer and for an abstention - both are the system working.
+    429, 502 or 503 for a provider problem, with the plain message. 502 if
+    search itself fails (the app's database is unreachable for the read-time
+    check): nothing is answered from chunks nobody checked.
+    """
+    log = logging.getLogger("copilot.answer")
+    try:
+        result = answer(
+            store, body.mentorshipId, body.viewerId, body.question, provider,
+            role=body.role, budget_s=ASK_BUDGET_S,
+        )
+    except Exception as error:  # search failed; the provider layer never raises
+        log.error("copilot prompt=%s search failed: %s", PROMPT_VERSION, type(error).__name__)
+        return JSONResponse(
+            status_code=502,
+            content={"status": "error", "message": PLAIN[FAILED], "promptVersion": PROMPT_VERSION},
+        )
+    status = ASK_STATUS.get(result["outcome"], 200) if result["status"] == "error" else 200
+    return JSONResponse(status_code=status, content=result)

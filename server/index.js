@@ -3882,6 +3882,136 @@ app.post('/api/mentorships/:id/copilot/search', requireAuth, async (req, res) =>
   }
 });
 
+/**
+ * How long Express waits for an answer, in milliseconds. Set from measured
+ * latency (BUILD_NOTES Entry 67): the answering service gives the provider at
+ * most 8 s (ai/config.py, ASK_BUDGET_S), about seven times the slowest of the
+ * live calls measured before this route existed, with room for one retry;
+ * search adds about 40 ms. Ten seconds covers both with margin. This is NOT
+ * search's 15 s stretched: it is shorter, because a turn that has not
+ * answered in ten seconds is not going to.
+ */
+const COPILOT_ASK_TIMEOUT_MS = Number(process.env.COPILOT_ASK_TIMEOUT_MS) || 10000;
+
+/**
+ * Asks per person per minute. Every ask is a call on a free-tier quota the
+ * whole app shares (15 a minute, 500 a day on Gemini), so one person must not
+ * be able to spend it. In memory, per process: a restart forgets it, which at
+ * this scale costs nothing, and the provider layer's own count is the limit
+ * that actually protects the quota.
+ */
+const COPILOT_ASKS_PER_MINUTE = Number(process.env.COPILOT_ASKS_PER_MINUTE) || 5;
+const askTimes = new Map(); // user id -> timestamps of their recent asks
+
+function allowAsk(userId) {
+  const now = Date.now();
+  const recent = (askTimes.get(userId) || []).filter((t) => now - t < 60000);
+  if (recent.length >= COPILOT_ASKS_PER_MINUTE) {
+    askTimes.set(userId, recent);
+    return false;
+  }
+  recent.push(now);
+  askTimes.set(userId, recent);
+  return true;
+}
+
+/**
+ * POST /api/mentorships/:id/copilot/ask
+ *
+ * An answer about ONE mentorship's material, citing what it was built from.
+ * Same boundary as /copilot/search, plus one more thing decided here and
+ * nowhere else: **who is asking, in this mentorship**.
+ *
+ *   token -> requireAuth -> resolveMentorshipAccess -> role -> answer
+ *
+ * The role is the asker's position in the mentorship RECORD - its `mentor` or
+ * its `student` - as resolveMentorshipAccess found it. Not the user's account
+ * role (an admin who mentors one student is that student's mentor, and nobody
+ * else's anything), and never anything in the request body or the question:
+ * the body's `question` is the only field read, and anyone who is neither
+ * party has already been refused before the service is called.
+ *
+ * Statuses: 200 for an answer or an abstention (both are the system working);
+ * 400 for an empty or over-long question; 429 when this person has asked too
+ * often, or the provider's limit is reached; 503 when generation is not
+ * configured or unavailable; 502 for anything else that went wrong upstream,
+ * a timeout included. Every error body is one plain sentence.
+ *
+ * Ended mentorships behave as they do for search: resolveMentorshipAccess
+ * does not look at status, so both parties can still ask. Recorded for the S3
+ * decision on ended mentorships (BUILD_NOTES open items).
+ */
+app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
+  try {
+    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
+    if (access.error) {
+      return res.status(access.status).json({ error: access.error });
+    }
+    // From the mentorship record. resolveMentorshipAccess has refused anyone
+    // who is neither its mentor nor its student, so "not mentor" is "student".
+    const role = access.isMentor ? 'mentor' : 'student';
+
+    const question = String(req.body?.question || '').trim();
+    if (!question) {
+      return res.status(400).json({ error: 'Ask a question' });
+    }
+    if (question.length > 1000) {
+      return res.status(400).json({ error: 'That question is too long' });
+    }
+
+    if (!AI_SERVICE_URL || !AI_SERVICE_SECRET) {
+      return res.status(503).json({ error: 'The Copilot is not configured on this server' });
+    }
+
+    if (!allowAsk(String(req.authUser._id))) {
+      return res
+        .status(429)
+        .json({ error: "You're asking faster than the Copilot can answer. Wait a minute and try again." });
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), COPILOT_ASK_TIMEOUT_MS);
+
+    let upstream;
+    let body;
+    try {
+      upstream = await fetch(`${AI_SERVICE_URL}/ask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AI-Secret': AI_SERVICE_SECRET
+        },
+        body: JSON.stringify({
+          mentorshipId: String(req.params.id),
+          // Both from the verified identity and the mentorship record, never
+          // from the request body.
+          viewerId: String(req.authUser._id),
+          role,
+          question
+        }),
+        signal: controller.signal
+      });
+      body = await upstream.json().catch(() => null);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (upstream.ok && body) {
+      return res.json(body);
+    }
+    // The service's own plain sentence for a provider problem it recognised;
+    // anything else is one generic sentence, never the upstream's text.
+    if ([429, 502, 503].includes(upstream.status) && typeof body?.message === 'string') {
+      return res.status(upstream.status).json({ error: body.message, promptVersion: body.promptVersion });
+    }
+    console.error('Answering service answered', upstream.status);
+    return res.status(502).json({ error: 'The Copilot could not answer that' });
+  } catch (err) {
+    console.error('Error asking the Copilot:', err.name === 'AbortError' ? 'timed out' : err);
+    res.status(502).json({ error: 'The Copilot could not answer that' });
+  }
+});
+
 // ============================================
 // ANALYTICS
 // ============================================

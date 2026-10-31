@@ -105,3 +105,15 @@ test('with no retrieval service configured, the route says so', async () => {
   const body = await res.json();
   assert.match(body.error, /not configured/i);
 });
+
+test('the ask route says so too, after the same access check', async () => {
+  const askIt = (as, id) =>
+    api(`/api/mentorships/${id}/copilot/ask`, { as, method: 'POST', body: { question: 'what should I revise?' } });
+
+  const res = await askIt(USERS.student, mine._id);
+  assert.equal(res.status, 503);
+  assert.match((await res.json()).error, /not configured/i);
+
+  // Refused before configuration is even considered.
+  assert.equal((await askIt(USERS.admin, mine._id)).status, 403);
+});

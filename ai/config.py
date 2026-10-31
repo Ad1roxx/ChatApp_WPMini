@@ -172,3 +172,12 @@ LLM_USAGE_FILE = os.getenv(
 # ask route answering 503 while search goes on working.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+
+# How long one answer may spend in the provider, retries and waits included.
+# Set from measurement (BUILD_NOTES Entry 67): seven live calls before S2's
+# step 5 took 0.50-1.10 s, so 8 s is about seven times the slowest, with room
+# for one 429 retry whose retry-after is up to 5 s (MIN_CALL_S is 3).
+# Express's own timeout for the ask route sits just above this and search
+# (server/index.js, COPILOT_ASK_TIMEOUT_MS), and Step 6 re-checks both against
+# 120 calls.
+ASK_BUDGET_S = float(os.getenv("AI_ASK_BUDGET_S", "8"))

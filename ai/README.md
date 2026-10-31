@@ -136,7 +136,7 @@ override, run `ingest.py --drop` before serving.
 | `check_retrieval.py` | CLI | End-to-end checks, including that another mentorship's material never appears |
 | `answer.py` | A question, the asker's role, this turn's search, a provider | An answer whose every citation is a chunk this search returned, or one abstention message with its cause (`no_results`, `declined`, `unverified`); `PROMPT_VERSION` on every response |
 | `providers.py` | A system prompt and a question | A `Generation` from Gemini or Groq: an answer, or a typed outcome with one plain sentence for the user. Rate limits, retries and keys live here |
-| `app.py` | HTTP | FastAPI `/search`, behind the shared secret |
+| `app.py` | HTTP | FastAPI `/search`, `/ask` and `/index/sync`, behind the shared secret |
 
 ## What is indexed
 
@@ -168,6 +168,28 @@ bge-small is trained to prefix *queries* with an instruction, and the service
 does. S1 found it a split decision (BUILD_NOTES Entry 60); S2 settled it on
 the larger corpus: off gains 2 of 81, under the +3 a change needed, so it
 stays on (Entry 63). `AI_QUERY_INSTRUCTION=` turns it off.
+
+### Answering: `POST /ask`
+
+Express calls this after its membership check, with four fields and nothing
+else:
+
+```json
+{"mentorshipId": "<24 hex>", "viewerId": "<24 hex>", "role": "student", "question": "..."}
+```
+
+`role` is the asker's position in that mentorship's record, `student` or
+`mentor`, decided by Express and never by the question. The service searches,
+asks the model with the sources numbered and fenced (`answer.py`), verifies
+every citation against this turn's results, and answers 200 with
+`status: answered` or `abstained` (one message, its `cause` in a field), or
+429 / 502 / 503 with a plain sentence when the provider cannot answer. Shared
+secret, and local callers only. `PROMPT_VERSION` is in every response.
+
+Generation is configured in `.env` (`GEMINI_API_KEY`, `AI_LLM_PROVIDER`, and
+the rest in `.env.example`). **Free tiers, synthetic data only**: no real
+student work through either provider, and no billing on either. Without a key,
+`/ask` is a 503 and `/search` works.
 
 ### Keeping the index in step: `POST /index/sync`
 

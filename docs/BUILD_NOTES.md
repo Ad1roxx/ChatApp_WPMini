@@ -5507,6 +5507,94 @@ multi-process).
 
 ---
 
+### Entry 67 — S2 step 5: the ask route, Express and FastAPI
+
+`POST /api/mentorships/:id/copilot/ask` in Express, and `POST /ask` in the
+service behind it.
+
+```
+token -> requireAuth -> resolveMentorshipAccess -> role -> per-person limit -> /ask -> answer()
+```
+
+**The role comes from the mentorship record.** After `resolveMentorshipAccess`
+the role is `mentor` if the asker is this mentorship's `mentor` and
+`student` if they are its `student`. Anyone else was refused (403) before the
+role is considered, and before the service is called. The user's account role
+plays no part: an admin account that mentors one student is that student's
+mentor and nothing in any other mentorship. Nothing in the request body or
+the question is read except `question`.
+
+Two mutations were made by hand to `index.js` and restored:
+
+- **Role taken from the body:** a test failed.
+- **Role taken from the account:** at first, **no test failed** — every
+  fixture user's account role happened to match their position. Fixed with
+  a mentorship written straight to the database in which a *mentor* account
+  is the *student* (a student promoted to mentor keeps their old
+  mentorships). With that, the mutation fails 2 tests.
+
+**The service's half** takes exactly four fields — `mentorshipId`,
+`viewerId`, `role` (`student` or `mentor`) and `question` (1–1,000
+characters) — and refuses anything else with a 422. A caller cannot pass in
+chunks, a prompt or a provider. It requires the shared secret and a local
+caller, as `/index/sync` does. The provider is built once at start-up; with
+no key, `/ask` is a 503 while `/search` keeps working (tested).
+
+**Statuses**, each with one plain sentence:
+
+| Case | Status |
+| --- | --- |
+| An answer, or an abstention (with its `cause`) | 200 |
+| An empty question, or one over 1,000 characters | 400 |
+| This person asked more than 5 times in a minute | 429, *"You're asking faster than the Copilot can answer. Wait a minute and try again."* |
+| The provider's limit reached (its plain sentence is passed on) | 429 |
+| Generation not configured, or the model unavailable | 503 |
+| An answer cut off at the cap, a provider failure, search failing (the read-time check could not reach the app's database), a timeout, or anything unrecognised | 502 |
+
+Express passes on the service's own sentence only for 429, 502 and 503 bodies
+that carry one. Anything else becomes *"The Copilot could not answer that"*,
+never the upstream's text (tested with a traceback-shaped body).
+
+**The per-person limit** is 5 asks a minute (`COPILOT_ASKS_PER_MINUTE`), held
+in memory. The whole app shares 15 Gemini calls a minute, so one person
+should not be able to spend them. It is counted after the access check and
+validation, so a refused ask costs nothing. It is per process and forgotten
+on restart; the provider layer's own count is what protects the quota.
+
+**The timeout, from measurement.** Seven live calls had been made by this
+point (the two smoke tests and the five Step 4 probes): **0.50–1.10 s**
+(498, 628, 635, 650, 776, 842, 1,104 ms). The service gives the provider
+**8 s** a turn (`AI_ASK_BUDGET_S`): about seven times the slowest, with room
+for one 429 retry whose retry-after is up to 5 s. Express waits **10 s**
+(`COPILOT_ASK_TIMEOUT_MS`): that budget plus search's ~40 ms, with margin.
+Both are shorter than search's 15 s, not that 15 s stretched. Seven calls is
+a small sample, so Step 6 re-checks both against 120.
+
+**Ended mentorships** are answered, as they are searched:
+`resolveMentorshipAccess` does not look at status. Added to the S3 open item.
+
+**Tests:**
+
+- **Node:** 30 in `copilot-ask.test.js` and 3 in `copilot-ask-limit.test.js`
+  (its own server, at 3 a minute), both against a stub service, plus one in
+  `copilot.test.js` for the unconfigured 503. They cover:
+  - the role for each party, for an admin who mentors, and for a mentor
+    account that is a student;
+  - a body carrying `role`, `viewerId`, `mentorshipId`, `prompt` and `k`
+    arriving at the service as exactly the four fields, all from the server's
+    side;
+  - a question claiming to be from the mentor;
+  - every refusal reaching the service zero times;
+  - each status;
+  - the timeout answering at 400 ms rather than when the stub did.
+- **Python:** 24 in `test_ask_route.py`.
+
+**Not done:** a live call through Express, FastAPI and Gemini together. The
+route is tested against a stub on one side and `answer()` against the fake on
+the other; Step 6 calls `answer()` directly.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -5639,7 +5727,7 @@ multi-process).
   +3 bar, so it stays on. Records have now leaned towards off three times,
   each time by too little to count.
 - **S3 decision: ended mentorships** — the app still shows their content and
-  the Copilot route accepts them, but the index holds only active ones, so the
+  both Copilot routes, search and ask (Entry 67), accept them, but the index holds only active ones, so the
   assistant would answer "I don't know" about material the user can open.
   Refuse clearly, or index them. AGENT_PLAN §5 S3.
 - **Product question: should mentors see drafts?** They do today, in the app
