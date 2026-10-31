@@ -226,6 +226,19 @@ def flags(q: dict, entry: dict) -> list[str]:
     return out
 
 
+# A number with a unit of time: what s2-12 must not state, because the figure
+# it asks for is in a table the extractor drops (label corrected, Entry 69).
+_LATENCY_FIGURE = re.compile(r"\b\d[\d,.]*\s*(ms|milliseconds?|seconds?|s)\b", re.I)
+
+
+def meets_expectation(q: dict, entry: dict) -> bool | None:
+    """For a question with an `expect` label: did the answer do what it says?"""
+    if q.get("expect") == "partial_no_number":
+        r = entry["result"]
+        return r["status"] == "answered" and not _LATENCY_FIGURE.search(r["answer"] or "")
+    return None
+
+
 def cites_labelled(q: dict, entry: dict) -> bool:
     return any(c.get("title") in q.get("expected", []) for c in entry["result"].get("citations") or [])
 
@@ -248,6 +261,10 @@ def summarise(name: str, questions: list[dict], cache: dict) -> list[str]:
     lines.append(f"  abstained   {len(abstained):>3}/{n}   no_results {causes['no_results']}, declined {causes['declined']}, "
                  f"unverified {causes['unverified']}")
     lines.append(f"  error       {len(errors):>3}/{n}   {outcomes or '-'}")
+    for q, e in entries:
+        met = meets_expectation(q, e)
+        if met is not None:
+            lines.append(f"  {q['id']} expects {q['expect']}: {'met' if met else 'NOT met'}")
     flagged = [(q["id"], f) for q, e in entries for f in flags(q, e)]
     if flagged:
         lines.append("  flags (read in s2-answers.txt): " + "; ".join(f"{i}: {f}" for i, f in flagged))

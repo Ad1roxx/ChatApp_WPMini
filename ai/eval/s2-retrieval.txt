@@ -2,47 +2,47 @@ S2 step 2b - BUILD_NOTES Entry 63. Labels as pushed in 46c68cc.
 index: 115 chunks; 102 visible in M1 to Aditya; candidates 30, k=4
 original records scored on the six clear-cut label changes (Entry 51)
 
-== served   median 39 ms a search, p95 45 ms, over 120 searches
-  original: records        recall@1 0.65 (20/31)  recall@3 0.84 (26/31)  MRR 0.728
+== served   median 39 ms a search, p95 47 ms, over 120 searches
+  original: records        recall@1 0.67 (22/33)  recall@3 0.85 (28/33)  MRR 0.745
   original: documents      recall@1 0.93 (14/15)  recall@3 1.00 (15/15)  MRR 0.967
   new: answerable          recall@1 0.57 (20/35)  recall@3 0.83 (29/35)  MRR 0.690
   new: extractor-limited   recall@1 0.86 (6/7)    recall@3 0.86 (6/7)    MRR 0.893
-  separation, original  -0.098  (lowest answerable top score minus highest unanswerable)
+  separation, original  -0.040  (lowest answerable top score minus highest unanswerable)
   separation, new       -0.141  (lowest answerable top score minus highest unanswerable)
   cross-tenant: 0 chunks from another mentorship over 5 questions (0 over all 120)
 
-== prefix off   median 36 ms a search, p95 43 ms, over 120 searches
-  original: records        recall@1 0.68 (21/31)  recall@3 0.84 (26/31)  MRR 0.745
+== prefix off   median 36 ms a search, p95 40 ms, over 120 searches
+  original: records        recall@1 0.70 (23/33)  recall@3 0.85 (28/33)  MRR 0.760
   original: documents      recall@1 0.87 (13/15)  recall@3 1.00 (15/15)  MRR 0.933
   new: answerable          recall@1 0.63 (22/35)  recall@3 0.86 (30/35)  MRR 0.733
   new: extractor-limited   recall@1 0.86 (6/7)    recall@3 0.86 (6/7)    MRR 0.857
-  separation, original  -0.088  (lowest answerable top score minus highest unanswerable)
+  separation, original  -0.035  (lowest answerable top score minus highest unanswerable)
   separation, new       -0.133  (lowest answerable top score minus highest unanswerable)
   cross-tenant: 0 chunks from another mentorship over 5 questions (0 over all 120)
 
-== reranker on   median 1337 ms a search, p95 1424 ms, over 120 searches
-  original: records        recall@1 0.71 (22/31)  recall@3 0.90 (28/31)  MRR 0.806
+== reranker on   median 1330 ms a search, p95 1428 ms, over 120 searches
+  original: records        recall@1 0.73 (24/33)  recall@3 0.91 (30/33)  MRR 0.818
   original: documents      recall@1 0.87 (13/15)  recall@3 1.00 (15/15)  MRR 0.933
   new: answerable          recall@1 0.77 (27/35)  recall@3 0.89 (31/35)  MRR 0.850
   new: extractor-limited   recall@1 0.71 (5/7)    recall@3 1.00 (7/7)    MRR 0.857
-  separation, original  -16.075  (lowest answerable top score minus highest unanswerable)
+  separation, original  -11.834  (lowest answerable top score minus highest unanswerable)
   separation, new       -9.164  (lowest answerable top score minus highest unanswerable)
   cross-tenant: 0 chunks from another mentorship over 5 questions (0 over all 120)
 
-== soft cap off   median 44 ms a search, p95 60 ms, over 120 searches
-  original: records        recall@1 0.65 (20/31)  recall@3 0.84 (26/31)  MRR 0.728
+== soft cap off   median 31 ms a search, p95 43 ms, over 120 searches
+  original: records        recall@1 0.67 (22/33)  recall@3 0.85 (28/33)  MRR 0.745
   original: documents      recall@1 0.93 (14/15)  recall@3 1.00 (15/15)  MRR 0.967
   new: answerable          recall@1 0.57 (20/35)  recall@3 0.83 (29/35)  MRR 0.690
   new: extractor-limited   recall@1 0.86 (6/7)    recall@3 0.86 (6/7)    MRR 0.893
-  separation, original  -0.098  (lowest answerable top score minus highest unanswerable)
+  separation, original  -0.040  (lowest answerable top score minus highest unanswerable)
   separation, new       -0.141  (lowest answerable top score minus highest unanswerable)
   cross-tenant: 0 chunks from another mentorship over 5 questions (0 over all 120)
 
 == the decision rule (Entry 63): recall@1 counts, extractor-limited left out
-  served        original 34/46 (+0)  new 20/35 (+0)  combined 54/81 (+0)
-  prefix off    original 34/46 (+0)  new 22/35 (+2)  combined 56/81 (+2)   does not meet the rule
-  reranker on   original 35/46 (+1)  new 27/35 (+7)  combined 62/81 (+8)   does not meet the rule
-  soft cap off  original 34/46 (+0)  new 20/35 (+0)  combined 54/81 (+0)   does not meet the rule
+  served        original 36/48 (+0)  new 20/35 (+0)  combined 56/83 (+0)
+  prefix off    original 36/48 (+0)  new 22/35 (+2)  combined 58/83 (+2)   does not meet the rule
+  reranker on   original 37/48 (+1)  new 27/35 (+7)  combined 64/83 (+8)   does not meet the rule
+  soft cap off  original 36/48 (+0)  new 20/35 (+0)  combined 56/83 (+0)   does not meet the rule
 
 == questions whose recall@1 differs from the served default
   prefix off    right only here: ['cache-06', 'goal-01', 's2-24', 's2-29']

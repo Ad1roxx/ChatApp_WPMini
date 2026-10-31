@@ -1,22 +1,22 @@
 S2 step 6 - answers, counted. No correctness or faithfulness figure: read s2-answers.txt.
 PROMPT_VERSION s2-v2; provider gemini; model gemini-3.5-flash-lite; role student
-model check before the run: gemini-3.5-flash-lite listed by Gemini, generateContent supported, input limit 1048576, output limit 65536
-written 2026-10-31 20:22 UTC; 120 of 120 questions answered from the cache
+model check before the run: 2026-10-31 20:21 UTC: gemini-3.5-flash-lite listed by Gemini, generateContent supported, input limit 1048576, output limit 65536 (as checked before the last run)
+written 2026-10-31 20:55 UTC; 120 of 120 questions answered from the cache
 
-original: records, answerable  (n=31)
-  answered     29/31   of which cite a labelled source 26/29, contain an uncited sentence 19/29
-  abstained     2/31   no_results 0, declined 1, unverified 1
-  error         0/31   -
+original: records, answerable  (n=33)
+  answered     31/33   of which cite a labelled source 28/31, contain an uncited sentence 21/31
+  abstained     2/33   no_results 0, declined 1, unverified 1
+  error         0/33   -
 
 original: documents, answerable  (n=15)
   answered     15/15   of which cite a labelled source 15/15, contain an uncited sentence 5/15
   abstained     0/15   no_results 0, declined 0, unverified 0
   error         0/15   -
 
-original: unanswerable  (n=19)
-  answered      3/19   of which cite a labelled source 0/3, contain an uncited sentence 3/3
-  abstained    16/19   no_results 0, declined 16, unverified 0
-  error         0/19   -
+original: unanswerable  (n=17)
+  answered      1/17   of which cite a labelled source 0/1, contain an uncited sentence 1/1
+  abstained    16/17   no_results 0, declined 16, unverified 0
+  error         0/17   -
 
 new: answerable  (n=31)
   answered     26/31   of which cite a labelled source 25/26, contain an uncited sentence 11/26
@@ -27,6 +27,7 @@ new: extractor-limited  (n=7)
   answered      7/7   of which cite a labelled source 7/7, contain an uncited sentence 5/7
   abstained     0/7   no_results 0, declined 0, unverified 0
   error         0/7   -
+  s2-12 expects partial_no_number: met
 
 new: unanswerable  (n=8)
   answered      0/8   of which cite a labelled source 0/0, contain an uncited sentence 0/0

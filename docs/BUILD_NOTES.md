@@ -5777,6 +5777,59 @@ a new `PROMPT_VERSION` and a new run):
 
 ---
 
+### Entry 69 — Three label corrections, before any new run
+
+Found by reading Step 6's answers (Entry 68), corrected in commits of their
+own before anything else was run, and pushed:
+
+- **`leak-04` and `leak-05` are answerable** (`9e7978f`). They were labelled
+  unanswerable when the corpus held only records: stale reads, and the cost
+  of an unused index, were discussed only in the other mentorship. Mentorship
+  1's own documents, added in S1, now say both:
+  - `cache-notes.pdf`: "a stale list is visible and harmless", and the brief
+    asks what exactly becomes stale;
+  - `indexing-report.pdf`: "an index nothing uses still costs a write on
+    every insert".
+
+  Expected: `cache-notes.pdf` and the caching brief for `leak-04`;
+  `indexing-report.pdf` for `leak-05`.
+- **`s2-12` expects a partial answer that invents no number** (`0a37881`). Its
+  answer, 210 ms, is only in the table the extractor drops. It was labelled
+  as an abstention before the partial-answer rule existed; under `s2-v2`'s
+  rule 2 the right behaviour is to say what the surviving text says and state
+  no figure. `evaluate_answers.py` scores it on exactly that: answered, with
+  no number carrying a unit of time.
+
+Label hashes now: `questions.jsonl` 658a53b5…3844, `questions_s2.jsonl`
+0bed904f…0416.
+
+**Old and new figures.**
+
+Step 6 (`s2-results.txt`, the same 120 answers re-counted; no new calls):
+
+| Row | Before | After |
+| --- | --- | --- |
+| Original: records, answerable | answered 29/31 | answered **31/33** (both answered, from the right files) |
+| Original: unanswerable — abstained | 16/19 | **16/17** (the one answered is `doc-leak-01`, the misattribution) |
+| `s2-12` meets its expectation | not met (it did not abstain) | **met** (partial, no number) |
+
+2b's retrieval (`retrieval_s2.py`, re-run; `s2-retrieval.txt`), recall@1 on
+the original records:
+
+| Configuration | Before | After |
+| --- | --- | --- |
+| Served | 0.65 (20/31) | 0.67 (22/33) |
+| Prefix off | 0.68 (21/31) | 0.70 (23/33) |
+| Reranker on | 0.71 (22/31) | 0.73 (24/33) |
+| Soft cap off | 0.65 (20/31) | 0.67 (22/33) |
+
+The two corrected questions are first in every configuration. **Every delta
+in the decision rule is unchanged** (+2, +8, +0 over 83 instead of 81), so D1
+and D7 stand as decided. The original separation narrows (served −0.098 →
+−0.040) but is still negative: still no threshold.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
