@@ -33,8 +33,8 @@ the prompt and its parsing are the part worth reading.
 
 **Gemini** sends no rate-limit headers, so its calls are counted: `CallBudget`
 holds the timestamps of the last day's calls in a small file shared by every
-process using the key, and refuses - before sending - a call that would exceed
-15 a minute or 500 a day. **Groq** reserves the prompt plus
+process using the key, locked between processes, and refuses - before sending
+- a call that would exceed 15 a minute or 500 a day. **Groq** reserves the prompt plus
 `max_completion_tokens` from one 8K-a-minute bucket before it generates, so
 `HeaderBudget` keeps what the last response said was left and checks that sum
 against it. Either way a call that cannot be made in time is a `rate_limited`
@@ -155,6 +155,58 @@ def log_call(generation: Generation, *, prompt_version: str, stripped: int = 0) 
 # ---------------------------------------------------------------------------
 
 
+class _FileLock:
+    """An exclusive lock between processes, held on a sibling `.lock` file.
+
+    The operating system's own record lock (`msvcrt.locking` on Windows,
+    `fcntl.flock` elsewhere), so it is released when its holder exits, crashes
+    included: there is never a stale lock to clear by hand. Inside one process
+    a thread lock serialises first, because an OS lock taken twice by the same
+    process does not exclude.
+    """
+
+    def __init__(self, path: str):
+        self.path = path + ".lock"
+        self._thread = threading.Lock()
+        self._file = None
+
+    def __enter__(self):
+        self._thread.acquire()
+        try:
+            self._file = open(self.path, "a+b")
+            if os.name == "nt":
+                import msvcrt
+
+                self._file.seek(0)
+                # LK_LOCK retries for about ten seconds, then raises.
+                msvcrt.locking(self._file.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(self._file.fileno(), fcntl.LOCK_EX)
+        except BaseException:
+            if self._file:
+                self._file.close()
+            self._thread.release()
+            raise
+        return self
+
+    def __exit__(self, *exc):
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                self._file.seek(0)
+                msvcrt.locking(self._file.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(self._file.fileno(), fcntl.LOCK_UN)
+        finally:
+            self._file.close()
+            self._thread.release()
+
+
 class CallBudget:
     """Calls per minute and per day, counted by us, for a provider that says nothing.
 
@@ -164,10 +216,13 @@ class CallBudget:
     stricter around it.
 
     With a `path`, the timestamps live in a file that every process using the
-    key reads before checking and writes after sending, so the service, an
-    evaluation run and a smoke test count against one quota, and a restart does
-    not forget the day. Two processes writing at the same instant can lose one
-    count; Google's own 429 is the backstop for that.
+    key shares - the service, an evaluation run, a smoke test - so they count
+    against one quota and a restart does not forget the day. **Every read and
+    write of it happens under an exclusive lock between processes, and checking
+    a call and counting it are one step (`claim`).** Without that, two processes
+    could each see 14 calls in the minute and both send a 15th, a
+    read-modify-write could lose a count, and on Windows a write could fail
+    outright while the other process had the file open.
     """
 
     MINUTE = 60.0
@@ -176,7 +231,7 @@ class CallBudget:
     def __init__(self, rpm: int, rpd: int, path: str | None = None, clock: Callable[[], float] = time.time):
         self.rpm, self.rpd, self.path, self.clock = rpm, rpd, path, clock
         self._calls: list[float] = []
-        self._lock = threading.Lock()
+        self._lock = _FileLock(path) if path else threading.Lock()
 
     def _load(self) -> list[float]:
         if not self.path:
@@ -195,37 +250,45 @@ class CallBudget:
         if not self.path:
             self._calls = calls
             return
+        # Written whole and swapped in, so a crash mid-write leaves the old
+        # file rather than half a new one. Safe under the lock: no other
+        # process has the file open while this one holds it.
         tmp = f"{self.path}.{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump({"calls": calls}, f)
         os.replace(tmp, self.path)
 
-    def _recent(self, now: float) -> list[float]:
-        return [t for t in self._load() if now - t < self.DAY]
+    def _wait(self, now: float, calls: list[float]) -> float:
+        minute = [t for t in calls if now - t < self.MINUTE]
+        waits = [0.0]
+        if len(minute) >= self.rpm:
+            waits.append(minute[-self.rpm] + self.MINUTE - now)
+        if len(calls) >= self.rpd:
+            waits.append(calls[-self.rpd] + self.DAY - now)
+        return max(waits)
+
+    def claim(self) -> float:
+        """Count a call if it fits now and return 0; otherwise count nothing and
+        return the seconds until it would fit. Atomic across processes."""
+        with self._lock:
+            now = self.clock()
+            calls = [t for t in self._load() if now - t < self.DAY]
+            wait = self._wait(now, calls)
+            if wait == 0:
+                self._save(calls + [now])
+            return wait
 
     def wait_s(self) -> float:
-        """Seconds until the next call fits both windows; 0 if it fits now."""
+        """Seconds until the next call would fit, counting nothing. For pacing."""
         with self._lock:
             now = self.clock()
-            calls = self._recent(now)
-            minute = [t for t in calls if now - t < self.MINUTE]
-            waits = [0.0]
-            if len(minute) >= self.rpm:
-                waits.append(minute[-self.rpm] + self.MINUTE - now)
-            if len(calls) >= self.rpd:
-                waits.append(calls[-self.rpd] + self.DAY - now)
-            return max(waits)
-
-    def record(self) -> None:
-        with self._lock:
-            now = self.clock()
-            self._save(self._recent(now) + [now])
+            return self._wait(now, [t for t in self._load() if now - t < self.DAY])
 
     def used(self) -> tuple[int, int]:
         """(calls in the last minute, calls in the last day)."""
         with self._lock:
             now = self.clock()
-            calls = self._recent(now)
+            calls = [t for t in self._load() if now - t < self.DAY]
             return sum(1 for t in calls if now - t < self.MINUTE), len(calls)
 
 
@@ -345,8 +408,7 @@ class _HttpProvider:
     def _url(self) -> str: raise NotImplementedError
     def _body(self, system: str, user: str) -> dict: raise NotImplementedError
     def _parse(self, body: dict) -> tuple[str, int | None, int | None]: raise NotImplementedError
-    def _wait_s(self, system: str, user: str) -> float: return 0.0
-    def _sent(self) -> None: pass
+    def _claim(self, system: str, user: str) -> float: return 0.0
     def _received(self, response: httpx.Response) -> None: pass
     def _retry_after(self, response: httpx.Response) -> float | None:
         return parse_duration(response.headers.get("retry-after"))
@@ -364,14 +426,16 @@ class _HttpProvider:
             )
 
         while True:
-            wait = self._wait_s(system, user)
-            if wait > 0:
+            # Check the budget and, for Gemini, count the call - in one step,
+            # so no other process can take the same slot in between.
+            wait = self._claim(system, user)
+            while wait > 0:
                 if self.clock() + wait > deadline - MIN_CALL_S:
                     return result(RATE_LIMITED, retry_after=wait, detail="budget")
                 self.sleep(wait)
+                wait = self._claim(system, user)
 
             attempts += 1
-            self._sent()
             try:
                 response = self.client.post(
                     self._url(), json=self._body(system, user), timeout=max(deadline - self.clock(), 1.0)
@@ -432,12 +496,10 @@ class GeminiProvider(_HttpProvider):
             "generationConfig": {"maxOutputTokens": self.max_output_tokens, "temperature": 0},
         }
 
-    def _wait_s(self, system: str, user: str) -> float:
-        return self.budget.wait_s()
-
-    def _sent(self) -> None:
-        # Counted on sending: a call that fails still counts at Google.
-        self.budget.record()
+    def _claim(self, system: str, user: str) -> float:
+        # Counted when claimed, just before sending: a call that fails still
+        # counts at Google.
+        return self.budget.claim()
 
     def _error(self, response: httpx.Response) -> dict:
         try:
@@ -508,7 +570,7 @@ class GroqProvider(_HttpProvider):
         """What Groq will reserve: the prompt, its template, and the whole cap."""
         return estimate_tokens(system) + estimate_tokens(user) + GROQ_TEMPLATE_TOKENS + self.max_output_tokens
 
-    def _wait_s(self, system: str, user: str) -> float:
+    def _claim(self, system: str, user: str) -> float:
         return self.budget.wait_s(self.need_tokens(system, user))
 
     def _received(self, response: httpx.Response) -> None:

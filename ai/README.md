@@ -134,7 +134,7 @@ override, run `ingest.py --drop` before serving.
 | `store.py` | Chunks, queries | Embeddings, the vector index, and the filtered search: over-fetch, rerank, cap, cut to k |
 | `ingest.py` | CLI | A built or rebuilt index |
 | `check_retrieval.py` | CLI | End-to-end checks, including that another mentorship's material never appears |
-| `answer.py` | A question, this turn's search, a provider | An answer whose every citation is a chunk this search returned, or an abstention; `PROMPT_VERSION` on every response |
+| `answer.py` | A question, the asker's role, this turn's search, a provider | An answer whose every citation is a chunk this search returned, or one abstention message with its cause (`no_results`, `declined`, `unverified`); `PROMPT_VERSION` on every response |
 | `providers.py` | A system prompt and a question | A `Generation` from Gemini or Groq: an answer, or a typed outcome with one plain sentence for the user. Rate limits, retries and keys live here |
 | `app.py` | HTTP | FastAPI `/search`, behind the shared secret |
 

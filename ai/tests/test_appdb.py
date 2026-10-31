@@ -27,20 +27,22 @@ from test_attachments import BRIEF, PDF_TYPE, Corpus, pdf_bytes
 
 AI_ROOT = Path(__file__).resolve().parent.parent
 
-# Who may hold the app-database handle. `store.py` for the read-time check
-# (S1.5 step 2), `sync.py` for the sync worker (step 3), `app.py` to wire them,
-# and the CLIs that build an index. Anything else importing it is a new reader
-# of the app's data, and should have to change this list to do it.
+# Exactly who imports the app-database module. `store.py`, which opens the
+# handle for the read-time check (S1.5 step 2) and passes it to the sync
+# worker, and the CLIs that build or measure an index. S2 removed three stale
+# entries the old subset check could not see (BUILD_NOTES Entry 66): `app.py`,
+# which wires the store and the worker but never opens the database itself,
+# so the module serving the ask route would now have to change this list to
+# read the app's data; and `sync.py` and `check_retrieval.py`, which receive
+# a handle rather than open one. Neither `answer.py` nor `providers.py` is
+# here: generation reads only what search returns.
 ALLOWED_IMPORTERS = {
-    "app.py",
     # Measures the read-time check across two servers, over a COPY of the
     # evaluation fixture's records; never the app's real database.
     "check_freshness.py",
-    "check_retrieval.py",
     "evaluate.py",
     "ingest.py",
     "store.py",
-    "sync.py",
 }
 
 
@@ -167,7 +169,12 @@ def test_only_the_modules_that_need_the_app_database_import_it():
     importers = importers_of_appdb()
 
     assert importers, "nothing imports appdb - the scan is broken"
-    assert importers <= ALLOWED_IMPORTERS, importers - ALLOWED_IMPORTERS
+    # Equality, not a subset: an entry that no longer imports it is stale, and
+    # a stale entry is permission nobody is using.
+    assert importers == ALLOWED_IMPORTERS, {
+        "not allowed": importers - ALLOWED_IMPORTERS,
+        "stale": ALLOWED_IMPORTERS - importers,
+    }
 
 
 def test_sources_receives_the_handle_rather_than_opening_one():

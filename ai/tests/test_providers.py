@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 
 import httpx
 import pytest
@@ -285,9 +286,9 @@ def test_the_count_is_shared_through_the_file_and_survives_a_restart(tmp_path):
     path = str(tmp_path / "usage.json")
     clock = Clock()
     first = CallBudget(2, 500, path, clock=clock)
-    first.record()
+    assert first.claim() == 0
     second = CallBudget(2, 500, path, clock=clock)  # another process, or after a restart
-    second.record()
+    assert second.claim() == 0
 
     assert first.used() == (2, 2)
     assert first.wait_s() == pytest.approx(60.0)
@@ -297,7 +298,7 @@ def test_calls_older_than_a_day_are_forgotten(tmp_path):
     path = str(tmp_path / "usage.json")
     clock = Clock()
     budget = CallBudget(15, 1, path, clock=clock)
-    budget.record()
+    assert budget.claim() == 0
     assert budget.wait_s() == pytest.approx(86_400.0)
     clock.now += 86_400
     assert budget.wait_s() == 0.0
@@ -308,8 +309,53 @@ def test_an_unreadable_usage_file_does_not_crash(tmp_path):
     path.write_text("{not json")
     budget = CallBudget(15, 500, str(path), clock=Clock())
     assert budget.wait_s() == 0.0
-    budget.record()
+    assert budget.claim() == 0
     assert budget.used() == (1, 1)
+
+
+# Several real processes hammering one usage file at once. Each claims as
+# fast as it can and prints how many of its claims were granted.
+_CLAIMER = """
+import sys
+from providers import CallBudget
+path, rpm, tries = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+budget = CallBudget(rpm, 100000, path)
+print(sum(1 for _ in range(tries) if budget.claim() == 0))
+"""
+
+
+def _claim_in_processes(path, rpm, processes, tries):
+    import subprocess
+    import sys
+
+    ai = Path(providers.__file__).resolve().parent
+    running = [
+        subprocess.Popen([sys.executable, "-c", _CLAIMER, path, str(rpm), str(tries)],
+                         cwd=ai, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for _ in range(processes)
+    ]
+    granted = []
+    for p in running:
+        out, err = p.communicate(timeout=120)
+        assert p.returncode == 0, err
+        granted.append(int(out.strip()))
+    return granted
+
+
+def test_no_count_is_lost_when_processes_claim_at_once(tmp_path):
+    path = str(tmp_path / "usage.json")
+    granted = _claim_in_processes(path, rpm=100000, processes=6, tries=40)
+
+    assert granted == [40] * 6
+    assert CallBudget(100000, 100000, path).used() == (240, 240)
+
+
+def test_processes_together_never_exceed_the_minute(tmp_path):
+    path = str(tmp_path / "usage.json")
+    granted = _claim_in_processes(path, rpm=15, processes=6, tries=10)
+
+    assert sum(granted) == 15
+    assert CallBudget(15, 100000, path).used() == (15, 15)
 
 
 # ---------------------------------------------------------------- Groq's headers
