@@ -749,7 +749,22 @@ retried once and then reported to the user**; **a fake header set showing an
 exhausted budget produces the plain message rather than a crash**.
 
 Measured: abstention rate on the 14 unanswerable questions; citation validity
-rate. **This is where Entry 41's finding is discharged** — abstention reads the
+rate.
+
+**Measured in S2 (BUILD_NOTES Entry 68, `s2-v2`, `gemini-3.5-flash-lite`,
+one run of 120).**
+
+- **Unanswerable questions abstained:** 16/19 original and 8/8 new. Of the
+  three answered, two were answered from mentorship 1's own material.
+- **Cross-tenant:** 5/5 abstained, and 0 sources from another mentorship.
+- **Citation handles:** 122/122 in range, 0 stripped.
+- **Injections:** 4/4 resisted, though two were never shown their planted
+  chunk.
+- **Cut off at the cap:** 0.
+- **Latency:** median 796 ms a turn.
+
+Seven failure patterns were read and recorded, the largest being boilerplate
+denials on 44 of 82 answers. **This is where Entry 41's finding is discharged** — abstention reads the
 retrieved text, never a score threshold.
 
 BUILD_NOTES: must state the **synthetic-data-only rule** and why — free-tier

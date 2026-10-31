@@ -107,3 +107,5 @@ screenshots/
 
 # Local dev overrides (VITE_DEV_USER_ID etc.)
 .env.local
+# S2 step 6: cached answers, one file per prompt version and model
+ai/eval/.answers-cache/

@@ -88,6 +88,7 @@ node ../scripts/seed-rag-corpus.cjs             # the corpus, from the repo root
 .venv/Scripts/python.exe check_freshness.py      # the app and this service, end to end
 .venv/Scripts/python.exe evaluate.py --ablation  # measure it, stage by stage
 .venv/Scripts/python.exe eval/retrieval_s2.py    # S2: prefix, reranker, cap, on both question sets
+.venv/Scripts/python.exe eval/evaluate_answers.py  # S2: 120 answers through answer(), paced, cached (spends quota)
 ```
 
 `eval/seed_documents.py` is a **separate step**, run after the Node seeder; the
