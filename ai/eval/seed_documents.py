@@ -62,12 +62,24 @@ M2 = "d00000000000000000000002"
 # --------------------------------------------------------------------------
 # Building files
 # --------------------------------------------------------------------------
-def pdf(pages: list[str]) -> bytes:
-    """A text PDF, one page per string, wrapped into the text box."""
+def pdf(pages: list[str], *, heading_size: float = 15) -> bytes:
+    """A text PDF, one page per string, wrapped into the text box.
+
+    Each page's first line is its heading, set at `heading_size` over an 11 pt
+    body - the way a report exported from a word processor sets them, and what
+    the extractor reads a heading from (Entry 61). At 11 the heading is
+    indistinguishable from the body, which is what a plain-text export does.
+    """
     document = pymupdf.open()
     for text in pages:
         page = document.new_page()
-        page.insert_textbox(pymupdf.Rect(56, 56, 540, 760), text, fontsize=11)
+        heading, _, body = text.partition("\n")
+        if heading_size == 11:
+            page.insert_textbox(pymupdf.Rect(56, 56, 540, 760), text, fontsize=11)
+            continue
+        spare = page.insert_textbox(pymupdf.Rect(56, 56, 540, 760), heading, fontsize=heading_size)
+        top = 760 - spare + heading_size
+        page.insert_textbox(pymupdf.Rect(56, top, 540, 760), body.strip("\n"), fontsize=11)
     data = document.tobytes()
     document.close()
     return data
@@ -126,15 +138,15 @@ def docx(blocks: list[tuple[str, object]]) -> bytes:
 # Each paragraph is long enough to survive extraction: the composition filter
 # drops short, list-shaped lines, because in a real PDF those are page
 # furniture rather than prose.
-# Headings are numbered here on purpose. A PDF heading is recognised from a
-# known coursework word ("Requirements", "Marking scheme") or from a number;
-# a plain bolded word like "Method" is invisible to the extractor, because a
-# PDF records what the text looks like and not what it is. A .docx states that
-# a paragraph is a heading, which is why the Word documents below do not need
-# the numbers. This limitation is recorded in BUILD_NOTES Entry 50.
+# Headings are plain words, set larger than the body. Until S2 they were
+# numbered, because a PDF heading could only be recognised from a coursework
+# word or a number, and an unnumbered "Method" was invisible (Entry 50). The
+# extractor now reads the type size (Entry 61), so the fixture looks like a
+# real student report: unnumbered, and none of these headings in the
+# coursework vocabulary.
 INDEXING_REPORT = pdf(
     [
-        """1. Method
+        """Method
 
 Every query was run with EXPLAIN before and after the index was added, and the
 plan recorded in full rather than summarised. The row counts below come from
@@ -143,7 +155,7 @@ a build are noise dressed up as evidence.
 
 Three queries were in scope: the member lookup by status, the feed query by
 author and date, and the report that filters on created date alone.""",
-        """2. Query plans
+        """Query plans
 
 The member lookup went from a collection scan over forty eight thousand
 documents to an index scan returning twelve. That is the only query where the
@@ -153,7 +165,7 @@ The feed query was already using the index on author, and adding the created
 date to it made the sort disappear from the plan. The report query on created
 date alone did not improve at all, because the compound index begins with
 author and the prefix rule means a query on the second field cannot use it.""",
-        """3. Results
+        """Results
 
 The third query is the one worth keeping: it is slow, it stays slow, and the
 honest fix is a second index on created date rather than pretending the
@@ -167,7 +179,7 @@ status and created date is the one to keep.""",
 
 CACHE_NOTES = pdf(
     [
-        """1. Invalidation rule
+        """Invalidation rule
 
 Adding an item to a reading list clears the cached list for that user and
 nothing else, because the endpoint is per-user and no other key can contain
@@ -176,7 +188,7 @@ clears both the list and the item's own entry.
 
 The rule is written here rather than inferred from the code, because a cache
 whose invalidation nobody can state is a bug that has not been met yet.""",
-        """2. Time to live
+        """Time to live
 
 The table below is the decision, not a default copied from a tutorial. A TTL
 is a statement about how wrong the endpoint is willing to be.
@@ -271,10 +283,11 @@ WHITEBOARD = scanned_pdf(
 # Mentorship 2's version of the same work, in similar words and with different
 # numbers. If the permission filter fails, a question about Aditya's report
 # will answer confidently out of Zara's.
-# Plain, unnumbered headings on purpose: this is the fixture that exercises
-# the fallback, where everything before the first recognised heading becomes
-# one section called "Document". It is also M2's copy, so a leak would be
-# answered out of a document whose sections are not even cleanly divided.
+# Headings at body size on purpose: this is the fixture that exercises the
+# fallback, where everything before the first recognised heading becomes one
+# section called "Document" - no number, no coursework word, no larger type.
+# It is also M2's copy, so a leak would be answered out of a document whose
+# sections are not even cleanly divided.
 ZARA_REPORT = pdf(
     [
         """Method
@@ -291,7 +304,8 @@ prefix rule rather than a mistake in the index.
 
 The third query filters on created date alone and cannot use an index that
 begins with status, so it was left as it is.""",
-    ]
+    ],
+    heading_size=11,
 )
 
 

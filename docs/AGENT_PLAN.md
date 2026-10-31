@@ -587,7 +587,9 @@ coursework vocabulary or a number. A report with a bolded, unnumbered "Method"
 becomes one section called "Document" — citations lose their section, and
 chunks lose a boundary they should not cross. The fix is to use the font sizes
 PyMuPDF already reports. It changes every chunk in the index, so it belongs at
-the start of a sprint, not bolted onto the end of one.
+the start of a sprint, not bolted onto the end of one. *Done as S2 step 1
+(BUILD_NOTES Entry 61): headings set at 1.15 × the body size are recognised; no
+retrieval regression. Same-size bold headings are still not.*
 
 Probes: why chunk in tokens not characters; why the same 384 dims meant no
 index change; why the heading-aware chunker was null in Entry 41 and may not be

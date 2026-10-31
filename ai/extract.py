@@ -40,6 +40,14 @@ each one survives the port because the defect is not specific to papers:
 - **Everything arXiv-specific:** the margin-stamp regex, the metadata contract,
   the on-disk paths, and a heading vocabulary built from paper structure.
 
+## PDF headings
+
+Three ways in: a known coursework word ("Requirements"), a number ("2.1
+Query plans"), or the type size — a short line set clearly larger than the
+document's body text (S2; BUILD_NOTES Entry 61). The first two came from
+RAG-Project, whose papers number their sections; student reports often do not,
+and an unnumbered "Method" used to vanish into one section called "Document".
+
 ## Word documents
 
 `.docx` carries its own structure, so headings come from paragraph styles
@@ -88,6 +96,20 @@ TITLE_CASE_STOPWORDS = {
 }
 MIN_TITLE_CASE_RATIO = 0.6
 MAX_HEADING_WORDS = 10
+
+# A heading is also recognised by how it LOOKS: a short block set noticeably
+# larger than the document's body text. This is what a bolded, unnumbered
+# "Method" in a student report actually is in the PDF, and the vocabulary and
+# number rules above could never see it.
+#
+# The body size is the size most of the document's characters are set in,
+# measured per document - an 11 pt report and a 12 pt one both work. 1.15 is
+# 11 -> 12.65 pt, so a 12 pt subheading over 11 pt body is not enough on its
+# own, and a 14 pt one is; Word's default Heading 1 and 2 (16 and 13 pt over
+# 11) both clear it. Same-size bold headings are still invisible: weight alone
+# marks too much body text - a bolded term, a lead-in - to trust.
+HEADING_SIZE_RATIO = 1.15
+MAX_HEADING_LINES = 2
 
 # Unnumbered headings worth recognising in coursework, briefs and rubrics.
 #
@@ -219,6 +241,24 @@ def heading_of(block_text: str) -> str | None:
     return None
 
 
+def sized_heading(block_text: str, size: float | None, body: float | None) -> str | None:
+    """The heading this block is by its type size, or None.
+
+    Short, at most two lines, set at least HEADING_SIZE_RATIO times the body
+    size, and not a sentence. A large pull quote ends in a full stop; a large
+    paragraph has more than ten words. Both stay body text.
+    """
+    if size is None or body is None or size < body * HEADING_SIZE_RATIO:
+        return None
+    lines = [line for line in block_text.split("\n") if line.strip()]
+    candidate = flatten(normalise_unicode(block_text))
+    if not candidate or len(lines) > MAX_HEADING_LINES or len(candidate.split()) > MAX_HEADING_WORDS:
+        return None
+    if not HAS_LETTER.search(candidate) or candidate.endswith((".", ",", ";")):
+        return None
+    return candidate.rstrip(":").strip()
+
+
 def is_content_block(block_text: str) -> bool:
     """Keep prose; drop figure internals, page numbers and flattened tables."""
     lines = [line for line in block_text.split("\n") if line.strip()]
@@ -242,6 +282,35 @@ def is_content_block(block_text: str) -> bool:
 # --------------------------------------------------------------------------
 # Extraction
 # --------------------------------------------------------------------------
+def _read_pages(document) -> tuple[list[list[tuple[str, float | None]]], float | None]:
+    """Every page's text blocks with the smallest type size in each, and the
+    document's body size.
+
+    The smallest, so a block mixing a large drop capital or a large first word
+    with body text reads as body text. The body size is the size most of the
+    document's characters are set in, to the nearest 0.5 pt. Text and sizes
+    come from ONE text page, which is what keeps PyMuPDF's block numbers the
+    same in both views.
+    """
+    pages = []
+    weight: dict[float, int] = {}
+    for page in document:
+        textpage = page.get_textpage()
+        sizes: dict[int, float] = {}
+        for block in page.get_text("dict", textpage=textpage)["blocks"]:
+            spans = [s for line in block.get("lines", []) for s in line["spans"] if s["text"].strip()]
+            if not spans:
+                continue
+            sizes[block["number"]] = min(s["size"] for s in spans)
+            for span in spans:
+                rounded = round(span["size"] * 2) / 2
+                weight[rounded] = weight.get(rounded, 0) + len(span["text"].strip())
+        pages.append(
+            [(block[4].strip(), sizes.get(block[5])) for block in page.get_text("blocks", textpage=textpage)]
+        )
+    return pages, (max(weight, key=weight.get) if weight else None)
+
+
 def _collect_sections(document) -> tuple[list[Section], str]:
     """Walk the document page by page, splitting blocks into sections.
 
@@ -254,14 +323,14 @@ def _collect_sections(document) -> tuple[list[Section], str]:
     sections: list[Section] = []
     current: Section | None = None
     raw_parts: list[str] = []
+    pages, body = _read_pages(document)
 
-    for page_number, page in enumerate(document, start=1):
-        for block in page.get_text("blocks"):
-            block_text = block[4].strip()
+    for page_number, blocks in enumerate(pages, start=1):
+        for block_text, size in blocks:
             if not block_text:
                 continue
 
-            heading = heading_of(block_text)
+            heading = heading_of(block_text) or sized_heading(block_text, size, body)
             if heading is not None:
                 current = Section(heading=heading, start_page=page_number, end_page=page_number)
                 sections.append(current)

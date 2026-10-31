@@ -4867,6 +4867,76 @@ measured. `AI_QUERY_INSTRUCTION=` (empty) turns it off without a code change.
 
 ---
 
+### Entry 61 — S2 step 1: PDF headings by type size
+
+S1 recognised a PDF heading in two ways, both inherited from RAG-Project: a
+word from a coursework vocabulary ("Requirements", "Marking scheme") or a
+number ("2.1 Query plans"). Papers number their sections; student reports
+often do not. An unnumbered "Method" became part of one section called
+"Document", so a citation could not name the section and a chunk could run
+across a boundary it should not (Entry 50). The S1 fixture hid this by
+numbering its headings, and said so in a comment.
+
+**The rule** (`extract.sized_heading`): a block is also a heading when it is
+at most two lines and ten words, contains a letter, does not end like a
+sentence, and its *smallest* span is at least **1.15 ×** the document's body
+size. The body size is the size most of the document's characters are set in,
+to 0.5 pt, measured per document. Over an 11 pt body that is 12.65 pt: Word's
+default Heading 1 and Heading 2 (16, 13 pt) clear it, a 12 pt subheading does
+not. The vocabulary and number rules run first and are unchanged.
+
+- **The smallest span, not the largest,** so a paragraph opening with a large
+  drop capital or a bigger first word stays body text.
+- **Not weight.** A same-size bold "Method" is still invisible. Bold also marks
+  terms, lead-ins and labels inside body text, and a false heading costs more
+  than a missed one (the asymmetry RAG-Project recorded: a missed heading
+  merges two sections, a false one corrupts the structure from there on).
+  There is a test that pins this.
+- **One text page per PDF page** gives both the text blocks and the span
+  sizes, which is what keeps PyMuPDF's block numbers aligned between the two
+  views. Sizes and the body size come from the same single pass, so a large
+  PDF is read once, as before.
+
+**The fixture now looks like a real report.** `seed_documents.py` sets each
+page's heading at 15 pt over an 11 pt body and drops the numbers, and none of
+the M1 PDF headings ("Method", "Query plans", "Results", "Invalidation rule",
+"Time to live") is in the vocabulary. Zara's M2 copy keeps its headings at
+body size on purpose: it is still the fixture for the "Document" fallback.
+The labels in `questions.jsonl` are unchanged; they name files, not sections.
+
+**Measured.** First, the new extractor on the *old* fixture: `evaluate.py
+--ablation` reproduces `s1-final-ablation.txt` line for line, latency aside.
+On numbered, same-size headings the new rule finds nothing new, as it should.
+
+Then the new fixture, the rule off and on, in the served configuration
+(`python ai/eval/heading_ablation.py` → `ai/eval/s2-heading-sizes.txt`):
+
+| Size rule | Chunks | PDF sections | Records, six labels | Records, all eight | Documents |
+| --- | --- | --- | --- | --- | --- |
+| off | 27 | 3 | 0.68 (21/31) | 0.71 (22/31) | 0.93 (14/15) |
+| **on** | 30 | 6 | **0.71 (22/31)** | **0.74 (23/31)** | 0.93 (14/15) |
+
+recall@1. With it on, every figure equals S1's on its numbered fixture, and
+the full four-stage ablation (`ai/eval/s2-step1-ablation.txt`) matches
+`s1-final-ablation.txt` in every recall, MRR and score line. **No regression.**
+Without it, a report shaped like real student work loses one record question:
+three sections collapse into one "Document" each, 30 chunks become 27, and a
+chunk boundary moves. One question is one question; the claim is only that the
+rule costs nothing measurable and puts the section names back. The heading
+itself is citation metadata and is not embedded, so the gain comes from where
+chunks break, not from the heading's words.
+
+**The served index** picks the new sections up at the next service start: the
+start-up catch-up re-embeds everything (`AI_CATCHUP=full`). Until then the old
+chunks are still correct, only less finely divided; the read-time check has
+nothing to drop, because no record changed.
+
+225 pytest (12 new in `test_extract.py`, including the same-size and
+per-document-body cases), 527 Node. With `HEADING_SIZE_RATIO` disabled by
+hand, three of the new tests fail.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -4907,12 +4977,10 @@ measured. `AI_QUERY_INSTRUCTION=` (empty) turns it off without a code change.
 - ~~**Achievements**~~ — built in Entry 31, **removed** in Entry 37. The badges
   set challenges the platform is not about; assignment streaks replace them,
   and keep the one idea worth keeping: derived on read, never stored.
-- **PDF headings are detected by vocabulary or number, not by font size** — a
-  report with a bolded, unnumbered "Method" becomes one section called
-  "Document". Citations lose the section, and chunks lose a boundary they
-  should not cross. PyMuPDF already reports span sizes; the fix is a short line
-  above the body size. It re-chunks the whole index, so it belongs at the start
-  of a sprint. Entry 50.
+- ~~**PDF headings are detected by vocabulary or number, not by font size**~~
+  — done in Entry 61: a short line at 1.15 × the body size is a heading.
+  Same-size **bold** headings are still invisible, on purpose; revisit only if
+  real reports show it matters.
 - **Revisit the reranker in S2** — off by default since Entry 52 (+0.03 on
   records, −0.06 on documents, ~370 ms). The S1 corpus is smaller than the
   30-chunk candidate pool, so it could only measure the cross-encoder

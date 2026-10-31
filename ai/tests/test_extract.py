@@ -5,8 +5,9 @@ rather than through a generated PDF — a PDF round trip would test PyMuPDF's
 layout engine as much as our rules, and would fail for reasons that have
 nothing to do with the thing under test.
 
-Two tests do use a real PDF, because page tracking and "there is no text layer"
-are properties of a document, not of a string.
+Some tests do use a real PDF, because page tracking, "there is no text layer"
+and the type size a heading is set in are properties of a document, not of a
+string.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from extract import (
     heading_of,
     is_content_block,
     normalise_unicode,
+    sized_heading,
 )
 
 
@@ -200,6 +202,93 @@ def test_a_document_without_a_text_layer_yields_nothing_and_says_why(caplog):
     assert "needs OCR (S7)" in caplog.text
     # It must not throw, and it must still report what it saw.
     assert result["page_count"] == 2
+
+
+def _styled_pdf(pages: list[list[tuple[str, float]]]) -> bytes:
+    """A PDF whose blocks each carry their own type size, top to bottom."""
+    document = pymupdf.open()
+    for blocks in pages:
+        page = document.new_page()
+        top = 56.0
+        for text, size in blocks:
+            spare = page.insert_textbox(pymupdf.Rect(56, top, 540, 780), text, fontsize=size)
+            assert spare >= 0, "fixture text did not fit"
+            top = 780 - spare + size
+    data = document.tobytes()
+    document.close()
+    return data
+
+
+BODY = (
+    "Every query was run with EXPLAIN before and after the index was added, and "
+    "the plan was recorded in full rather than summarised, with the row counts "
+    "taken from the executionStats block."
+)
+MORE = (
+    "The member lookup went from a collection scan over forty eight thousand "
+    "documents to an index scan returning twelve, which changed the plan shape."
+)
+
+
+def test_an_unnumbered_heading_set_larger_than_the_body_is_a_heading():
+    # The case S1 recorded as invisible (Entry 50): neither in the coursework
+    # vocabulary nor numbered, and plainly a heading on the page.
+    data = _styled_pdf([[("Method", 15), (BODY, 11), ("Query plans", 15), (MORE, 11)]])
+
+    sections = extract_pdf(data)["sections"]
+
+    assert [s["heading"] for s in sections] == ["Method", "Query plans"]
+    assert "EXPLAIN" in sections[0]["text"] and "EXPLAIN" not in sections[1]["text"]
+    assert "forty eight thousand" in sections[1]["text"]
+
+
+def test_the_same_heading_at_body_size_is_still_body_text():
+    # Weight and position are not read, only size: a same-size "Method" stays
+    # invisible, and what precedes the first heading is "Document" as before.
+    data = _styled_pdf([[("Method", 11), (BODY, 11), ("Query plans", 11), (MORE, 11)]])
+
+    assert [s["heading"] for s in extract_pdf(data)["sections"]] == ["Document"]
+
+
+def test_the_body_size_is_measured_per_document():
+    # 14 over a 12 pt body clears the ratio; 12 over an 11 pt body does not.
+    larger = _styled_pdf([[("Method", 14), (BODY, 12), ("Query plans", 14), (MORE, 12)]])
+    barely = _styled_pdf([[("Method", 12), (BODY, 11), ("Query plans", 12), (MORE, 11)]])
+
+    assert [s["heading"] for s in extract_pdf(larger)["sections"]] == ["Method", "Query plans"]
+    assert [s["heading"] for s in extract_pdf(barely)["sections"]] == ["Document"]
+
+
+def test_large_text_that_reads_as_a_sentence_or_a_paragraph_is_not_a_heading():
+    quote = "An index nothing uses still costs a write."
+    data = _styled_pdf([[("Method", 15), (BODY, 11), (quote, 15), (MORE, 11)]])
+
+    sections = extract_pdf(data)["sections"]
+
+    assert [s["heading"] for s in sections] == ["Method"]
+    assert "forty eight thousand" in sections[0]["text"]
+
+
+def test_a_large_title_names_the_opening_section_instead_of_document():
+    data = _styled_pdf([[("Indexing report", 20), (BODY, 11), ("Query plans", 15), (MORE, 11)]])
+
+    assert [s["heading"] for s in extract_pdf(data)["sections"]] == ["Indexing report", "Query plans"]
+
+
+@pytest.mark.parametrize(
+    "text,size,body,expected",
+    [
+        ("Method", 15, 11, "Method"),
+        ("Findings:", 15, 11, "Findings"),
+        ("Method", 15, None, None),  # no body size: no text layer to measure
+        ("Method", None, 11, None),
+        ("3 2 1", 15, 11, None),  # no letters
+        ("one two three four five six seven eight nine ten eleven", 15, 11, None),
+        ("a\nb\nc", 15, 11, None),  # three lines
+    ],
+)
+def test_sized_heading_rules(text, size, body, expected):
+    assert sized_heading(text, size, body) == expected
 
 
 def test_extraction_does_not_stop_at_a_references_heading():

@@ -1,0 +1,10 @@
+served configuration: bge-small dense, soft cap, k=4
+  size rule  chunks pdf sections   group                      recall@1      recall@3     MRR
+whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
+whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
+  off            27            3   records (six labels)   0.68 (21/31)  0.87 (27/31)   0.772
+  off            27            3   records (all eight)    0.71 (22/31)  0.90 (28/31)   0.804
+  off            27            3   documents              0.93 (14/15)  1.00 (15/15)   0.967
+  on             30            6   records (six labels)   0.71 (22/31)  0.87 (27/31)   0.782
+  on             30            6   records (all eight)    0.74 (23/31)  0.90 (28/31)   0.815
+  on             30            6   documents              0.93 (14/15)  1.00 (15/15)   0.967
