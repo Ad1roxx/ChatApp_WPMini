@@ -4956,6 +4956,11 @@ measured. `AI_QUERY_INSTRUCTION=` (empty) turns it off without a code change.
 - **PyMuPDF is AGPL** — fine for a public repository. Running the app as a
   service for others with modified, unpublished source would not be;
   `pdfplumber` (MIT) is the named alternative. Entry 44.
+- **Re-check the provider's model list before each evaluation run** — Google
+  withdrew `gemini-2.5-flash` and `-flash-lite` from new keys with no notice
+  beyond a 404, and the generation model is pinned by name
+  (`gemini-3.5-flash-lite`). List the models the key can reach and confirm the
+  pinned one is there before spending a day's quota. AGENT_PLAN §2.6.
 - **Deployment** and **frontend tests** are what remain, both infrastructure.
 - ~~**Feedback ratings**~~ — built in Entry 29, switched **off** in Entry 32.
   The server half and its 27 tests stay live so the code cannot rot while

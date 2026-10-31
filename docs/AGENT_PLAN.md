@@ -233,15 +233,73 @@ Three caveats, all of which matter:
 
 1. **The page labels this table "base limits for the Developer plan"**, with
    Free and Developer as tabs. The figures above match the free-plan numbers
-   you supplied, but the label does not confirm it. **Confirm in the console
-   before wiring.**
+   you supplied, but the label does not confirm it. *Resolved 2026-10-31:* the
+   console's free-plan limits read the same, and there are no Llama chat models
+   on the free plan.
 2. **`llama-3.3-70b-versatile` and `llama-3.1-8b-instant` do not appear in that
    table at all.** They are named on the tool-use page as supporting *parallel*
    tool calls, so if parallel calls matter, check their plan availability
    separately rather than assuming it.
 3. **Gemini's free-tier numbers remain unverified.** Its rate-limit page
-   publishes no free-tier RPM/TPM/RPD table and directs you to AI Studio. The
-   real numbers for both providers go into the S2 sprint note.
+   publishes no free-tier RPM/TPM/RPD table and directs you to AI Studio.
+   *Resolved 2026-10-31:* read from AI Studio, below.
+
+#### The real limits, read 2026-10-31 (S2 Step 0)
+
+**Gemini**, free tier, project `mentorconnect`, read from AI Studio:
+
+| Model | RPM | TPM | RPD |
+| --- | --- | --- | --- |
+| **`gemini-3.5-flash-lite`** — generation | 15 | 250K | **500** |
+| `gemini-3.1-flash-lite` | 15 | 250K | 500 |
+| `gemini-3.6-flash`, `gemini-3.8-flash`, `gemini-3-flash`, `gemini-2.5-flash` | 5 | 250K | 20 |
+| `gemini-2-flash`, `gemini-2-flash-lite` | 0 | 0 | 0 |
+
+- **The 2.5 models are withdrawn for new keys.** `gemini-2.5-flash` and
+  `gemini-2.5-flash-lite` answer 404 *"no longer available to new users"*,
+  although AI Studio still lists a limit for the first. A pinned model can
+  disappear; S2 turns that 404 into a plain "unavailable" message, and the
+  model list is re-checked before each evaluation run.
+- **Every Flash model is now a thinking model.** One tiny call took 7.7 s to
+  59 s, one returned 503 "high demand", one gave no answer in 90 s, and two
+  spent a 16-token output cap entirely on thinking and returned empty text.
+  `gemini-3.5-flash-lite` answered in 0.9 s with no thinking tokens.
+- **Gemini sends no rate-limit headers**, so its budget cannot be read from
+  responses. The provider layer counts its own Gemini calls per minute and per
+  day against 15 RPM and 500 RPD and refuses before calling when the next one
+  would exceed them.
+
+**Groq**, free plan, read from the console and from the `x-ratelimit-*`
+headers of one call to `openai/gpt-oss-120b`: the table above holds — 30 RPM,
+1K RPD, 8K TPM, 200K TPD, for `gpt-oss-120b`, `gpt-oss-20b` and
+`qwen3.8-27b`.
+
+- The headers carry only requests-per-day (1,000) and tokens-per-minute
+  (8,000), as **one token bucket — no separate input and output limit.**
+- **Groq reserves the prompt plus `max_completion_tokens` up front**: a call
+  using 111 tokens took 142 from the bucket — the 78-token prompt plus the
+  64-token cap. Its will-it-fit check therefore uses that sum, and the cap is
+  kept tight. Reasoning tokens count as output, and the chat template adds
+  about 70 tokens to every prompt.
+
+**Chosen (S2):** generate with **`gemini-3.5-flash-lite`**, pinned by name, never
+a `-latest` alias. Fall back to **Groq `openai/gpt-oss-120b`** with
+`reasoning_effort: "low"` and an output cap of about 400.
+
+**What one evaluation run costs** — about 80 questions, one call each, `k=4`.
+Prompt size from the providers' own counters, with a draft system prompt: 915
+(Gemini) / 956 (Groq) tokens for the largest prompt in today's corpus, 2,022 /
+2,061 for four full 400-token chunks.
+
+- Gemini: 80 of 500 requests a day; at most ~185K tokens, against 250K a
+  *minute*. At 15 RPM, a run takes about six minutes. Fits several times a day.
+- Groq as fallback: ~2.5K reserved per call against 8K a minute gives three
+  calls a minute, about 27 minutes a run, and ~185K of 200K tokens a day at
+  the worst-case prompt size — one run a day.
+- **Smoke tests and development calls draw on the same daily quota.** The
+  live smoke test stays opt-in and is a single call.
+- A response that stops at the output cap (`finish_reason: "length"`, or
+  Gemini's `MAX_TOKENS`) is an error, never a complete answer; S2 counts them.
 
 #### 8K tokens per minute is the binding constraint
 
