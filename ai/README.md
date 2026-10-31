@@ -83,6 +83,7 @@ cp .env.example .env
 # The evaluation, on its own fixture database - never the served index:
 node ../scripts/seed-rag-corpus.cjs             # the corpus, from the repo root
 .venv/Scripts/python.exe eval/seed_documents.py  # its PDFs and Word files
+.venv/Scripts/python.exe eval/corpus_stats.py    # sections and chunks per file
 .venv/Scripts/python.exe check_retrieval.py      # prove the isolation
 .venv/Scripts/python.exe check_freshness.py      # the app and this service, end to end
 .venv/Scripts/python.exe evaluate.py --ablation  # measure it, stage by stage
@@ -93,6 +94,11 @@ seeder does not call it. It builds the synthetic PDFs and Word files and
 attaches them to the seeded hand-ins, and writing a PDF needs PyMuPDF, which
 only the Python side has. Run the seeder alone and the index has no documents
 in it, and every document question in the evaluation fails.
+
+Since S2 the corpus is larger: 102 chunks visible in the evaluated mentorship,
+nine more PDFs in it, in the formats students hand in (`eval/s2_documents.py`), and a
+second question set, `eval/questions_s2.jsonl`, reported separately from the
+original 65 (BUILD_NOTES Entry 62).
 
 Both seeding commands are idempotent, and `ingest.py` deletes the chunks of any
 source it did not see, so running the lot twice leaves one index rather than

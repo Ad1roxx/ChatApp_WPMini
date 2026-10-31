@@ -52,6 +52,9 @@ from pymongo import MongoClient  # noqa: E402
 
 from config import EVAL_DB_NAME, MONGODB_URI  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import s2_documents  # noqa: E402
+
 PDF_TYPE = "application/pdf"
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -333,6 +336,11 @@ DOCUMENTS = {
         ]),
     ],
 }
+
+# S2's documents: the formats students hand in, not only the ones the
+# extractor reads well (s2_documents.py says which is which).
+DOCUMENTS[M1] += s2_documents.M1_FILES
+DOCUMENTS[M2] += s2_documents.M2_FILES
 
 
 def main() -> None:

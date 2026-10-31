@@ -4926,6 +4926,18 @@ rule costs nothing measurable and puts the section names back. The heading
 itself is citation metadata and is not embedded, so the gain comes from where
 chunks break, not from the heading's words.
 
+**How 1.15 was chosen — and what it has not been tested against.** It was set
+by reasoning about common defaults, not fitted to data: Word's Heading 1 and
+Heading 2 over an 11 pt body are 1.45 and 1.18, so they should clear it, and a
+12 pt subheading over 11 pt is 1.09, which should not — a 12 pt line is as
+often a larger lead-in or a caption as a heading. It was then checked on one
+fixture, whose headings are 15 over 11: **1.36**. Every ratio from just above
+1.0 up to 1.36 gives identical results on that fixture, so the fixture says
+nothing about where the line should be, only that one exists. It is not tuned.
+Step 2's corpus is its first real test: Word-style 13-over-11 subheadings
+(1.18, just over), 14-over-11 (1.27), 28-over-18 slide titles (1.56), and
+numbered 12-over-11 bold headings (1.09, under, left to the number rule).
+
 **The served index** picks the new sections up at the next service start: the
 start-up catch-up re-embeds everything (`AI_CATCHUP=full`). Until then the old
 chunks are still correct, only less finely divided; the read-time check has
@@ -4934,6 +4946,86 @@ nothing to drop, because no record changed.
 225 pytest (12 new in `test_extract.py`, including the same-size and
 per-document-body cases), 527 Node. With `HEADING_SIZE_RATIO` disabled by
 hand, three of the new tests fail.
+
+---
+
+### Entry 62 — S2 step 2a: a larger corpus, built from the formats students hand in
+
+S2 has two retrieval decisions left to make — the reranker (D7) and the query
+prefix (D1) — and neither could be made on S1's corpus: it held fewer chunks in
+the evaluated mentorship than the reranker's 30-candidate pool, so the
+cross-encoder could only re-sort all of it (Entry 52). This step builds the
+corpus and labels the questions; **nothing has been measured on it yet**, and
+the commit that adds the labels is pushed before anything is.
+
+**The new documents** (`ai/eval/s2_documents.py`) are built to look like what
+arrives in a mentorship, not like what the extractor handles. Sections and
+chunks per file, from `python ai/eval/corpus_stats.py`
+(`ai/eval/s2-corpus.txt`) — extraction and chunking only, nothing embedded:
+
+| File | Shape | Pages | Sections | Chunks | What the extractor did |
+| --- | --- | --- | --- | --- | --- |
+| `queue-retries.pdf` | numbered headings, bold 12 pt over 11 | 3 | 11 | 11 | number rule; the title by size |
+| `pagination-design.pdf` | Word export: 20 / 16 / 13 pt over 11 | 2 | 7 | 7 | size rule, both levels; empty "Design" H1 dropped |
+| `race-condition.pdf` | 14 pt headings over 11 | 2 | 6 | 6 | size rule |
+| `load-test-report.pdf` | 15 pt headings, a numeric table, a footer on every page | 2 | 6 | 6 | **table dropped entirely**; **footer glued** onto the end of two sections |
+| `observability-slides.pdf` | landscape slides, 28 pt titles over 18 pt bullets | 9 | 9 | 9 | one section per slide |
+| `consistency-essay.pdf` | two columns, numbered 12 pt bold over 10 pt | 1 | 6 | 6 | both rules; columns read in order |
+| `orders-schema.pdf` | **bold headings at body size** | 2 | 1 | 2 | not seen: one "Document" |
+| `learning-log.pdf` | no headings at all | 2 | 1 | 2 | one "Document", cut by the budget |
+| `interview-notes.pdf` | plain-text export, ALL-CAPS headings at body size | 1 | 1 | 1 | **headings dropped** as one-word lines |
+| `zara-retries.pdf` (M2) | 15 pt headings | 1 | 4 | 4 | size rule |
+
+Three defects are now in the fixture on purpose, found by looking at the
+extracted text rather than at a score:
+
+- **A numeric table vanishes.** Its rows are mostly numbers, which the
+  composition filter drops by design, and the header row is not in the
+  extracted text either. `s2-12` asks for a number that exists only there.
+- **A running footer becomes content.** "Aditya Dubey - Load test report -
+  page 1 of 2" is eight words on a line, so it passes every filter and is
+  appended to whichever section the page ends in.
+- **ALL-CAPS one-word headings disappear.** "ASSUMPTIONS" is one word on a
+  line, which is what page furniture looks like, so it is filtered as such.
+
+**Records** (`scripts/seed-rag-corpus.cjs`): nine new assignments in M1, each
+with a hand-in, and nine new resources; two assignments and hand-ins in M2.
+New topics on purpose — retries, schemas, load testing, observability,
+pagination, races, consistency, a mock interview — so nothing new answers, or
+competes for, one of the original 65 questions, whose labels are unchanged
+(`questions.jsonl` is byte-for-byte as it was). A second goal was written and
+taken out again for exactly that reason: it would also have answered goal-01,
+-02 and -04.
+
+**Size: 102 chunks visible in M1** to each of its two parties, against 25
+before; 115 in the index with M2's 13. Of M1's: 62 from attachments, 13 hand-ins,
+13 briefs, 13 resources, 1 goal.
+
+**The questions** (`ai/eval/questions_s2.jsonl`, 55, reported separately from
+the original 65 and never averaged with them):
+
+| Kind | n | What it tests |
+| --- | --- | --- |
+| answerable | 38 | harder document questions: across two sections, a number in a dropped table, the bold-heading, no-heading and ALL-CAPS files, slides, two columns, and the right source when two files cover a topic |
+| none | 8 | **vocabulary-matched** unanswerables: p99 where only p50/p95 exist, a sampling rate for logs where one is given for traces, a "partition" that is a network partition, a review that was never written, a soak test that was planned and not run |
+| leak | 5 | **cross-tenant**: Zara's retry and load-test numbers, Karan's review; M1 has its own, different answer to three of them |
+| injection | 4 | text addressed to an AI: in a PDF appendix (which also tries to close a sources delimiter), in the learning log, in a resource note, and in a hand-in that claims a review it never got |
+
+Every expected title was checked to exist in M1, and each answer's key phrase
+to appear in the extracted text of every source labelled for it. One fails, by
+design: `s2-12`'s "210 ms" is in the PDF but not in what the extractor keeps.
+
+**Labels, committed before measuring:**
+
+```
+sha256 questions_s2.jsonl  98b8a64255fc48d9da3e85eb22876978a17d010c4d5db8a063fe24e0e507f9ac
+sha256 questions.jsonl     7719eb430e1f745ce60ba480acfb29af4e99f5bba551238d29b4179c5f0d6214  (unchanged)
+```
+
+**Budget note for step 6.** 65 + 55 = 120 questions, not the ~80 estimated in
+step 0. Under Gemini's 500 requests a day that is one run with room to spare;
+under the Groq fallback (~2.5K tokens reserved a call, 200K a day) it is
+about a day and a half, which the answer cache makes resumable.
 
 ---
 
@@ -4979,8 +5071,17 @@ hand, three of the new tests fail.
   and keep the one idea worth keeping: derived on read, never stored.
 - ~~**PDF headings are detected by vocabulary or number, not by font size**~~
   — done in Entry 61: a short line at 1.15 × the body size is a heading.
-  Same-size **bold** headings are still invisible, on purpose; revisit only if
-  real reports show it matters.
+- **Bold headings at body size are not detected** — a bold "Method" at 11 pt
+  over an 11 pt body is still part of one section called "Document"
+  (`orders-schema.pdf` in the S2 corpus is exactly this). The trade-off: bold
+  also marks words *inside* paragraphs — a defined term, a lead-in like
+  **Note:**, a label — and a false heading is worse than a missed one, because
+  it splits a section and mislabels every chunk after it. A later fix could
+  require all of: every span in the block bold, a single line of at most ten
+  words, its own block (an inline bold word usually shares its paragraph's
+  block), no closing full stop, and body text in regular weight
+  following it. Measure it before shipping it, on the false headings it adds
+  as well as the sections it finds. Entries 50, 61.
 - **Revisit the reranker in S2** — off by default since Entry 52 (+0.03 on
   records, −0.06 on documents, ~370 ms). The S1 corpus is smaller than the
   30-chunk candidate pool, so it could only measure the cross-encoder

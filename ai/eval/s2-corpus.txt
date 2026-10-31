@@ -1,0 +1,31 @@
+file                          m pages sections chunks   headings
+whiteboard-scan.pdf: no extractable text - needs OCR (S7); 2 page(s)
+indexing-report.pdf           1     3        3      3   ['Method', 'Query plans', 'Results']
+marking-scheme.docx           1  None        2      2   ['Marking scheme', 'How partial marks work']
+auth-design.docx              1  None        3      3   ['Threat model', 'Token lifetimes', 'Open questions']
+cache-notes.pdf               1     2        2      2   ['Invalidation rule', 'Time to live']
+n-plus-one.docx               1  None        2      2   ['Before', 'After']
+queue-retries.pdf             1     3       11     11   ['Retries and idempotency for the payment webhook', '1 Problem', '2 Retry policy', '2.1 Backoff', '2.2 Giving up', '3 Idempotency', '3.1 The key', '3.2 Storing the result', '4 What I tested', '5 Open questions', 'Appendix']
+orders-schema.pdf             1     2        1      2   ['Document']
+load-test-report.pdf          1     2        6      6   ['Load test: the bookings API', 'Setup', 'Results', 'The bottleneck', 'Errors', 'Next steps']
+learning-log.pdf              1     2        1      2   ['Document']
+observability-slides.pdf      1     9        9      9   ['Observability in ten minutes', 'Three signals', 'Logs', 'Metrics', 'Traces', 'Alerting', 'An SLO for bookings', 'What I would add first', 'Questions']
+pagination-design.pdf         1     2        7      7   ['Problem', 'The cursor', 'Sort order', 'Page size', 'The API', 'Edge cases', 'Alternatives rejected']
+race-condition.pdf            1     2        6      6   ['Symptom', 'Reproducing it', 'Why it happens', 'What I tried first', 'The fix', 'The test now']
+interview-notes.pdf           1     1        1      1   ['Document']
+consistency-essay.pdf         1     1        6      6   ['1 Introduction', '2 Strong consistency', '3 Read-your-writes', '4 Eventual consistency', '5 Costs', '6 Conclusion']
+zara-indexing-report.pdf      2     2        1      1   ['Document']
+zara-retries.pdf              2     1        4      4   ['Backoff', 'Giving up', 'Duplicates', 'Results']
+
+  M1 assignment     13 chunks
+  M1 attachment     62 chunks
+  M1 goal            1 chunks
+  M1 resource       13 chunks
+  M1 submission     13 chunks
+  M2 assignment      4 chunks
+  M2 attachment      5 chunks
+  M2 resource        1 chunks
+  M2 submission      3 chunks
+  chunks in all: M1 102, M2 13
+  visible in M1 to Aditya (student): 102
+  visible in M1 to Priya (mentor): 102
