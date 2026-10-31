@@ -1,0 +1,42 @@
+S2 step 4 (Entry 72): one live call through the real ask route, Express -> ai/ -> Gemini.
+run 2026-10-31 21:25 UTC; fixture databases chatapp_asklive; fixture users signed in through the development sign-in; synthetic brief.
+
+brief searchable 1.00 s after it was set
+outsider asks: HTTP 403 in 6 ms (expected 403, before the service is called)
+student asks: 'How many times should the webhook retry, and where does the message go after that?'
+  HTTP 200 in 1385 ms, from request to response, through Express
+  response:
+    {
+      "status": "answered",
+      "answer": "You should retry the payment webhook five times on a failure [1]. After these retries, the message moves to the payments-dlq queue so that nothing is lost [1].",
+      "citations": [
+        {
+          "handle": 1,
+          "title": "Payment webhook retries",
+          "sourceType": "assignment",
+          "sourceId": "6ae65cb1bc50bc76d0d6bb28",
+          "chunkIndex": 0,
+          "url": null,
+          "parentType": null,
+          "parentId": null,
+          "parentTitle": null,
+          "attachmentId": null,
+          "fileKind": null,
+          "heading": null,
+          "startPage": null,
+          "endPage": null
+        }
+      ],
+      "message": null,
+      "cause": null,
+      "outcome": "ok",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite",
+      "stripped": 0,
+      "promptVersion": "s2-v2",
+      "sources": 1
+    }
+
+service log lines for the turn (no prompt or answer text is ever logged):
+  INFO copilot.llm: llm provider=gemini model=gemini-3.5-flash-lite prompt=s2-v2 outcome=ok attempts=1 in=474 out=37 ms=1346 stripped=0
+  INFO copilot.answer: copilot prompt=s2-v2 status=answered cause=- outcome=ok sources=1 stripped=0
