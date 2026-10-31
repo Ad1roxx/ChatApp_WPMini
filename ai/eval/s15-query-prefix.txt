@@ -1,0 +1,8 @@
+served configuration: bge-small dense, soft cap, k=4; 30 chunks
+records scored on the six clear-cut label changes (Entry 51)
+
+  group      query prefix  recall@1 recall@3     MRR  separation
+  records    on                0.71     0.87   0.782      -0.104
+  documents  on                0.93     1.00   0.967      +0.014
+  records    off               0.77     0.90   0.823      -0.101
+  documents  off               0.87     1.00   0.933      +0.004

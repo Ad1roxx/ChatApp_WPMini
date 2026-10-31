@@ -4736,7 +4736,10 @@ evaluation's records to 27017 and runs the 65 questions across that hop:
 **3.5 ms** of a 30 ms search on the record questions, **3.4 ms** of 31 ms on
 the documents — lower than on one server, plausibly because the container is
 no longer serving both the vector search and the record reads. It dropped
-nothing, and recall@1 was 0.74 and 0.93, as before.
+nothing, and recall@1 was unchanged: 0.93 on the documents, and on the
+records 0.74 — scored on all eight widened labels, which is what
+`check_freshness.py` reads from `questions.jsonl`. On the six clear-cut
+labels every quoted figure uses, that is 0.71 (Entry 51).
 
 **The cold start it found.** The first run failed before it measured anything:
 the first search answered **502**. The service loaded its embedding model on
@@ -4810,6 +4813,54 @@ carry a version, an `assignmentId` where one applies, and one embedding model.
 
 ---
 
+### Entry 60 — The query prefix, measured at last: kept, on a split decision
+
+Entry 47 kept bge-small's query instruction — *"Represent this sentence for
+searching relevant passages: "* — although its only measurement went against
+it: 0.81 recall@1 without, 0.74 with, on a corpus that had no documents in it
+yet. It deferred the decision to step 8, where documents would arrive. Entry 50
+was step 8, and never mentioned the prefix. So the served search ran for two
+sprints on a setting whose one measurement said to drop it, and nobody looked
+again. That was a promise lost inside an entry, which is exactly how the
+open-items list below now gets audited.
+
+**Measured** in exactly the served configuration — bge-small, dense, soft cap,
+`k=4`, read-time check on — with the record questions on the six clear-cut
+label changes, the set every quoted figure uses
+(`python ai/eval/prefix_ablation.py` → `ai/eval/s15-query-prefix.txt`). The
+prefix touches only query vectors, so both runs search one index:
+
+| Group | Query prefix | recall@1 | recall@3 | MRR | separation |
+| --- | --- | --- | --- | --- | --- |
+| records | on | 0.71 | 0.87 | 0.782 | −0.104 |
+| records | off | **0.77** | 0.90 | 0.823 | −0.101 |
+| documents | on | **0.93** | 1.00 | **0.967** | **+0.014** |
+| documents | off | 0.87 | 1.00 | 0.933 | +0.004 |
+
+In questions rather than fractions: without the prefix, **two more** of the 31
+answerable record questions come back first (24 against 22); with it, **one
+more** of the 15 answerable document questions does (14 against 13). The groups
+disagree, and each difference is one or two questions — the size of a single
+relabelling.
+
+**Kept, for three reasons that do not depend on the size of the difference.**
+The prefix wins where it was designed to: retrieving passages from documents,
+which is what S1 added and what S8's rubric work will lean on hardest. It holds
+the only positive separation this project has measured — +0.014 against
++0.004 — and S2's abstention design starts from that number. And it is how the
+model was trained, which is the prior a two-question difference should not be
+enough to overturn.
+
+**But this is the second time the record questions have preferred no prefix**
+(Entry 47 saw the same), which makes it a pattern rather than noise. The
+plausible reason is the shape of the text: record chunks are short, typed-in,
+question-like sentences, closer to symmetric similarity than to the
+question-to-passage asymmetry the instruction encodes. It goes on the
+open-items list to re-measure on S2's larger corpus, labelled before it is
+measured. `AI_QUERY_INSTRUCTION=` (empty) turns it off without a code change.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -4831,7 +4882,8 @@ carry a version, an `assignmentId` where one applies, and one embedding model.
   `cd server && npm test`.
 - ~~**No CI**~~ — done in Entry 28. GitHub Actions runs the linter, a
   production build and the suite on every push and pull request.
-- **No frontend tests** — the 273 cover the server. React components are only
+- **No frontend tests** — the 527 Node tests cover the server, and 213
+  pytest tests the retrieval service. React components are only
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour. The screenshot run
   is also not in CI: it needs both servers and a browser, which is a
@@ -4871,6 +4923,33 @@ carry a version, an `assignmentId` where one applies, and one embedding model.
 - **The sync queue is in memory** — a restart loses queued syncs. Correctness
   is unaffected; the start-up catch-up re-adds what they would have. An outbox
   is the fix if the app is ever deployed. Entry 56.
+- **The catch-up and every sync re-embed what has not changed** — start-up
+  re-indexes the whole app, and a sync re-writes every file on a record, which
+  also leaves an unchanged file briefly unfindable while the search node
+  catches up. Nothing at this scale. The fix is incremental: skip a source, or
+  a file, whose stored `sourceVersion` and `embeddingModel` already match the
+  record. Entries 56, 58.
+- **A long upload slows everyone's search** — the sync worker shares the
+  service's process: 36 → 84 ms median, 55 → 139 ms p95, while a fifty-page
+  PDF embeds (`check_freshness.py --contention`). Two fixes, neither needed
+  yet: cap the worker's torch threads, or move the worker into its own process
+  — which would also keep a crash in a PDF library away from search. Measure
+  again once S2 adds generation to the same process. Entry 59.
+- **The query prefix splits the question sets** — kept (Entry 60): it wins
+  one document question and the only positive separation, and loses two record
+  questions, the second time records have preferred it off. Re-measure on S2's
+  larger corpus, labelled before measuring. `AI_QUERY_INSTRUCTION=` turns it
+  off.
+- **S3 decision: ended mentorships** — the app still shows their content and
+  the Copilot route accepts them, but the index holds only active ones, so the
+  assistant would answer "I don't know" about material the user can open.
+  Refuse clearly, or index them. AGENT_PLAN §5 S3.
+- **Product question: should mentors see drafts?** They do today, in the app
+  and so in the index. One rule in `sources.py` if it changes. AGENT_PLAN §5
+  S1.5.
+- **PyMuPDF is AGPL** — fine for a public repository. Running the app as a
+  service for others with modified, unpublished source would not be;
+  `pdfplumber` (MIT) is the named alternative. Entry 44.
 - **Deployment** and **frontend tests** are what remain, both infrastructure.
 - ~~**Feedback ratings**~~ — built in Entry 29, switched **off** in Entry 32.
   The server half and its 27 tests stay live so the code cannot rot while

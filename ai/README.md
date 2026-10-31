@@ -150,6 +150,15 @@ never another student's on the same brief. Today only hand-ins can carry files
 — briefs and resources have no attachment field — but all three are walked, so
 the day either gains uploads nothing here changes.
 
+### The query prefix
+
+bge-small is trained to prefix *queries* with an instruction, and the service
+does. Measured in the served configuration it is a split decision — one more
+document question right, two fewer record questions — and it holds the only
+positive answerable/unanswerable separation, so it stays
+(`eval/prefix_ablation.py`, BUILD_NOTES Entry 60). `AI_QUERY_INSTRUCTION=`
+turns it off.
+
 ### Keeping the index in step: `POST /index/sync`
 
 Express calls this after a write succeeds, with an identifier and nothing else:

@@ -306,7 +306,7 @@ def check_cost_across_servers() -> None:
             r = evaluate(store, questions, rerank=False, diversity="soft_cap")
             print(
                 f"  {group:<10} search {r['median_latency_ms']:>5.0f} ms median, of which the check "
-                f"{r['median_check_ms']:>5.1f} ms; {r['dropped']} dropped; recall@1 {r['recall'][1]:.2f}"
+                f"{r['median_check_ms']:>5.1f} ms; {r['dropped']} dropped; recall@1 {r['recall'][1]:.2f} (all eight widened labels)"
             )
             check(f"{group}: the check dropped nothing across servers", r["dropped"] == 0)
     finally:
