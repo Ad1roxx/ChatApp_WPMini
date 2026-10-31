@@ -4843,13 +4843,19 @@ more** of the 15 answerable document questions does (14 against 13). The groups
 disagree, and each difference is one or two questions — the size of a single
 relabelling.
 
-**Kept, for three reasons that do not depend on the size of the difference.**
+**Kept, for two reasons that do not depend on the size of the difference.**
 The prefix wins where it was designed to: retrieving passages from documents,
-which is what S1 added and what S8's rubric work will lean on hardest. It holds
-the only positive separation this project has measured — +0.014 against
-+0.004 — and S2's abstention design starts from that number. And it is how the
-model was trained, which is the prior a two-question difference should not be
-enough to overturn.
+which is what S1 added and what S8's rubric work will lean on hardest. And it
+is how the model was trained, which is the prior a two-question difference
+should not be enough to overturn.
+
+**The separation column is not a reason, and a first draft of this entry said
+it was.** +0.014 against +0.004 is a difference on 15 answerable questions —
+noise. And S2's "I don't know" was decided not to rest on a score at all: since
+Entry 41 the plan is that abstention reads the retrieved *text* and checks it
+grounds an answer, precisely because no score threshold separates answerable
+from unanswerable reliably. Citing a score gap in favour of a setting would
+quietly contradict that decision.
 
 **But this is the second time the record questions have preferred no prefix**
 (Entry 47 saw the same), which makes it a pattern rather than noise. The
@@ -4936,8 +4942,8 @@ measured. `AI_QUERY_INSTRUCTION=` (empty) turns it off without a code change.
   — which would also keep a crash in a PDF library away from search. Measure
   again once S2 adds generation to the same process. Entry 59.
 - **The query prefix splits the question sets** — kept (Entry 60): it wins
-  one document question and the only positive separation, and loses two record
-  questions, the second time records have preferred it off. Re-measure on S2's
+  one document question (14/15 against 13/15) and loses two record questions
+  (22/31 against 24/31), the second time records have preferred it off. Re-measure on S2's
   larger corpus, labelled before measuring. `AI_QUERY_INSTRUCTION=` turns it
   off.
 - **S3 decision: ended mentorships** — the app still shows their content and

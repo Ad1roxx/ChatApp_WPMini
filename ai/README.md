@@ -154,9 +154,9 @@ the day either gains uploads nothing here changes.
 
 bge-small is trained to prefix *queries* with an instruction, and the service
 does. Measured in the served configuration it is a split decision — one more
-document question right, two fewer record questions — and it holds the only
-positive answerable/unanswerable separation, so it stays
-(`eval/prefix_ablation.py`, BUILD_NOTES Entry 60). `AI_QUERY_INSTRUCTION=`
+document question right (14/15), two fewer record questions (22/31) — so it
+stays: it wins on documents, the passages it was trained to retrieve, and it is
+how the model was trained (`eval/prefix_ablation.py`, BUILD_NOTES Entry 60). `AI_QUERY_INSTRUCTION=`
 turns it off.
 
 ### Keeping the index in step: `POST /index/sync`

@@ -518,10 +518,11 @@ Two things S2 must take account of:
   all measured (BUILD_NOTES Entry 51). **Label before measuring in S2**: a
   conclusion that flips with the label set — as the reranker's did — is not a
   conclusion about the system.
-- **The first positive separation ever measured here** is bge-small, dense, on
-  the document questions: +0.014. Thin, and on 20 questions — but Entry 41's
-  "no threshold exists" is no longer unanimous, which is what S2's abstention
-  prompt has to be designed around.
+- **Separation is not a basis for abstention.** bge-small, dense, on the
+  document questions measured the first positive separation here, +0.014 — on
+  15 answerable questions, which is noise. S2's "I don't know" reads the
+  retrieved text and checks that it grounds an answer; it does not threshold a
+  score, and nothing in S2 should start depending on this number.
 
 **Known limitation carried out of S1:** a PDF heading is recognised from a
 coursework vocabulary or a number. A report with a bolded, unnumbered "Method"
