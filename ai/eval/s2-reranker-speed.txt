@@ -1,0 +1,4 @@
+== torch threads=8 batch=32 (the current runtime)
+  median 1373 ms a search, p95 1569 ms, over 120 searches
+  reference captured: 120 questions; reranker rows identical to s2-retrieval.txt
+
