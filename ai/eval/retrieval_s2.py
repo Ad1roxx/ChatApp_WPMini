@@ -35,6 +35,8 @@ S2_QUESTIONS = Path(__file__).resolve().parent / "questions_s2.jsonl"
 # extractor keeps of it cannot answer, or lost its sections.
 EXTRACTOR_LIMITED = ("s2-07", "s2-08", "s2-09", "s2-10", "s2-12", "s2-34", "s2-35")
 
+# "served" names what served at Entry 63, when these were measured: the reranker
+# has since been turned on (Entry 73), and "reranker on" is now what serves.
 CONFIGS = {
     "served": dict(prefix=True, rerank=False, diversity="soft_cap"),
     "prefix off": dict(prefix=False, rerank=False, diversity="soft_cap"),

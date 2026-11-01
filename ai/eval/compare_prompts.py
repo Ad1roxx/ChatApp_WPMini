@@ -65,7 +65,8 @@ class Named:
 
 
 def load(version: str, run: int, provider) -> dict:
-    ea.VERSION, ea.RUN = version, run
+    # These four runs were all made with the reranker off (Entry 71).
+    ea.VERSION, ea.RUN, ea.RERANK_ON = version, run, False
     return ea.load_cache(ea.cache_path(provider))
 
 

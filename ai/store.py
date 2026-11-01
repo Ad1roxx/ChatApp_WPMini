@@ -33,6 +33,7 @@ from config import (
     MONGODB_URI,
     QUERY_INSTRUCTION,
     RERANK,
+    RERANK_BATCH_SIZE,
     RERANK_MODEL,
     SERVED_K,
     VECTOR_INDEX,
@@ -659,7 +660,9 @@ class ChunkStore:
         # stage after this point can widen what came back - which is why these
         # are allowed to be the default at all.
         if rerank and hits:
-            scores = reranker().predict([(query, hit["content"]) for hit in hits])
+            scores = reranker().predict(
+                [(query, hit["content"]) for hit in hits], batch_size=RERANK_BATCH_SIZE
+            )
             for hit, score in zip(hits, scores):
                 hit["score"] = float(score)
             hits.sort(key=lambda hit: hit["score"], reverse=True)

@@ -54,7 +54,7 @@ import httpx  # noqa: E402
 
 import providers  # noqa: E402
 from answer import PROMPT_VERSION, _HANDLES, answer, uncited_sentences  # noqa: E402
-from config import CHUNK_BUDGET_TOKENS, GEMINI_API_KEY, LLM_PROVIDER  # noqa: E402
+from config import CHUNK_BUDGET_TOKENS, GEMINI_API_KEY, LLM_PROVIDER, RERANK  # noqa: E402
 from evaluate import ADITYA, M1, build_index, by_group, fixture, load_questions  # noqa: E402
 from store import embed_query  # noqa: E402
 from prefix_ablation import quoted_labels  # noqa: E402
@@ -65,12 +65,16 @@ CACHE = HERE / ".answers-cache"
 # Run 1 of s2-v2 keeps Step 6's file names; every other run gets its own.
 VERSION = PROMPT_VERSION
 RUN = 1
+# Whether search reranks. Part of a run's identity: answers from one retrieval
+# configuration must never be reused for another (Entry 73).
+RERANK_ON = RERANK
 
 
 def out_paths() -> tuple[Path, Path]:
     if (VERSION, RUN) == ("s2-v2", 1):
         return HERE / "s2-answers.txt", HERE / "s2-results.txt"
-    stem = f"s2-{VERSION.removeprefix('s2-')}-run{RUN}"
+    rerank = "-rerank" if RERANK_ON else ""
+    stem = f"s2-{VERSION.removeprefix('s2-')}{rerank}-run{RUN}"
     return HERE / f"{stem}-answers.txt", HERE / f"{stem}-results.txt"
 ROLE = "student"  # Aditya is mentorship 1's student
 BUDGET_S = 60.0  # generous: pacing waits happen before the call, not inside it
@@ -166,12 +170,12 @@ class Recording:
         self.store, self.last = store, []
 
     def search(self, *args, **kwargs):
-        self.last = self.store.search(*args, **kwargs)
+        self.last = self.store.search(*args, rerank=RERANK_ON, **kwargs)
         return self.last
 
 
 def cache_path(provider) -> Path:
-    run = "" if RUN == 1 else f"--run{RUN}"
+    run = ("--rerank" if RERANK_ON else "") + ("" if RUN == 1 else f"--run{RUN}")
     safe = re.sub(r"[^A-Za-z0-9._-]", "_", f"{VERSION}--{provider.name}--{provider.model}{run}")
     return CACHE / f"{safe}.jsonl"
 
@@ -283,7 +287,8 @@ def summarise(name: str, questions: list[dict], cache: dict) -> list[str]:
 
 
 def write_answers(table: dict, cache: dict, provider) -> None:
-    out = [f"S2 step 6 - every answer. PROMPT_VERSION {VERSION}, run {RUN}; {provider.name} {provider.model}; "
+    out = [f"S2 step 6 - every answer. PROMPT_VERSION {VERSION}, run {RUN}; reranker {'on' if RERANK_ON else 'off'}; "
+           f"{provider.name} {provider.model}; "
            f"asked as Aditya (role: {ROLE}) in mentorship 1 of chatapp_eval. Synthetic data.", ""]
     for name, questions in table.items():
         out += ["=" * 100, name, "=" * 100]
@@ -324,7 +329,8 @@ def write_results(table: dict, cache: dict, provider, model_check: str) -> None:
 
     out = [
         "S2 step 6 - answers, counted. No correctness or faithfulness figure: read s2-answers.txt.",
-        f"PROMPT_VERSION {VERSION}, run {RUN}; provider {provider.name}; model {provider.model}; role {ROLE}",
+        f"PROMPT_VERSION {VERSION}, run {RUN}; reranker {'on' if RERANK_ON else 'off'}; "
+        f"provider {provider.name}; model {provider.model}; role {ROLE}",
         f"model check before the run: {model_check}",
         f"written {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}; "
         f"{len(every)} of {sum(len(v) for v in table.values())} questions answered from the cache",
@@ -372,9 +378,11 @@ def main() -> None:
     parser.add_argument("--reask", default="", help="comma-separated ids to drop from the cache and ask again")
     parser.add_argument("--prompt-version", default=PROMPT_VERSION, help="which prompt version to answer with")
     parser.add_argument("--run", type=int, default=1, help="run number: each run has its own cache and files")
+    parser.add_argument("--rerank", choices=("on", "off"), default="on" if RERANK else "off",
+                        help="whether search reranks; each setting has its own cache and files")
     args = parser.parse_args()
-    global VERSION, RUN
-    VERSION, RUN = args.prompt_version, args.run
+    global VERSION, RUN, RERANK_ON
+    VERSION, RUN, RERANK_ON = args.prompt_version, args.run, args.rerank == "on"
 
     built = providers.build_provider(LLM_PROVIDER)
     if isinstance(built, providers.Unconfigured):

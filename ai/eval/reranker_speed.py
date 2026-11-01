@@ -46,7 +46,7 @@ sys.path.insert(0, str(HERE))
 import numpy as np  # noqa: E402
 
 import store  # noqa: E402
-from config import RERANK_MODEL, SERVED_K  # noqa: E402
+from config import RERANK_BATCH_SIZE, RERANK_MODEL, SERVED_K  # noqa: E402
 from evaluate import ADITYA, M1, fixture, load_questions  # noqa: E402
 from retrieval_s2 import first_rank, frac, load_s2, rows  # noqa: E402
 
@@ -69,8 +69,10 @@ class TorchRuntime:
         self.model = CrossEncoder(RERANK_MODEL)
         self.batch = batch
 
-    def predict(self, pairs):
-        kwargs = {"batch_size": self.batch} if self.batch else {}
+    def predict(self, pairs, **kwargs):
+        # With no --batch, whatever search() itself asks for: the served path.
+        if self.batch:
+            kwargs["batch_size"] = self.batch
         return self.model.predict(pairs, show_progress_bar=False, **kwargs)
 
 
@@ -96,7 +98,7 @@ class OnnxRuntime:
         self.batch = batch
         self.max_length = self.tokenizer.model_max_length
 
-    def predict(self, pairs):
+    def predict(self, pairs, **_kwargs):
         order = sorted(range(len(pairs)), key=lambda i: len(pairs[i][1]))
         scores = np.zeros(len(pairs), dtype=np.float32)
         for start in range(0, len(order), self.batch):
@@ -117,8 +119,8 @@ class Recording:
     def __init__(self, runtime):
         self.runtime, self.last = runtime, []
 
-    def predict(self, pairs):
-        scores = self.runtime.predict(pairs)
+    def predict(self, pairs, **kwargs):
+        scores = self.runtime.predict(pairs, **kwargs)
         # The same stable descending sort search() itself applies.
         order = sorted(range(len(pairs)), key=lambda i: float(scores[i]), reverse=True)
         self.last = [(chunk_key(pairs[i][1]), float(scores[i])) for i in order]
@@ -166,6 +168,8 @@ def main() -> None:
     parser.add_argument("--runtime", choices=("torch", "onnx"), default="torch")
     parser.add_argument("--threads", type=int, default=None, help="default: torch's own default")
     parser.add_argument("--batch", type=int, default=None, help="default: CrossEncoder's own default (32)")
+    parser.add_argument("--control-truncate", type=int, default=None,
+                        help="a control that SHOULD fail: cut each passage to this many characters")
     args = parser.parse_args()
 
     import torch
@@ -173,12 +177,19 @@ def main() -> None:
     if args.threads and args.runtime == "torch":
         torch.set_num_threads(args.threads)
     label = (f"{args.runtime} threads={args.threads or torch.get_num_threads()} "
-             f"batch={args.batch or 32}" + (" (the current runtime)" if not (args.threads or args.batch) else ""))
+             f"batch={args.batch or RERANK_BATCH_SIZE}"
+             + (" (exactly as search() serves it)" if not (args.threads or args.batch) else ""))
+    if args.reference and REFERENCE.exists():
+        raise SystemExit(f"{REFERENCE.name} exists: it was captured at batch 32, before any speed-up, and is not rewritten")
 
     if args.runtime == "onnx":
         runtime = OnnxRuntime(args.threads or torch.get_num_threads(), args.batch or 32)
     else:
         runtime = TorchRuntime(args.batch)
+    if args.control_truncate:
+        label += f" CONTROL: passages cut to {args.control_truncate} characters"
+        inner, cut = runtime.predict, args.control_truncate
+        runtime.predict = lambda pairs, **kw: inner([(q, d[:cut]) for q, d in pairs], **kw)
     recording = Recording(runtime)
     store._reranker = recording  # search() calls store.reranker().predict(...)
 

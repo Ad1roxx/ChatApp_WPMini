@@ -2,3 +2,99 @@
   median 1373 ms a search, p95 1569 ms, over 120 searches
   reference captured: 120 questions; reranker rows identical to s2-retrieval.txt
 
+== torch threads=8 batch=32 (the current runtime)
+  median 1273 ms a search, p95 1429 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000000
+  does not pass
+
+== torch threads=8 batch=32 (the current runtime) CONTROL: passages cut to 300 characters
+  median 276 ms a search, p95 335 ms, over 120 searches
+  order over all candidates identical: 0/120  differs: ['idx-01', 'idx-02', 'idx-03', 'idx-04', 'idx-05', 'idx-06', 'idx-07', 'idx-08', 'cache-01', 'cache-02', 'cache-03', 'cache-04', 'cache-05', 'cache-06', 'cache-07', 'cache-08', 'auth-01', 'auth-02', 'auth-03', 'auth-04', 'auth-05', 'nplus1-01', 'nplus1-02', 'nplus1-03', 'nplus1-04', 'nplus1-05', 'goal-01', 'goal-02', 'goal-03', 'goal-04', 'none-01', 'none-02', 'none-03', 'none-04', 'none-05', 'none-06', 'none-07', 'none-08', 'none-09', 'none-10', 'leak-01', 'leak-02', 'leak-03', 'leak-04', 'leak-05', 'doc-01', 'doc-02', 'doc-03', 'doc-04', 'doc-05', 'doc-06', 'doc-07', 'doc-08', 'doc-09', 'doc-10', 'doc-11', 'doc-12', 'doc-13', 'doc-14', 'doc-15', 'doc-leak-01', 'doc-leak-02', 'doc-none-01', 'doc-none-02', 'doc-none-03', 's2-01', 's2-02', 's2-03', 's2-04', 's2-05', 's2-06', 's2-07', 's2-08', 's2-09', 's2-10', 's2-11', 's2-12', 's2-13', 's2-14', 's2-15', 's2-16', 's2-17', 's2-18', 's2-19', 's2-20', 's2-21', 's2-22', 's2-23', 's2-24', 's2-25', 's2-26', 's2-27', 's2-28', 's2-29', 's2-30', 's2-31', 's2-32', 's2-33', 's2-34', 's2-35', 's2-36', 's2-37', 's2-38', 's2-none-01', 's2-none-02', 's2-none-03', 's2-none-04', 's2-none-05', 's2-none-06', 's2-none-07', 's2-none-08', 's2-leak-01', 's2-leak-02', 's2-leak-03', 's2-leak-04', 's2-leak-05', 's2-inj-01', 's2-inj-02', 's2-inj-03', 's2-inj-04']
+  final results identical: 33/120  differs: ['idx-01', 'idx-02', 'idx-06', 'idx-07', 'idx-08', 'cache-02', 'cache-03', 'cache-04', 'cache-05', 'cache-06', 'cache-07', 'cache-08', 'auth-04', 'auth-05', 'nplus1-03', 'nplus1-05', 'goal-01', 'goal-02', 'goal-03', 'goal-04', 'none-01', 'none-03', 'none-05', 'none-06', 'none-07', 'none-08', 'none-09', 'none-10', 'leak-01', 'leak-02', 'leak-04', 'doc-02', 'doc-03', 'doc-04', 'doc-07', 'doc-08', 'doc-10', 'doc-11', 'doc-13', 'doc-leak-01', 'doc-leak-02', 'doc-none-01', 'doc-none-02', 'doc-none-03', 's2-01', 's2-02', 's2-04', 's2-05', 's2-07', 's2-08', 's2-09', 's2-10', 's2-11', 's2-12', 's2-13', 's2-14', 's2-15', 's2-16', 's2-17', 's2-18', 's2-19', 's2-20', 's2-22', 's2-23', 's2-24', 's2-28', 's2-29', 's2-30', 's2-32', 's2-33', 's2-35', 's2-37', 's2-38', 's2-none-02', 's2-none-03', 's2-none-04', 's2-none-06', 's2-none-07', 's2-none-08', 's2-leak-02', 's2-leak-03', 's2-leak-04', 's2-leak-05', 's2-inj-01', 's2-inj-02', 's2-inj-03', 's2-inj-04']
+  recall rows identical to s2-retrieval.txt: False
+  largest score difference where the order matches: 0.000000
+  does not pass
+
+== torch threads=8 batch=8
+  median 537 ms a search, p95 615 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000005
+  PASSES
+
+== torch threads=8 batch=4
+  median 438 ms a search, p95 493 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000005
+  PASSES
+
+== torch threads=16 batch=32
+  median 1496 ms a search, p95 1643 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000000
+  does not pass
+
+== torch threads=16 batch=8
+  median 602 ms a search, p95 717 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000005
+  PASSES
+
+== torch threads=4 batch=8
+  median 761 ms a search, p95 846 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000005
+  PASSES
+
+== torch threads=8 batch=2
+  median 494 ms a search, p95 588 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000007
+  PASSES
+
+== torch threads=8 batch=1
+  median 587 ms a search, p95 691 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000007
+  PASSES
+
+== torch threads=4 batch=4
+  median 811 ms a search, p95 884 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000005
+  PASSES
+
+== torch threads=2 batch=4
+  median 1148 ms a search, p95 1245 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000005
+  does not pass
+
+== torch threads=8 batch=4 (exactly as search() serves it)
+  median 468 ms a search, p95 554 ms, over 120 searches
+  order over all candidates identical: 120/120
+  final results identical: 120/120
+  recall rows identical to s2-retrieval.txt: True
+  largest score difference where the order matches: 0.000005
+  PASSES
+

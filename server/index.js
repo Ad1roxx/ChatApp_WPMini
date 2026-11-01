@@ -3887,7 +3887,7 @@ app.post('/api/mentorships/:id/copilot/search', requireAuth, async (req, res) =>
  * latency (BUILD_NOTES Entry 67): the answering service gives the provider at
  * most 8 s (ai/config.py, ASK_BUDGET_S), about seven times the slowest of the
  * live calls measured before this route existed, with room for one retry;
- * search adds about 40 ms. Ten seconds covers both with margin. This is NOT
+ * search adds about half a second with the reranker on. Ten seconds covers both. This is NOT
  * search's 15 s stretched: it is shorter, because a turn that has not
  * answered in ten seconds is not going to.
  */

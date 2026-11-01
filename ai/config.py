@@ -104,12 +104,19 @@ CANDIDATE_K = int(os.getenv("AI_CANDIDATE_K", "30"))
 # other - far more accurate than two separate vectors, and impossible to
 # precompute, which is why it only ever sees the candidates.
 RERANK_MODEL = os.getenv("AI_RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
-# OFF by default, for latency (BUILD_NOTES Entry 63, D7 settled in S2). On a
-# corpus larger than the candidate pool it is the most accurate configuration
-# measured - 62 of 81 answerable questions first, against 54 - but about 1.3 s
-# a search on CPU, over the 1 s the decision rule allowed. AI_RERANK=1 turns it
-# back on.
-RERANK = os.getenv("AI_RERANK", "0") == "1"
+# ON by default since BUILD_NOTES Entry 73 (D7). On a corpus larger than the
+# candidate pool it is the most accurate configuration measured - 64 of 83
+# answerable questions first, against 56 - and what kept it off, about 1.3 s a
+# search, was the batch size rather than the model (below). AI_RERANK=0 turns
+# it off.
+RERANK = os.getenv("AI_RERANK", "1") == "1"
+# How many pairs the cross-encoder scores at once. A batch is padded to its
+# longest passage, so the library's default of 32 padded all thirty candidates
+# to the longest of them. At 4 the median search is about 440 ms instead of 1.3 s
+# on the development machine (8 threads), with the order of all candidates
+# identical on all 120 evaluation questions (eval/s2-reranker-speed.txt). It needs
+# CPU: 811 ms on 4 threads, 1,148 ms on 2, so re-measure on a smaller host.
+RERANK_BATCH_SIZE = int(os.getenv("AI_RERANK_BATCH_SIZE", "4"))
 
 # Diversity: at most this many chunks from one record, and the relevance gap
 # below which that cap is allowed to displace a more relevant chunk. A blind
@@ -177,7 +184,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 # Set from measurement (BUILD_NOTES Entry 67): seven live calls before S2's
 # step 5 took 0.50-1.10 s, so 8 s is about seven times the slowest, with room
 # for one 429 retry whose retry-after is up to 5 s (MIN_CALL_S is 3).
-# Express's own timeout for the ask route sits just above this and search
-# (server/index.js, COPILOT_ASK_TIMEOUT_MS), and Step 6 re-checks both against
-# 120 calls.
+# Express's own timeout for the ask route sits just above this and search,
+# which takes about half a second with the reranker on (server/index.js,
+# COPILOT_ASK_TIMEOUT_MS). Re-checked against 120 calls in Entries 68 and 73.
 ASK_BUDGET_S = float(os.getenv("AI_ASK_BUDGET_S", "8"))

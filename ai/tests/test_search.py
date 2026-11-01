@@ -86,7 +86,7 @@ class _FakeReranker:
     def __init__(self, by_content):
         self.by_content = by_content
 
-    def predict(self, pairs):
+    def predict(self, pairs, **_kwargs):
         return [self.by_content[content] for _, content in pairs]
 
 
@@ -246,18 +246,42 @@ def test_k_is_honoured(served):
     assert len(results) == 2
 
 
-def test_the_reranker_is_off_by_default(served, monkeypatch):
-    """Entry 52. A default that loads a second model and costs ~370 ms a search
-    has to be earned, and on the S1 corpus it was not."""
-    from config import RERANK
+def test_the_reranker_is_on_by_default_at_its_measured_batch_size(served, monkeypatch):
+    """Entry 73. It earned the default on S2's corpus, once the batch size that
+    made it slow was fixed: at 32 every candidate is padded to the longest."""
+    from config import RERANK, RERANK_BATCH_SIZE
 
-    called = []
-    monkeypatch.setattr(store_module, "reranker", lambda: called.append(1))
-    store = served([chunk("near", 0.9), chunk("far", 0.1)])
+    store = served([chunk("near", 0.9), chunk("far", 0.1)],
+                   rerank_scores={"text of near": -4.0, "text of far": 7.5})
+    seen = {}
+    fake = store_module.reranker()
+    original = fake.predict
+
+    def predict(pairs, **kwargs):
+        seen.update(kwargs)
+        return original(pairs, **kwargs)
+
+    fake.predict = predict
+    monkeypatch.setattr(store_module, "reranker", lambda: fake)
 
     results = store.search(M1, ADITYA, "anything")
 
-    assert RERANK is False
+    assert RERANK is True
+    assert RERANK_BATCH_SIZE == 4
+    assert seen == {"batch_size": 4}
+    assert [r["score"] for r in results] == [7.5, -4.0], "the cross-encoder's order was not used"
+
+
+def test_the_reranker_can_be_turned_off(served, monkeypatch):
+    called = []
+    monkeypatch.setattr(store_module, "reranker", lambda: called.append(1))
+    monkeypatch.setattr(store_module, "RERANK", False)
+    store = served([chunk("near", 0.9), chunk("far", 0.1)])
+    # `served` patches reranker only when given scores, so this one stands.
+    monkeypatch.setattr(store_module, "reranker", lambda: called.append(1))
+
+    results = store.search(M1, ADITYA, "anything")
+
     assert called == [], "the cross-encoder was loaded"
     assert [r["score"] for r in results] == [0.9, 0.1], "the cosine order changed"
 

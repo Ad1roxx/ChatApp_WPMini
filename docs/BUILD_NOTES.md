@@ -6104,6 +6104,68 @@ item.
 
 ---
 
+### Entry 73 — The reranker's cost was the batch size
+
+Entry 63 kept the reranker off for one reason: a median of about 1.3 s a search
+against a 1 s rule. The open item set the route: same model, same 30 candidates,
+same inputs, a faster runtime only; prove the rankings identical on all 120
+questions, then hold it to the same rule.
+
+**The reference, committed first (`180995b`).** `s2-retrieval.txt` holds the
+reranker's counts, not its rankings, and different orders can give the same
+counts. So `ai/eval/reranker_speed.py --reference` captured the PyTorch runtime's
+order over all candidates and its final results for all 120 questions
+(`s2-reranker-rankings.json`), after checking that it reproduces that file's
+reranker rows exactly. The script refuses to overwrite it.
+
+**The check, with two controls.** Each runtime runs through the real
+`ChunkStore.search()` and is compared on the order of all 30 candidates, the final
+results after the cap, and the recall rows:
+
+- the same runtime again: 120/120, score difference 0, so the check can pass;
+- passages cut to 300 characters, a change that should fail: **0/120** orders
+  identical, although far faster (276 ms), so the check can fail.
+
+**The results** (`ai/eval/s2-reranker-speed.txt`), all on this development machine:
+
+| Threads | Batch | Median | p95 | Order identical | Final identical |
+| --- | --- | --- | --- | --- | --- |
+| 8 | 32 (the library's default) | 1,273–1,373 ms | 1,429–1,569 ms | 120/120 | 120/120 |
+| 16 | 32 | 1,496 ms | 1,643 ms | 120/120 | 120/120 |
+| 8 | 8 | 537 ms | 615 ms | 120/120 | 120/120 |
+| **8** | **4** | **438 ms** | **493 ms** | **120/120** | **120/120** |
+| 8 | 2 | 494 ms | 588 ms | 120/120 | 120/120 |
+| 8 | 1 | 587 ms | 691 ms | 120/120 | 120/120 |
+| 16 | 8 | 602 ms | 717 ms | 120/120 | 120/120 |
+| 4 | 8 | 761 ms | 846 ms | 120/120 | 120/120 |
+| 4 | 4 | 811 ms | 884 ms | 120/120 | 120/120 |
+| 2 | 4 | 1,148 ms | 1,245 ms | 120/120 | 120/120 |
+
+**Why.** A batch is padded to its longest passage, so at 32 all thirty candidates
+were padded to the longest of them, and most of the work was padding. No new
+dependency was needed, and ONNX was not tried: it would add a runtime to pin and
+to prove for a rule already met.
+
+**As shipped** (`RERANK_BATCH_SIZE = 4`, through `search()` itself): **median
+468 ms**, p95 554 ms, order 120/120, final results 120/120, recall rows identical
+to `s2-retrieval.txt`. **The rule is met, so the reranker is on by default.**
+`AI_RERANK=0` turns it off.
+
+**Limits on "identical":**
+
+- **It is proven on these 120 questions, not guaranteed for all.** Padding changes
+  a score slightly (up to 0.000007 here), and the closest pair of different chunks
+  in the reference is 0.000006 apart. A near-tie on another question could swap.
+  Such a swap is between chunks the model rates as equal, but "cannot change a
+  ranking" would overstate it.
+- **It depends on the CPU.** 8 threads pass comfortably, 4 pass, and 2 fail at
+  1,148 ms. Re-measure on any smaller host.
+- **It was measured with one search at a time.** A search now takes about half a
+  second of CPU, on the same process as the sync worker, so concurrent searches and
+  a large upload will slow each other more than Entry 59's figures say.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
