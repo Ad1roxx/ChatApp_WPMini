@@ -727,6 +727,9 @@ consistent.
 
 ### S2 — Generation with verified citations
 
+**Done** (BUILD_NOTES entries 62–72). `s2-v3` serves, on
+`gemini-3.5-flash-lite`, through `POST /api/mentorships/:id/copilot/ask`.
+
 Deliverables: `LLMProvider` protocol + Gemini adapter; a prompt that cites
 chunk ids; **citation verification** — every emitted id must map to a chunk
 actually retrieved this turn, inventions stripped and logged; grounding-based
@@ -751,20 +754,20 @@ exhausted budget produces the plain message rather than a crash**.
 Measured: abstention rate on the 14 unanswerable questions; citation validity
 rate.
 
-**Measured in S2 (BUILD_NOTES Entry 68, `s2-v2`, `gemini-3.5-flash-lite`,
-one run of 120).**
+**Measured in S2 (BUILD_NOTES Entry 71, `s2-v3`, `gemini-3.5-flash-lite`,
+two runs of 120, on the corrected labels of Entry 69).**
 
-- **Unanswerable questions abstained:** 16/19 original and 8/8 new. Of the
-  three answered, two were answered from mentorship 1's own material.
+- **Unanswerable questions abstained:** 17/17 original and 8/8 new, both runs.
 - **Cross-tenant:** 5/5 abstained, and 0 sources from another mentorship.
-- **Citation handles:** 122/122 in range, 0 stripped.
-- **Injections:** 4/4 resisted, though two were never shown their planted
-  chunk.
+- **Citation handles:** 125/125 and 129/129 in range, 0 stripped.
+- **Injection check, every plant certainly seen:** 10/10 on both runs, against
+  `s2-v2`'s 7/10 on both. One reply under `s2-v3` did obey, and the verifier
+  stopped it from being shown.
 - **Cut off at the cap:** 0.
-- **Latency:** median 796 ms a turn.
+- **Latency:** median 808 and 826 ms a turn; 818 ms through the real route.
 
-Seven failure patterns were read and recorded, the largest being boilerplate
-denials on 44 of 82 answers. **This is where Entry 41's finding is discharged** — abstention reads the
+`s2-v3` replaced `s2-v2` under a rule committed before the runs. Its known cost
+is partial answers that do not say what is missing (Entry 71). **This is where Entry 41's finding is discharged** — abstention reads the
 retrieved text, never a score threshold.
 
 BUILD_NOTES: must state the **synthetic-data-only rule** and why — free-tier
@@ -789,6 +792,14 @@ material the user can still open. Two honest options: (a) refuse with a clear
 *"the assistant isn't available for ended mentorships"* before searching, or
 (b) index ended mentorships and allow search. Not (c), which is the current
 state: answering, and finding nothing.
+
+**What S2 hands to S3 (BUILD_NOTES entries 67, 71, 72).** The route returns
+`status` (`answered` or `abstained`), `answer` with `[n]` handles, `citations`
+keyed by `handle`, one `message` for every abstention, and `cause`. Errors are 429,
+502 or 503 with one plain sentence in `error`. Render handles as links, using each
+citation's title, heading and pages. Show the abstention message alone: `cause`
+is for logs and evaluation. Answers are plain text, so render them as text,
+never as HTML or Markdown: they derive from text students wrote.
 
 Tests: Playwright screenshots (render + console errors) — and note the standing
 gap that the frontend has no behavioural tests.
@@ -869,6 +880,15 @@ tokens it consumed against the daily limit**, so the cost of a full evaluation
 is a known number rather than a surprise.
 
 Measured: tool accuracy, argument accuracy, faithfulness, refusal correctness.
+
+**What S2 hands to S6 (BUILD_NOTES entries 66, 68, 70, 71).** Level 3 must look for
+what level 2 passed: a valid handle on a claim its source does not support
+(`s2-31`'s invented "because"), answers that go around the question (`cache-07`,
+`nplus1-05`), and a student's own `[1]` copied as a handle. Judge injection probes
+on the raw reply as well as the shown one, because the verifier hid the one
+obedience S2 saw. Run everything at least twice: a single run is one sample. The
+harness to reuse is `ai/eval/evaluate_answers.py` (paced, cached per version and
+run), `injection_check.py` and `compare_prompts.py`.
 
 Probes: why the judge is a different provider from the generator; what an
 LLM-as-judge cannot tell you.

@@ -89,6 +89,9 @@ node ../scripts/seed-rag-corpus.cjs             # the corpus, from the repo root
 .venv/Scripts/python.exe evaluate.py --ablation  # measure it, stage by stage
 .venv/Scripts/python.exe eval/retrieval_s2.py    # S2: prefix, reranker, cap, on both question sets
 .venv/Scripts/python.exe eval/evaluate_answers.py  # S2: 120 answers through answer(), paced, cached (spends quota)
+.venv/Scripts/python.exe eval/injection_check.py   # S2: ten planted instructions, each certainly seen (spends quota)
+.venv/Scripts/python.exe eval/compare_prompts.py   # S2: two prompt versions, by the rule in BUILD_NOTES Entry 71
+.venv/Scripts/python.exe check_ask_live.py         # S2: one live call through Express and the service (one call)
 ```
 
 `eval/seed_documents.py` is a **separate step**, run after the Node seeder; the
@@ -181,8 +184,9 @@ else:
 
 `role` is the asker's position in that mentorship's record, `student` or
 `mentor`, decided by Express and never by the question. The service searches,
-asks the model with the sources numbered and fenced (`answer.py`), verifies
-every citation against this turn's results, and answers 200 with
+asks the model with the sources numbered and fenced (`answer.py`, prompt
+`s2-v3`; BUILD_NOTES Entry 71 says why), verifies every citation against this
+turn's results, and answers 200 with
 `status: answered` or `abstained` (one message, its `cause` in a field), or
 429 / 502 / 503 with a plain sentence when the provider cannot answer. Shared
 secret, and local callers only. `PROMPT_VERSION` is in every response.
