@@ -366,7 +366,7 @@ def test_answer_requires_a_role():
 
 
 def test_rule_2_asks_for_the_supported_part_and_one_sentence_on_the_rest():
-    system = system_prompt("student")
+    system = system_prompt("student", "s2-v2")
     assert "answer that part with citations" in system
     assert "say plainly in one sentence which part they do not cover" in system
     assert "only when the sources support no part of an answer" in system
@@ -426,9 +426,10 @@ def ask_v(reply, version, hits=HITS, question=QUESTION):
     return result, provider
 
 
-def test_both_versions_can_run_and_v2_still_serves():
+def test_both_versions_can_run_and_v3_serves():
     assert set(PROMPTS) == {"s2-v2", "s2-v3"}
-    assert PROMPT_VERSION == "s2-v2"
+    assert PROMPT_VERSION == "s2-v3"
+    assert answer(Store(HITS), M1, ADITYA, QUESTION, ScriptedProvider("Yes [1]."), role="student")["promptVersion"] == "s2-v3"
     assert ask_v("Yes [1].", "s2-v3")[0]["promptVersion"] == "s2-v3"
     assert ask_v("Yes [1].", "s2-v2")[0]["promptVersion"] == "s2-v2"
     with pytest.raises(ValueError, match="unknown prompt version"):
