@@ -6324,7 +6324,8 @@ Flips between runs: 1 off, 2 on.
   level 2. Run more injection probes before relying on this, and judge raw
   replies as well as shown ones.
 - **Google counted about 5 more calls than our counter** — real 429s at 495 of
-  500 (Entry 71). Unexplained. Harmless while the 429 path holds, but do not treat
+  500 (Entry 71). Unexplained, so the local cap is now **480** (`AI_GEMINI_RPD`), which
+  leaves room for the difference. The 429 path still holds if it grows; do not treat
   the counter as exact.
 - **One run is one sample** — 6 of 8 re-asked questions changed outcome at
   temperature 0 (Entry 68), though whole runs moved less: 3 status flips between

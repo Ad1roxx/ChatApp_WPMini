@@ -169,7 +169,9 @@ LLM_MAX_OUTPUT_TOKENS = int(os.getenv("AI_LLM_MAX_OUTPUT_TOKENS", "400"))
 # - which all draw on the same project's quota - see each other's calls, and a
 # restart does not reset the count.
 GEMINI_RPM = int(os.getenv("AI_GEMINI_RPM", "15"))
-GEMINI_RPD = int(os.getenv("AI_GEMINI_RPD", "500"))
+# 480 rather than the published 500: Google answered real 429s when this count
+# stood at 495 (BUILD_NOTES Entry 71), so ours can run a few short of theirs.
+GEMINI_RPD = int(os.getenv("AI_GEMINI_RPD", "480"))
 LLM_USAGE_FILE = os.getenv(
     "AI_LLM_USAGE_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), ".llm-usage.json")
 )

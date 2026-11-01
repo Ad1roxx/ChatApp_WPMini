@@ -266,7 +266,8 @@ Three caveats, all of which matter:
   `gemini-3.5-flash-lite` answered in 0.9 s with no thinking tokens.
 - **Gemini sends no rate-limit headers**, so its budget cannot be read from
   responses. The provider layer counts its own Gemini calls per minute and per
-  day against 15 RPM and 500 RPD and refuses before calling when the next one
+  day against 15 RPM and 480 RPD (500 until S2 closed: Google answered real 429s
+  when our count stood at 495) and refuses before calling when the next one
   would exceed them.
 
 **Groq**, free plan, read from the console and from the `x-ratelimit-*`

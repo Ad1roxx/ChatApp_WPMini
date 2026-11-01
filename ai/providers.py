@@ -34,7 +34,7 @@ the prompt and its parsing are the part worth reading.
 **Gemini** sends no rate-limit headers, so its calls are counted: `CallBudget`
 holds the timestamps of the last day's calls in a small file shared by every
 process using the key, locked between processes, and refuses - before sending
-- a call that would exceed 15 a minute or 500 a day. **Groq** reserves the prompt plus
+- a call that would exceed 15 a minute or 480 a day (Google's limit is 500). **Groq** reserves the prompt plus
 `max_completion_tokens` from one 8K-a-minute bucket before it generates, so
 `HeaderBudget` keeps what the last response said was left and checks that sum
 against it. Either way a call that cannot be made in time is a `rate_limited`
