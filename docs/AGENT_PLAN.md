@@ -1107,7 +1107,7 @@ so the sprints do not re-litigate them.
 | **D4** | Writes execute in the browser with the user's own token, after confirmation | **Approved**, with the client-result caveat in §2.4 |
 | **D5** | Rubric as a flagged attachment — **mentor-only by default, with a per-rubric "share with students" option** | **Approved, modified** |
 | **D6** | Extracted criteria in a versioned collection, one version per mentor confirmation | **Approved** |
-| **D7** | Reranker in the served path, `k=4`, re-measured in S1 | **Settled in S2:** `k=4`; reranker **off** — it is more accurate but over the 1 s latency bar |
+| **D7** | Reranker in the served path, `k=4`, re-measured in S1 | **Settled after S2:** `k=4`; reranker **on**, at batch 4: same rankings on all 120 questions, 468 ms median |
 
 **D1.** 512 vs 256 tokens is the deciding argument, and it costs nothing at the
 index level: identical 384 dimensions means `numDimensions` is unchanged
@@ -1170,3 +1170,11 @@ second. A mixed result keeps the default. Its cost, not its value, is now the
 open question (fewer candidates, shorter inputs, a faster runtime), and any
 re-measurement needs fresh labels. The soft cap stays on as a tie: at cap 3
 and `k=4` it can only change the fourth result, and did on 3 of 120 questions.
+
+**Reversed after S2, by the same rule (BUILD_NOTES Entries 73, 74): the reranker is
+on.** The cost was the batch size, not the model: at the library's default of 32,
+all thirty candidates were padded to the longest. At batch 4 the median is 468 ms,
+with the order of all candidates identical to a committed reference on 120/120
+questions, so no new labels were needed. Re-running the answers with `s2-v3` unchanged:
+answerable abstentions 8.0 → 5.0 on the means of two runs, and a turn about 700 ms
+slower (median about 1.5 s). Below 4 threads it would fail the rule again.

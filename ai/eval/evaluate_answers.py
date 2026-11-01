@@ -56,7 +56,7 @@ import providers  # noqa: E402
 from answer import PROMPT_VERSION, _HANDLES, answer, uncited_sentences  # noqa: E402
 from config import CHUNK_BUDGET_TOKENS, GEMINI_API_KEY, LLM_PROVIDER, RERANK  # noqa: E402
 from evaluate import ADITYA, M1, build_index, by_group, fixture, load_questions  # noqa: E402
-from store import embed_query  # noqa: E402
+from store import embed_query, reranker  # noqa: E402
 from prefix_ablation import quoted_labels  # noqa: E402
 from retrieval_s2 import EXTRACTOR_LIMITED, load_s2  # noqa: E402
 
@@ -415,6 +415,8 @@ def main() -> None:
         # Load the embedding model before anything is timed, as the service
         # does at start-up: a cold first search takes about 13 s (Entry 68).
         embed_query("warm-up")
+        if RERANK_ON:
+            reranker()  # likewise: the first search otherwise took about 8.5 s (Entry 74)
         recording = Recording(store)
         CACHE.mkdir(exist_ok=True)
         todo = [q for qs in table.values() for q in qs if q["id"] not in cache]

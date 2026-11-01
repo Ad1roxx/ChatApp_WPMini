@@ -1,20 +1,20 @@
 S2 step 4 (Entry 72): one live call through the real ask route, Express -> ai/ -> Gemini.
-run 2026-11-01 21:38 UTC; fixture databases chatapp_asklive; fixture users signed in through the development sign-in; synthetic brief.
+run 2026-11-01 22:59 UTC; fixture databases chatapp_asklive; fixture users signed in through the development sign-in; synthetic brief.
 
-brief searchable 0.68 s after it was set
+brief searchable 0.34 s after it was set
 outsider asks: HTTP 403 in 7 ms (expected 403, before the service is called)
 student asks: 'How many times should the webhook retry, and where does the message go after that?'
-  HTTP 200 in 818 ms, from request to response, through Express
+  HTTP 200 in 816 ms, from request to response, through Express
   response:
     {
       "status": "answered",
-      "answer": "On a failure, the payment webhook handler should retry five times with exponential backoff starting at 200 ms [1]. After that, the message moves to the payments-dlq queue so that nothing is lost [1].",
+      "answer": "You should retry the payment webhook handler five times [1]. After these failures, the message should be moved to the payments-dlq queue [1].",
       "citations": [
         {
           "handle": 1,
           "title": "Payment webhook retries",
           "sourceType": "assignment",
-          "sourceId": "6ae7b168335dade37d73eb44",
+          "sourceId": "6ae7c465a4189fb6d74b67e6",
           "chunkIndex": 0,
           "url": null,
           "parentType": null,
@@ -38,5 +38,5 @@ student asks: 'How many times should the webhook retry, and where does the messa
     }
 
 service log lines for the turn (no prompt or answer text is ever logged):
-  INFO copilot.llm: llm provider=gemini model=gemini-3.5-flash-lite prompt=s2-v3 outcome=ok attempts=1 in=560 out=47 ms=765 stripped=0
+  INFO copilot.llm: llm provider=gemini model=gemini-3.5-flash-lite prompt=s2-v3 outcome=ok attempts=1 in=554 out=31 ms=754 stripped=0
   INFO copilot.answer: copilot prompt=s2-v3 status=answered cause=- outcome=ok sources=1 stripped=0

@@ -91,6 +91,8 @@ node ../scripts/seed-rag-corpus.cjs             # the corpus, from the repo root
 .venv/Scripts/python.exe eval/evaluate_answers.py  # S2: 120 answers through answer(), paced, cached (spends quota)
 .venv/Scripts/python.exe eval/injection_check.py   # S2: ten planted instructions, each certainly seen (spends quota)
 .venv/Scripts/python.exe eval/compare_prompts.py   # S2: two prompt versions, by the rule in BUILD_NOTES Entry 71
+.venv/Scripts/python.exe eval/reranker_speed.py    # the reranker's runtime: identical rankings, then latency
+.venv/Scripts/python.exe eval/compare_reranker.py  # answers with the reranker off against on
 .venv/Scripts/python.exe check_ask_live.py         # S2: one live call through Express and the service (one call)
 ```
 
@@ -111,14 +113,15 @@ two.
 
 ### What the served search does
 
-bge-small dense search over 30 candidates, then a soft per-record cap, cut to
-`k=4`, at about 40 ms. The cross-encoder reranker is **off by default, for
-latency**. On S2's corpus, larger than its candidate pool, it is the most
-accurate configuration measured — 62 of 81 answerable questions first against
-54 served — but its median is 1,337 ms a search, over the 1 second the
-decision rule allowed (BUILD_NOTES Entry 63, `eval/s2-retrieval.txt`).
-`AI_RERANK=1` turns it on; `evaluate.py --ablation` measures every stage,
-including the served one. The cap is 3 chunks a record, so at `k=4` it only
+bge-small dense search over 30 candidates, then the cross-encoder reranker over
+those 30, then a soft per-record cap, cut to `k=4`, at about 470 ms on 8 threads.
+The reranker is the most accurate configuration measured: 64 of 83 answerable
+questions first, against 56 without it (BUILD_NOTES Entry 63,
+`eval/s2-retrieval.txt`). It was off until its cost turned out to be padding: batch 4
+(`AI_RERANK_BATCH_SIZE`) took the median from 1.3 s to under 0.5 s with rankings
+identical on all 120 questions (Entry 73, `eval/reranker_speed.py`). It needs CPU:
+below 4 threads it misses the 1 s rule, so re-measure on a smaller host.
+`AI_RERANK=0` turns it off; `evaluate.py --ablation` measures every stage. The cap is 3 chunks a record, so at `k=4` it only
 ever touches the fourth result.
 
 `evaluate.py` rebuilds the index with whatever model it is run with. Every chunk
