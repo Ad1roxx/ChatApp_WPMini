@@ -881,6 +881,11 @@ is a known number rather than a surprise.
 
 Measured: tool accuracy, argument accuracy, faithfulness, refusal correctness.
 
+**`s2-v4` is deferred to here.** `s2-v3` can leave out that part of a question went
+unanswered, and only reading finds it today. The judge should score "did the answer
+address every part"; with that count in hand, tighten rule 2 as `s2-v4` and compare
+over two runs of each, as `s2-v3` was.
+
 **What S2 hands to S6 (BUILD_NOTES entries 66, 68, 70, 71).** Level 3 must look for
 what level 2 passed: a valid handle on a claim its source does not support
 (`s2-31`'s invented "because"), answers that go around the question (`cache-07`,

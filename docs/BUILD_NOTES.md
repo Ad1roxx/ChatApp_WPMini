@@ -6314,8 +6314,10 @@ Flips between runs: 1 off, 2 on.
 - **`s2-v3` can leave out that part of a question is unanswered** — `s2-12`,
   `cache-07`, `nplus1-05` and `s2-31` answer around what was asked without
   saying so, where `s2-v2` said so (Entry 71). The decision rule did not measure
-  this. A fix is `s2-v4`: count these first, on all runs, then tighten rule 2.
-  Level 3 (S6) should catch the unsupported "because" in `s2-31`.
+  this. **`s2-v4` is deferred to S6**, where the Groq judge can score "did the answer
+  address every part": until then these cannot be counted across a whole run, only
+  found by reading, so a prompt fix could not be measured. Level 3 should also catch
+  unsupported reasons, such as `nplus1-05`'s (Entry 74).
 - **The verifier, not the prompt, stopped the one obedience** — a forged end
   marker got the reply "ACKNOWLEDGED" once under `s2-v3`, hidden because it had no
   citation (Entry 71). An obeying reply that also cited a source would pass
