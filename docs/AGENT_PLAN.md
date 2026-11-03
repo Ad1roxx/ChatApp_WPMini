@@ -784,15 +784,10 @@ Deliverables: a panel on `MentorshipDetailPage`; answer with inline citations;
 expandable source chunks; honest 503 degradation reusing the existing contract
 (`server/index.js:3806`).
 
-**Decision needed before S3 (raised by S1.5): ended mentorships.** The app
-still shows an ended mentorship's content to both parties, and the Copilot
-route accepts one (`resolveMentorshipAccess` checks membership, not status).
-The index is stricter: only active mentorships are indexed, and the read-time
-check drops anything else. So the assistant would answer "I don't know" about
-material the user can still open. Two honest options: (a) refuse with a clear
-*"the assistant isn't available for ended mentorships"* before searching, or
-(b) index ended mentorships and allow search. Not (c), which is the current
-state: answering, and finding nothing.
+**Decided 2 Nov (raised by S1.5): option (a).** The assistant is available only in
+active mentorships, matching the index. Both Copilot routes refuse any other status
+with a 409 and a plain sentence, after the membership check and before the service is
+called (BUILD_NOTES Entry 75).
 
 **What S2 hands to S3 (BUILD_NOTES entries 67, 71, 72).** The route returns
 `status` (`answered` or `abstained`), `answer` with `[n]` handles, `citations`

@@ -3797,6 +3797,25 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || '';
 const AI_SERVICE_SECRET = process.env.AI_SERVICE_SECRET || '';
 
 /**
+ * Whether the assistant works in this mentorship, and if not, what to say.
+ *
+ * Only active mentorships are indexed, so anywhere else it could only answer "I
+ * couldn't find that" about material the user can still open. Product decision,
+ * 2 Nov: refuse plainly instead (BUILD_NOTES Entry 75).
+ *
+ * 409 rather than 403 or 503: 403 already means "not your mentorship" and 503 a
+ * broken service. The request is fine; this mentorship's state does not allow it.
+ * Always checked after resolveMentorshipAccess, so an outsider gets the same
+ * 403 whatever the status is, and learns nothing from it.
+ */
+function assistantRefusal(mentorship) {
+  if (mentorship.status === 'active') return null;
+  return mentorship.status === 'ended'
+    ? "The assistant isn't available for ended mentorships."
+    : 'The assistant is only available in active mentorships.';
+}
+
+/**
  * POST /api/mentorships/:id/copilot/search
  *
  * Ask a question about ONE mentorship's own material. Both parties may ask;
@@ -3823,6 +3842,10 @@ app.post('/api/mentorships/:id/copilot/search', requireAuth, async (req, res) =>
     const access = await resolveMentorshipAccess(req.params.id, req.authUser);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
+    }
+    const refusal = assistantRefusal(access.mentorship);
+    if (refusal) {
+      return res.status(409).json({ error: refusal });
     }
 
     const query = String(req.body?.query || '').trim();
@@ -3946,6 +3969,10 @@ app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
     const access = await resolveMentorshipAccess(req.params.id, req.authUser);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
+    }
+    const refusal = assistantRefusal(access.mentorship);
+    if (refusal) {
+      return res.status(409).json({ error: refusal });
     }
     // From the mentorship record. resolveMentorshipAccess has refused anyone
     // who is neither its mentor nor its student, so "not mentor" is "student".

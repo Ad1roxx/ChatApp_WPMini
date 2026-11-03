@@ -6248,6 +6248,48 @@ Flips between runs: 1 off, 2 on.
 
 ---
 
+### Entry 75 — S3 step 1: the assistant works only in active mentorships
+
+The decision S1.5 raised, taken on 2 Nov: option (a). The app still shows an ended
+mentorship's content to both parties, but the index holds only active ones, so the
+assistant could only have said it found nothing about material the user can open.
+That reads as a statement about the material, and it is false.
+
+`/copilot/search` and `/copilot/ask` now refuse before calling the service:
+
+| Status | Response |
+| --- | --- |
+| `ended` | 409, *"The assistant isn't available for ended mentorships."* |
+| `pending`, `declined` | 409, *"The assistant is only available in active mentorships."* |
+
+"Ended" would be wrong for a mentorship that never started, hence two sentences.
+
+**Why 409.** 403 already means "not your mentorship", and the panel must tell those
+apart. 503 means something is broken and might recover by retrying. The request is
+valid; this mentorship's state does not allow it.
+
+**The order is the security property.** The check runs after
+`resolveMentorshipAccess`, so an outsider gets the same 403, with the same body,
+whatever the status. A check before it would tell anyone with a mentorship's id
+whether it had ended.
+
+**Rejected:** indexing ended mentorships and answering (option b), which would keep
+material searchable after both parties finished with it and needs its own decision
+about how long; and leaving the current behaviour (c), which is the false "nothing
+found".
+
+**Tests:** `server/test/copilot-status.test.js`, 18, against a stub that records every
+request: each non-active status refused on both routes for both parties with the
+stub hearing nothing, an outsider's response identical across statuses, an active
+mentorship still reaching the service, and the 404 and 401 unchanged.
+
+**Mutation checks**, each restored:
+
+- status check removed: 6 tests fail;
+- status checked before membership on the ask route: 3 fail.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -6406,10 +6448,7 @@ Flips between runs: 1 off, 2 on.
   Entry 63 on S2's corpus: off gains 2 of 81 (0 original, +2 new), under the
   +3 bar, so it stays on. Records have now leaned towards off three times,
   each time by too little to count.
-- **S3 decision: ended mentorships** — the app still shows their content and
-  both Copilot routes, search and ask (Entry 67), accept them, but the index holds only active ones, so the
-  assistant would answer "I don't know" about material the user can open.
-  Refuse clearly, or index them. AGENT_PLAN §5 S3.
+- ~~**S3 decision: ended mentorships**~~ — decided in Entry 75: refused with a 409.
 - **Product question: should mentors see drafts?** They do today, in the app
   and so in the index. One rule in `sources.py` if it changes. AGENT_PLAN §5
   S1.5.
