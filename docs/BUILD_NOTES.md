@@ -6578,6 +6578,47 @@ items"* with a cited refusal (below), and another abstained on it.
 
 ---
 
+### Entry 81 — Pre-push hook, and embedding headings: the labels and the rule, before measuring
+
+**The hook.** `npm run hooks:install` once per clone, then `git push` runs the Python, Node and frontend suites and the key scan, and
+refuses if any fails. Three slips in S3 (Entries 76 and 80) came from commits I had not gated, so this is the gate. A throwaway commit
+breaking all four was refused on a dry run, naming all four, in 4 min 27 s. Beyond the request: it refuses a dirty tree or a push of anything but HEAD, because the
+suites test the working tree; and the tests that need Atlas fail rather than skip under it, because a pass on skipped tests is not a pass.
+
+**Embedding headings: why.** Entry 80: a question naming a section cannot find it by that name, because a section's heading is citation metadata and
+reaches neither the embedder nor the reranker.
+
+**The change being measured.** For a chunk with a real heading, the embedder and the reranker read `heading` + newline + `text`. What is stored as
+the chunk's content, shown on a citation and put in the prompt does not change. The extractor's placeholder heading "Document" is not added. Chunk boundaries stay the same at the served
+budget, so the counts of chunks must match. Record chunks have no heading and do not change.
+
+**The labels, committed and pushed before any measurement:** `ai/eval/questions_demo.jsonl`, 46 questions over the demo's own documents. 40 are answerable:
+
+- **`demo` (9):** every answerable question in `ai/eval/s3-demo-log.txt`. That is nine rather than eight: the S3 report counted eight because the ninth, the hostel survey,
+  hit the provider's timeout and never reached an answer. It is included.
+- **`more` (31):** others in the same style, across both active mentorships, as a student and as the mentor. Some use a section's own words, some do not, and eight are
+  about records with no heading, which this change can only hurt.
+- **Not scored by the rule (6):** three the corpus cannot answer and three about the other mentorship.
+
+**Labels name the section as well as the file.** `questions.jsonl` and `questions_s2.jsonl` label a file, and that cannot see this change: a search landing on the wrong section of the right
+file would count as correct. So a hit on the new questions is correct only if its title matches and, where the label names a section, its heading does too. A few questions accept two sections,
+where both really answer. File-level recall@1 is printed beside it, and is not part of the rule. A test holds every label to the demo's real files.
+
+**The rule, committed before running.** All counts are of recall@1, with the served search (reranker on, soft cap, k=4), comparing this change with the same code without it:
+
+    Adopt if
+      - recall@1 on the 40 new questions improves by at least 3,
+      - and neither existing set loses more than 1:
+          original = questions.jsonl, answerable, with the six clear-cut record labels (Entry 51),
+          s2       = questions_s2.jsonl, answerable and injection, without the extractor-limited seven (Entry 63).
+    Otherwise it is not adopted, and both results are recorded.
+
+**Stops regardless:** any chunk from another mentorship in the results of any question. **Measured but not in the rule:** recall@3, MRR, the highest score on an unanswerable question, and search latency.
+
+If adopted, the served and demo indexes are rebuilt. Whether answers improve is not this rule's question: the fresh `s2-v3` runs in the names re-test will show it.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
