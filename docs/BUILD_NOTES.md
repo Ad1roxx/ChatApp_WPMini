@@ -6766,6 +6766,29 @@ Entry 86's fresh set rarely gave a brief the chance to win, so it hardly tested 
 
 ---
 
+### Entry 88 — Contextual headers and names as roles: adopted on the mechanism set
+
+`ai/eval/context_headers.py`, by the rule in Entry 87, twice, with identical results (`ai/eval/context-headers-mechanism-decision.txt`). No provider calls.
+
+| Set | recall@1 off | recall@1 on | Change | recall@3 off → on | Wrong with a brief on top, off → on | Rule |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Mechanism, right file and section** | 5/19 | 11/19 | **+6** | 11 → 18 | 12 → 7 | needed +3: **met** |
+| Fresh | 10/16 | 11/16 | +1 | 11 → 14 | 1 → 1 | met |
+| Demo | 23/40 | 34/40 | +11 | 26 → 39 | 10 → 3 | met |
+| Original | 37/48 | 39/48 | +2 | 45 → 43 | 5 → 2 | met |
+| S2 | 27/35 | 33/35 | +6 | 31 → 34 | 5 → 1 | met |
+
+**Adopted.** No chunk from another mentorship appeared. As Entry 87 set out, the default flips and the indexes are rebuilt only once the names runs finish, so until then `AI_CONTEXT_HEADERS` stays off.
+
+**Read it with these in mind:**
+
+- **Entry 86's decision stands as made.** The first fresh set did not meet the rule. This set was then built to test the mechanism that set hardly touched, which is why it was measured, and it is also why a large gain on it was more likely. It is the same rule on a set chosen with knowledge of the first result.
+- **A brief still wins 7 of the 19.** Six of them leave the labelled chunk second. The change moves the answer into the top four far more often than to first place: recall@3 is 18/19.
+- **Original lost at recall@3,** 45 → 43, while gaining at recall@1. Three questions lost at recall@1 are named in the decision file: `nplus1-01`, `s2-19` and `fresh-10`.
+- **Only retrieval was measured.** Whether answers improve, and what abstentions do, has not been measured with this on. The fresh names runs (Entry 84) use the search as it was before this change, so their decision is about names on the old search.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -6894,7 +6917,7 @@ Entry 86's fresh set rarely gave a brief the chance to win, so it hardly tested 
   see them, so *"What action items…"* misses the section called "Action items" and the demo abstains on 4 of 8 answerable
   questions (Entry 80). Embedding the heading was measured and not adopted (Entry 82): the demo's questions barely moved, and a document's
   short opening section then takes the top place.
-  Contextual headers with names as roles were measured and not adopted on the fresh set's +1, despite +11, +2 and +6 on the others (Entry 86).
+  Contextual headers with names as roles missed on the first fresh set (Entry 86) and were adopted on a set built to test them (Entry 88).
 - **Gemini's latency has grown** — one call in ten hit the 8 s budget in a demo run, against a slowest turn of 1.3 s in Step 6
   (Entry 80). Measure it over a day before changing a timeout.
 - **The mentor's name can read as a stranger** — `s2-38` declines with Priya's review among its sources
