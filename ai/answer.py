@@ -59,6 +59,7 @@ import logging
 import re
 import secrets
 
+import chunking
 from config import SERVED_K
 from providers import DEFAULT_BUDGET_S, Generation, log_call
 
@@ -268,6 +269,11 @@ def party_name(name: str | None) -> str:
     return flat[:MAX_NAME_CHARS] or "not known"
 
 
+def search_query(question: str, parties: dict | None) -> str:
+    """What search is given. The question itself goes to the prompt, unchanged."""
+    return chunking.names_to_roles(question, parties) if chunking.CONTEXT_HEADERS else question
+
+
 def build_prompt(question: str, hits: list[dict], tag: str, parties: dict | None = None) -> str:
     names = ""
     if parties and any(parties.values()):
@@ -363,7 +369,7 @@ def answer(
     turns that into its 502, and nothing unchecked is ever answered from.
     """
     system = system_prompt(role, prompt_version)  # first: a bad role is a caller bug, not a search
-    hits = chunk_store.search(mentorship_id, viewer_id, question, k=k)
+    hits = chunk_store.search(mentorship_id, viewer_id, search_query(question, parties), k=k)
 
     if not hits:
         return _response("abstained", None, prompt_version, message=ABSTAIN_MESSAGE, cause=NO_RESULTS, sources=0)

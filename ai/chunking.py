@@ -43,6 +43,7 @@ from typing import Iterator
 from config import (
     CHUNK_BUDGET_TOKENS,
     CHUNK_OVERLAP_TOKENS,
+    CONTEXT_HEADERS,
     EMBED_HEADINGS,
     EMBEDDING_MAX_TOKENS,
     MIN_CHUNK_TOKENS,
@@ -52,7 +53,8 @@ from config import (
 # slots, and a section's heading can be read with its chunk, so a chunk at the
 # ceiling must still leave room for the longest heading (`text_for_models`).
 HEADING_MAX_TOKENS = 32
-HEADROOM_TOKENS = 16 + HEADING_MAX_TOKENS
+HEADER_MAX_TOKENS = 48
+HEADROOM_TOKENS = 16 + HEADER_MAX_TOKENS
 
 # What the extractor calls text that comes before any heading. Nobody wrote it,
 # and it says nothing about the chunk.
@@ -80,13 +82,106 @@ def token_count(text: str) -> int:
     return len(tokenizer().encode(text, add_special_tokens=False))
 
 
-def text_for_models(text: str, heading: str | None) -> str:
-    """What the embedder and the reranker read for a chunk: its heading, then its text.
+def names_to_roles(text: str, parties: dict | None) -> str:
+    """The two parties' display names in `text`, as "the student" and "the mentor".
+
+    Whole names in any case, then each part of a name as written, so "Rohan's" and
+    "Meera Iyer" both change and "will" does not change for a mentor called Will. A
+    part both parties share says nothing about which is meant, so it stays.
+    """
+    if not parties:
+        return text
+    roles = {role: (parties.get(role) or "").split() for role in ("student", "mentor")}
+    whole = [(" ".join(parts), f"the {role}") for role, parts in roles.items() if parts]
+    shared = set(roles["student"]) & set(roles["mentor"])
+    single = [(part, f"the {role}") for role, parts in roles.items() for part in parts if part not in shared and len(part) > 1]
+    for name, role in sorted(whole, key=lambda pair: -len(pair[0])):
+        text = re.sub(rf"(?<!\w){re.escape(name)}(?!\w)", role, text, flags=re.IGNORECASE)
+    for name, role in sorted(single, key=lambda pair: -len(pair[0])):
+        text = re.sub(rf"(?<!\w){re.escape(name)}(?!\w)", role, text)
+    return text
+
+
+REVIEW_MARK = "Mentor's review:"
+
+
+def _clip_header(header: str) -> str:
+    words = header.split()
+    while len(words) > 1 and token_count(" ".join(words)) > HEADER_MAX_TOKENS:
+        words.pop()
+    return " ".join(words)
+
+
+def context_headers(doc: dict, pieces: list[dict], parties: dict | None = None) -> list[str]:
+    """One header per chunk: its record type, its owner by role, its title and section.
+
+    Roles only: a party's name in a title becomes their role. Read by the embedder and
+    the reranker alone (`text_for_models`), never stored as content, cited or put in a prompt.
+    """
+    source_type = doc.get("source_type")
+    parent_type = doc.get("parent_type")
+    named = names_to_roles((doc.get("parent_title") if source_type == "attachment" else doc.get("title")) or "", parties)
+    title = named.removeprefix("Hand-in: ")
+
+    headers, in_review = [], False
+    for piece in pieces:
+        text = piece.get("text", "")
+        if source_type == "assignment":
+            header = f"Assignment brief (the mentor's instructions): {title}"
+        elif source_type == "submission":
+            has_mark = REVIEW_MARK in text
+            if text.lstrip().startswith(REVIEW_MARK) or in_review:
+                header = f"Mentor's review of the student's hand-in for '{title}'"
+            elif has_mark:
+                header = f"Student's hand-in for '{title}', and the mentor's review of it"
+            else:
+                header = f"Student's hand-in for '{title}'"
+            in_review = in_review or has_mark
+        elif source_type == "goal":
+            header = f"Student's goal: {title}"
+        elif source_type == "resource":
+            who = doc.get("added_by_role")
+            header = f"Resource shared by the {who}: {title}" if who else f"Resource: {title}"
+        elif parent_type == "submission":
+            header = f"Student's hand-in for '{title}'"
+        elif parent_type == "assignment":
+            header = f"Attachment to the assignment brief (the mentor's instructions): {title}"
+        else:
+            header = f"File on the resource: {title}"
+        heading = " ".join((piece.get("heading") or "").split())
+        if heading and heading != PLACEHOLDER_HEADING:
+            header += f", section: {names_to_roles(heading, parties)}"
+        headers.append(_clip_header(header))
+    return headers
+
+
+def fold_opening_fragment(sections: list[dict]) -> list[dict]:
+    """A document's opening section below the minimum goes into the next section.
+
+    A title and a byline are a whole "section", so `MIN_CHUNK_TOKENS`, which applies
+    inside one piece of text, never reached them, and they competed as chunks of their
+    own (BUILD_NOTES Entry 85). No text is lost, and the next section's heading stands.
+    Later short sections stay apart: commitment 1 above.
+    """
+    if len(sections) < 2 or token_count(sections[0].get("text", "")) >= MIN_CHUNK_TOKENS:
+        return sections
+    first, second = sections[0], sections[1]
+    starts = [p for p in (first.get("start_page"), second.get("start_page")) if p is not None]
+    merged = {**second, "text": f"{first.get('text', '')} {second.get('text', '')}".strip()}
+    if starts:
+        merged["start_page"] = min(starts)
+    return [merged, *sections[2:]]
+
+
+def text_for_models(text: str, heading: str | None, header: str | None = None) -> str:
+    """What the embedder and the reranker read for a chunk: its header or heading, then its text.
 
     Only they read this. What is stored, cited and put in the prompt stays the text
     alone, and the prompt already names the section. Without it, a question that
-    names a section cannot find it by that name (BUILD_NOTES Entries 80, 81).
+    names a section cannot find it by that name (BUILD_NOTES Entries 80, 81, 85).
     """
+    if CONTEXT_HEADERS:
+        return f"{header}\n{text}" if header else text
     heading = " ".join((heading or "").split())
     if not EMBED_HEADINGS or not heading or heading == PLACEHOLDER_HEADING:
         return text
@@ -270,7 +365,7 @@ def chunk_sections(
     """
     chunks: list[dict] = []
 
-    for section in sections:
+    for section in fold_opening_fragment(sections) if CONTEXT_HEADERS else sections:
         pieces = chunk_text(section.get("text", ""), budget=budget, overlap=overlap)
         for position, piece in enumerate(pieces):
             chunks.append(

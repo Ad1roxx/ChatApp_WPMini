@@ -6704,6 +6704,45 @@ The diagnosis of the demo's questions (full traces given to the user): the label
 
 ---
 
+### Entry 86 — Contextual headers and names as roles: measured, and not adopted
+
+`ai/eval/context_headers.py`, by the rule in Entry 85, twice, with identical results (`ai/eval/context-headers-decision.txt`). No provider calls. `AI_CONTEXT_HEADERS` stays off, and no served or demo index was rebuilt.
+
+| Set | recall@1 off | recall@1 on | Change | recall@3 off → on | Wrong with a brief on top, off → on | Rule |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Fresh, right file and section** | 10/16 | 11/16 | **+1** | 11 → 14 | 1 → 1 | needed +3: **not met** |
+| Demo, right file and section | 23/40 | 34/40 | +11 | 26 → 39 | 10 → 3 | met |
+| Original | 37/48 | 39/48 | +2 | 45 → 43 | 5 → 2 | met |
+| S2 | 27/35 | 33/35 | +6 | 31 → 34 | 5 → 1 | met |
+
+**Not adopted, by the rule.** No chunk from another mentorship appeared in any setting. Search took about 55 ms longer at the median, on a machine also running the names re-test. On the fresh set, two questions were gained and one lost (`fresh-10`, from "Action items" to "Root cause").
+
+**How to weigh the other sets, and what I am not doing with them:**
+
+- **The fresh set is the only one this change had not seen in any form, and it barely moved.** That is what the rule asks about.
+- **Part of the reason is how it was written.** Asked for answers in different words from the brief, I wrote questions the brief rarely wins: a brief on top is a wrong answer only once there, off and on, against 10 of 40 on the demo set. So this set hardly exercises the failure the change most improves. That is an observation, not grounds to overturn the rule. It also started higher, at 10/16 against 23/40.
+- **The demo set's +11 is partly fit.** The change was designed from its traces. Original and S2 were not used to design it, and they rose by 2 and 6, though S2's questions are mostly unlike the demo's.
+- **`recall@3` fell on one set:** original, 45 → 43.
+
+**What each part does, not in the rule:**
+
+| Set | off | headers and folding only | with names as roles |
+| --- | --- | --- | --- |
+| Fresh | 10/16 | **6/16** | 11/16 |
+| Demo | 23/40 | 28/40 | 34/40 |
+| Original | 37/48 | 39/48 | 39/48 |
+| S2 | 27/35 | 33/35 | 33/35 |
+
+So headers alone make questions that name someone worse, by 4 on the fresh set, and the substitution recovers them: an index that says "the student" and a query that says "Rohan" no longer meet. These two parts belong together.
+
+**The 32-token check.** Found as Entry 85 said: the minimum applied inside a section and never across them. Folding the opening fragment took the demo's file chunks under 32 tokens from 4 to 0, and the smallest from 4 to 32 tokens. It took the fixture's from 6 to 3, and the three left are later short sections, which stay apart by design. Chunks: demo 42 → 38, fixture 115 → 112. No wrong answer on any set has a fragment on top with it on (2 on the demo set and 2 on the fresh set with it off).
+
+**Checked:** every real header in the measured demo index holds roles and no names. A name inside a chunk's own text stays there, embedded and shown, because the text is the record. A retitled brief leaves its files' headers stale until they are next indexed; this is about ranking only, as the citation's title is read live.
+
+**Tests:** `tests/test_context_headers.py`. Each property was broken in a copy of `ai/`, so that the running names re-test could never load broken code, with an unbroken control passing 49 of 49: search given the question as written, the prompt given roles, substitution running with the switch off, names kept in a title or a section, the header stored as content, the reranker or embedder ignoring the header, folding losing text or running with the switch off, and a header with no cap. Each fails at least one test.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -6832,6 +6871,7 @@ The diagnosis of the demo's questions (full traces given to the user): the label
   see them, so *"What action items…"* misses the section called "Action items" and the demo abstains on 4 of 8 answerable
   questions (Entry 80). Embedding the heading was measured and not adopted (Entry 82): the demo's questions barely moved, and a document's
   short opening section then takes the top place.
+  Contextual headers with names as roles were measured and not adopted on the fresh set's +1, despite +11, +2 and +6 on the others (Entry 86).
 - **Gemini's latency has grown** — one call in ten hit the 8 s budget in a demo run, against a slowest turn of 1.3 s in Step 6
   (Entry 80). Measure it over a day before changing a timeout.
 - **The mentor's name can read as a stranger** — `s2-38` declines with Priya's review among its sources

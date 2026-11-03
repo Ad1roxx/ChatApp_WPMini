@@ -180,6 +180,24 @@ def test_the_reranker_reads_the_heading_only_with_the_setting_on(served, monkeyp
     assert results[0]["content"] == "text of near"
 
 
+def test_the_reranker_reads_the_contextual_header_with_its_setting_on(served, monkeypatch):
+    seen = []
+
+    class Recording:
+        def predict(self, pairs, **_kwargs):
+            seen.extend(content for _, content in pairs)
+            return [1.0] * len(pairs)
+
+    store = served([chunk("near", 0.90, contextHeader="Student's goal: X")])
+    monkeypatch.setattr(store_module, "reranker", lambda: Recording())
+    monkeypatch.setattr(chunking, "CONTEXT_HEADERS", True)
+
+    results = store.search(M1, ADITYA, "anything", k=4, rerank=True, diversity="none")
+
+    assert seen == ["Student's goal: X" + chr(10) + "text of near"]
+    assert results[0]["content"] == "text of near"
+
+
 def test_without_the_reranker_the_index_order_is_kept(served):
     rows = [chunk("near", 0.90), chunk("far", 0.10)]
     store = served(rows)

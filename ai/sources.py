@@ -261,6 +261,9 @@ def resource_entry(r: dict, mentorship: dict | None) -> dict | None:
         "viewers": parties(mentorship),
         "visibility": "mentorship",
         "owner_id": None,
+        "added_by_role": {_ids(mentorship["student"]): "student", _ids(mentorship["mentor"]): "mentor"}.get(
+            _ids(r["addedBy"]) if r.get("addedBy") else None
+        ),
         "url": r.get("url"),
         "version": version_of(r),
     }

@@ -15,6 +15,7 @@ import threading
 import time
 from typing import Iterable
 
+from bson import ObjectId
 from pymongo import MongoClient
 from pymongo.operations import SearchIndexModel
 
@@ -405,7 +406,14 @@ class ChunkStore:
         if not pieces:
             return 0
 
-        vectors = embed_passages([chunking.text_for_models(c["text"], c.get("heading")) for c in pieces])
+        headers = (
+            chunking.context_headers(doc, pieces, self._party_names(doc["mentorship_id"]))
+            if chunking.CONTEXT_HEADERS
+            else [None] * len(pieces)
+        )
+        vectors = embed_passages(
+            [chunking.text_for_models(c["text"], c.get("heading"), h) for c, h in zip(pieces, headers)]
+        )
         self.chunks.insert_many(
             [
                 {
@@ -414,6 +422,8 @@ class ChunkStore:
                     "sourceId": doc["source_id"],
                     "title": doc["title"],
                     "content": piece["text"],
+                    # Read with the text by the embedder and the reranker, and nothing else.
+                    "contextHeader": header,
                     "chunkIndex": i,
                     "viewers": doc["viewers"],
                     "visibility": doc["visibility"],
@@ -443,10 +453,20 @@ class ChunkStore:
                     "sourceVersion": doc.get("version"),
                     "embedding": vector,
                 }
-                for i, (piece, vector) in enumerate(zip(pieces, vectors))
+                for i, (piece, vector, header) in enumerate(zip(pieces, vectors, headers))
             ]
         )
         return len(pieces)
+
+    def _party_names(self, mentorship_id: str) -> dict:
+        """The two parties' display names, so that a header can turn them into roles."""
+        mentorship = self.records.mentorships.find_one({"_id": ObjectId(mentorship_id)}, {"mentor": 1, "student": 1}) or {}
+
+        def name(who: str) -> str:
+            user = self.records.users.find_one({"_id": mentorship.get(who)}, {"displayName": 1}) if mentorship.get(who) else None
+            return (user or {}).get("displayName", "")
+
+        return {"mentor": name("mentor"), "student": name("student")}
 
     def reconcile(
         self, seen: set[tuple[str, str, str]], mentorship_ids: list[str] | None = None
@@ -628,6 +648,7 @@ class ChunkStore:
                     "_id": 0,
                     "title": 1,
                     "content": 1,
+                    "contextHeader": 1,
                     "sourceType": 1,
                     "sourceId": 1,
                     "chunkIndex": 1,
@@ -662,7 +683,7 @@ class ChunkStore:
         # are allowed to be the default at all.
         if rerank and hits:
             scores = reranker().predict(
-                [(query, chunking.text_for_models(hit["content"], hit.get("heading"))) for hit in hits],
+                [(query, chunking.text_for_models(hit["content"], hit.get("heading"), hit.get("contextHeader"))) for hit in hits],
                 batch_size=RERANK_BATCH_SIZE,
             )
             for hit, score in zip(hits, scores):
