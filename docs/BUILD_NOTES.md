@@ -6505,8 +6505,10 @@ one Gemini call, off unless `AI_LIVE_SMOKE=1`.
 **Two things went wrong on the way, and are worth keeping.** My first mutation run passed `tests/frontend/` to `node
 --test`, which treats a directory as a single failing file here, so all four "failed" for no reason at all; adding the
 control run is what exposed it. And that control then failed one test, once, while other work was using the CPU, because the
-first page load makes Vite prepare its modules. The setup now loads a page first. It has passed every run since, but
-one flake in a loaded machine is a reason to watch this job in CI.
+first page load makes Vite prepare its modules. That was not the end of it: once `server.warmup` went in (Entry 80), the
+first test failed locally on every run while CI passed, with `page.goto` itself passing 30 s, and commit `72e9898` went in that
+way because I chained the commit without gating it on the tests. How long Vite takes to serve a page is not what these tests are
+about, so navigation now has its own 180 s limit. Three consecutive local runs and CI have passed since (`dbc5a0f`).
 
 **The key scan** (`npm run check:keys`, in CI's lint job) fails on anything shaped like a Google or Groq key in any tracked
 or new file, and on the exact values in `ai/.env` where it exists. The Firebase web key in `src/firebase.js` is allowed,
