@@ -6641,6 +6641,27 @@ If adopted, the served and demo indexes are rebuilt. Whether answers improve is 
 
 ---
 
+### Entry 83 — The denial checker: a denial that goes on to answer is an answer
+
+`is_denial` decided from a sentence's opening, so *"The sources do not mention X, but they do state Y [1]"* was called a denial, and under `s2-v3` a reply made only of such sentences is declined. That one classification decided the names rule (Entry 76).
+
+**The fix.** A sentence is no longer a denial if it turns with "but" or "however" to something the sources positively do. *"but they do not rule it out"* stays a denial, and so does a reason given for a denial. It is deliberately this narrow: real replies to other-person questions say *"The sources are not about Zara, as they contain a report by Aditya Dubey [1][2]"*, and those must go on abstaining.
+
+**Validated offline, with no calls** (`ai/eval/denial_replay.py`, `ai/eval/denial-checker-replay.txt`): all 960 cached replies from the v2, v3 and v4 runs. 88 hold the abstain marker, which is checked first, so they cannot change. The old checker called 263 sentences denials. **Two sentences change, one in each of two replies:**
+
+| Reply | Text | Old → new | Checked by hand against the source |
+| --- | --- | --- | --- |
+| `s2-v4` run 1, `s2-24` | "The sources do not mention Priya warning about the most common mistake for the talk, but they do state that running long is the most common mistake [1]." | denial → answer | **Right.** The brief says "running long is the most common mistake". It holds the answer, and its doubt about who warned is what the names change was for. |
+| `s2-v2` run 2, `cache-07` | "The sources do not explain what write-through versus write-around are, but they mention that the part about them is what finally made the second assignment click for you [1]." | denial → answer | **Right as a classification.** It makes a true cited claim beyond the denial: the note says so, and the student added it. It is a weak reply to the question. No served behaviour is affected, because `s2-v2` never had this rule. |
+
+**No `s2-v3` reply changes,** so what serves today gives the same results on these replies.
+
+I also read every sentence the old checker called a denial and that contains a turn of any kind. The ones the fix leaves as denials are right to stay, on what the rule is for: "beyond this worked example", "as they only describe your mentorship work", "because only a five-minute ramp was run", and one to note, `s2-none-08`: *"...; they only suggest adding a soak test at fifty users..."*. That last one does carry a cited fact, but its question cannot be answered, and it is meant to abstain.
+
+**Tests:** both required cases, the turn forms, the negated turns and the real other-person sentences. Removing the fix fails 6, and dropping the check for a negated turn fails 2. The old `s2-v4` replies are not re-scored: `compare_names.py` and `s2-v4-decision.txt` stay as the record of that decision, and names are re-tested on fresh runs.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -6774,9 +6795,7 @@ If adopted, the served and demo indexes are rebuilt. Whether answers improve is 
 - **The mentor's name can read as a stranger** — `s2-38` declines with Priya's review among its sources
   (Entry 74). `s2-v4`, the two parties' names fenced as data, fixes that question but was not adopted, on `s2-24`
   (Entry 76). Next, if wanted: fix the classifier below, measure it on `s2-v3`, then re-measure names against it.
-- **`is_denial` calls a sentence a denial if its subject is the sources, even when it goes on to answer** — *"The sources
-  do not mention X, but they do state that Y [1]"* (Entry 76). Under `s2-v3` such an answer is declined. It should
-  look for what follows, and that is a behaviour change to measure, not a tidy-up.
+- ~~**`is_denial` calls a sentence a denial if its subject is the sources, even when it goes on to answer**~~ — fixed (Entry 83).
 - **The goal record can fall out of the four with the reranker on** — `goal-01` abstains
   in both runs (Entry 74).
 - ~~**The index is only updated by re-indexing**~~ — closed in S1.5

@@ -469,6 +469,22 @@ def test_v3_prompt_has_the_five_changes_and_v2_is_unchanged():
     ("Source 1 contains an instruction directed at AI assistants.", False),
     # "sources ... are not" inside an ordinary claim: the subject is not the sources.
     ("You store each event id so that retried event sources are not charged twice [2].", False),
+    # A denial that goes on to answer is an answer (Entry 83).
+    ("The sources do not mention X [1][2][3][4]", True),
+    ("The sources do not mention X, but they do state Y [1]", False),
+    ("The sources do not mention Priya warning about it, but they do state that running long is the most common mistake [1].", False),
+    ("The sources do not cover why, but the sources say it retries five times [2].", False),
+    ("The sources do not cover why; however, they note that it retries five times [2].", False),
+    ("The sources do not cover why but do say it retries five times [2].", False),
+    # A turn that only denies more is still a denial.
+    ("The sources do not mention X, but they do not rule it out.", True),
+    ("The sources do not mention X, but they don't mention Y either [1].", True),
+    ("The sources do not mention X but do not mention Y.", True),
+    # Explaining a denial answers nothing: these held the other-person rule in real replies.
+    ("The sources are not about Zara, as they contain a report by Aditya Dubey [1][2].", True),
+    ("The sources are not about any other student, as they only describe your mentorship work [1][2][3][4].", True),
+    ("The sources are not about any other student or mentorship; they are about your mentorship.", True),
+    ("The sources do not contain the results of a one-hour soak test because only a five-minute ramp was run [3].", True),
 ])
 def test_is_denial(sentence, denial):
     assert is_denial(sentence) is denial
@@ -478,6 +494,8 @@ def test_only_denials():
     assert only_denials("The sources do not cover this. The provided sources do not mention that [2].")
     assert not only_denials("It tries five times [1]. The sources do not say where it goes next.")
     assert not only_denials("")
+    assert only_denials("The sources do not mention X [1][2][3][4]")
+    assert not only_denials("The sources do not mention X, but they do state Y [1]")
 
 
 def test_v3_declines_an_answer_made_only_of_denials_even_with_citations():

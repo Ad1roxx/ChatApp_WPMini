@@ -1,0 +1,26 @@
+The denial checker, old against new, on every cached reply - BUILD_NOTES Entry 83. No calls.
+
+  s2-v2--run2              120 replies
+  s2-v2                    120 replies
+  s2-v3--rerank--run2      120 replies
+  s2-v3--rerank            120 replies
+  s2-v3--run2              120 replies
+  s2-v3                    120 replies
+  s2-v4--rerank--run2      120 replies
+  s2-v4--rerank            120 replies
+
+  replies 960; with the abstain marker 88; sentences the old checker called denials 263
+  sentences whose classification changes: 2
+  replies whose classification changes: 2
+
+== every sentence that changes
+  s2-v2--run2 cache-07 (shown as answered): denial True -> False
+    The sources do not explain what write-through versus write-around are, but they mention that the part about them is what finally made the second assignment click for you [1].
+  s2-v4--rerank s2-24 (shown as answered): denial True -> False
+    The sources do not mention Priya warning about the most common mistake for the talk, but they do state that running long is the most common mistake [1].
+
+== every whole reply that changes (only denials, old -> new)
+  s2-v2--run2 cache-07 (was answered ): True -> False
+    The sources do not explain what write-through versus write-around are, but they mention that the part about them is what finally made the second assignment click for you [1].
+  s2-v4--rerank s2-24 (was answered ): True -> False
+    The sources do not mention Priya warning about the most common mistake for the talk, but they do state that running long is the most common mistake [1].

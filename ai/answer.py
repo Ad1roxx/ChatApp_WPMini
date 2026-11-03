@@ -187,6 +187,17 @@ _DENIAL = re.compile(
     re.IGNORECASE,
 )
 
+# "..., but they do state Y": the sentence goes on to say what the sources do
+# contain, so it is an answer that opens with a denial. A turn that only denies
+# more ("but they do not say why") is still a denial. Deliberately only this
+# turn: "as they only describe your work" explains a denial and answers nothing
+# (Entry 83).
+_NEGATED = r"(?!(?:do|does|did|are|is|was|were|can|could)(?:\s+not|n't)\b)"
+_GOES_ON_TO_ANSWER = re.compile(
+    rf"\b(?:but|however,?)\s+(?:(?:they|it|the\s+(?:provided\s+)?sources?)\s+{_NEGATED}|(?:do|does)\s+(?!not\b))",
+    re.IGNORECASE,
+)
+
 
 def sentences(text: str) -> list[str]:
     """An answer's sentences, each with the handles that belong to it.
@@ -216,7 +227,8 @@ def uncited_sentences(text: str) -> list[str]:
 
 def is_denial(sentence: str) -> bool:
     """Does this sentence only say what the sources do not contain?"""
-    return bool(_DENIAL.search(_HANDLES.sub("", sentence).strip()))
+    bare = _HANDLES.sub("", sentence).strip()
+    return bool(_DENIAL.search(bare)) and not _GOES_ON_TO_ANSWER.search(bare)
 
 
 def only_denials(text: str) -> bool:

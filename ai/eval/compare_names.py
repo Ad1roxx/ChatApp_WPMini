@@ -23,6 +23,9 @@ prompt did not change, so applying it to the cached replies gives exactly what t
 would have done with them, with no new calls. `replay()` does that, and the decision is taken
 on the replay. The counts as first run are printed beside it (Entry 76).
 
+Do not re-run this to change that decision: the checker it uses was fixed afterwards (Entry 83),
+and the old replies are not re-scored. Names are re-tested on fresh runs (`compare_names_fresh.py`).
+
 Writes `eval/s2-v4-decision.txt`.
 """
 
