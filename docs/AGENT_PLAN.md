@@ -782,6 +782,9 @@ when the model cites a real chunk that doesn't support the claim.
 
 ### S3 — The assistant panel
 
+**Done** (BUILD_NOTES entries 75–80). A panel on the mentorship page, plain-text answers with citation chips, a plain message for every
+state, `npm run demo`, and the frontend's first behavioural tests, in CI.
+
 Deliverables: a panel on `MentorshipDetailPage`; answer with inline citations;
 expandable source chunks; honest 503 degradation reusing the existing contract
 (`server/index.js:3806`).
@@ -818,6 +821,16 @@ expected tool.
 
 Probes: why the tool list is filtered before the model sees it; what LangGraph
 owns and what it must never own.
+
+**What S3 hands to S4 (BUILD_NOTES Entry 80).**
+
+- **The demo's weakest questions are S4's job or retrieval's.** "Which milestones are still to do?" is state, for a read tool. "What action
+  items…" and "Which algorithm…" miss sections by name, because headings are not embedded: consider that before assuming a tool is the fix.
+- **The panel renders one answer.** An agent turn takes longer and has steps: a 10 s route timeout and 15 s browser timeout will not fit, and
+  a turn needs its own progress state, not a longer spinner.
+- **Tool results are untrusted too.** Keep them out of markup in the same way, and give any new citation type a place to lead to before it
+  gets a chip.
+- **Mid-session state.** A mentorship can end while the page is open, and the panel handles only the resulting 409. A tool that writes will need more.
 
 **Questions S2 can only abstain on (from S2 step 4).** "Has my pagination
 design been reviewed yet?" asks for a record's *state* — whether a review

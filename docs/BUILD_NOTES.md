@@ -6515,6 +6515,67 @@ It reports the file and kind, never the key. 6 tests in `check-keys.test.mjs`.
 
 ---
 
+### Entry 80 — S3 step 5: the demo, from cold, with real questions
+
+Docker stopped, then `npm run demo`, then ten questions typed into the panel in a real browser by
+`node scripts/demo-check.mjs` (`ai/eval/s3-demo-log.txt`). Prompt `s2-v3`, reranker on, invented data.
+
+**The start:**
+
+| What | Measured |
+| --- | --- |
+| Docker stopped | *"Docker is not running. Start Docker Desktop, wait for it to say it is running, and run this again."* |
+| Container stopped to ready, with a reseed | 34–37 s, of which the service's models about 20 s |
+| Container already up to ready | 25–26 s |
+| Seeding | about 4 s |
+| A real Ctrl+C, sent to the demo's own console | exit 0 in about 4 s, all ports closed, and the container stopped if the demo started it, left alone if not |
+| First page load after a start | **about 19 s**, was 42–43 s (below) |
+
+**The ten questions, in the last full run.** The timings are from the click to the result on screen:
+
+| As | Question | Result | ms |
+| --- | --- | --- | --- |
+| Student | Which algorithm did I choose for my rate limiter, and why? | abstained | 1,405 |
+| Student | What does Meera want me to change in my rate limiter design? | abstained | 1,905 |
+| Student | What caused the lunch-rush outage? | answered, cites the Word file | 1,396 |
+| Student | How long does the server remember an idempotency key? | answered, cites the hand-in | 1,921 |
+| Student | What is the canteen's refund policy? | abstained, correctly | 1,905 |
+| Mentor | How did Rohan test his rate limiter, and what were the results? | answered, opens the PDF at page 3 | 1,916 |
+| Mentor | What is still open in Rohan's rate limiter design? | abstained | 1,395 |
+| Mentor | What action items came out of the postmortem? | answered, from the review, not the section | 1,391 |
+| Mentor | Which milestones on Rohan's goal are still to do? | abstained | 1,377 |
+| Mentor | What did Ananya find in the hostel survey? | provider timed out at 8 s; the failure message, with Try again | 8,547 |
+
+The ended mentorship shows its refusal with no question box, and the route answers 409. The opt-in live test passes,
+answering in 2,057 ms.
+
+**The honest reading: the panel and the plumbing work, and the answers are often too cautious for a good demo.** Of the eight
+questions this mentorship can answer, only four were answered, and four abstained: the rate limiter's algorithm, Meera's review
+of it, what is still open, and the goal's milestones. Nothing false was shown. The search log says why. For *"Which algorithm"*
+the section "Why a token bucket" does not reach the four sources, and *"What action items"* does not find the section called "Action
+items": **headings are citation metadata and are not embedded (S1), so a question that names a section cannot find it by that name.**
+That is the retrieval stack, which this sprint was told not to change, so it is recorded rather than tuned, and neither the questions
+nor the demo's documents were rewritten to flatter the result. Runs differ: an earlier run of the same questions answered *"What action
+items"* with a cited refusal (below), and another abstained on it.
+
+**Found by running it, none of it by the tests:**
+
+- **A cold start killed the service.** The container's port opens well before Atlas Search is ready, so the demo now waits for
+  the container's health status. Only a stopped container shows this.
+- **`s2-v4` had lost `s2-v3`'s denial rule.** A cited refusal shown as an answer gave it away, and the decision was reversed
+  (Entry 76).
+- **The first page load took over 40 s,** long enough to look broken: Vite prepares modules on first request. `server.warmup` halves it,
+  measured twice each way.
+- **Gemini is slower than it was.** Several provider calls took 4–6 s in one run, and one hit the 8 s budget, against a slowest of
+  1.3 s in Step 6. The timeouts did their job, and the user saw a plain message, but the margin is thinner than Entry 68 suggested. Watch it.
+- **A real Ctrl+C reached nothing at first,** which was my harness: Git Bash starts processes with Ctrl+C ignored, and children inherit that.
+
+**Bundle:** main JS 506.60 kB → 508.49 kB (gzip 140.33 → 141.22). The panel's chunk is 7.02 kB plus 2.59 kB of CSS.
+
+**Screenshots** are in `docs/images/`, taken by the same script: an answer with its citation open, an abstention, and the ended state.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -6639,6 +6700,11 @@ It reports the file and kind, never the key. 6 tests in `check-keys.test.mjs`.
   identical on 120/120, and the reranker is on. Re-measure on any host with fewer
   than 4 threads (2 threads: 1,148 ms). A speed-up that changes rankings still needs
   new labels.
+- **A question naming a section cannot find it by name** — headings are not embedded (S1), and the reranker does not
+  see them, so *"What action items…"* misses the section called "Action items" and the demo abstains on 4 of 8 answerable
+  questions (Entry 80). Try embedding the heading with its chunk: a retrieval change, so new labels, committed first.
+- **Gemini's latency has grown** — one call in ten hit the 8 s budget in a demo run, against a slowest turn of 1.3 s in Step 6
+  (Entry 80). Measure it over a day before changing a timeout.
 - **The mentor's name can read as a stranger** — `s2-38` declines with Priya's review among its sources
   (Entry 74). `s2-v4`, the two parties' names fenced as data, fixes that question but was not adopted, on `s2-24`
   (Entry 76). Next, if wanted: fix the classifier below, measure it on `s2-v3`, then re-measure names against it.

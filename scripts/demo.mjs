@@ -101,7 +101,7 @@ function run(name, command, commandArgs, options) {
 function stop(code = 0) {
   if (stopping) return;
   stopping = true;
-  console.log('\nStopping everything the demo started…');
+  if (started.length || startedContainer) console.log('\nStopping everything the demo started…');
   for (const child of started) {
     if (child.exitCode !== null) continue;
     // On Windows a signal does not reach a child's own children.
@@ -145,7 +145,14 @@ async function main() {
     if (docker('start', CONTAINER).status !== 0) fail(`Could not start the ${CONTAINER} container.`);
     startedContainer = true;
   }
-  await until('The Atlas container', () => portOpen(27018), 120);
+  // Healthy, not just listening: the port opens well before Atlas Search is ready, and
+  // the service cannot start until it is. Found by a cold start (BUILD_NOTES Entry 80).
+  console.log('Waiting for Atlas Search to be ready…');
+  await until(
+    'The Atlas container',
+    () => docker('inspect', '-f', '{{.State.Health.Status}}', CONTAINER).stdout.trim() === 'healthy',
+    180
+  );
 
   // ---- the service: /health only answers once its models have loaded, because
   // the start-up that loads them runs before it accepts a connection.
@@ -215,6 +222,7 @@ async function main() {
     ${MENTOR.name} (mentor)     http://localhost:${MENTOR.port}
 
   Each address is already signed in as that person, with no Google sign-in.
+  The first page load after a start takes about 20 seconds; after that it is instant.
   Open a mentorship and ask the assistant something. Ended mentorships refuse.
 
   Logs: ${LOGS}

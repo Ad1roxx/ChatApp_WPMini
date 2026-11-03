@@ -1,0 +1,55 @@
+S3 step 5: real questions through the panel, in a browser, on the demo stack. Started 2026-11-03T11:38:04.257Z. Invented data.
+
+== Rohan Kapoor (student), mentorship 6ae9c7955fb390bec68ae785
+
+Q1: Which algorithm did I choose for my rate limiter, and why?
+  abstained, 1405 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+Q2: What does Meera want me to change in my rate limiter design?
+  abstained, 1905 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+Q3: What caused the lunch-rush outage?
+  answered, 1396 ms
+  The cause of the lunch-rush outage was the database connection pool running out rather than the database itself 2.
+  [chip] Source 2: lunch-rush-postmortem.docx, Summary -> "Download the file"; passage: On Tuesday the ordering API returned errors for 19 minutes during the lunch rush, from 12:31 to 12:50. About 6…
+
+Q4: How long does the server remember an idempotency key?
+  answered, 1921 ms
+  The server stores the idempotency key and response for 24 hours 1.
+  [chip] Source 1: Hand-in: Make order placement idempotent -> "Go to the hand-in"; passage: The client sends an Idempotency-Key header, a UUID generated once per order attempt. The server stores the key…
+
+Q5: What is the canteen's refund policy?
+  abstained, 1905 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+== Meera Iyer (mentor), mentorship 6ae9c7955fb390bec68ae785
+
+Q1: How did Rohan test his rate limiter, and what were the results?
+  answered, 1916 ms
+  Rohan tested his rate limiter on a staging copy using a k6 script that ran the lunch peak with 900 requests a minute from 300 virtual students, alongside one client polling every 200 milliseconds 3. Without the limiter, the p95 for placing an order was 2.4 seconds, but with it, the p95 for everyone else decreased to 310 milliseconds while the polling client was refused about 94 percent of the time 3. Additionally, no ordinary student in the test was ever refused 3.
+  [chip] Source 3: rate-limiter-design.pdf, page 3 -> "Open at page 3"; passage: A k6 script ran the lunch peak against a staging copy: 900 requests a minute from 300 virtual students, plus o…
+  [preview] iframe at blob…#page=3
+  [chip] Source 3: rate-limiter-design.pdf, page 3
+  [chip] Source 3: rate-limiter-design.pdf, page 3
+
+Q2: What is still open in Rohan's rate limiter design?
+  abstained, 1395 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+Q3: What action items came out of the postmortem?
+  answered, 1391 ms
+  You reviewed the postmortem and noted that next time, your student should put a name beside each action item 2.
+  [chip] Source 2: Hand-in: Write a postmortem for the lunch-rush outage -> "Go to the hand-in"; passage: Postmortem attached. Mentor's review: This is the best thing you have written for me. The sentence about datab…
+
+Q4: Which milestones on Rohan's goal are still to do?
+  abstained, 1377 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+Q5: What did Ananya find in the hostel survey?
+  other, 8547 ms
+  The assistant couldn't answer that. Try again. Try again
+
+== the ended mentorship: refusal shown, question boxes: 0
+  the route itself: HTTP 409 {"error":"The assistant isn't available for ended mentorships."}
