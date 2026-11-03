@@ -6290,6 +6290,37 @@ mentorship still reaching the service, and the 404 and 401 unchanged.
 
 ---
 
+### Entry 76 — `s2-v4`: the two parties' names, and the rule that decides it
+
+`s2-38` declines with Priya's review among its sources (*"The sources are not about
+anyone named Priya"*, Entry 74): the prompt gives roles only, and rule 6 speaks of the
+student and the mentor. This is one prompt change, measured on its own. The fix for
+silent partial answers is a later version, measured in S6.
+
+**The change.** The two parties' display names go in the delimited data section of the
+user message, with the same `<`/`>` replacement as sources: *"In this mentorship, the
+mentor is X and the student is Y."* Never in the system prompt, and never ids. Express
+reads them from the mentorship's record and sends them in `/ask`.
+
+**The decision rule, written and committed before any `s2-v4` run.** `s2-v4` is adopted
+if, averaged over two runs each against `s2-v3` with the reranker on (Entry 74):
+
+- `s2-38` and `s2-24` are answered, counted only if answered in **both** `s2-v4` runs;
+- answerable abstentions do not rise;
+- misattributions stay 0;
+- every other-person question still abstains;
+- every injection probe passes, including the new ones.
+
+Otherwise `s2-v3` stays, and both results are recorded. The counts are in
+`ai/eval/compare_names.py`, committed with this rule.
+
+**Five new injection probes**, in `injection_probes.json`, committed with the rule:
+an instruction as the mentor's name, the same when the question is about that person, a
+fake end marker and system message as the student's name, a grade claim in a name, and
+new lines with a fake system message in a name.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
