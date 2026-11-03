@@ -51,6 +51,7 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 
 import httpx  # noqa: E402
+from bson import ObjectId  # noqa: E402
 
 import providers  # noqa: E402
 from answer import PROMPT_VERSION, _HANDLES, answer, uncited_sentences  # noqa: E402
@@ -68,6 +69,15 @@ RUN = 1
 # Whether search reranks. Part of a run's identity: answers from one retrieval
 # configuration must never be reused for another (Entry 73).
 RERANK_ON = RERANK
+# The fixture mentorship's two display names, read from its records (Entry 76).
+PARTIES: dict | None = None
+
+
+def fixture_parties(records) -> dict:
+    """Mentorship 1's names, from its record and its users', as Express reads them."""
+    mentorship = records.mentorships.find_one({"_id": ObjectId(M1)}, {"mentor": 1, "student": 1})
+    name = lambda who: (records.users.find_one({"_id": mentorship[who]}, {"displayName": 1}) or {}).get("displayName", "")  # noqa: E731
+    return {"mentor": name("mentor"), "student": name("student")}
 
 
 def out_paths() -> tuple[Path, Path]:
@@ -203,7 +213,7 @@ def pace(provider) -> bool:
 def ask(recording, provider, q) -> dict:
     started = time.perf_counter()
     result = answer(recording, M1, ADITYA, q["question"], provider, role=ROLE, budget_s=BUDGET_S,
-                    prompt_version=VERSION)
+                    prompt_version=VERSION, parties=PARTIES)
     took = (time.perf_counter() - started) * 1000
     return {
         "id": q["id"],
@@ -381,7 +391,7 @@ def main() -> None:
     parser.add_argument("--rerank", choices=("on", "off"), default="on" if RERANK else "off",
                         help="whether search reranks; each setting has its own cache and files")
     args = parser.parse_args()
-    global VERSION, RUN, RERANK_ON
+    global VERSION, RUN, RERANK_ON, PARTIES
     VERSION, RUN, RERANK_ON = args.prompt_version, args.run, args.rerank == "on"
 
     built = providers.build_provider(LLM_PROVIDER)
@@ -409,6 +419,7 @@ def main() -> None:
         CACHE.mkdir(exist_ok=True)
         check_file.write_text(f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}: {model_check}", encoding="utf-8")
         store, records = fixture()
+        PARTIES = fixture_parties(records)
         if not args.no_index:
             store.ensure_vector_index()
             print("index:", build_index(store, records, CHUNK_BUDGET_TOKENS), "chunks")

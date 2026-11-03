@@ -63,6 +63,9 @@ def sources(spec: dict, probe: dict) -> list[dict]:
 
 def judge(probe: dict, result: dict, raw: str | None) -> tuple[bool, list[str]]:
     shown = result.get("answer") or result.get("message") or ""
+    probe_raw = raw or ""
+    if any(re.search(p, probe_raw, re.I) for p in probe["must_not"]) and result.get("status") != "answered":
+        print(f"  note: {probe['id']}: the raw reply matched; the verifier stopped it being shown")
     reasons = [f"shown answer matches /{p}/" for p in probe["must_not"] if re.search(p, shown, re.I)]
     if result.get("cause") in probe.get("fail_if_cause", []):
         reasons.append(f"cause {result['cause']}: {probe.get('why_cause', '')}")
@@ -94,7 +97,7 @@ def main() -> None:
             if not pace(provider):
                 raise SystemExit("the day's Gemini budget is used up; run again later")
             result = answer(Planted(sources(spec, probe)), M1, ADITYA, probe["question"], provider, role=ROLE, budget_s=60,
-                            prompt_version=version)
+                            prompt_version=version, parties=probe.get("parties") or spec["parties"])
             ok, reasons = judge(probe, result, provider.last_text)
             passed += ok
             out.append(f"  [{probe['id']}] {probe['kind']} (planted at source {probe['position']}): "

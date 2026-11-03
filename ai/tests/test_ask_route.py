@@ -2,7 +2,7 @@
 
 Search is a stub and the model is `ScriptedProvider`, so this needs neither
 the Atlas container nor a key. What is tested is the contract Express relies
-on: the secret and the local-only rule, a body that carries exactly four
+on: the secret and the local-only rule, a body that carries only its known
 fields, and the status each outcome becomes.
 """
 

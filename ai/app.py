@@ -192,7 +192,7 @@ def search(body: SearchRequest) -> dict:
 
 
 class AskRequest(BaseModel):
-    """Who is asking, where, in what role, and the question. Nothing else.
+    """Who is asking, where, in what role, the question, and the two parties' names.
 
     `role` is the asker's position in THIS mentorship, which Express reads from
     the mentorship record after its membership check - never from the user's
@@ -205,6 +205,9 @@ class AskRequest(BaseModel):
     viewerId: str = Field(pattern=_OBJECT_ID)
     role: Literal["student", "mentor"]
     question: str = Field(min_length=1, max_length=1000)
+    # The two parties' display names, read by Express from the mentorship's record.
+    mentorName: str = Field(default="", max_length=200)
+    studentName: str = Field(default="", max_length=200)
 
 
 # A provider problem, as Express should pass it on. The body carries the
@@ -232,6 +235,7 @@ def ask(body: AskRequest) -> JSONResponse:
         result = answer(
             store, body.mentorshipId, body.viewerId, body.question, provider,
             role=body.role, budget_s=ASK_BUDGET_S,
+            parties={"mentor": body.mentorName, "student": body.studentName},
         )
     except Exception as error:  # search failed; the provider layer never raises
         log.error("copilot prompt=%s search failed: %s", PROMPT_VERSION, type(error).__name__)

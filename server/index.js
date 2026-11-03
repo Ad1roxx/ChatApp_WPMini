@@ -4002,6 +4002,14 @@ app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
     let upstream;
     let body;
     try {
+      // The two parties' names, for a prompt that needs to know who a name refers
+      // to: from their user records, by the ids on the mentorship, never the body.
+      const parties = await User.find({
+        _id: { $in: [access.mentorship.mentor, access.mentorship.student] }
+      }).select('displayName');
+      const nameOf = (id) =>
+        String(parties.find((p) => String(p._id) === String(id))?.displayName || '').slice(0, 200);
+
       upstream = await fetch(`${AI_SERVICE_URL}/ask`, {
         method: 'POST',
         headers: {
@@ -4014,7 +4022,9 @@ app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
           // from the request body.
           viewerId: String(req.authUser._id),
           role,
-          question
+          question,
+          mentorName: nameOf(access.mentorship.mentor),
+          studentName: nameOf(access.mentorship.student)
         }),
         signal: controller.signal
       });
