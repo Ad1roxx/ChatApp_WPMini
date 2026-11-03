@@ -57,6 +57,39 @@ cannot be self-assigned by editing a request.
 
 ---
 
+## See it running
+
+One command, on invented people and invented work:
+
+```bash
+npm run demo
+```
+
+It needs Docker Desktop running, MongoDB on 27017, and the Python environment from [`ai/README.md`](ai/README.md), with
+`GEMINI_API_KEY` in `ai/.env` for answers. It starts the Atlas container, the AI service, Express and two front ends on databases
+of their own, seeds the demo data, and prints two addresses, already signed in: a student on
+<http://localhost:5173> and their mentor on <http://localhost:3000>. Ctrl+C stops what it started.
+
+Open a mentorship and ask the assistant something. It answers from that mentorship's material only, and every number is a chip you
+can click through to the source:
+
+![An answer with its citation open](docs/images/copilot-answer.png)
+
+When it can't find an answer, it says so:
+
+![An abstention](docs/images/copilot-abstention.png)
+
+An ended mentorship refuses, before anything is searched:
+
+![The ended-mentorship state](docs/images/copilot-ended.png)
+
+It often abstains on questions it could answer: see BUILD_NOTES Entry 80 for what it found and why. The tests:
+
+```bash
+npm run test:frontend     # the panel in a real browser, with servers stubbed
+npm run check:keys        # no provider key in anything git would keep
+```
+
 ## Running it
 
 You need **Node.js** and a **MongoDB** instance (local or Atlas).

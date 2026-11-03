@@ -81,11 +81,9 @@ test.before(async () => {
   });
   await waitForVite();
   browser = await chromium.launch();
-  // Vite prepares modules on first load, which can outlast a test's own timeouts on
-  // a busy machine. Once here, so the first test is not the one that pays for it.
-  const warm = await browser.newPage();
-  await warm.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 120000 });
-  await warm.close();
+  // Vite prepares modules on first load, which takes tens of seconds. The real page once
+  // here, panel chunk included, so that the first test is not the one that pays for it.
+  await (await open({ timeout: 180000 })).close();
 });
 
 test.after(async () => {
@@ -99,9 +97,13 @@ test.after(async () => {
  * { status, body, delay } or a function of the request count returning one.
  * `never: true` never replies. Returns what the test needs to look at.
  */
-async function open({ status = 'active', ask = answered('Yes.') } = {}) {
+async function open({ status = 'active', ask = answered('Yes.'), timeout = 30000 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
   const page = await context.newPage();
+  page.setDefaultTimeout(timeout);
+  // How long Vite takes to serve a page is not what is being tested, and on a slow
+  // machine a first load can pass 30 s even after the warm-up in `before`.
+  page.setDefaultNavigationTimeout(180000);
   const seen = { asks: [], files: [], dialogs: 0, console: [], pageErrors: [] };
 
   page.on('dialog', (d) => { seen.dialogs += 1; d.dismiss(); });
