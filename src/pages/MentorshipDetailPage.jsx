@@ -17,7 +17,7 @@
  * directive the way setting a goal is.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
@@ -35,6 +35,19 @@ import { InlineLoader, PageLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
 import { HandshakeIcon } from '../components/Icons';
 import styles from './MentorshipDetailPage.module.css';
+
+// Loaded when a mentorship page opens rather than with the whole app: the bundle is
+// already past Vite's warning (Entry 35). If its chunk cannot be fetched, the panel
+// says so and the rest of the page is unaffected.
+const CopilotPanel = lazy(() =>
+  import('../components/CopilotPanel').catch(() => ({
+    default: () => (
+      <Card title="Ask about this mentorship">
+        <p role="alert">The assistant isn&apos;t available right now. The rest of this page still works.</p>
+      </Card>
+    )
+  }))
+);
 
 export default function MentorshipDetailPage() {
   const { id } = useParams();
@@ -291,6 +304,11 @@ export default function MentorshipDetailPage() {
         )}
       </Card>
 
+      {/* First after the header: it is the quickest way into everything below it. */}
+      <Suspense fallback={<Card title="Ask about this mentorship"><InlineLoader label="Loading the assistant" /></Card>}>
+        <CopilotPanel mentorshipId={id} status={mentorship.status} />
+      </Suspense>
+
       {/* New goal — mentors only, and only while the mentorship is active */}
       {canSetGoals && formOpen && (
         <Card title="New goal">
@@ -369,6 +387,7 @@ export default function MentorshipDetailPage() {
           return (
             <Card
               key={goal._id}
+              id={`source-goal-${goal._id}`}
               className={archived ? styles.archivedCard : undefined}
               title={goal.title}
               subtitle={goal.description || undefined}

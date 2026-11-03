@@ -297,7 +297,9 @@ def verify(text: str, k: int) -> tuple[str, list[int], list[int]]:
 
 
 def _citation(handle: int, hit: dict) -> dict:
-    return {"handle": handle, **{f: hit.get(f) for f in CITATION_FIELDS}}
+    # `passage` is the chunk this search returned for this viewer, for the panel's
+    # source card. The prompt is untouched. The panel shortens it, and shows it as text.
+    return {"handle": handle, **{f: hit.get(f) for f in CITATION_FIELDS}, "passage": hit.get("content")}
 
 
 def _response(status: str, generation: Generation | None, version: str, **fields) -> dict:

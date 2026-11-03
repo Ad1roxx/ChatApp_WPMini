@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "screenshot": "node scripts/screenshot.mjs",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "test:frontend": "node --test --test-concurrency=1 tests/frontend/copilot-lib.test.mjs tests/frontend/copilot-panel.test.mjs"
   },
   "dependencies": {
     "firebase": "^10.12.2",

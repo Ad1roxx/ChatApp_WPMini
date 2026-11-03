@@ -27,7 +27,7 @@ import { InlineLoader } from './Loading';
 import { PREVIEW_TEXT_LIMIT, formatBytes, previewKind } from '../lib/attachments';
 import styles from './FilePreview.module.css';
 
-export default function FilePreview({ file, path, onClose }) {
+export default function FilePreview({ file, path, page, onClose }) {
   const { authFetch } = useAuth();
   const ref = useRef(null);
 
@@ -131,7 +131,7 @@ export default function FilePreview({ file, path, onClose }) {
     >
       <div className={styles.head}>
         <span className={styles.name}>{file?.name}</span>
-        {file && <span className={styles.size}>{formatBytes(file.size)}</span>}
+        {file?.size != null && <span className={styles.size}>{formatBytes(file.size)}</span>}
       </div>
 
       <div className={styles.body}>
@@ -148,9 +148,10 @@ export default function FilePreview({ file, path, onClose }) {
         )}
 
         {/* The browser's own PDF viewer. It renders the blob this page already
-            holds, so nothing is re-fetched and no URL to the file exists. */}
+            holds, so nothing is re-fetched and no URL to the file exists. `page`
+            is the viewer's own open parameter: one that ignores it opens page 1. */}
         {view && !view.error && kind === 'pdf' && (
-          <iframe src={view.url} title={file.name} className={styles.frame} />
+          <iframe src={page ? `${view.url}#page=${page}` : view.url} title={file.name} className={styles.frame} />
         )}
 
         {view && !view.error && kind === 'text' && (

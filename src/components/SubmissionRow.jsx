@@ -292,7 +292,9 @@ export default function SubmissionRow({
   };
 
   return (
-    <li className={styles.row}>
+    <li className={styles.row} id={`source-submission-${sub._id}`}>
+      {/* What an assistant citation of the brief scrolls to. */}
+      {assignment && <span id={`source-assignment-${assignment._id}`} />}
       <div className={styles.topLine}>
         {showStudent ? (
           <span className={styles.who}>

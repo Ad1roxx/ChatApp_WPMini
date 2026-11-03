@@ -90,7 +90,8 @@ def test_a_cited_answer_comes_back_with_citations_built_from_search():
     assert [c["handle"] for c in result["citations"]] == [2, 4]
     for citation in result["citations"]:
         source = HITS[citation["handle"] - 1]
-        assert {k: v for k, v in citation.items() if k != "handle"} == {
+        assert citation["passage"] == source["content"]
+        assert {k: v for k, v in citation.items() if k not in ("handle", "passage")} == {
             f: source[f] for f in answer_module.CITATION_FIELDS
         }
     assert result["stripped"] == 0

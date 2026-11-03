@@ -6401,6 +6401,65 @@ reserved `.invalid` domain.
 
 ---
 
+### Entry 78 — S3 step 3: the assistant panel
+
+`src/components/CopilotPanel.jsx`, directly under the page header: ask, read a short answer,
+click a citation, land on the source. The decisions are in `src/lib/copilot.js`, a pure module
+kept apart from the drawing so they can be tested without a browser.
+
+**Why model text is never rendered as markup.** An answer is built from text students wrote, so
+anyone who can hand something in can try to shape what the assistant says, and what comes back
+is shown to their mentor. If an answer were ever rendered as HTML or Markdown, the attack would
+not need to fool the model much: a hand-in that gets one `<img onerror>` or `javascript:` link
+quoted into an answer would run in the mentor's session, with their token. So there is no
+`dangerouslySetInnerHTML` and no markdown renderer in this path. Our code splits an answer into
+strings and citation references, React renders the strings as text, and the only elements are chips
+we make ourselves. Passages, titles and headings are treated the same way. Showing formatted answers
+would have been nicer; the prompt already asks for plain text, so nothing is lost.
+
+**A chip exists only for a handle the response listed.** Anything else in brackets stays text: `[7]`
+with no seventh citation is not a link to nothing.
+
+**Only our own sentences.** A failure's message is chosen from the status code. The body is not shown,
+whatever it holds, and a 200 of the wrong shape is a failure rather than a blank panel. The two 409
+sentences are matched by comparison, not displayed.
+
+**Every state is its own thing:** loading, an answer, an abstention (neutral, and not an error), a
+refusal, rate-limited, unavailable, failed. The last three offer Try again. The browser gives up after
+15 s, above the route's 10 s, so a spinner cannot run forever. A panel whose chunk fails to load says
+the assistant is unavailable, and the page is unaffected.
+
+**Citations lead to the source:**
+
+- **A PDF** opens in the existing preview at the cited page, by adding `#page=N` to the blob URL, the
+  viewer's own open parameter. Tested in Chromium, where it opens the right page. A viewer that ignores it opens
+  page 1, and the card still says which page.
+- **A Word file** downloads, because browsers cannot show one (Entry 38), and the card gives its section.
+- **A record** scrolls to its row and moves focus there, through ids added to the hand-in, goal and
+  resource rows. A resource goes to its row, never its URL: that URL is user-supplied, and this avoids a second
+  path that would need its own checking.
+
+**The cited passage** is a new field on each citation, the chunk search returned this turn for this
+viewer. The card shortens it to about 300 characters at a word. The prompt and `PROMPT_VERSION` are
+unchanged.
+
+**History is component state:** not persisted, not sent anywhere, gone on reload. No question or answer
+goes to the console: a failed request logs only the error's name.
+
+**Double send:** a ref as well as the state, because two clicks in one task both see the state as it was.
+
+**Bundle:** main JS 506.60 kB before, 508.49 kB after (gzip 140.33 → 141.22). The panel is lazy-loaded, its own
+7.07 kB chunk plus 2.59 kB of CSS. Nothing else was split, so Vite's existing warning stays (open item, Entry 35).
+
+**Rejected:** rendering Markdown for nicer answers (above); persisting history (a student's questions are
+theirs, and nothing needs them later); linking a resource citation straight to its URL; reading the error
+sentence from the response (one bad deploy or proxy away from showing a stack trace).
+
+**Tests:** `tests/frontend/copilot-lib.test.mjs`, 11, for the splitting and the status table without a
+browser. The browser tests are Entry 79's.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

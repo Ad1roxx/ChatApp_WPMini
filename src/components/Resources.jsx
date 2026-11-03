@@ -262,7 +262,7 @@ export default function Resources({ mentorshipId, active, isMentor }) {
               const mine = (resource.addedBy?._id || resource.addedBy) === dbUser?._id;
 
               return (
-                <li key={resource._id} className={styles.row}>
+                <li key={resource._id} className={styles.row} id={`source-resource-${resource._id}`}>
                   <span className={styles.icon} aria-hidden="true">
                     <LinkIcon size={16} />
                   </span>
