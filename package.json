@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "screenshot": "node scripts/screenshot.mjs"
+    "screenshot": "node scripts/screenshot.mjs",
+    "demo": "node scripts/demo.mjs"
   },
   "dependencies": {
     "firebase": "^10.12.2",

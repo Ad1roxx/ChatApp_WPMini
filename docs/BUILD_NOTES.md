@@ -6321,6 +6321,47 @@ new lines with a fake system message in a name.
 
 ---
 
+### Entry 77 — S3 step 2: demo data and one command
+
+`npm run demo` (`scripts/demo.mjs`) checks Docker and MongoDB, starts the Atlas container
+if it is stopped, starts the service, Express and two front ends, waits for the service's
+models, seeds if needed, and prints the addresses. Ctrl+C stops what it started, the
+container included if it was the one to start it. No new dependency.
+
+**It cannot touch real data.** Its own databases (`chatapp_demo`) and its own API and service
+ports (3101, 8101), so it runs beside a dev server, except for the two front-end ports. Those
+are 5173 and 3000 because they are the only origins the server's socket accepts, and they give
+one signed-in person per address: the dev sign-in fixes the id when Vite starts. Rohan or, with
+`--student ananya`, Ananya is on 5173; Meera is on 3000.
+
+**`scripts/seed-demo.py`** builds an invented world through the app's own routes, so everything
+is indexed the normal way: Meera Iyer mentoring Rohan Kapoor (backend engineering, active), Ananya
+Rao (data engineering, active), and Rohan again (Git basics, ended), with hand-ins carrying PDF and
+Word files with real headings, reviews, goals with milestones, and resources.
+
+- **The exception is the three user records,** inserted directly: an account comes from a Google
+  sign-in, which cannot be automated. The Node harness and `check_freshness.py` do the same.
+- **It refuses** any database not named `*_demo`, or containing `test`, `eval`, `rag`, `fresh` or
+  `prod`, and any server that does not know the users it just inserted, which means that server is
+  not serving this database. The wipe checks the name before it connects (tested).
+- **Python, not Node:** writing a PDF and a Word file needs PyMuPDF and python-docx, which the
+  service already has.
+
+**Measured, by a script driving the real thing:** ready in 26 s with data already there (the service
+took 21 s, and 24 s when first seeding). Seeding took about 2 s. Seeding twice gives identical counts
+(3 users, 3 mentorships, 7 assignments, 7 hand-ins, 2 goals, 4 resources). The stop path left all four
+ports closed and exited 0. That was driven with Ctrl+Break, which a script can send and which reaches the
+same handler; a real Ctrl+C is pressed in Step 5's check.
+
+**One fix found by running it:** Vite listens on `localhost`, which on Windows is IPv6, so a port check
+on `127.0.0.1` never saw it. The check now tries both.
+
+**Tests:** `ai/tests/test_demo_seed.py`, 15: the guard for each name, the wipe refusing before connecting,
+real headings on the right pages of the PDFs, real headings in the Word files, and every demo person on the
+reserved `.invalid` domain.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
