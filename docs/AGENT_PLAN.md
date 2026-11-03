@@ -728,7 +728,7 @@ consistent.
 
 ### S2 — Generation with verified citations
 
-**Done** (BUILD_NOTES entries 62–72). `s2-v3` serves, on
+**Done** (BUILD_NOTES entries 62–76). `s2-v4` serves, on
 `gemini-3.5-flash-lite`, through `POST /api/mentorships/:id/copilot/ask`.
 
 Deliverables: `LLMProvider` protocol + Gemini adapter; a prompt that cites
@@ -768,7 +768,9 @@ two runs of 120, on the corrected labels of Entry 69).**
 - **Latency:** median 808 and 826 ms a turn; 818 ms through the real route.
 
 `s2-v3` replaced `s2-v2` under a rule committed before the runs. Its known cost
-is partial answers that do not say what is missing (Entry 71). **This is where Entry 41's finding is discharged** — abstention reads the
+is partial answers that do not say what is missing (Entry 71). `s2-v4` then added the two
+parties' names as fenced data, and serves: answerable abstentions 5.0 → 3.5 with the reranker on,
+and 15/15 injection probes twice, including instructions planted in names (Entry 76). **This is where Entry 41's finding is discharged** — abstention reads the
 retrieved text, never a score threshold.
 
 BUILD_NOTES: must state the **synthetic-data-only rule** and why — free-tier
