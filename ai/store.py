@@ -19,6 +19,7 @@ from pymongo import MongoClient
 from pymongo.operations import SearchIndexModel
 
 import appdb
+import chunking
 import sources
 
 from config import (
@@ -404,7 +405,7 @@ class ChunkStore:
         if not pieces:
             return 0
 
-        vectors = embed_passages([c["text"] for c in pieces])
+        vectors = embed_passages([chunking.text_for_models(c["text"], c.get("heading")) for c in pieces])
         self.chunks.insert_many(
             [
                 {
@@ -661,7 +662,8 @@ class ChunkStore:
         # are allowed to be the default at all.
         if rerank and hits:
             scores = reranker().predict(
-                [(query, hit["content"]) for hit in hits], batch_size=RERANK_BATCH_SIZE
+                [(query, chunking.text_for_models(hit["content"], hit.get("heading"))) for hit in hits],
+                batch_size=RERANK_BATCH_SIZE,
             )
             for hit, score in zip(hits, scores):
                 hit["score"] = float(score)

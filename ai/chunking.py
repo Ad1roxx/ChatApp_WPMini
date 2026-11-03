@@ -43,14 +43,20 @@ from typing import Iterator
 from config import (
     CHUNK_BUDGET_TOKENS,
     CHUNK_OVERLAP_TOKENS,
+    EMBED_HEADINGS,
     EMBEDDING_MAX_TOKENS,
     MIN_CHUNK_TOKENS,
 )
 
-# Headroom under the model's hard limit. Nothing is prepended to the text
-# today, but a tokenizer's special tokens still occupy slots, and a budget that
-# sits exactly on the ceiling is one change away from silent truncation.
-HEADROOM_TOKENS = 16
+# Headroom under the model's hard limit: a tokenizer's special tokens occupy
+# slots, and a section's heading can be read with its chunk, so a chunk at the
+# ceiling must still leave room for the longest heading (`text_for_models`).
+HEADING_MAX_TOKENS = 32
+HEADROOM_TOKENS = 16 + HEADING_MAX_TOKENS
+
+# What the extractor calls text that comes before any heading. Nobody wrote it,
+# and it says nothing about the chunk.
+PLACEHOLDER_HEADING = "Document"
 
 def tokenizer():
     """The embedding model's own tokenizer, taken from the loaded model.
@@ -72,6 +78,22 @@ def tokenizer():
 
 def token_count(text: str) -> int:
     return len(tokenizer().encode(text, add_special_tokens=False))
+
+
+def text_for_models(text: str, heading: str | None) -> str:
+    """What the embedder and the reranker read for a chunk: its heading, then its text.
+
+    Only they read this. What is stored, cited and put in the prompt stays the text
+    alone, and the prompt already names the section. Without it, a question that
+    names a section cannot find it by that name (BUILD_NOTES Entries 80, 81).
+    """
+    heading = " ".join((heading or "").split())
+    if not EMBED_HEADINGS or not heading or heading == PLACEHOLDER_HEADING:
+        return text
+    words = heading.split()
+    while len(words) > 1 and token_count(" ".join(words)) > HEADING_MAX_TOKENS:
+        words.pop()
+    return f"{' '.join(words)}\n{text}"
 
 
 def effective_budget(requested: int | None = None) -> int:

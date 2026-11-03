@@ -1,0 +1,57 @@
+A section's heading read with its chunk - BUILD_NOTES Entry 81. Rule and labels committed in a6a2638, before this ran.
+
+  chunks, demo and fixture: off (42, 115), on (42, 115)
+
+  set                            setting    recall@1   recall@3     MRR
+  new (right file and section)   off           23/40      26/40   0.608
+  new (right file and section)   on            22/40      27/40   0.637
+    demo                         off            1/9       3/9   0.204
+    demo                         on             1/9       2/9   0.194
+    more                         off           22/31      23/31   0.726
+    more                         on            21/31      25/31   0.766
+  new (right file only)          off           25/40      34/40   0.742
+  new (right file only)          on            29/40      37/40   0.817
+  original                       off           37/48      45/48   0.854
+  original                       on            37/48      45/48   0.854
+  s2                             off           27/35      31/35   0.850
+  s2                             on            28/35      32/35   0.879
+
+  not in the rule:
+    off  reranker's top score: highest unanswerable -0.26, lowest answerable -11.10; search median 241 ms
+    on   reranker's top score: highest unanswerable -1.74, lowest answerable -11.10; search median 262 ms
+    chunks from another mentorship, any question: off 0, on 0
+
+== questions whose recall@1 changed, new set
+  LOST   more-25  Why did Ananya choose a star schema?
+         off: ('survey-star-schema.docx', 'The choice')
+         on:  ('survey-star-schema.docx', 'Star schema for the survey warehouse')
+
+== still wrong with it on, new set
+  demo-01  Which algorithm did I choose for my rate limiter, and why?  rank None; top ('Design rate limiting for the ordering API', None)
+  demo-02  What does Meera want me to change in my rate limiter design?  rank None; top ('rate-limiter-design.pdf', 'Rate limiting the canteen ordering API')
+  demo-03  What caused the lunch-rush outage?  rank 2; top ('Write a postmortem for the lunch-rush outage', None)
+  demo-05  How did Rohan test his rate limiter, and what were the results?  rank 4; top ('rate-limiter-design.pdf', 'Rate limiting the canteen ordering API')
+  demo-06  What is still open in Rohan's rate limiter design?  rank None; top ('rate-limiter-design.pdf', 'Rate limiting the canteen ordering API')
+  demo-07  What action items came out of the postmortem?  rank None; top ('Write a postmortem for the lunch-rush outage', None)
+  demo-08  Which milestones on Rohan's goal are still to do?  rank None; top ('lunch-rush-postmortem.docx', 'Timeline')
+  demo-09  What did Ananya find in the hostel survey?  rank None; top ('survey-cleaning-report.pdf', 'Cleaning the hostel survey dataset')
+  more-02  Where does Rohan's limiter keep its state?  rank None; top ('rate-limiter-design.pdf', 'Rate limiting the canteen ordering API')
+  more-04  What problem is the rate limiter meant to solve?  rank None; top ('Design rate limiting for the ordering API', None)
+  more-09  What is the timeline of the outage?  rank 2; top ('Write a postmortem for the lunch-rush outage', None)
+  more-11  What went well during the outage?  rank 2; top ('Write a postmortem for the lunch-rush outage', None)
+  more-12  What went badly during the lunch-rush incident?  rank 4; top ('Write a postmortem for the lunch-rush outage', None)
+  more-21  What decisions did Ananya make when cleaning the data?  rank 4; top ('survey-cleaning-report.pdf', 'Cleaning the hostel survey dataset')
+  more-25  Why did Ananya choose a star schema?  rank 2; top ('survey-star-schema.docx', 'Star schema for the survey warehouse')
+  more-26  What did I give up with the star schema?  rank 4; top ('survey-star-schema.docx', 'Star schema for the survey warehouse')
+  more-27  How do I handle a hostel being renamed?  rank 2; top ('Design a warehouse schema for the survey', None)
+  more-31  Which milestones are left on Ananya's goal?  rank None; top ('survey-star-schema.docx', 'Star schema for the survey warehouse')
+
+== questions whose recall@1 changed, existing sets
+  gained s2 s2-29  How does the fix guarantee that only one booking wins a slot?
+
+== the rule
+  NOT met  recall@1 on the new questions improves by at least 3 (-1)
+  met      original loses no more than 1 (+0)
+  met      s2 loses no more than 1 (+1)
+
+  DECISION: do not adopt it

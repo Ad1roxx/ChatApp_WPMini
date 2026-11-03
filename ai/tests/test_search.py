@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import pytest
 
+import chunking
 import store as store_module
 from config import DIVERSITY_CAP, DIVERSITY_MARGIN, SERVED_K
 from store import ChunkStore, soft_cap
@@ -157,6 +158,26 @@ def test_reranking_reorders_and_never_adds(served):
     assert [r["title"] for r in results] == ["far", "near"]
     assert {r["title"] for r in results} <= {"near", "far"}
     assert [r["score"] for r in results] == [7.5, -4.0]
+
+
+def test_the_reranker_reads_the_heading_only_with_the_setting_on(served, monkeypatch):
+    rows = [chunk("near", 0.90, heading="Action items")]
+    seen = []
+
+    class Recording:
+        def predict(self, pairs, **_kwargs):
+            seen.extend(content for _, content in pairs)
+            return [1.0] * len(pairs)
+
+    store = served(rows)
+    monkeypatch.setattr(store_module, "reranker", lambda: Recording())
+
+    store.search(M1, ADITYA, "anything", k=4, rerank=True, diversity="none")
+    monkeypatch.setattr(chunking, "EMBED_HEADINGS", True)
+    results = store.search(M1, ADITYA, "anything", k=4, rerank=True, diversity="none")
+
+    assert seen == ["text of near", "Action items\ntext of near"]
+    assert results[0]["content"] == "text of near"
 
 
 def test_without_the_reranker_the_index_order_is_kept(served):

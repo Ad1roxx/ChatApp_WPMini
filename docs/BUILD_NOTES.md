@@ -6619,6 +6619,28 @@ If adopted, the served and demo indexes are rebuilt. Whether answers improve is 
 
 ---
 
+### Entry 82 — Embedding headings: measured, and not adopted
+
+`ai/eval/heading_embed.py`, by the rule in Entry 81, twice, with identical results (`ai/eval/heading-embed-decision.txt`). No provider calls.
+
+| Set | recall@1 off | recall@1 on | Change | Rule |
+| --- | --- | --- | --- | --- |
+| New, right file and section | 23/40 | 22/40 | -1 | needed +3: **not met** |
+| Original | 37/48 | 37/48 | 0 | met |
+| S2 | 27/35 | 28/35 | +1 | met |
+
+**Not adopted.** `AI_EMBED_HEADINGS` stays off, the code stays behind it, and the served and demo indexes were not rebuilt. Chunk counts matched, 42 and 115, as Entry 81 said they must. No chunk from another mentorship appeared.
+
+**What the rule does not count, and what I am not using to overturn it:**
+
+- **By file alone it would have passed.** New questions, right file: 25/40 → 29/40, or +4. Requiring the right section was my choice in Entry 81, so that a search landing on the wrong section would not count as right. It is printed beside the rule and is not the rule.
+- **recall@3 and MRR rose:** 26 → 27 of 40 and 0.608 → 0.637 on the new questions; 31 → 32 of 35 and 0.850 → 0.879 on S2.
+- **The demo's own questions barely moved:** 1/9 → 1/9 at rank 1, and 3/9 → 2/9 in the top 3. This change was proposed to fix them, and it does not.
+
+**What it found.** With headings on, the top hit is often a document's opening section: "Rate limiting the canteen ordering API", "Star schema for the survey warehouse" or "Cleaning the hostel survey dataset", a title and a one-line byline. Of the 18 new questions still wrong, 9 end at such a section, including *"What is still open in Rohan's rate limiter design?"*. A very short chunk under a heading that repeats the question's words reads as a strong match. The one question lost, `more-25`, moved from "The choice" to exactly such a section. That points at the title section rather than at headings in general. It is one reading of these results, not measured, and testing it would need its own labels and rule.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -6745,7 +6767,8 @@ If adopted, the served and demo indexes are rebuilt. Whether answers improve is 
   new labels.
 - **A question naming a section cannot find it by name** — headings are not embedded (S1), and the reranker does not
   see them, so *"What action items…"* misses the section called "Action items" and the demo abstains on 4 of 8 answerable
-  questions (Entry 80). Try embedding the heading with its chunk: a retrieval change, so new labels, committed first.
+  questions (Entry 80). Embedding the heading was measured and not adopted (Entry 82): the demo's questions barely moved, and a document's
+  short opening section then takes the top place.
 - **Gemini's latency has grown** — one call in ten hit the 8 s budget in a demo run, against a slowest turn of 1.3 s in Step 6
   (Entry 80). Measure it over a day before changing a timeout.
 - **The mentor's name can read as a stranger** — `s2-38` declines with Priya's review among its sources

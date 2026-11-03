@@ -86,6 +86,10 @@ MIN_CHUNK_TOKENS = int(os.getenv("AI_MIN_CHUNK_TOKENS", "32"))
 # trusting the comment, so a model switch that forgets it fails loudly.
 EMBEDDING_MAX_TOKENS = int(os.getenv("AI_EMBEDDING_MAX_TOKENS", "512"))
 
+# Whether a section's heading is read with its chunk, by the embedder and the
+# reranker (BUILD_NOTES Entry 81). Changing it needs the index rebuilt.
+EMBED_HEADINGS = os.getenv("AI_EMBED_HEADINGS", "0") == "1"
+
 # ---------------------------------------------------------------------------
 # What the served search does
 # ---------------------------------------------------------------------------

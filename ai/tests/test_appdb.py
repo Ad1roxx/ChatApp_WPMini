@@ -41,6 +41,8 @@ ALLOWED_IMPORTERS = {
     # evaluation fixture's records; never the app's real database.
     "check_freshness.py",
     "evaluate.py",
+    # Reads the invented demo database by name, read-only; never the app's real one.
+    "eval/heading_embed.py",
     "ingest.py",
     "store.py",
 }
