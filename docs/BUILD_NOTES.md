@@ -6721,7 +6721,7 @@ The diagnosis of the demo's questions (full traces given to the user): the label
 
 - **The fresh set is the only one this change had not seen in any form, and it barely moved.** That is what the rule asks about.
 - **Part of the reason is how it was written.** Asked for answers in different words from the brief, I wrote questions the brief rarely wins: a brief on top is a wrong answer only once there, off and on, against 10 of 40 on the demo set. So this set hardly exercises the failure the change most improves. That is an observation, not grounds to overturn the rule. It also started higher, at 10/16 against 23/40.
-- **The demo set's +11 is partly fit.** The change was designed from its traces. Original and S2 were not used to design it, and they rose by 2 and 6, though S2's questions are mostly unlike the demo's.
+- **The demo set's +11 is partly fit.** The change was designed from its traces. Original and S2 were not used to design it, and they rose by 2 and 6.
 - **`recall@3` fell on one set:** original, 45 → 43.
 
 **What each part does, not in the rule:**
@@ -6740,6 +6740,29 @@ So headers alone make questions that name someone worse, by 4 on the fresh set, 
 **Checked:** every real header in the measured demo index holds roles and no names. A name inside a chunk's own text stays there, embedded and shown, because the text is the record. A retitled brief leaves its files' headers stale until they are next indexed; this is about ranking only, as the citation's title is read live.
 
 **Tests:** `tests/test_context_headers.py`. Each property was broken in a copy of `ai/`, so that the running names re-test could never load broken code, with an unbroken control passing 49 of 49: search given the question as written, the prompt given roles, substitution running with the switch off, names kept in a title or a section, the header stored as content, the reranker or embedder ignoring the header, folding losing text or running with the switch off, and a header with no cap. Each fails at least one test.
+
+---
+
+### Entry 87 — A second fresh set, that exercises the mechanism: the labels and the rule, before measuring
+
+Entry 86's fresh set rarely gave a brief the chance to win, so it hardly tested what the change most improves. The rule stands, and the decision in Entry 86 is not overruled. This measures again, with a set made for that test.
+
+**The labels, committed and pushed before any measurement:** `ai/eval/questions_mechanism.jsonl`, 19 questions, each about the student's own work, where **the assignment brief restates the question's words and the answer is in the hand-in, its file, or the review**. Each records the brief's words it restates. Nine name the student or the mentor. They are written over the evaluation fixture's mentorship rather than the demo's, so nothing comes from the demo's traces, and the header design was not based on these documents. Labels name the file and, where there is one, the section. They were checked once against the fixture's real records, read-only, because tests may not open it. A question may accept two places only where both really hold the answer.
+
+**The rule, committed before running, unchanged from Entry 85:** this change against the same code without it, served search, no provider calls.
+
+    Adopt if
+      - recall@1 on the 19 new questions (right file and section) improves by at least 3,
+      - and no existing set loses more than 1 at recall@1:
+          fresh    = questions_demo_fresh.jsonl (Entry 85),
+          demo     = questions_demo.jsonl, answerable,
+          original = questions.jsonl, as in Entry 81,
+          s2       = questions_s2.jsonl, as in Entry 81.
+    Otherwise it is not adopted, and both results are recorded.
+
+**Stops regardless:** any chunk from another mentorship in any question's results. **Reported:** recall@3 on every set, and a brief as the wrong top hit.
+
+**If adopted:** the switch flips and the indexes are rebuilt only after the names runs finish (Entry 84), so those runs compare what they set out to.
 
 ---
 

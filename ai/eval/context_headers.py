@@ -2,12 +2,13 @@
 
     cd ai && .venv/Scripts/python.exe eval/context_headers.py
 
-BUILD_NOTES Entry 85. No provider is called. Needs the demo seeded. Records are read, never
+BUILD_NOTES Entries 85 and 87: this now applies Entry 87's rule, on `questions_mechanism.jsonl`.
+Entry 85's run is recorded in `context-headers-decision.txt` and git. No provider is called. Needs the demo seeded. Records are read, never
 written, and both indexes it builds are its own: `chatapp_demo_eval` and `chatapp_eval_ctx`.
 Never `chatapp_eval`'s index, which the names re-test may be searching. Search is the served
 one: reranker on, soft cap, k=4.
 
-Writes `eval/context-headers-decision.txt`.
+Writes `eval/context-headers-mechanism-decision.txt`.
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ from retrieval_s2 import load_s2, rows  # noqa: E402
 from store import ChunkStore  # noqa: E402
 
 HEADER_DB = {"demo": "chatapp_demo_eval", "fixture": "chatapp_eval_ctx"}
-OUT = HERE / "context-headers-decision.txt"
+OUT = HERE / "context-headers-mechanism-decision.txt"
 DEMO_DB = "chatapp_demo"
 ASKERS = {"meera": "00000000000000000000d001", "rohan": "00000000000000000000d002", "ananya": "00000000000000000000d003"}
 TOPICS = {"backend": "Backend engineering for placement interviews", "data": "Data engineering fundamentals"}
@@ -117,6 +118,7 @@ def main() -> None:
 
     table = rows(load_questions(), load_s2())
     sets = {
+        "mechanism": load("questions_mechanism.jsonl"),
         "fresh": [q for q in load("questions_demo_fresh.jsonl") if q["answerable"]],
         "demo": [q for q in load("questions_demo.jsonl") if q["answerable"]],
         "original": table["original: records"] + table["original: documents"],
@@ -153,7 +155,7 @@ def main() -> None:
     finally:
         chunking.CONTEXT_HEADERS = configured
 
-    out = ["Contextual headers, names as roles, opening fragment folded - BUILD_NOTES Entry 85. Labels and rule committed in e5da0b1, before this ran.", ""]
+    out = ["Contextual headers, names as roles, opening fragment folded - BUILD_NOTES Entry 87. Labels and rule committed before this ran.", ""]
     for name, _, _ in SETTINGS:
         s = stats[name]
         out.append(f"  {name:<13} chunks: demo {s[0]}, fixture {s[1]}; demo {s[2]}; fixture {s[3]}")
@@ -163,7 +165,7 @@ def main() -> None:
             values = list(results[name][label].values())
             n = len(values)
             out.append(f"  {label:<10} {name:<14} {at1(values):>6}/{n} {at3(values):>6}/{n} {mrr(values):>7.3f} {sum(v['brief'] for v in values):>17} {sum(v['fragment'] for v in values):>20}")
-    for label in FILE_SETS:
+    for label in ("mechanism", *FILE_SETS):
         for name, _, _ in SETTINGS:
             values = list(results[name][label].values())
             out.append(f"  {label + ', right file at 1':<26} {name:<14} {sum(v['file_at_1'] for v in values)}/{len(values)}")
@@ -178,10 +180,10 @@ def main() -> None:
             off, on = results["off"][label][q["id"]], results["on"][label][q["id"]]
             if (off["rank"] == 1) != (on["rank"] == 1):
                 out.append(f"  {'gained' if on['rank'] == 1 else 'LOST  '} {q['id']}  {q['question']}")
-                if label in FILE_SETS:
+                if label in ("mechanism", *FILE_SETS):
                     out.append(f"         off: {off['top']}")
                     out.append(f"         on:  {on['top']}")
-    for label in FILE_SETS:
+    for label in ("mechanism", *FILE_SETS):
         out += ["", f"== {label}: still wrong with it on"]
         for q in sets[label]:
             on = results["on"][label][q["id"]]
@@ -189,8 +191,8 @@ def main() -> None:
                 out.append(f"  {q['id']}  {q['question']}  rank {on['rank']}; top {on['top']}")
 
     deltas = {label: at1(results["on"][label].values()) - at1(results["off"][label].values()) for label in sets}
-    checks = {f"recall@1 on the fresh questions improves by at least 3 ({deltas['fresh']:+d})": deltas["fresh"] >= 3}
-    checks.update({f"{label} loses no more than 1 ({deltas[label]:+d})": deltas[label] >= -1 for label in ("original", "s2", "demo")})
+    checks = {f"recall@1 on the new questions improves by at least 3 ({deltas['mechanism']:+d})": deltas["mechanism"] >= 3}
+    checks.update({f"{label} loses no more than 1 ({deltas[label]:+d})": deltas[label] >= -1 for label in ("fresh", "demo", "original", "s2")})
     out += ["", "== the rule"] + [f"  {'met' if ok else 'NOT met':<8} {name}" for name, ok in checks.items()]
     if any(leaks.values()):
         out.append("  STOP: a chunk from another mentorship appeared in the results.")
