@@ -6662,6 +6662,20 @@ I also read every sentence the old checker called a denial and that contains a t
 
 ---
 
+### Entry 84 — Names re-tested on fresh runs: the plan, before running
+
+Committed before any of these calls.
+
+**The rule is Entry 76's, unchanged** (`ai/eval/compare_names_fresh.py`): `s2-v4` is adopted if, over two runs each, `s2-38` and `s2-24` are answered in both `s2-v4` runs, answerable abstentions do not rise, misattributions stay 0, every other-person question still abstains, and every injection probe passes in both runs. Otherwise `s2-v3` stays.
+
+**What runs:** `s2-v4` runs 3 and 4, then its injection check twice, then `s2-v3` runs 3 and 4, all with the reranker on and the fixed checker (Entry 83). Headings stay off (Entry 82), so search is what served in the earlier runs. The old `s2-v4` runs are not read.
+
+**One saving, decided now:** only the abstention count compares the two versions. If `s2-v4` fails any other condition, the rule is settled, and `s2-v3`'s 240 fresh calls are not spent.
+
+**Pacing:** the runs are held to 430 calls in any 24 hours, leaving room for the latency probe within the 480 cap, so this takes more than a day. Runs resume from their caches. `eval/s2-injection-s2-v4.txt` is overwritten by the fresh check, and the earlier one stays in git.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
