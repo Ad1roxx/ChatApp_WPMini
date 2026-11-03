@@ -178,11 +178,12 @@ stays on (Entry 63). `AI_QUERY_INSTRUCTION=` turns it off.
 
 ### Answering: `POST /ask`
 
-Express calls this after its membership check, with four fields and nothing
+Express calls this after its membership check, with these fields and nothing
 else:
 
 ```json
-{"mentorshipId": "<24 hex>", "viewerId": "<24 hex>", "role": "student", "question": "..."}
+{"mentorshipId": "<24 hex>", "viewerId": "<24 hex>", "role": "student", "question": "...",
+ "mentorName": "...", "studentName": "..."}
 ```
 
 `role` is the asker's position in that mentorship's record, `student` or

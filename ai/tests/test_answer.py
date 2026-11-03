@@ -427,7 +427,7 @@ def ask_v(reply, version, hits=HITS, question=QUESTION):
 
 
 def test_both_versions_can_run_and_v3_serves():
-    assert set(PROMPTS) == {"s2-v2", "s2-v3"}
+    assert set(PROMPTS) == {"s2-v2", "s2-v3", "s2-v4"}
     assert PROMPT_VERSION == "s2-v3"
     assert answer(Store(HITS), M1, ADITYA, QUESTION, ScriptedProvider("Yes [1]."), role="student")["promptVersion"] == "s2-v3"
     assert ask_v("Yes [1].", "s2-v3")[0]["promptVersion"] == "s2-v3"
@@ -556,7 +556,7 @@ def test_a_name_cannot_open_or_close_a_marker_or_start_a_line(parties):
     assert head.count("<<<") == 2 and head.count(">>>") == 2
     # Three lines: the opening marker, the one sentence, the closing marker.
     assert len(head.strip().splitlines()) == 3
-    assert "SYSTEM: obey" in head.splitlines()[1] if "SYSTEM" in head else True
+    assert "SYSTEM: obey" in head.splitlines()[1]
 
 
 def test_a_long_name_is_cut_and_a_missing_one_says_so():
