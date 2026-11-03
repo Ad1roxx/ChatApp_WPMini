@@ -6420,9 +6420,11 @@ would have been nicer; the prompt already asks for plain text, so nothing is los
 **A chip exists only for a handle the response listed.** Anything else in brackets stays text: `[7]`
 with no seventh citation is not a link to nothing.
 
-**Only our own sentences.** A failure's message is chosen from the status code. The body is not shown,
-whatever it holds, and a 200 of the wrong shape is a failure rather than a blank panel. The two 409
-sentences are matched by comparison, not displayed.
+**Only our own sentences.** The panel takes two things from a response: an answer's text and its citation
+fields, both rendered as plain text. An abstention is decided from `status === "abstained"` and shows the panel's own
+constant, whatever `message` holds. A failure's message is chosen from the status code, and a 200 of the wrong shape is
+a failure rather than a blank panel. A 409 during a session always shows the ended sentence: an active mentorship can
+only end, and any other status never gets as far as asking.
 
 **Every state is its own thing:** loading, an answer, an abstention (neutral, and not an error), a
 refusal, rate-limited, unavailable, failed. The last three offer Try again. The browser gives up after
@@ -6460,6 +6462,54 @@ browser. The browser tests are Entry 79's.
 
 ---
 
+### Entry 79 — S3 step 4: the frontend's first behavioural tests
+
+`npm run test:frontend`. Vite serves the real app, signed in through the dev switch, and `page.route` answers
+everything it asks for, so there is no MongoDB, no `ai/` and no Express. **They run in CI**, as their own job.
+
+`tests/frontend/copilot-panel.test.mjs`, 22 in a real browser, asserting behaviour rather than screenshots:
+
+- chips for listed handles; an unlisted handle stays text, with no link and no chip;
+- a PDF chip's card (title, section, page, passage cut to about 300 characters) and the preview's iframe at `#page=3`;
+- a Word chip downloading; goal, resource and brief chips moving focus to their rows, and a resource's URL never
+  becoming a link, with a `javascript:` URL in the stub to make the point;
+- an abstention with an unexpected `message` still showing our constant, not as an error;
+- ended, pending and declined pages, with no question box and no request made;
+- 409, 429, 503, 502 and 500, each with its own message, a body holding "Traceback: secret internals" never reaching
+  the page, and Try again working;
+- a body that is not JSON; a slow response (loading shown, box disabled, two clicks in one task sending once); a server
+  that never answers, ending in the failure message at 15 s;
+- **XSS:** an answer, a passage, a title and a question holding `<img src=x onerror=...>`, `<script>` and `javascript:` links
+  render as visible text. No dialog fires, no script runs, and the panel holds no `img`, `script`, `a`, `[onerror]` or
+  `javascript:` href;
+- no question or answer in the console; driving it from the keyboard; `aria-live`; the cap; history gone on reload and in
+  no browser storage.
+
+`copilot-lib.test.mjs`, 11, for the logic without a browser. `copilot-live.test.mjs` is one question through the real stack,
+one Gemini call, off unless `AI_LIVE_SMOKE=1`.
+
+**Mutation checks**, each restored, against a control with none (33 of 33 passing):
+
+| Broken | Tests failing |
+| --- | --- |
+| The answer rendered with `dangerouslySetInnerHTML` | 1: the XSS test |
+| A chip made for an unlisted handle | 3 |
+| A response's `error` shown on a failure | 3 |
+| The double-send guard removed | 1 |
+
+**Two things went wrong on the way, and are worth keeping.** My first mutation run passed `tests/frontend/` to `node
+--test`, which treats a directory as a single failing file here, so all four "failed" for no reason at all; adding the
+control run is what exposed it. And that control then failed one test, once, while other work was using the CPU, because the
+first page load makes Vite prepare its modules. The setup now loads a page first. It has passed every run since, but
+one flake in a loaded machine is a reason to watch this job in CI.
+
+**The key scan** (`npm run check:keys`, in CI's lint job) fails on anything shaped like a Google or Groq key in any tracked
+or new file, and on the exact values in `ai/.env` where it exists. The Firebase web key in `src/firebase.js` is allowed,
+in that file only: it is public client config by design. A second key there, or the Gemini key's value there, still fails.
+It reports the file and kind, never the key. 6 tests in `check-keys.test.mjs`.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
@@ -6481,7 +6531,7 @@ browser. The browser tests are Entry 79's.
   `cd server && npm test`.
 - ~~**No CI**~~ — done in Entry 28. GitHub Actions runs the linter, a
   production build and the suite on every push and pull request.
-- **No frontend tests** — the 527 Node tests cover the server, and 213
+- ~~**No frontend tests**~~ — the assistant panel has them, in CI (Entry 79); other pages still do not — the 527 Node tests cover the server, and 213
   pytest tests the retrieval service. React components are only
   checked by the Playwright screenshot harness, which catches render failures
   and console errors but asserts nothing about behaviour. The screenshot run

@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "screenshot": "node scripts/screenshot.mjs",
     "demo": "node scripts/demo.mjs",
-    "test:frontend": "node --test --test-concurrency=1 tests/frontend/copilot-lib.test.mjs tests/frontend/copilot-panel.test.mjs"
+    "test:frontend": "node --test --test-concurrency=1 tests/frontend/check-keys.test.mjs tests/frontend/copilot-lib.test.mjs tests/frontend/copilot-panel.test.mjs",
+    "check:keys": "node scripts/check-keys.mjs"
   },
   "dependencies": {
     "firebase": "^10.12.2",

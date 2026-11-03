@@ -1,7 +1,7 @@
 # Continuous integration.
 #
-# Three things run on every push and pull request: the linter, a production
-# build, and the server test suite. They are separate jobs rather than steps in
+# Four things run on every push and pull request: the linter, a production
+# build, the browser tests of the frontend, and the server test suite. They are separate jobs rather than steps in
 # one, so a lint failure and a test failure are told apart at a glance instead
 # of the first one hiding the second.
 #
@@ -37,6 +37,7 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
+      - run: npm run check:keys
 
   build:
     name: Build
@@ -58,6 +59,24 @@ jobs:
         run: |
           test -f dist/index.html
           ls -la dist/assets
+
+  frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The real app in a real browser, with every server stubbed in the browser:
+      # no MongoDB, no ai/, no Express.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:frontend
 
   test:
     name: Server tests

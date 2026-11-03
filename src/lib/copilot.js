@@ -11,8 +11,10 @@
  *
  * ## Only our own sentences
  *
- * What the panel says about a failure is chosen from the status code, from the
- * table below. A response's body is not shown, whatever it holds.
+ * The panel takes two things from a response: an answer's text and its citation
+ * fields, both rendered as plain text. Everything else it says is one of the sentences
+ * below, chosen from the status code or from `status === 'abstained'`. A response's
+ * own messages are neither shown nor compared against.
  */
 
 export const MAX_QUESTION = 1000;
@@ -51,11 +53,9 @@ export function outcomeOf(httpStatus, body) {
     if (body?.status === 'abstained') return { state: 'abstained', message: MESSAGES.abstained };
     return { state: 'failed', message: MESSAGES.failed };
   }
-  if (httpStatus === 409) {
-    // The same two sentences the page shows, picked by comparing rather than by
-    // showing whatever came back.
-    return { state: 'refused', message: body?.error === MESSAGES.notActive ? MESSAGES.notActive : MESSAGES.ended };
-  }
+  // Only reachable if the mentorship stopped being active while this page was open,
+  // and an active one can only end. Any other status never gets as far as asking.
+  if (httpStatus === 409) return { state: 'refused', message: MESSAGES.ended };
   if (httpStatus === 429) return { state: 'limited', message: MESSAGES.limited };
   if (httpStatus === 503) return { state: 'unavailable', message: MESSAGES.unavailable };
   return { state: 'failed', message: MESSAGES.failed };

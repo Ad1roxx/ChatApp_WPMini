@@ -48,16 +48,16 @@ test('each status has its own plain message', () => {
   assert.equal(outcomeOf(503, null).message, MESSAGES.unavailable);
   assert.equal(outcomeOf(502, null).message, MESSAGES.failed);
   assert.equal(outcomeOf(0, null).message, MESSAGES.failed);
-  assert.equal(outcomeOf(409, { error: MESSAGES.ended }).message, MESSAGES.ended);
-  assert.equal(outcomeOf(409, { error: MESSAGES.notActive }).message, MESSAGES.notActive);
-  assert.equal(outcomeOf(409, { error: 'anything else' }).message, MESSAGES.ended);
+  assert.equal(outcomeOf(409, { error: 'anything at all' }).message, MESSAGES.ended);
 });
 
 test('an abstention is its own state, with our sentence, whatever came back', () => {
-  assert.deepEqual(outcomeOf(200, { status: 'abstained', message: 'something else' }), {
-    state: 'abstained',
-    message: MESSAGES.abstained
-  });
+  for (const message of ['something else', '<img src=x onerror=alert(1)>', '', null, undefined]) {
+    assert.deepEqual(outcomeOf(200, { status: 'abstained', message }), {
+      state: 'abstained',
+      message: MESSAGES.abstained
+    });
+  }
 });
 
 test('a 200 with the wrong shape is a failure, not a blank panel', () => {
