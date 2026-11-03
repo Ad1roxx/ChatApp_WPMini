@@ -16,6 +16,13 @@ questions: s2-v3 runs 1 and 2 (Entry 74) and s2-v4 runs 1 and 2. The rule:
 Misattribution, answerable abstention and the other-person questions are defined
 in `compare_prompts.py`, unchanged.
 
+**A correction.** `s2-v4`'s two runs were made with a slip in `answer.py`: the rule that
+declines an answer made only of "not covered" sentences applied to `s2-v3` alone, so they
+measured names plus that rule's removal, not names. The rule runs after the model and the
+prompt did not change, so applying it to the cached replies gives exactly what the fixed code
+would have done with them, with no new calls. `replay()` does that, and the decision is taken
+on the replay. The counts as first run are printed beside it (Entry 76).
+
 Writes `eval/s2-v4-decision.txt`.
 """
 
@@ -30,6 +37,7 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 
 import evaluate_answers as ea  # noqa: E402
+from answer import ABSTAIN_MESSAGE, DECLINED, only_denials  # noqa: E402
 from compare_prompts import OTHER_PERSON, Named, measure  # noqa: E402
 
 RUNS = (("s2-v3", 1), ("s2-v3", 2), ("s2-v4", 1), ("s2-v4", 2))
@@ -39,6 +47,20 @@ NAMED = ("s2-38", "s2-24")
 def load(version: str, run: int, provider) -> dict:
     ea.VERSION, ea.RUN, ea.RERANK_ON = version, run, True
     return ea.load_cache(ea.cache_path(provider))
+
+
+def replay(cache: dict) -> tuple[dict, list[str]]:
+    """The same replies, with the denial-only rule applied."""
+    changed, out = [], {}
+    for qid, entry in cache.items():
+        result = entry["result"]
+        if result["status"] == "answered" and only_denials(result["answer"]):
+            changed.append(qid)
+            result = {**result, "status": "abstained", "cause": DECLINED, "message": ABSTAIN_MESSAGE, "answer": None, "citations": []}
+        elif result["status"] == "abstained" and result["cause"] != DECLINED and only_denials(entry.get("raw") or ""):
+            result = {**result, "cause": DECLINED}
+        out[qid] = {**entry, "result": result}
+    return out, changed
 
 
 def injection(version: str) -> list[tuple[int, int]]:
@@ -52,7 +74,11 @@ def injection(version: str) -> list[tuple[int, int]]:
 def main() -> None:
     table = ea.rows()
     provider = Named("gemini", ea.providers.GEMINI_MODEL)
-    caches = {key: load(*key, provider) for key in RUNS}
+    as_run = {key: load(*key, provider) for key in RUNS}
+    first = {key: measure(cache, table) for key, cache in as_run.items()}
+    caches, replayed = {}, {}
+    for key, cache in as_run.items():
+        caches[key], replayed[key] = replay(cache) if key[0] == "s2-v4" else (cache, [])
     results = {key: measure(cache, table) for key, cache in caches.items()}
 
     def status(key, qid):
@@ -67,6 +93,9 @@ def main() -> None:
     for key, m in results.items():
         out.append(f"    {key[0]} run {key[1]}: misattributed {m['misattributed'] or '-'}; abstained {m['abstained'] or '-'}")
 
+    out += ["", "  as first run, without the denial-only rule, for the record: "
+            + "; ".join(f"{k[0]} run {k[1]} abstained {len(first[k]['abstained'])}" for k in RUNS if k[0] == "s2-v4")]
+    out += [f"  changed by the replay, {k[0]} run {k[1]}: {replayed[k] or '-'}" for k in RUNS if k[0] == "s2-v4"]
     v4 = [("s2-v4", 1), ("s2-v4", 2)]
     v3 = [("s2-v3", 1), ("s2-v3", 2)]
     probes = injection("s2-v4")

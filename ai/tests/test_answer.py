@@ -427,10 +427,10 @@ def ask_v(reply, version, hits=HITS, question=QUESTION):
     return result, provider
 
 
-def test_every_version_can_run_and_v4_serves():
+def test_every_version_can_run_and_v3_serves():
     assert set(PROMPTS) == {"s2-v2", "s2-v3", "s2-v4"}
-    assert PROMPT_VERSION == "s2-v4"
-    assert answer(Store(HITS), M1, ADITYA, QUESTION, ScriptedProvider("Yes [1]."), role="student")["promptVersion"] == "s2-v4"
+    assert PROMPT_VERSION == "s2-v3"
+    assert answer(Store(HITS), M1, ADITYA, QUESTION, ScriptedProvider("Yes [1]."), role="student")["promptVersion"] == "s2-v3"
     assert ask_v("Yes [1].", "s2-v3")[0]["promptVersion"] == "s2-v3"
     assert ask_v("Yes [1].", "s2-v2")[0]["promptVersion"] == "s2-v2"
     with pytest.raises(ValueError, match="unknown prompt version"):
@@ -537,6 +537,14 @@ def test_v4_puts_the_names_in_the_data_section_and_never_in_the_system_prompt():
 def test_v3_never_passes_names():
     _, (system, user) = ask_named("Yes [1].", version="s2-v3")
     assert "Priya" not in user and "PARTIES" not in user and "PARTIES" not in system
+
+
+@pytest.mark.parametrize("version", ["s2-v3", "s2-v4"])
+def test_every_later_version_keeps_the_denial_rule(version):
+    """s2-v4 first ran without it, by a one-line slip, so it was not the one change it
+    claimed to be, and the first decision on it was wrong (Entry 76)."""
+    result, _ = ask_v("The sources do not mention it [1][2].", version)
+    assert (result["status"], result["cause"]) == ("abstained", DECLINED)
 
 
 def test_v4_differs_from_v3_only_by_the_block_rule():

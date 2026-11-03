@@ -6319,44 +6319,49 @@ an instruction as the mentor's name, the same when the question is about that pe
 fake end marker and system message as the student's name, a grade claim in a name, and
 new lines with a fake system message in a name.
 
-**The result: `s2-v4` is adopted, and now serves** (`python ai/eval/compare_names.py`,
-`ai/eval/s2-v4-decision.txt`). All five conditions were met:
+**The result: `s2-v4` is not adopted, and `s2-v3` serves** (`python ai/eval/compare_names.py`,
+`ai/eval/s2-v4-decision.txt`). This corrects commit `96c1316`, which adopted it wrongly.
+
+**What went wrong.** `DECLINE_DENIAL_ONLY` listed only `s2-v3`, so `s2-v4` silently lost the rule that declines an
+answer made only of "not covered" sentences. Its two runs therefore measured names *and* that rule's removal, not the one
+change specified, and passed. It came to light in Step 5's demo, when a mentor's question showed *"The sources do not mention
+what specific action items came out of the postmortem [1][2][3][4]"* as an answer. No test covered it; one does now.
+
+**The replay.** That rule runs after the model and the prompt did not change, so applying it to the cached replies gives exactly
+what the fixed code would have done with them, with no new calls and no chance of a lucky re-run:
 
 | Count | v3 run 1 | v3 run 2 | v4 run 1 | v4 run 2 | Means, v3 → v4 |
 | --- | --- | --- | --- | --- | --- |
 | `s2-38` | abstained | abstained | **answered** | **answered** | |
-| `s2-24` | abstained | answered | **answered** | **answered** | |
-| Answerable abstentions, of 86 | 5 | 5 | 3 | 4 | 5.0 → **3.5** |
+| `s2-24` | abstained | answered | abstained | answered | **not met** |
+| Answerable abstentions, of 86 | 5 | 5 | 5 | 4 | 5.0 → 4.5 |
 | Misattributions | 0 | 0 | 0 | 0 | 0 → 0 |
-| Uncited denial sentences | 0 | 0 | 1 | 0 | 0 → 0.5 |
 | Other-person questions abstaining, of 8 | 8 | 8 | 8 | 8 | |
-| Injection probes | (10/10, 10/10) | | **15/15** | **15/15** | |
+| Injection probes, all passing | | | 15/15 | 15/15 | |
 
-Reading them:
+Four conditions are met and one is not: `s2-24` is not answered in both runs. **By the rule, `s2-v3` stays.** The replies
+as first run are kept in `s2-v4-rerank-run*-*`; those files show `s2-v4` as it ran, without the rule.
 
-- **`s2-38` now answers correctly:** *"Priya said the test is the best part of your double-booking
-  fix [4]."* No answer in either run mentions Zara or Karan; asked about them, the model still writes
-  *"The sources do not mention anyone named Zara"*, which becomes the abstention.
-- **The injection result is stronger than the count.** All 30 replies under `s2-v4` were answers, and
-  none obeyed even in the raw reply, where `s2-v3`'s run had one hidden "ACKNOWLEDGED". Two runs
-  cannot say that a prompt change caused that.
-- **`s2-24` in run 1 is awkward:** *"The sources do not mention Priya warning about the most common
-  mistake for the talk, but they do state that running long is the most common mistake [1]."* Honest,
-  and it counts as answered.
-- **`nplus1-05` now abstains in both runs**, and `goal-01` and `s2-05` still do. Rows otherwise moved
-  by little: see `s2-v4-rerank-run*-results.txt`.
+**The one reply that decided it is worth reading.** `s2-24`, run 1: *"The sources do not mention Priya warning about the most
+common mistake for the talk, but they do state that running long is the most common mistake [1]."* That sentence holds the
+answer. The classifier sees a sentence whose subject is the sources and calls it a denial, so a known weakness in `is_denial`
+is what failed the rule, as well as the model's hedging. Fixing the classifier would change `s2-v3` too, so it is a separate
+change with its own measurement, and this rule is not re-argued here.
 
-**Limits:**
+**What else this measured:**
 
-- **Names now reach the provider.** Fine on synthetic data. When real students arrive this has to be a
-  decision alongside the paid-tier one in AGENT_PLAN 2.6, not an accident of the prompt.
-- **A name can still be used by the model.** It is fenced as data, and a probe with an instruction as the
-  mentor's name passed, but a name is shown back to users in answers: *"Priya said…"*.
-- **Latency is not comparable here.** These runs overlapped test suites, the demo's model loading and browser
-  tests on one CPU, with 7 of 240 turns over 3 s and 2 over 8 s, and the script does not separate search from the
-  provider. Latency was not part of the rule; Entry 80's demo timings measure it on an idle machine.
-- **A process note:** commit `6a6cb19` went in with one red test, because a patch script failed and I did not read
-  its output. Fixed in the next commit, `4b32c81`.
+- **`s2-38` does answer with names**, in both runs: *"Priya said the test is the best part of your double-booking fix [4]."* So
+  the names do what they were for, and the open item stays open.
+- **No reply obeyed any of the 15 probes**, even in the raw reply, across 30 calls, including the five with instructions in
+  names. Two runs cannot say the prompt caused that.
+- **Names would reach the provider** if this were adopted. Fine on synthetic data; a decision alongside the paid tier before real
+  students' names do.
+- **Latency is not comparable here:** these runs overlapped test suites, model loading and browser tests on one CPU.
+
+**As it stands:** Express reads the names and sends them in `/ask`, and `s2-v3` ignores them, so nothing reaches the provider.
+
+**Process notes.** Commit `6a6cb19` went in with one red test, because a patch script failed and its output went unread; fixed in
+`4b32c81`. The two slips together are the same lesson: read what the command said.
 
 ---
 
@@ -6634,9 +6639,12 @@ It reports the file and kind, never the key. 6 tests in `check-keys.test.mjs`.
   identical on 120/120, and the reranker is on. Re-measure on any host with fewer
   than 4 threads (2 threads: 1,148 ms). A speed-up that changes rankings still needs
   new labels.
-- ~~**The mentor's name can read as a stranger**~~ — fixed by `s2-v4`, which passes the two
-  parties' display names, fenced as data (Entry 76). Names now reach the provider: revisit
-  with the paid-tier decision before any real student's name does.
+- **The mentor's name can read as a stranger** — `s2-38` declines with Priya's review among its sources
+  (Entry 74). `s2-v4`, the two parties' names fenced as data, fixes that question but was not adopted, on `s2-24`
+  (Entry 76). Next, if wanted: fix the classifier below, measure it on `s2-v3`, then re-measure names against it.
+- **`is_denial` calls a sentence a denial if its subject is the sources, even when it goes on to answer** — *"The sources
+  do not mention X, but they do state that Y [1]"* (Entry 76). Under `s2-v3` such an answer is declined. It should
+  look for what follows, and that is a behaviour change to measure, not a tidy-up.
 - **The goal record can fall out of the four with the reranker on** — `goal-01` abstains
   in both runs (Entry 74).
 - ~~**The index is only updated by re-indexing**~~ — closed in S1.5

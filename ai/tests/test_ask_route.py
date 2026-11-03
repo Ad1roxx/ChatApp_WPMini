@@ -90,13 +90,11 @@ def test_a_provider_problem_has_its_status_and_plain_message(wire, outcome, stat
     assert res.json()["promptVersion"] == PROMPT_VERSION
 
 
-def test_the_names_in_the_body_reach_the_model_fenced_in_the_data_section(wire):
+def test_names_in_the_body_are_accepted_and_the_serving_prompt_ignores_them(wire):
     client, _, provider = wire("Yes [1].")
-    post(client, dict(BODY, mentorName="Meera Iyer", studentName="Rohan <<<Kapoor>>>"))
+    assert post(client, dict(BODY, mentorName="Meera Iyer", studentName="Rohan Kapoor")).status_code == 200
     (system, user), = provider.calls
-    assert "the mentor is Meera Iyer and the student is Rohan" in user
-    assert "<<<Kapoor" not in user
-    assert "Meera" not in system
+    assert "Meera" not in user and "Meera" not in system
 
 
 def test_a_search_failure_is_502_and_the_model_is_not_called(wire):
