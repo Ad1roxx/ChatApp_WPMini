@@ -6676,6 +6676,34 @@ Committed before any of these calls.
 
 ---
 
+### Entry 85 — Contextual chunk headers and names as roles: the labels and the rule, before measuring
+
+The diagnosis of the demo's questions (full traces given to the user): the labelled chunk is always among the candidates, and loses at ranking. An assignment brief takes first place on 10 of 17 wrong new questions, with headings off, because it repeats the question's words. A document's first chunk is second-order: removing all of them fixes 0 of 17 with headings off, and 1 of 18 with headings on.
+
+**The fresh labels, committed and pushed before any measurement:** `ai/eval/questions_demo_fresh.jsonl`, 16 questions over the demo's own documents: seven naming the student or the mentor, nine about the student's own work in words the brief and the section do not use. Labels name the file and, where there is one, the section, as in Entry 81. A test holds them to the real files.
+
+**The change being measured, all of it behind `AI_CONTEXT_HEADERS`, off until adopted:**
+
+1. **A contextual header.** The embedder and the reranker read a short header, then the chunk's text. It gives the record type, its owner by role, and its title and section: *"Student's hand-in for 'Rate limiter design', section: What I tested"*, *"Assignment brief (the mentor's instructions): Rate limiter design"*, *"Mentor's review of the student's hand-in for ..."*. Roles only: a party's name in a title becomes their role in the header. What is stored as content, cited and put in the prompt does not change. This replaces the heading-only variant of Entry 82, not on top of it.
+2. **Names to roles in the query.** Before search, the two parties' display names in a question become "the student" and "the mentor", from the names Express already sends to `/ask`. The original question still goes to the prompt, unchanged. `/search` does not receive names, so it is unchanged.
+3. **The opening fragment.** *Why do 4-19-token chunks exist?* `MIN_CHUNK_TOKENS` only ever applied inside one piece of text; a section is its own piece, and a test deliberately keeps sections apart. So a title with a byline is a whole "section" and is never folded. That defeats the minimum's stated purpose ("a heading remnant, a stray line ... indexed as a competitor"), so I am treating it as a bug, narrowly: **a document's opening section below the minimum is folded into the next section,** with no text lost and the next section's heading kept. Later short sections stay apart, as the test and commitment 1 of `chunking.py` intend. If this is adopted, that test's case changes, because its first section is short.
+
+**The rule, committed before running.** Counts of recall@1, with the served search (reranker on, soft cap, k=4), this change against the same code without it, retrieval only, with no provider calls:
+
+    Adopt if
+      - recall@1 on the 16 fresh questions (right file and section) improves by at least 3,
+      - and no existing set loses more than 1:
+          original = questions.jsonl, as in Entry 81,
+          s2       = questions_s2.jsonl, as in Entry 81,
+          demo     = the 40 answerable questions of questions_demo.jsonl, right file and section.
+    Otherwise it is not adopted, and both results are recorded.
+
+**Stops regardless:** any chunk from another mentorship in any question's results. **Reported, not in the rule:** how often an assignment brief is the wrong top hit, how often a first chunk is, recall@3, MRR, and the same change without the name substitution.
+
+**Keeping the running names re-test clean.** `s2-v4`'s fresh runs (Entry 84) are searching `chatapp_eval` and restart on each resume, so this measures in databases of its own, with `chatapp_eval`'s and the demo's records read-only, and the switch stays off. If adopted, the default flips and the indexes are rebuilt only after those runs finish, so that they compare what they set out to.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
