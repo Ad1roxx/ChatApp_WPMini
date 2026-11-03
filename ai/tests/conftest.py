@@ -62,6 +62,9 @@ def mongo_client(mongo_uri: str):
     try:
         client.admin.command("ping")
     except PyMongoError as err:
+        # The pre-push gate sets this: a push must not pass on tests that never ran.
+        if os.getenv("AI_TESTS_REQUIRE_ATLAS") == "1":
+            pytest.fail(f"Atlas Local not reachable at {mongo_uri}: {err}")
         pytest.skip(f"Atlas Local not reachable at {mongo_uri}: {err}")
 
     yield client

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses a push unless every suite and the key scan pass. See scripts/pre-push.mjs.
+# Installed once per clone by `npm run hooks:install`.
+exec node "$(git rev-parse --show-toplevel)/scripts/pre-push.mjs" "$@"

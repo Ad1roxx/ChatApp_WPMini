@@ -131,13 +131,28 @@ Sign in with Google. On your first login you'll be asked to pick a role.
 | `npm run preview` | Serve the production build |
 | `npm run lint` | ESLint across `src/` and `server/` |
 | `npm run screenshot` | Playwright screenshots of every route (app must be running) |
+| `npm run test:frontend` | The panel in a real browser, with servers stubbed |
+| `npm run check:keys` | No provider key in anything git would keep |
+| `npm run hooks:install` | Turn on the pre-push check, once per clone |
 
 From `server/`:
 
 | Command | What it does |
 | --- | --- |
 | `npm start` | Run the API and Socket.IO server |
-| `npm test` | 490 integration tests against a throwaway database |
+| `npm test` | The integration tests, against a throwaway database |
+
+### The pre-push check
+
+Run `npm run hooks:install` once after cloning. From then on, `git push` runs the Python, Node and frontend suites and the
+key scan, and refuses the push if any of them fails. It reports every failure, not only the first.
+
+- **It needs** MongoDB on 27017, the Atlas container on 27018 and the Python environment from [`ai/README.md`](ai/README.md). If Atlas is down, the
+  tests that need it fail rather than skip.
+- **It refuses a dirty tree, or a push of anything but HEAD,** because the suites test the working tree, and a pass would say
+  nothing about a commit that differs from it.
+- **It makes no provider calls:** the opt-in flag for live tests is removed before the suites run.
+- **It does not lint or build.** CI does both, and CI remains the final check.
 
 ---
 
