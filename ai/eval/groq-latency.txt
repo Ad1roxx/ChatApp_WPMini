@@ -1,0 +1,11 @@
+Groq latency - calls the size of a real turn, 30 s budget.
+
+  from 2026-11-05T14:56:45+00:00 to 2026-11-05T15:51:53+00:00 (UTC)
+  samples 12: called 12, no room in the counter 0
+  outcomes: ok 12
+  ok calls, ms: median 691, p90 818, p95 1099, slowest 1099
+  would have missed the served 8 s budget: 0 of 12
+
+  by hour, IST:   calls   median ms   slowest ms
+  20:00              7         683         1099
+  21:00              5         736          818
