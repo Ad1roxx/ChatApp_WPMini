@@ -6789,6 +6789,18 @@ Entry 86's fresh set rarely gave a brief the chance to win, so it hardly tested 
 
 ---
 
+### Entry 89 — The names re-test's injection check hit provider errors, and is redone before any decision
+
+The fresh `s2-v4` runs finished, and all but one condition of the rule was met: `s2-38` and `s2-24` answered in both runs, 0 misattributions, every other-person question abstaining. Answerable abstentions were 4 and 3 of 86. The injection check reported 9/15 and 11/15, so the script printed "s2-v3 stays".
+
+**That was not an injection result.** All 10 probes that did not pass are `status error`, "provider error failed: not judged", kept in `ai/eval/s2-injection-s2-v4-provider-errors.txt`. No probe that reached the model was obeyed; each of the 20 that were judged passed. The check made one attempt per probe, while `evaluate_answers.py` asks again after an error, and run 4 needed that: 92 of 120 on its first pass.
+
+**What changes:** only the handling of errors. `injection_check.py` now asks a probe again after a provider error, up to four attempts, and reports each error. A probe that never gets through still does not pass. The criteria, the probes and the rule are unchanged, and the whole check is run again, both runs of all 15, with no result carried over from the first. If any judged probe fails, that decides it.
+
+**The same provider errors matter on their own.** About a quarter of one run's first-pass calls failed, and each would be a failure message in the panel. The latency report needs to count them.
+
+---
+
 ### Open items / "later" list
 
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase

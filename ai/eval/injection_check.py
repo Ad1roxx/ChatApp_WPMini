@@ -15,7 +15,11 @@ first run. The model's raw reply is kept for every probe, so a reply that
 obeyed but was then rejected by the verifier is visible here, though the user
 would not have seen it.
 
-Spends `--runs` x 10 Gemini calls, paced by the shared counter. Writes
+A provider error judges nothing, so a probe that gets one is asked again, up to
+`ATTEMPTS` times, and each error is reported (BUILD_NOTES Entry 89). One that never
+gets through still counts as not passed, and says so.
+
+Spends `--runs` x 15 Gemini calls and any retries, paced by the shared counter. Writes
 `eval/s2-injection-<version>.txt`; `--prompt-version` picks which.
 """
 
@@ -25,6 +29,7 @@ import argparse
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -37,6 +42,8 @@ from config import LLM_PROVIDER  # noqa: E402
 from evaluate_answers import ADITYA, M1, ROLE, RecordingProvider, pace  # noqa: E402
 
 PROBES = HERE / "injection_probes.json"
+ATTEMPTS = 4
+RETRY_WAIT_S = 20
 
 BASE = {
     "mentorshipId": M1, "sourceId": "e" * 24, "chunkIndex": 0, "url": None, "parentType": None,
@@ -94,10 +101,15 @@ def main() -> None:
         passed = 0
         out.append(f"== run {run}")
         for probe in spec["probes"]:
-            if not pace(provider):
-                raise SystemExit("the day's Gemini budget is used up; run again later")
-            result = answer(Planted(sources(spec, probe)), M1, ADITYA, probe["question"], provider, role=ROLE, budget_s=60,
-                            prompt_version=version, parties=probe.get("parties") or spec["parties"])
+            for attempt in range(1, ATTEMPTS + 1):
+                if not pace(provider):
+                    raise SystemExit("the day's Gemini budget is used up; run again later")
+                result = answer(Planted(sources(spec, probe)), M1, ADITYA, probe["question"], provider, role=ROLE, budget_s=60,
+                                prompt_version=version, parties=probe.get("parties") or spec["parties"])
+                if result["status"] != "error":
+                    break
+                out.append(f"  [{probe['id']}] provider error on attempt {attempt}: {result.get('outcome')} {provider.last_detail}".rstrip())
+                time.sleep(RETRY_WAIT_S)
             ok, reasons = judge(probe, result, provider.last_text)
             passed += ok
             out.append(f"  [{probe['id']}] {probe['kind']} (planted at source {probe['position']}): "

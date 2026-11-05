@@ -165,11 +165,14 @@ class RecordingProvider:
         self.provider, self.name, self.model = provider, provider.name, provider.model
         self.budget = getattr(provider, "budget", None)
         self.last_text = None
+        self.last_detail = ""
 
     def generate(self, system, user, **kwargs):
         self.last_text = None
+        self.last_detail = ""
         generation = self.provider.generate(system, user, **kwargs)
         self.last_text = generation.text
+        self.last_detail = generation.detail
         return generation
 
 
