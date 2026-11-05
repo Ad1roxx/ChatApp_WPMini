@@ -180,16 +180,21 @@ def test_no_chunk_spans_two_sections():
 
 
 def test_a_short_section_is_not_merged_into_its_neighbour():
-    """Even sections small enough to share one chunk's budget stay apart."""
+    """Even sections small enough to share one chunk's budget stay apart.
+
+    Only a document's opening fragment folds (`fold_opening_fragment`), so this
+    document opens with a section above the minimum.
+    """
     sections = [
-        {"heading": "Requirements", "text": "The zebra rule applies.", "index": 0},
-        {"heading": "Deliverables", "text": "The quartz rule applies.", "index": 1},
+        {"heading": "Overview", "text": "word " * 40, "index": 0},
+        {"heading": "Requirements", "text": "The zebra rule applies.", "index": 1},
+        {"heading": "Deliverables", "text": "The quartz rule applies.", "index": 2},
     ]
 
     chunks = chunk_sections(sections)
 
-    assert len(chunks) == 2
-    assert [c["heading"] for c in chunks] == ["Requirements", "Deliverables"]
+    assert len(chunks) == 3
+    assert [c["heading"] for c in chunks] == ["Overview", "Requirements", "Deliverables"]
 
 
 def test_each_chunk_records_where_it_came_from():

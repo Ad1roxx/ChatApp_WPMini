@@ -121,7 +121,7 @@ questions first, against 56 without it (BUILD_NOTES Entry 63,
 (`AI_RERANK_BATCH_SIZE`) took the median from 1.3 s to under 0.5 s with rankings
 identical on all 120 questions (Entry 73, `eval/reranker_speed.py`). It needs CPU:
 below 4 threads it misses the 1 s rule, so re-measure on a smaller host.
-`AI_RERANK=0` turns it off; `evaluate.py --ablation` measures every stage. The cap is 3 chunks a record, so at `k=4` it only
+**Each chunk is embedded and reranked with a short header** giving its record type, its owner by role, and its title and section, and the two parties' names in a question become "the student" and "the mentor" before search. The stored text, the citations and the prompt do not change. `AI_CONTEXT_HEADERS=0` turns this off, and changing it needs the index rebuilt (`ingest.py --drop`). `AI_RERANK=0` turns it off; `evaluate.py --ablation` measures every stage. The cap is 3 chunks a record, so at `k=4` it only
 ever touches the fourth result.
 
 `evaluate.py` rebuilds the index with whatever model it is run with. Every chunk

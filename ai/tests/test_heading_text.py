@@ -7,6 +7,8 @@ from config import EMBEDDING_MAX_TOKENS
 
 
 def on(monkeypatch):
+    # Entry 82's variant, not adopted: it only applies with contextual headers off.
+    monkeypatch.setattr(chunking, "CONTEXT_HEADERS", False)
     monkeypatch.setattr(chunking, "EMBED_HEADINGS", True)
 
 

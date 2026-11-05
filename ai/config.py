@@ -91,8 +91,9 @@ EMBEDDING_MAX_TOKENS = int(os.getenv("AI_EMBEDDING_MAX_TOKENS", "512"))
 EMBED_HEADINGS = os.getenv("AI_EMBED_HEADINGS", "0") == "1"
 
 # A contextual header on every chunk, names as roles in the query, and the
-# opening fragment folded (BUILD_NOTES Entry 85). Changing it needs the index rebuilt.
-CONTEXT_HEADERS = os.getenv("AI_CONTEXT_HEADERS", "0") == "1"
+# opening fragment folded. Adopted on measurement (BUILD_NOTES Entries 85-90).
+# Changing it needs the index rebuilt: nothing else notices vectors built the other way.
+CONTEXT_HEADERS = os.getenv("AI_CONTEXT_HEADERS", "1") == "1"
 
 # ---------------------------------------------------------------------------
 # What the served search does

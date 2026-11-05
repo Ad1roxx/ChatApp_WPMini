@@ -171,6 +171,7 @@ def test_the_reranker_reads_the_heading_only_with_the_setting_on(served, monkeyp
 
     store = served(rows)
     monkeypatch.setattr(store_module, "reranker", lambda: Recording())
+    monkeypatch.setattr(chunking, "CONTEXT_HEADERS", False)
 
     store.search(M1, ADITYA, "anything", k=4, rerank=True, diversity="none")
     monkeypatch.setattr(chunking, "EMBED_HEADINGS", True)

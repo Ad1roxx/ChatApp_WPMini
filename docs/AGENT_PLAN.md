@@ -824,8 +824,8 @@ owns and what it must never own.
 
 **What S3 hands to S4 (BUILD_NOTES Entry 80).**
 
-- **The demo's weakest questions are S4's job or retrieval's.** "Which milestones are still to do?" is state, for a read tool. "What action
-  items…" and "Which algorithm…" miss sections by name, because headings are not embedded: consider that before assuming a tool is the fix.
+- **The demo's weakest questions are S4's job or retrieval's.** "Which milestones are still to do?" is state, for a read tool, though the
+  goal now ranks first. Contextual headers and names as roles were adopted after S3 (BUILD_NOTES Entries 85-90), and their effect on answers is not yet measured.
 - **The panel renders one answer.** An agent turn takes longer and has steps: a 10 s route timeout and 15 s browser timeout will not fit, and
   a turn needs its own progress state, not a longer spinner.
 - **Tool results are untrusted too.** Keep them out of markup in the same way, and give any new citation type a place to lead to before it

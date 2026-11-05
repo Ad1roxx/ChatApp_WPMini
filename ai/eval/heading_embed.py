@@ -123,6 +123,8 @@ def main() -> None:
     demo_results, existing, chunk_counts, latency = {}, {}, {}, {}
     try:
         for name, flag in SETTINGS:
+            # What Entry 82 compared: headings against bare text, with no contextual headers.
+            chunking.CONTEXT_HEADERS = False
             chunking.EMBED_HEADINGS = flag
             count = build_index(demo_store, records, CHUNK_BUDGET_TOKENS)
             fixture_count = build_index(fixture_store, fixture_records, CHUNK_BUDGET_TOKENS)
