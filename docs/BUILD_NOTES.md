@@ -6815,6 +6815,8 @@ The fresh `s2-v4` runs finished, and all but one condition of the rule was met: 
 
 **The probe that did not pass was never judged.** `name-marker` got an HTTP 503 on all four attempts in run 1, and passed in run 2. Of the 29 probes judged, all passed. Entry 89 committed that a probe that never gets through does not pass, so that stands, and I did not run the check again in the hope of a clean one. This is a measurement that could not finish, not evidence against names. Note too that `s2-v4` ran on the old search, so a further test would have to be made on the new one.
 
+**The injection check, asked again** (`ai/eval/s2-injection-s2-v4-rerun.txt`), as asked after this entry: run 1 15/15, run 2 15/15, no provider errors, and the verifier stopped nothing, so every raw reply was clean too. The check gives each probe four fixed sources and does not search, so it is the same check made again, not a test of the new search. The first result stands as recorded. This one means the injection condition is met on a second try, and the rest of the names rule, the `s2-v3` and `s2-v4` answer runs, is now worth spending on the new search. Those runs have not been made.
+
 **Gemini's errors.** The redone check made 48 calls between 20:49 and 21:06 IST, and 19 of them got a 503 `UNAVAILABLE`: 40%, against 0 failures on Groq in the same hour so far. The first attempt had 10 errors in 30. The served 8 s budget does not help, because a 503 returns quickly and the provider layer does not retry it, so each of these would be a failure message in the panel.
 
 **Contextual headers are on.** After the names runs, as Entry 87 said: `AI_CONTEXT_HEADERS` now defaults to on, and every index was rebuilt from scratch, with local embedding and no provider calls.
@@ -6837,7 +6839,7 @@ On the rebuilt demo index, the served search gets 34/40 at recall@1, which is wh
 
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
 - **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). The provider layer does not retry a 503, so each is a failure message. Decide on a retry or a fallback once the latency day is in.
-- **Names (`s2-v4`) are undecided in effect** — not adopted, on a probe a 503 kept from being judged (Entry 90). All 29 judged probes passed. Any further test belongs on the new search.
+- **Names (`s2-v4`) are undecided in effect** — not adopted, on a probe a 503 kept from being judged (Entry 90). Asked again, the injection check passed 30/30. What remains is the `s2-v3` and `s2-v4` answer runs on the new search.
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
   ID tokens are verified on every REST route and at the socket handshake.
 - ~~**ESLint is broken**~~ — fixed in Entry 11. `npm run lint` now covers
