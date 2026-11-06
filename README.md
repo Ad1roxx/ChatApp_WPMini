@@ -70,6 +70,12 @@ It needs Docker Desktop running, MongoDB on 27017, and the Python environment fr
 of their own, seeds the demo data, and prints two addresses, already signed in: a student on
 <http://localhost:5173> and their mentor on <http://localhost:3000>. Ctrl+C stops what it started.
 
+**When to demo.** Between 11:00 and 19:00 IST, demo on Gemini, the default. Over three days of probing, Gemini's hourly medians
+in that window were 1.1–2.3 s, and its slowest call took 3.4 s. From 19:00 it slowed: hourly medians of 10–11 s, with calls of up
+to 21.6 s (`ai/eval/gemini-latency.txt`). In the evening, switch to Groq by hand: set `AI_LLM_PROVIDER=groq` in `ai/.env` (with
+`GROQ_API_KEY` there), then restart `npm run demo`. Switch back to `gemini` the same way. Nothing switches automatically: a
+Gemini failure is shown as a failure, never retried on Groq.
+
 Open a mentorship and ask the assistant something. It answers from that mentorship's material only, and every number is a chip you
 can click through to the source:
 

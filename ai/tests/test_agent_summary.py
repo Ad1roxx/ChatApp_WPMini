@@ -42,7 +42,7 @@ TWO_FILES = {
     "files": ["notes.pdf", "report.docx"],
 }
 ELSEWHERE = {**TWO_FILES, "id": "0000000000000000000000d2", "mentorshipId": "0000000000000000000000b9"}
-NO_UNREAD = {"tables": 0, "images": 0}
+NO_UNREAD = {"dropped_tables": 0, "images": 0}
 
 
 def chunk(file_id, section, index, text, heading=None, unread=NO_UNREAD):
@@ -160,11 +160,44 @@ def test_unread_content_is_mentioned_without_quoting_counts():
     assert UNREAD_NOTE in tool_messages(model, 2)[-1]["content"], "the model is told too"
 
 
-def test_a_word_file_with_a_table_is_mentioned():
-    store = FileStore({REPORT_ID: sections(REPORT_ID, 1, "report", unread={"tables": 1, "images": 0})})
+def test_a_word_file_with_a_dropped_nested_table_is_mentioned():
+    store = FileStore({REPORT_ID: sections(REPORT_ID, 1, "report", unread={"dropped_tables": 1, "images": 0})})
     model = ScriptedProvider(*ask(), "One.", "Answer [T2].")
     t, _ = turn(model, express(), store=store)
     assert UNREAD_NOTE in run_turn(t)["answer"]
+
+
+def test_a_word_rubric_with_an_ordinary_table_does_not_get_the_sentence():
+    # End to end from a real .docx: extraction, chunking, and the agent's
+    # summary of it. The table's rows are in the chunks, and nothing says
+    # anything couldn't be read.
+    import io as _io
+
+    from docx import Document
+
+    from chunking import chunk_document
+    from extract import extract_docx
+
+    document = Document()
+    document.add_heading("Marking scheme", 1)
+    table = document.add_table(rows=3, cols=2)
+    for row, (criterion, marks) in enumerate([("Criterion", "Marks"), ("Design", "10"), ("Testing", "5")]):
+        table.cell(row, 0).text, table.cell(row, 1).text = criterion, marks
+    buffer = _io.BytesIO()
+    document.save(buffer)
+    extracted = extract_docx(buffer.getvalue(), filename="report.docx")
+    pieces = chunk_document({"sections": extracted["sections"]})
+    chunks = [{"sourceType": "attachment", "sourceId": REPORT_ID, "sectionIndex": p.get("section_index"),
+               "chunkIndex": i, "heading": p.get("heading"), "content": p["text"], "unread": extracted["unread"]}
+              for i, p in enumerate(pieces)]
+    assert "Testing | 5" in " ".join(c["content"] for c in chunks)
+
+    model = ScriptedProvider(*ask(), "The marking scheme.", "Design is worth 10 marks [T2].")
+    t, _ = turn(model, express(), store=FileStore({REPORT_ID: chunks}))
+    result = run_turn(t)
+    assert result["status"] == "answered"
+    assert UNREAD_NOTE not in result["answer"] and "couldn't be read" not in result["answer"]
+    assert result["notes"] == ["I covered section 1 of 1 in report.docx."]
 
 
 def test_nothing_unread_says_nothing():

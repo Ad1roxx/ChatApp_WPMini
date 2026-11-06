@@ -7243,10 +7243,135 @@ tracing on would mean changing this decision, not flipping a variable.
 
 ---
 
+### Entry 97 — Word counts only what the index lacks; the real records stay out of the repository
+
+**Word files count only content that isn't in the index** (the user, changing
+Entry 96). The key is now `dropped_tables` (`ai/extract.py`, `_docx_unread`).
+
+- **An ordinary table doesn't count.** Its text is read row by row as
+  `cell | cell` lines, so nothing is missing from the index.
+- **A table inside a cell counts only if it has text.** `_table_text` reads a
+  cell's own paragraphs, through python-docx's `cell.text`, so a nested
+  table's text never reaches a section. A test pins that premise: the outer
+  cell's words are in the section and the nested ones aren't. An empty nested
+  table loses nothing and isn't counted.
+- **Pictures still count.**
+
+The stored Word files, including the evaluation's `marking-scheme.docx`, now
+count nothing. Chunk text is unchanged: `eval/extract_identity.py` still gives
+88 of 88 sources identical.
+
+**A Word rubric with an ordinary table gets no "couldn't be read" sentence.**
+`test_a_word_rubric_with_an_ordinary_table_does_not_get_the_sentence` runs a
+real `.docx` through extraction, chunking and the agent's summary. The rows
+are in the chunks, and the answer carries only "I covered section 1 of 1",
+nothing about content that couldn't be read. Mutations: counting ordinary
+tables, missing a nested table with text, or counting an empty one each fail
+a test, and the first also fails the end-to-end rubric test (9 of 9
+extraction mutations caught).
+
+**The development database holds real records, not synthetic ones.** Its
+metadata was read; no message text, and not the file's contents. It holds
+three real accounts signed in through Firebase (a mentor, a student and an
+admin), one mentorship between the first two, one assignment, one hand-in, a
+few short direct messages, and one group with one message. The hand-in
+carries one real PDF of coursework, which is in the served index (most of
+`chatapp_rag`'s chunks). Messages and groups are never indexed; the PDF is
+the only substantial text that is. Nothing identifying about any of it (names,
+email domains, titles, the file's name, record ids) is written in this
+repository, and the next section is how that is kept so.
+
+**No record shows that file's text ever reaching Gemini or Groq.** Checked
+without opening the file:
+
+1. **Every path that calls a provider, and what each one reads.** A search
+   for `build_provider`, `.generate(`, `.converse(` and the two provider
+   classes outside the tests finds seven files.
+   - `evaluate_answers.py` asks in mentorship 1 of `chatapp_eval`.
+   - `injection_check.py` uses its probe passages through a fake store.
+   - `latency_probe.py` uses one fixed invented passage.
+   - `check_ask_live.py` uses `chatapp_asklive`, its own databases, dropped
+     afterwards.
+   - The panel runs (`demo.mjs`, `demo-check.mjs`) use `chatapp_demo` on
+     their own ports.
+   - Entry 93's Groq probe used a synthetic question and result.
+   - `agent.py` isn't wired to any route.
+
+   None of them reads `chatapp` or `chatapp_rag`.
+2. **The one path that could reach it** is the served Copilot on the dev
+   server, Express on `chatapp` to ai/ on `chatapp_rag`. `server/.env` sets
+   neither `AI_SERVICE_URL` nor `AI_SERVICE_SECRET`, so both Copilot routes
+   answer "not configured" before anything is searched. ai/'s `/ask` refuses a
+   call without the secret. No service was running when this was checked.
+3. **Everything kept was searched for the file's name and its records' ids:**
+   every file in the repository, including the answer caches, the latency
+   caches and the evaluation outputs, plus git history. A passage sent to a
+   provider carries its file's name in its `from:` line, and the answer caches
+   record each source's title. Neither the name nor the mentorship's id
+   appears in any of them.
+
+**Limits.** No request log is kept: the services log to a terminal, and
+`.llm-usage.json` keeps only the last 24 hours of call times, with no
+content. So a call made by hand cannot be ruled out: Express started with
+those two variables set in the shell, or a direct request to ai/ carrying the
+secret. Nothing records one, and nothing on the provider's side is visible
+from here. The agent won't be run against `chatapp` until the user has
+removed the file; after that, its chunks must be confirmed gone from the
+served index.
+
+**Keeping it out of what is pushed** (the user):
+
+- **The identity snapshot's `chatapp` part is local.** The reference as
+  first captured held that database's record ids as keys. The commit that
+  added it was not yet pushed, so it was rewritten rather than followed by a
+  deletion. `extract-identity.json` now holds the demo and evaluation
+  databases, and `extract-identity.local.json`, which git ignores, holds
+  `chatapp`'s part from the same capture. `extract_identity.py` reads both,
+  so the chunk-text check still covers the served index, and it fails if the
+  local part is missing rather than quietly checking less.
+- **A push carrying a private detail is refused.** `scripts/check-private.mjs`
+  reads its terms from `.private-terms`, which git ignores, since a tracked
+  list would publish them itself. The terms are the file's name, the roll
+  number, the institution's email domain, the real records' ids and two email
+  addresses' local parts, one per line. The pre-push hook runs it on every
+  commit the push would add: each commit's whole tree, its paths and its
+  message, so a detail added in one commit and removed in the next is still
+  refused. With no terms file it refuses rather than passes. A report names a
+  term by its line number, never its text. `npm run check:private` runs the
+  same check on the working tree.
+  `check-private.test.mjs` (10) uses invented terms in throwaway
+  repositories. Mutations: 10, all caught: case-sensitive matching; ignoring
+  the message, the paths or the files; passing with no terms file or an empty
+  one; checking only the tip; a report that repeats a term; a report that
+  prints a path holding one; the hook skipping the check. The first run missed
+  the path one, because no test file had a term in both its path and its
+  contents; one does now.
+- **The roll number was in two tracked files** through the project folder's
+  absolute path: `scripts/seed-rag-corpus.cjs` (now relative to the script)
+  and `server/README_ENV.md` (now `cd server`). That fix is its own commit,
+  under the rewritten ones, so that no commit being pushed has the path in its
+  tree. The path is also in commits already pushed, and two pushed commits
+  carry the institutional address as author and committer. Neither is
+  rewritten here.
+- **Checked before pushing:** every commit to be pushed, through the hook's
+  own check and again by a separate Python scan of each commit's tree, paths,
+  messages and authors. Both found nothing except removed lines in the
+  folder-path fix, which delete text already pushed. Both scans were first
+  shown to find the terms where they are: in the local snapshot, in the
+  commits that were rewritten, and in what was already pushed.
+
+**README:** the demo notes now say to demo on Gemini between 11:00 and 19:00
+IST, and to switch to Groq by hand in the evening (`AI_LLM_PROVIDER=groq` in
+`ai/.env`, then restart). They give the probe's figures.
+
+---
+
+---
+
 ### Open items / "later" list
 
 - **Re-index the demo and served data, then check rankings** (Entry 96). After the names runs finish: re-index `chatapp_demo` and the served index, run `eval/extract_identity.py` again, and check the 120 questions' rankings identical to `s2-reranker-rankings.json` the way Entry 73 did.
-- **The one file in `chatapp` looks like real coursework** (a roll-number file name). Local extraction and indexing never send it anywhere, but `summarize_attachment` would send its text to the provider. Decide before the agent runs against `chatapp`: remove it, or keep the agent off there.
+- **The development database is real, and its one file is in the served index** (Entry 97). No provider call is known to have carried it. The user is removing the file through the app; then confirm its chunks are gone from `chatapp_rag`. The agent stays off `chatapp` until then.
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
 - **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). A 503 is now retried once if time allows (Entry 91); a sustained burst still fails. Groq is the manual fallback.
 - **Names (`s2-v4`) are undecided in effect** — not adopted, on a probe a 503 kept from being judged (Entry 90). Asked again, the injection check passed 30/30. What remains is the `s2-v3` and `s2-v4` answer runs on the new search.

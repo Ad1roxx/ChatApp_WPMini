@@ -314,15 +314,18 @@ def _pdf_unread(document) -> dict:
 
 
 def _docx_unread(document) -> dict:
-    """Tables, which are read only as flattened rows, and pictures.
+    """Only what is not in the index: tables whose text is dropped, and pictures.
 
-    A table's layout - merged cells, a table inside a cell - does not survive
-    being read as "cell | cell" lines, so a table counts even though its text
-    is kept.
+    An ordinary table is read - each row becomes a "cell | cell" line - so it
+    does not count. A table inside a cell is different: `_table_text` reads a
+    cell's own paragraphs (python-docx's `cell.text`), so a nested table's text
+    never reaches a section. It counts if it has any text to lose; an empty
+    one loses nothing.
     """
     body = document.element.body
+    nested = body.xpath(".//w:tc//w:tbl")
     return {
-        "tables": len(body.xpath(".//w:tbl")),
+        "dropped_tables": sum(1 for t in nested if any(s.strip() for s in t.xpath(".//w:t/text()"))),
         "images": len(body.xpath(".//w:drawing | .//w:pict")),
     }
 

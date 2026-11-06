@@ -113,29 +113,47 @@ def test_counting_does_not_change_the_sections(monkeypatch):
 # --------------------------------------------------------------------------
 def test_a_plain_word_file_has_nothing_unread():
     result = extract_docx(_docx(lambda d: (d.add_heading("Requirements", 1), d.add_paragraph(PROSE))))
-    assert result["unread"] == {"tables": 0, "images": 0}
+    assert result["unread"] == {"dropped_tables": 0, "images": 0}
     assert not has_unread(result["unread"])
 
 
-def test_a_word_table_is_counted_although_its_text_is_kept():
-    def build(d):
-        d.add_heading("Marking scheme", 1)
-        table = d.add_table(rows=2, cols=2)
-        table.cell(0, 0).text, table.cell(0, 1).text = "Criterion", "Marks"
-        table.cell(1, 0).text, table.cell(1, 1).text = "Design", "10"
+def _rubric(d):
+    d.add_heading("Marking scheme", 1)
+    table = d.add_table(rows=3, cols=2)
+    for row, (criterion, marks) in enumerate([("Criterion", "Marks"), ("Design", "10"), ("Testing", "5")]):
+        table.cell(row, 0).text, table.cell(row, 1).text = criterion, marks
 
-    result = extract_docx(_docx(build))
-    assert result["unread"]["tables"] == 1
+
+def test_a_word_rubric_with_an_ordinary_table_has_nothing_unread():
+    # Its text is read, row by row, so nothing is missing from the index.
+    result = extract_docx(_docx(_rubric))
     assert "Criterion | Marks" in result["sections"][0]["text"]
+    assert "Testing | 5" in result["sections"][0]["text"]
+    assert result["unread"] == {"dropped_tables": 0, "images": 0}
+    assert not has_unread(result["unread"])
 
 
-def test_a_table_inside_a_table_is_counted_too():
+def test_a_table_inside_a_table_with_text_is_counted_because_its_text_is_dropped():
     def build(d):
         d.add_paragraph(PROSE)
         outer = d.add_table(rows=1, cols=1)
-        outer.cell(0, 0).add_table(rows=1, cols=1).cell(0, 0).text = "nested"
+        outer.cell(0, 0).text = "outer cell"
+        outer.cell(0, 0).add_table(rows=1, cols=1).cell(0, 0).text = "nested words"
 
-    assert extract_docx(_docx(build))["unread"]["tables"] == 2
+    result = extract_docx(_docx(build))
+    text = " ".join(s["text"] for s in result["sections"])
+    assert "outer cell" in text and "nested words" not in text, "the premise: nested text never reaches a section"
+    assert result["unread"]["dropped_tables"] == 1
+
+
+def test_an_empty_table_inside_a_table_loses_nothing_and_is_not_counted():
+    def build(d):
+        d.add_paragraph(PROSE)
+        outer = d.add_table(rows=1, cols=1)
+        outer.cell(0, 0).text = "outer cell"
+        outer.cell(0, 0).add_table(rows=1, cols=1)
+
+    assert extract_docx(_docx(build))["unread"]["dropped_tables"] == 0
 
 
 def test_a_word_picture_is_counted():
@@ -147,5 +165,5 @@ def test_a_word_picture_is_counted():
 
 
 def test_has_unread():
-    assert not has_unread(None) and not has_unread({}) and not has_unread({"tables": 0, "images": 0})
-    assert has_unread({"tables": 0, "images": 1})
+    assert not has_unread(None) and not has_unread({}) and not has_unread({"dropped_tables": 0, "images": 0})
+    assert has_unread({"dropped_tables": 0, "images": 1})
