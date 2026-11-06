@@ -6,9 +6,9 @@
  * mentorship and the role a valid capability token names, and only while the
  * database still agrees with all three.
  *
- * No tools are registered until Step 2, so a call that passes every check is
- * answered "No such tool" (404). That is what "allowed" looks like here; every
- * refusal is a different status, asserted below.
+ * A call that passes every check is answered 200 with `records`, here from
+ * `list_goals`; every refusal is a different status, asserted below. What the
+ * tools return is tested in agent-read-tools.test.js.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -55,12 +55,16 @@ function call(token, { name = 'list_goals', secret = AI_SECRET, headers = {}, bo
 async function expect(res, status, pattern) {
   assert.equal(res.status, status);
   const body = await res.json();
+  if (status === 200) {
+    assert.ok(Array.isArray(body.records));
+    return body;
+  }
   assert.equal(typeof body.error, 'string');
   if (pattern) assert.match(body.error, pattern);
   return body;
 }
 
-const PASSED = [404, /No such tool/];
+const PASSED = [200];
 
 // ---------------------------------------------------------------------------
 // A call that should get through
@@ -224,6 +228,6 @@ test('one token makes at most three tool calls', async (t) => {
 test('a tool name that is not a tool reaches nothing', async (t) => {
   for (const name of ['constructor', '__proto__', 'hasOwnProperty', 'toString']) {
     const token = tokenFor(USERS.student, mine, 'student');
-    await t.test(name, async () => expect(await call(token, { name }), ...PASSED));
+    await t.test(name, async () => expect(await call(token, { name }), 404, /No such tool/));
   }
 });

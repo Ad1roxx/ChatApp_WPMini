@@ -48,6 +48,26 @@ const { syncSource, syncMentorship } = require('./lib/indexSync');
 const agentToken = require('./lib/agentToken');
 const { isLoopback, sameSecret } = require('./lib/internalRequest');
 
+// Reads with their permission checks, shared by the routes below and the
+// agent's tools, so that each check is written once.
+const {
+  resolveMentorshipAccess,
+  loadOwnAssignment,
+  loadSubmission,
+  SESSION_POPULATE,
+  serialiseSubmission,
+  summarise,
+  goalsFor,
+  sessionsFor,
+  resourcesFor,
+  mentorshipWorkFor,
+  assignmentOverviewFor,
+  myWorkFor,
+  myWorkCountsFor,
+  upcomingSessionsFor
+} = require('./lib/reads');
+const agentTools = require('./lib/agentTools');
+
 // Authentication
 const {
   requireAuth,
@@ -1839,32 +1859,7 @@ app.patch('/api/mentorships/:id', requireAuth, async (req, res) => {
 // GOALS AND MILESTONES
 // ============================================
 
-/**
- * Load a mentorship and work out how the caller relates to it.
- *
- * Every goal route needs the same three answers — does it exist, am I part of
- * it, and am I the mentor — so they are worked out once here rather than
- * repeated four times with slightly different wording.
- *
- * Returns `{ error, status }` on failure so the caller can `return` it
- * directly, or `{ mentorship, isMentor }` on success.
- */
-async function resolveMentorshipAccess(mentorshipId, user) {
-  const mentorship = await Mentorship.findById(mentorshipId);
-  if (!mentorship) {
-    return { error: 'Mentorship not found', status: 404 };
-  }
-
-  const me = String(user._id);
-  const isMentor = String(mentorship.mentor) === me;
-  const isStudent = String(mentorship.student) === me;
-
-  if (!isMentor && !isStudent) {
-    return { error: 'This is not your mentorship', status: 403 };
-  }
-
-  return { mentorship, isMentor };
-}
+// resolveMentorshipAccess lives in lib/reads.js, shared with the agent's tools.
 
 /**
  * GET /api/mentorships/:id/goals
@@ -1874,16 +1869,11 @@ async function resolveMentorshipAccess(mentorshipId, user) {
  */
 app.get('/api/mentorships/:id/goals', requireAuth, async (req, res) => {
   try {
-    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
-    if (access.error) {
-      return res.status(access.status).json({ error: access.error });
+    const read = await goalsFor(req.params.id, req.authUser);
+    if (read.error) {
+      return res.status(read.status).json({ error: read.error });
     }
-
-    const goals = await Goal.find({ mentorship: req.params.id })
-      .sort({ createdAt: -1 })
-      .populate('createdBy', 'displayName photoURL');
-
-    res.json(goals);
+    res.json(read.data);
   } catch (err) {
     console.error('Error listing goals:', err);
     res.status(500).json({ error: 'Server error' });
@@ -2098,14 +2088,7 @@ app.patch('/api/goals/:goalId', requireAuth, async (req, res) => {
 // SESSIONS - SCHEDULED MEETINGS
 // ============================================
 
-/**
- * Everything a session list needs to render: who asked for the time, and who
- * called it off. Both are display-only, so only the display fields come back.
- */
-const SESSION_POPULATE = [
-  { path: 'proposedBy', select: 'displayName photoURL' },
-  { path: 'cancelledBy', select: 'displayName photoURL' }
-];
+// SESSION_POPULATE lives in lib/reads.js, shared with the agent's tools.
 
 /**
  * Re-read a session with its references filled in, for the response and the
@@ -2135,33 +2118,7 @@ function broadcastSession(mentorship, session) {
  */
 app.get('/api/sessions/upcoming', requireAuth, async (req, res) => {
   try {
-    // Only ACTIVE mentorships. A session left over from a relationship that
-    // has since ended is not something either person still owes.
-    const mine = await Mentorship.find({
-      status: 'active',
-      $or: [{ mentor: req.authUser._id }, { student: req.authUser._id }]
-    }).select('_id');
-
-    if (mine.length === 0) return res.json([]);
-
-    const sessions = await Session.find({
-      mentorship: { $in: mine.map((m) => m._id) },
-      status: { $in: ['proposed', 'confirmed'] },
-      scheduledFor: { $gte: new Date() }
-    })
-      .sort({ scheduledFor: 1 })
-      .limit(10)
-      .populate(SESSION_POPULATE)
-      .populate({
-        path: 'mentorship',
-        select: 'topic mentor student',
-        populate: [
-          { path: 'mentor', select: 'displayName photoURL' },
-          { path: 'student', select: 'displayName photoURL' }
-        ]
-      });
-
-    res.json(sessions);
+    res.json((await upcomingSessionsFor(req.authUser)).data);
   } catch (err) {
     console.error('Error listing upcoming sessions:', err);
     res.status(500).json({ error: 'Server error' });
@@ -2181,16 +2138,11 @@ app.get('/api/sessions/upcoming', requireAuth, async (req, res) => {
  */
 app.get('/api/mentorships/:id/sessions', requireAuth, async (req, res) => {
   try {
-    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
-    if (access.error) {
-      return res.status(access.status).json({ error: access.error });
+    const read = await sessionsFor(req.params.id, req.authUser);
+    if (read.error) {
+      return res.status(read.status).json({ error: read.error });
     }
-
-    const sessions = await Session.find({ mentorship: req.params.id })
-      .sort({ scheduledFor: -1 })
-      .populate(SESSION_POPULATE);
-
-    res.json(sessions);
+    res.json(read.data);
   } catch (err) {
     console.error('Error listing sessions:', err);
     res.status(500).json({ error: 'Server error' });
@@ -2435,16 +2387,11 @@ function parseSharedUrl(raw) {
  */
 app.get('/api/mentorships/:id/resources', requireAuth, async (req, res) => {
   try {
-    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
-    if (access.error) {
-      return res.status(access.status).json({ error: access.error });
+    const read = await resourcesFor(req.params.id, req.authUser);
+    if (read.error) {
+      return res.status(read.status).json({ error: read.error });
     }
-
-    const resources = await Resource.find({ mentorship: req.params.id })
-      .sort({ createdAt: -1 })
-      .populate('addedBy', 'displayName photoURL');
-
-    res.json(resources);
+    res.json(read.data);
   } catch (err) {
     console.error('Error listing resources:', err);
     res.status(500).json({ error: 'Server error' });
@@ -2688,69 +2635,7 @@ app.get('/api/users/:id/feedback', requireAuth, async (req, res) => {
 // ASSIGNMENTS - SHARED, CLASSROOM-STYLE
 // ============================================
 
-/**
- * Whether one hand-in is late against its assignment's deadline.
- *
- * Takes plain objects as well as documents, because the list routes read
- * with `.lean()`-shaped data after populating. Mirrors
- * `Submission.methods.isLate`, which is the version the model owns.
- */
-function lateFor(sub, dueAt) {
-  const due = new Date(dueAt).getTime();
-  if (sub.submittedAt) return new Date(sub.submittedAt).getTime() > due;
-  return Date.now() > due;
-}
-
-/**
- * A submission as the client wants it: with `late` worked out, since the rule
- * for that lives here and not in two React components.
- *
- * `assignment` is passed explicitly when the submission was loaded without it
- * populated — inside the mentor's per-assignment view, where it is the page.
- */
-function serialiseSubmission(sub, assignment) {
-  const s = sub.toObject ? sub.toObject() : sub;
-  const a = assignment || s.assignment;
-  return { ...s, late: a ? lateFor(s, a.dueAt) : false };
-}
-
-/**
- * The numbers behind "4 of 6 handed in".
- *
- * `handedIn` counts work that is currently in and not bounced back:
- * `submitted` and `accepted`. A `changes-requested` hand-in is not counted —
- * the student owes something again, and counting it as done would make the
- * headline number flatter than the truth.
- *
- * `drafts` is work attached but not turned in — the thing a mentor chasing a
- * deadline most wants to know about, and not the same as "not started".
- *
- * `overdue` is work not handed in with the deadline gone, drafts included: a
- * draft is not handed in. It is the figure a mentor actually chases.
- */
-function summarise(subs, dueAt) {
-  const pastDue = Date.now() > new Date(dueAt).getTime();
-  const out = {
-    total: subs.length,
-    handedIn: 0,
-    toReview: 0,
-    accepted: 0,
-    changesRequested: 0,
-    drafts: 0,
-    overdue: 0
-  };
-
-  for (const s of subs) {
-    if (s.status === 'submitted' || s.status === 'accepted') out.handedIn += 1;
-    if (s.status === 'submitted') out.toReview += 1;
-    if (s.status === 'accepted') out.accepted += 1;
-    if (s.status === 'changes-requested') out.changesRequested += 1;
-    if (s.status === 'draft') out.drafts += 1;
-    if ((s.status === 'assigned' || s.status === 'draft') && pastDue) out.overdue += 1;
-  }
-
-  return out;
-}
+// lateFor, serialiseSubmission and summarise live in lib/reads.js, shared with the agent's tools.
 
 /**
  * Check that every mentorship in a recipient list is the caller's own, active
@@ -2794,37 +2679,7 @@ async function resolveRecipients(mentorshipIds, user) {
   return { mentorships: found };
 }
 
-/** Load an assignment the caller set, or say why not. */
-async function loadOwnAssignment(id, user) {
-  if (!mongoose.isValidObjectId(id)) {
-    return { error: 'Assignment not found', status: 404 };
-  }
-
-  const assignment = await Assignment.findById(id);
-  if (!assignment) {
-    return { error: 'Assignment not found', status: 404 };
-  }
-
-  if (String(assignment.mentor) !== String(user._id)) {
-    return { error: 'Only the mentor who set this can do that', status: 403 };
-  }
-
-  return { assignment };
-}
-
-/** Load a submission with its assignment, or say why not. */
-async function loadSubmission(id) {
-  if (!mongoose.isValidObjectId(id)) {
-    return { error: 'Submission not found', status: 404 };
-  }
-
-  const submission = await Submission.findById(id).populate('assignment');
-  if (!submission || !submission.assignment) {
-    return { error: 'Submission not found', status: 404 };
-  }
-
-  return { submission };
-}
+// loadOwnAssignment and loadSubmission live in lib/reads.js, shared with the agent's tools.
 
 /** Re-read a submission the way every response shapes it. */
 function loadSubmissionForResponse(id) {
@@ -2965,40 +2820,7 @@ app.post('/api/assignments', requireAuth, async (req, res) => {
  */
 app.get('/api/assignments', requireAuth, async (req, res) => {
   try {
-    const me = req.authUser._id;
-
-    const set = await Assignment.find({ mentor: me }).sort({ dueAt: 1 });
-    const setIds = set.map((a) => a._id);
-
-    const setSubs = setIds.length
-      ? await Submission.find({ assignment: { $in: setIds } }).select('assignment status submittedAt')
-      : [];
-
-    const subsBy = new Map();
-    for (const s of setSubs) {
-      const key = String(s.assignment);
-      if (!subsBy.has(key)) subsBy.set(key, []);
-      subsBy.get(key).push(s);
-    }
-
-    const mine = await Submission.find({ student: me })
-      .populate({
-        path: 'assignment',
-        populate: { path: 'mentor', select: 'displayName photoURL' }
-      })
-      .populate('student', 'displayName photoURL');
-
-    res.json({
-      set: set.map((a) => ({
-        ...a.toObject(),
-        summary: summarise(subsBy.get(String(a._id)) || [], a.dueAt)
-      })),
-      mine: mine
-        // A hand-in whose assignment has gone is an orphan, not work.
-        .filter((s) => s.assignment)
-        .map((s) => serialiseSubmission(s))
-        .sort((a, b) => new Date(a.assignment.dueAt) - new Date(b.assignment.dueAt))
-    });
+    res.json((await myWorkFor(req.authUser)).data);
   } catch (err) {
     console.error('Error listing assignments:', err);
     res.status(500).json({ error: 'Server error' });
@@ -3020,24 +2842,7 @@ app.get('/api/assignments', requireAuth, async (req, res) => {
  */
 app.get('/api/assignments/counts', requireAuth, async (req, res) => {
   try {
-    const me = req.authUser._id;
-
-    // Owed: set for you and not handed in. A draft counts — it is attached,
-    // not handed in — and so does work sent back for changes.
-    const owed = await Submission.countDocuments({
-      student: me,
-      status: { $in: ['assigned', 'draft', 'changes-requested'] }
-    });
-
-    const set = await Assignment.find({ mentor: me }).select('_id');
-    const toReview = set.length
-      ? await Submission.countDocuments({
-          assignment: { $in: set.map((a) => a._id) },
-          status: 'submitted'
-        })
-      : 0;
-
-    res.json({ owed, toReview });
+    res.json((await myWorkCountsFor(req.authUser)).data);
   } catch (err) {
     console.error('Error counting assignments:', err);
     res.status(500).json({ error: 'Server error' });
@@ -3056,25 +2861,11 @@ app.get('/api/assignments/counts', requireAuth, async (req, res) => {
  */
 app.get('/api/assignments/:id', requireAuth, async (req, res) => {
   try {
-    const own = await loadOwnAssignment(req.params.id, req.authUser);
-    if (own.error) {
-      return res.status(own.status).json({ error: own.error });
+    const read = await assignmentOverviewFor(req.params.id, req.authUser);
+    if (read.error) {
+      return res.status(read.status).json({ error: read.error });
     }
-
-    const subs = await Submission.find({ assignment: own.assignment._id }).populate(
-      'student',
-      'displayName photoURL'
-    );
-
-    subs.sort((a, b) =>
-      (a.student?.displayName || '').localeCompare(b.student?.displayName || '')
-    );
-
-    res.json({
-      ...own.assignment.toObject(),
-      summary: summarise(subs, own.assignment.dueAt),
-      submissions: subs.map((s) => serialiseSubmission(s, own.assignment))
-    });
+    res.json(read.data);
   } catch (err) {
     console.error('Error reading assignment:', err);
     res.status(500).json({ error: 'Server error' });
@@ -3090,24 +2881,11 @@ app.get('/api/assignments/:id', requireAuth, async (req, res) => {
  */
 app.get('/api/mentorships/:id/assignments', requireAuth, async (req, res) => {
   try {
-    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
-    if (access.error) {
-      return res.status(access.status).json({ error: access.error });
+    const read = await mentorshipWorkFor(req.params.id, req.authUser);
+    if (read.error) {
+      return res.status(read.status).json({ error: read.error });
     }
-
-    const subs = await Submission.find({ mentorship: req.params.id })
-      .populate({
-        path: 'assignment',
-        populate: { path: 'mentor', select: 'displayName photoURL' }
-      })
-      .populate('student', 'displayName photoURL');
-
-    res.json(
-      subs
-        .filter((s) => s.assignment)
-        .map((s) => serialiseSubmission(s))
-        .sort((a, b) => new Date(a.assignment.dueAt) - new Date(b.assignment.dueAt))
-    );
+    res.json(read.data);
   } catch (err) {
     console.error('Error listing mentorship assignments:', err);
     res.status(500).json({ error: 'Server error' });
@@ -4076,14 +3854,6 @@ app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
 // ============================================
 
 /**
- * The agent's read tools, by name. Filled in S4 Step 2; each entry will call
- * the same loader its page's route calls (lib/reads.js), so a tool can never
- * see more than that page shows. Empty until then: every call that passes the
- * checks below gets "No such tool".
- */
-const AGENT_TOOLS = Object.freeze({});
-
-/**
  * Tool calls one turn may make, counted here as well as in the AI service, so
  * a service that loses count still cannot read without limit on one token.
  */
@@ -4168,17 +3938,40 @@ app.post('/internal/agent/tools/:name', async (req, res) => {
       return res.status(409).json({ error: refusal });
     }
 
+    const name = req.params.name;
+    const tool = agentTools.toolNamed(name);
+    if (!tool) {
+      return res.status(404).json({ error: 'No such tool' });
+    }
+    // The second layer of the role filter (§4.2): the AI service never offers
+    // this tool to this role, and if it is asked for anyway, it is refused here.
+    if (!tool.roles.includes(role)) {
+      return res.status(403).json({ error: "That isn't something I can look up for you" });
+    }
+    const args = req.body?.args;
+    const problem = agentTools.argsProblem(tool, args);
+    if (problem) {
+      return res.status(400).json({ error: "I couldn't make sense of that lookup" });
+    }
+
     if (!countAgentCall(claims.jti, claims.exp * 1000)) {
       return res
         .status(429)
         .json({ error: `I can look things up at most ${AGENT_TOOL_CALLS_PER_TURN} times for one question.` });
     }
 
-    const tool = Object.hasOwn(AGENT_TOOLS, req.params.name) ? AGENT_TOOLS[req.params.name] : null;
-    if (!tool) {
-      return res.status(404).json({ error: 'No such tool' });
+    const started = Date.now();
+    const result = await tool.run({ user, mentorship: access.mentorship, role, args });
+    // One line per call: which tool, as which role, how it went. Never the
+    // arguments, the results or anyone's id.
+    console.log(
+      `agent tool ${name} as ${role}: ${result.error ? result.status : 200}, ` +
+        `${result.records ? result.records.length : 0} records, ${Date.now() - started} ms`
+    );
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
     }
-    return res.json(await tool({ user, mentorship: access.mentorship, role, args: req.body?.args ?? {} }));
+    return res.json(result);
   } catch (err) {
     console.error('Error running an agent tool:', err.message);
     res.status(500).json({ error: 'That lookup failed' });

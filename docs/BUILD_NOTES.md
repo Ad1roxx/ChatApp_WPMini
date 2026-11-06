@@ -6898,6 +6898,69 @@ The answer used narrow no-break spaces (U+202F) in places, so the verifier will 
 
 ---
 
+### Entry 94 — S4 Step 2: the read tools, through the pages' own reads
+
+**Each check in one place.** The shared checks moved from `server/index.js` to `server/lib/reads.js`: `resolveMentorshipAccess`, `loadOwnAssignment`, `loadSubmission`, the shaping helpers `lateFor`, `serialiseSubmission`, `summarise` and `SESSION_POPULATE`. Each moved unchanged. Eight reads became loaders there, each its check plus its query: `goalsFor`, `sessionsFor`, `resourcesFor`, `mentorshipWorkFor`, `assignmentOverviewFor`, `myWorkFor`, `myWorkCountsFor`, `upcomingSessionsFor`. The eight routes now call them and do nothing else, and the agent's tools call the same functions. **Every existing route test passed unchanged** (the full Node suite, before any agent test was edited). `canReadSubmissionFile` moves in Step 4, with its second caller, `summarize_attachment`.
+
+**The tools** (`server/lib/agentTools.js`, a frozen registry: roles, scope, argument shape, handler):
+
+| Tool | Roles | Scope | Loader | Returns |
+| --- | --- | --- | --- | --- |
+| `list_goals` | both | this mentorship | `goalsFor` | title, description, status, set by (role), milestones with done |
+| `list_mentorship_assignments` | both | this mentorship | `mentorshipWorkFor` | per hand-in: assignment, due, status, late, handed in, review comment and date, file names |
+| `list_sessions` | both | this mentorship | `sessionsFor` | title, agenda, time, minutes, status, proposed by (role), notes, cancel reason |
+| `list_resources` | both | this mentorship | `resourcesFor` | title, URL, note, added by (role) |
+| `get_assignment_overview` | mentor | work set in this mentorship | `assignmentOverviewFor` | counts only: students, handed in, waiting for review, accepted, changes requested, drafts, overdue |
+| `list_my_work` | both | the asker | `myWorkFor`, `myWorkCountsFor` | own hand-ins (with topic, and whether in this mentorship); work they set, with counts; owed and to-review totals |
+| `list_my_upcoming_sessions` | both | the asker | `upcomingSessionsFor` | as `list_sessions`, with topic and whether in this mentorship |
+
+Search and `summarize_attachment` are in the AI service (Steps 3 and 4).
+
+**What a result never carries:** a name, an email, or a person's id. People are "mentor" or "student" by their place in the record. Records carry their own kind and id, for the AI service to turn into a handle and an anchor. At most 20 records and 600 characters a field, with a note when anything was cut.
+
+**At the endpoint, after Step 1's checks:** the tool must exist (an own property), the token's role must be one the tool lists (the second layer of the role filter; the AI service's filter is the first), and the arguments must be exactly the tool's shape. No key missing, no extra key, and an id must be 24 lower-case hex. So an invented `mentorshipId` or `userId` is refused (400). Refused calls are not counted against the cap. Each call logs one line: tool, role, status, record count, milliseconds. No arguments, no results, no ids.
+
+**Stricter than the page (§4.4):** `get_assignment_overview` answers only for work set in the panel's mentorship. The page answers for any work the mentor set, and lists every student by name.
+
+**Tests** (`server/test/agent-read-tools.test.js`, 49). Fixtures: one mentor with two students, an admin who mentors a third, work set across both of the mentor's mentorships and in only one, and a hand-in sent back with a comment. Covered: each tool's records; a mentorship tool reads this mentorship only, even for the mentor of both; the overview is refused for work in the mentor's other mentorship, to the student, to another mentor, and for work that doesn't exist; malformed arguments are refused; and no name, email or user id appears in any tool's result, for either role. `agent-tools.test.js` now treats a 200 with records as getting through. `server/test/reads-scope.test.js` (8, new; no existing test was edited) was added after the first mutation run. That run found that no route test had a second mentorship with goals, sessions or resources in it, and that none checked the counts were the caller's own, so four queries could have read every mentorship's records unnoticed. A second link was added to the agent fixtures for the same reason.
+
+**Mutations, counted through each caller** (route tests: goals, sessions, resources, assignments, mentorship, attachments; agent tests: the two endpoint files):
+
+```
+resolveMentorshipAccess lets in non-members              routes 17  agent  2  needs both
+resolveMentorshipAccess calls everyone the mentor        routes  7  agent 29  needs both
+loadOwnAssignment lets any mentor in                     routes  5  agent  2  needs both
+goalsFor skips its check                                 routes  2  agent  0  needs route
+goalsFor reads every mentorship                          routes  2  agent  1  needs both  (after reads-scope.test.js)
+sessionsFor skips its check                              routes  2  agent  0  needs route
+sessionsFor reads every mentorship                       routes  2  agent  1  needs both  (after reads-scope.test.js)
+resourcesFor skips its check                             routes  2  agent  0  needs route
+resourcesFor reads every mentorship                      routes  2  agent  1  needs both  (after reads-scope.test.js)
+mentorshipWorkFor skips its check                        routes  2  agent  0  needs route
+mentorshipWorkFor reads every mentorship                 routes  1  agent 11  needs both
+myWorkFor reads everyone's hand-ins                      routes 18  agent  3  needs both
+myWorkFor lists everyone's assignments                   routes  1  agent  3  needs both
+myWorkCountsFor counts everyone's                        routes  3  agent  3  needs both  (after reads-scope.test.js)
+upcomingSessionsFor reads every mentorship               routes  2  agent  2  needs both
+endpoint: role filter removed                            routes  0  agent  2  needs tool
+endpoint: arguments not checked                          routes  0  agent  7  needs tool
+argsProblem allows extra keys                            routes  0  agent  5  needs tool
+argsProblem accepts any id                               routes  0  agent  3  needs tool
+overview: any mentorship of the mentor's                 routes  0  agent  2  needs tool
+overview: per-student rows included                      routes  0  agent  5  needs tool
+overview offered to students                             routes  0  agent  5  needs tool
+roles are names: a hand-in names its student             routes  0  agent  5  needs tool
+a goal says who set it by name                           routes  0  agent  5  needs tool
+upcoming sessions carry the mentorship with its people   routes  0  agent  4  needs tool
+my work: topics of any mentorship                        routes  0  agent  0  needs none
+
+26 mutations; every one fails the callers it must. Control clean.
+```
+
+A loader that skips its own check fails the route tests only, because on the tool path the endpoint has already run `resolveMentorshipAccess` for the token's mentorship. That is the second layer doing its job, and the reason those rows need only "route". The last row is defence in depth that no test can reach: topics are looked up only for the asker's own hand-ins, so dropping the "your own mentorships" filter changes nothing observable.
+
+---
+
 ### Open items / "later" list
 
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
