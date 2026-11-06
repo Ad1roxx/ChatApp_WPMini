@@ -1,0 +1,55 @@
+Panel check on the new search (contextual headers on, BUILD_NOTES Entry 92): real questions through the panel, in a browser, on the demo stack. Started 2026-11-06T07:30:17.643Z. Invented data.
+
+== Rohan Kapoor (student), mentorship 6ae9c7955fb390bec68ae785
+
+Q1: Which algorithm did I choose for my rate limiter, and why?
+  abstained, 2983 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+Q2: What does Meera want me to change in my rate limiter design?
+  abstained, 2433 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+Q3: What caused the lunch-rush outage?
+  answered, 2450 ms
+  The outage was caused by the database connection pool running out 12. Each request held a database connection for its entire duration, which included a payment provider call that took about 800 milliseconds instead of the usual 120 milliseconds 1. As a result, connections were held roughly seven times longer than normal, exhausting the pool of 20 and causing new requests to queue until they timed out 1.
+  [chip] Source 1: lunch-rush-postmortem.docx, Root cause -> "Download the file"; passage: Each request held a database connection for its whole duration, including the call to the payment provider, wh…
+  [chip] Source 2: lunch-rush-postmortem.docx, Summary
+  [chip] Source 1: lunch-rush-postmortem.docx, Root cause
+  [chip] Source 1: lunch-rush-postmortem.docx, Root cause
+
+Q4: How long does the server remember an idempotency key?
+  answered, 1925 ms
+  The server stores the idempotency key for 24 hours 1.
+  [chip] Source 1: Hand-in: Make order placement idempotent -> "Go to the hand-in"; passage: The client sends an Idempotency-Key header, a UUID generated once per order attempt. The server stores the key…
+
+Q5: What is the canteen's refund policy?
+  abstained, 1919 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+== Meera Iyer (mentor), mentorship 6ae9c7955fb390bec68ae785
+
+Q1: How did Rohan test his rate limiter, and what were the results?
+  abstained, 1961 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+Q2: What is still open in Rohan's rate limiter design?
+  abstained, 1942 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+Q3: What action items came out of the postmortem?
+  answered, 2454 ms
+  The action items from the postmortem include releasing the connection before calling the payment provider, adding pool wait time to the main dashboard, alerting when pool wait passes 100 milliseconds, and setting a two-second timeout on the provider call with one retry 1.
+  [chip] Source 1: lunch-rush-postmortem.docx, Action items -> "Download the file"; passage: Release the connection before calling the payment provider. Add pool wait time to the main dashboard. Alert wh…
+
+Q4: Which milestones on Rohan's goal are still to do?
+  answered, 1951 ms
+  Your student's goal to be ready for backend interviews by March still has three milestones to do: design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard 1.
+  [chip] Source 1: Be ready for backend interviews by March -> "Go to the goal"; passage: Be ready for backend interviews by March - Explain database connection pooling (done) - Write a real postmorte…
+
+Q5: What did Ananya find in the hostel survey?
+  abstained, 1943 ms
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+== the ended mentorship: refusal shown, question boxes: 0
+  the route itself: HTTP 409 {"error":"The assistant isn't available for ended mentorships."}

@@ -6847,6 +6847,29 @@ Decided after Entry 90's latency figures: one retry for a 503, only if the time 
 
 ---
 
+### Entry 92 — The panel on the new search, and names tested again on it
+
+**The panel** (`ai/eval/s3-demo-log-new-search.txt`): the same ten questions as Entry 80, through the panel in a browser on `npm run demo`, prompt `s2-v3`, contextual headers on. Ten Gemini calls, each answered on the first attempt in 1.0–2.0 s; click to screen 1.9–3.0 s.
+
+| As | Question | Entry 80 | Now | ms |
+| --- | --- | --- | --- | --- |
+| Student | Which algorithm did I choose for my rate limiter, and why? | abstained | abstained | 2,983 |
+| Student | What does Meera want me to change in my rate limiter design? | abstained | abstained | 2,433 |
+| Student | What caused the lunch-rush outage? | answered | answered, from "Root cause" and "Summary" | 2,450 |
+| Student | How long does the server remember an idempotency key? | answered | answered, cites the hand-in | 1,925 |
+| Student | What is the canteen's refund policy? | abstained, correctly | abstained, correctly | 1,919 |
+| Mentor | How did Rohan test his rate limiter, and what were the results? | answered | **abstained** | 1,961 |
+| Mentor | What is still open in Rohan's rate limiter design? | abstained | abstained | 1,942 |
+| Mentor | What action items came out of the postmortem? | answered, from the review | answered, from the section "Action items" | 2,454 |
+| Mentor | Which milestones on Rohan's goal are still to do? | abstained | **answered**, cites the goal | 1,951 |
+| Mentor | What did Ananya find in the hostel survey? | timed out | abstained | 1,943 |
+
+**Every abstention is the model declining, not search coming back empty.** Each had four sources (`cause=declined`). Replaying the served search for each (no calls): for *"How did Rohan test…"* and *"What is still open…"* the labelled section ranked first, and for *"What does Meera want me to change…"* the hand-in ranked second. So three of the five abstentions had the answer in front of the model. *"Which algorithm…"* is still a search miss: "Why a token bucket" is not in the top four. The hostel survey question is asked in Rohan's mentorship by `demo-check.mjs`, and the survey is in Ananya's, so that abstention is right; Entry 80 counted it as answerable, which was wrong.
+
+**So names are tested again, on the new search,** as decided after this run: the name question still abstains. Same rule as Entry 76, applied by the same code (`compare_names_fresh.py`), read through `eval/compare_names_new_search.py` (committed before any run): runs 5 and 6 of `s2-v4`, then the injection check made again after them, then `s2-v3` runs 5 and 6 only if `s2-v4` meets every other condition. The `s2-v4` runs made on the old search, 1 to 4, are left out. The runs start when the latency probe ends, so its last samples are not starved of room in the shared counter.
+
+---
+
 ### Open items / "later" list
 
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
