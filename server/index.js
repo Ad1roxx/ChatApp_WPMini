@@ -54,6 +54,7 @@ const {
   resolveMentorshipAccess,
   loadOwnAssignment,
   loadSubmission,
+  canReadSubmissionFile,
   SESSION_POPULATE,
   serialiseSubmission,
   summarise,
@@ -3476,8 +3477,7 @@ app.get('/api/submissions/:id/files/:fileId', requireAuth, async (req, res) => {
     }
     const { submission } = loaded;
 
-    const me = String(req.authUser._id);
-    if (me !== String(submission.student) && me !== String(submission.assignment.mentor)) {
+    if (!canReadSubmissionFile(submission, req.authUser)) {
       return res
         .status(403)
         .json({ error: 'Only the student and the mentor who set this can open it' });

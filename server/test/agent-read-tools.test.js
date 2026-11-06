@@ -116,7 +116,7 @@ test('which tools each role is offered', () => {
   assert.ok(toolsFor('mentor').includes('get_assignment_overview'));
   assert.deepEqual(
     toolsFor('student'),
-    Object.keys(TOOLS).filter((n) => n !== 'get_assignment_overview')
+    Object.keys(TOOLS).filter((n) => n !== 'get_assignment_overview' && !TOOLS[n].internal)
   );
   assert.deepEqual(toolsFor('admin'), [], 'an account role is not a mentorship role');
 });

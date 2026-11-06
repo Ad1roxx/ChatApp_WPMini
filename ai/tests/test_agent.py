@@ -76,6 +76,8 @@ class Express:
         answer = self.answers.get(name, (200, {"records": []}))
         if isinstance(answer, Exception):
             raise answer
+        if callable(answer):  # an answer that depends on the arguments
+            answer = answer(self.requests[-1]["body"]["args"])
         status, body = answer
         return httpx.Response(status, json=body)
 
@@ -138,13 +140,19 @@ def test_every_schema_is_valid_and_allows_no_extra_keys():
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 def test_express_and_this_service_agree_on_which_role_may_use_which_tool():
     server = Path(__file__).resolve().parents[2] / "server"
-    script = ("const t=require('./lib/agentTools');"
-              "console.log(JSON.stringify({mentor:t.toolsFor('mentor'),student:t.toolsFor('student')}))")
+    script = ("const t=require('./lib/agentTools');const r=['mentor','student'];"
+              "console.log(JSON.stringify(Object.fromEntries(r.map(x=>[x,{offered:t.toolsFor(x),"
+              "internal:t.internalToolsFor(x)}]))))")
     out = subprocess.run(["node", "-e", script], cwd=server, capture_output=True, text=True, check=True).stdout
     express = json.loads(out)
     for role in ("mentor", "student"):
         here = [t.name for t in tools_for(role) if t.runs == "express"]
-        assert sorted(here) == sorted(express[role]), role
+        assert sorted(here) == sorted(express[role]["offered"]), role
+        # The file summary runs here and asks Express's internal check first: whoever
+        # is offered the one must be allowed the other, and Express offers no internal tool.
+        summary = [t.name for t in tools_for(role) if t.runs == "summary"]
+        assert express[role]["internal"] == (["check_attachment"] if summary else []), role
+        assert "check_attachment" not in express[role]["offered"]
 
 
 def test_the_model_is_offered_only_its_roles_tools():

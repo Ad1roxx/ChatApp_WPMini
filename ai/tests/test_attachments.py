@@ -169,7 +169,9 @@ def corpus(test_db):
 
 @pytest.fixture
 def store(test_db, mongo_uri):
-    return ChunkStore(uri=mongo_uri, db_name=test_db.name)
+    # Records and chunks share the test database; the store's own reads of the
+    # records (party names, the read-time check) go there too, never to the app's.
+    return ChunkStore(uri=mongo_uri, db_name=test_db.name, records=appdb.wrap(test_db))
 
 
 def index_everything(store, mentorship_id=None) -> tuple[int, int]:
@@ -265,6 +267,85 @@ def test_a_word_attachment_is_indexed_with_sections_and_no_pages(corpus, store):
     # section instead. The key still exists, which is what lets one chunker
     # serve both formats.
     assert {c["startPage"] for c in chunks} == {None}
+
+
+
+def test_every_chunk_of_a_file_carries_what_its_extraction_could_not_read(corpus, store):
+    # A PDF with a page that has no text: the count rides on every chunk of the
+    # file, for the Copilot's summary, and a record's own text carries none.
+    corpus.submission(
+        Corpus.M1,
+        Corpus.ADITYA,
+        text="My notes on the brief.",
+        files=[(pdf_bytes([f"Requirements\n\n{BRIEF}", "", f"Marking scheme\n\n{MARKING}"]), "brief.pdf", PDF_TYPE)],
+    )
+
+    index_everything(store)
+    chunks = attachment_chunks(store)
+
+    assert chunks
+    assert all(c["unread"] == {"pages_without_text": 1, "dropped_blocks": 0, "images": 0} for c in chunks)
+    own = list(store.chunks.find({"sourceType": {"$ne": "attachment"}}))
+    assert own and all(c.get("unread") is None for c in own)
+
+def _two_files(corpus, store) -> tuple[ObjectId, dict]:
+    sid = corpus.submission(
+        Corpus.M1,
+        Corpus.ADITYA,
+        files=[
+            (pdf_bytes([f"Requirements\n\n{BRIEF}"]), "notes.pdf", PDF_TYPE),
+            (docx_bytes([("Requirements", BRIEF), ("Marking scheme", MARKING)]), "report.docx", DOCX_TYPE),
+        ],
+    )
+    index_everything(store)
+    files = {a["name"]: str(a["fileId"]) for a in store.db.submissions.find_one({"_id": sid})["attachments"]}
+    return sid, files
+
+
+def test_file_chunks_reads_one_file_of_a_hand_in_with_two_in_order(corpus, store):
+    # The Copilot's file summary (S4 Step 4): every chunk of the named file,
+    # in order, and nothing of the other file on the same hand-in.
+    _, files = _two_files(corpus, store)
+
+    got = store.file_chunks(Corpus.M1, Corpus.ADITYA, files["report.docx"])
+
+    assert got and {c["title"] for c in got} == {"report.docx"}
+    assert [c["chunkIndex"] for c in got] == list(range(len(got)))
+    assert {c["heading"] for c in got} == {"Requirements", "Marking scheme"}
+    assert all("embedding" not in c for c in got)
+    assert {c["title"] for c in store.file_chunks(Corpus.M1, Corpus.ADITYA, files["notes.pdf"])} == {"notes.pdf"}
+
+
+def test_file_chunks_keeps_the_viewer_and_mentorship_filter(corpus, store):
+    _, files = _two_files(corpus, store)
+    report = files["report.docx"]
+
+    assert store.file_chunks(Corpus.M1, Corpus.PRIYA, report), "the mentor who set it reads it"
+    assert store.file_chunks(Corpus.M1, Corpus.KARAN, report) == [], "another mentorship's mentor"
+    assert store.file_chunks(Corpus.M2, Corpus.ADITYA, report) == [], "the wrong mentorship"
+
+
+def test_file_chunks_honours_the_index_s_own_viewer_list(corpus, store):
+    # Two gates, as search has. If the index says a chunk is not for this
+    # viewer, it is not read - even where the record, checked afterwards,
+    # would let them see it. Each gate is tested on its own.
+    _, files = _two_files(corpus, store)
+    report = files["report.docx"]
+    store.chunks.update_many({"sourceId": report}, {"$pull": {"viewers": Corpus.PRIYA}})
+
+    assert store.file_chunks(Corpus.M1, Corpus.PRIYA, report) == []
+    assert store.file_chunks(Corpus.M1, Corpus.ADITYA, report)
+
+
+def test_file_chunks_applies_the_read_time_check(corpus, store):
+    # The file leaves the hand-in and no sync has run: its chunks are still in
+    # the index, and the summary must not read them.
+    sid, files = _two_files(corpus, store)
+    store.db.submissions.update_one({"_id": sid}, {"$pull": {"attachments": {"name": "report.docx"}}})
+
+    assert attachment_chunks(store, title="report.docx"), "still indexed"
+    assert store.file_chunks(Corpus.M1, Corpus.ADITYA, files["report.docx"]) == []
+    assert store.file_chunks(Corpus.M1, Corpus.ADITYA, files["notes.pdf"]), "the other file is unaffected"
 
 
 def test_no_chunk_spans_two_sections_of_an_attachment(corpus, store):

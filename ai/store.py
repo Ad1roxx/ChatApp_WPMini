@@ -443,6 +443,10 @@ class ChunkStore:
                     "sectionIndex": piece.get("section_index"),
                     "startPage": piece.get("start_page"),
                     "endPage": piece.get("end_page"),
+                    # What the file's extraction could not read (tables,
+                    # images, pages with no text), the same on every chunk of
+                    # the file. Stored, never searched or embedded.
+                    "unread": doc.get("unread"),
                     # Which model made this vector, so a search by another one
                     # can be refused rather than quietly answered at random.
                     "embeddingModel": EMBEDDING_MODEL,
@@ -693,3 +697,26 @@ class ChunkStore:
         if diversity == "soft_cap":
             return soft_cap(hits, k, DIVERSITY_CAP, DIVERSITY_MARGIN)
         return hits[:k]
+
+    def file_chunks(self, mentorship_id: str, viewer_id: str, file_id: str) -> list[dict]:
+        """Every chunk of one attached file, in order, as this viewer may see it.
+
+        For the Copilot's file summary (S4 Step 4). Not a search: nothing is
+        ranked, and `search()` is untouched. The same two gates apply, though -
+        the mentorship and viewer filter in the query, then the read-time check
+        against the records as they are now - so a summary can never read a
+        chunk a search for the same viewer could not return.
+        """
+        hits = list(
+            self.chunks.find(
+                {
+                    "mentorshipId": mentorship_id,
+                    "sourceType": "attachment",
+                    "sourceId": file_id,
+                    "viewers": viewer_id,
+                },
+                {"embedding": 0},
+            ).sort("chunkIndex", 1)
+        )
+        kept, self.last_dropped = read_time_check(self.records, hits, viewer_id)
+        return kept

@@ -392,6 +392,9 @@ def extract_attachment(db, entry: dict) -> dict | None:
     document["sections"] = extracted["sections"]
     document["file_kind"] = extracted["kind"]
     document["page_count"] = extracted.get("page_count")
+    # What extraction could not read, stored beside the chunks for the
+    # Copilot's file summary to mention. Never part of any chunk's text.
+    document["unread"] = extracted.get("unread")
     return document
 
 

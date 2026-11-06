@@ -34,7 +34,9 @@ def corpus(test_db):
 
 @pytest.fixture
 def store(test_db, mongo_uri):
-    return ChunkStore(uri=mongo_uri, db_name=test_db.name)
+    # Records and chunks share the test database; the store's own reads of the
+    # records (party names, the read-time check) go there too, never to the app's.
+    return ChunkStore(uri=mongo_uri, db_name=test_db.name, records=appdb.wrap(test_db))
 
 
 def index(store):

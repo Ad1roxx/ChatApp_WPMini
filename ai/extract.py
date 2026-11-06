@@ -280,6 +280,59 @@ def is_content_block(block_text: str) -> bool:
 
 
 # --------------------------------------------------------------------------
+# What could not be read
+# --------------------------------------------------------------------------
+# Counted so the Copilot can say, when it summarises a file, that some of it
+# was not read (S4 Step 4; BUILD_NOTES Entry 96). The counts are a separate
+# pass over the document and never feed back into the sections: the text a
+# chunk is built from is exactly what it was before they existed, which
+# `eval/extract_identity.py` checks against every stored file.
+#
+# They are approximate on purpose, and nothing quotes them as exact. A dropped
+# block is any text block the filters above refused that has at least this
+# many words - a flattened table row, the labels of a diagram. A lone page
+# number or a two-word caption is not something a reader would miss.
+DROPPED_BLOCK_MIN_WORDS = 3
+
+
+def _pdf_unread(document) -> dict:
+    """Pages with no text layer, refused blocks of substance, and images."""
+    pages_without_text = dropped_blocks = images = 0
+    for page in document:
+        if not page.get_text("text").strip():
+            pages_without_text += 1
+        images += len(page.get_images(full=True))
+        for block in page.get_text("blocks"):
+            if block[6] != 0:  # an image block; counted above
+                continue
+            text = block[4].strip()
+            if len(text.split()) < DROPPED_BLOCK_MIN_WORDS or heading_of(text) is not None:
+                continue
+            if not is_content_block(text):
+                dropped_blocks += 1
+    return {"pages_without_text": pages_without_text, "dropped_blocks": dropped_blocks, "images": images}
+
+
+def _docx_unread(document) -> dict:
+    """Tables, which are read only as flattened rows, and pictures.
+
+    A table's layout - merged cells, a table inside a cell - does not survive
+    being read as "cell | cell" lines, so a table counts even though its text
+    is kept.
+    """
+    body = document.element.body
+    return {
+        "tables": len(body.xpath(".//w:tbl")),
+        "images": len(body.xpath(".//w:drawing | .//w:pict")),
+    }
+
+
+def has_unread(unread: dict | None) -> bool:
+    """True if any count says something in the file was not read."""
+    return any(value for value in (unread or {}).values())
+
+
+# --------------------------------------------------------------------------
 # Extraction
 # --------------------------------------------------------------------------
 def _read_pages(document) -> tuple[list[list[tuple[str, float | None]]], float | None]:
@@ -358,13 +411,15 @@ def extract_pdf(data: bytes, *, filename: str = "document.pdf") -> dict:
 
     Bytes rather than a path because attachments live in GridFS, not on disk.
 
-    Returns `{filename, kind, page_count, needs_ocr, reason, sections}` where
-    each section is `{index, heading, start_page, end_page, text}`.
+    Returns `{filename, kind, page_count, needs_ocr, reason, sections, unread}`
+    where each section is `{index, heading, start_page, end_page, text}` and
+    `unread` counts what was not read (`_pdf_unread`).
     """
     document = pymupdf.open(stream=data, filetype="pdf")
     try:
         page_count = document.page_count
         sections, raw_text = _collect_sections(document)
+        unread = _pdf_unread(document)
 
         if len(raw_text.strip()) < MIN_TEXT_CHARS:
             # A scan, a photograph, or a PDF of images. Not an error, and not
@@ -381,6 +436,7 @@ def extract_pdf(data: bytes, *, filename: str = "document.pdf") -> dict:
                 "needs_ocr": True,
                 "reason": "no extractable text - needs OCR (S7)",
                 "sections": [],
+                "unread": unread,
             }
 
         plain_vocab, hyphen_vocab = build_hyphen_vocabularies(normalise_unicode(raw_text))
@@ -411,6 +467,7 @@ def extract_pdf(data: bytes, *, filename: str = "document.pdf") -> dict:
             "needs_ocr": False,
             "reason": "",
             "sections": cleaned,
+            "unread": unread,
         }
     finally:
         document.close()
@@ -551,4 +608,5 @@ def extract_docx(data: bytes, *, filename: str = "document.docx") -> dict:
         "needs_ocr": False,
         "reason": "" if cleaned else "no text found",
         "sections": cleaned,
+        "unread": _docx_unread(document),
     }

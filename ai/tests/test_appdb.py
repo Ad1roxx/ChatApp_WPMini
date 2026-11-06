@@ -45,6 +45,9 @@ ALLOWED_IMPORTERS = {
     "eval/heading_embed.py",
     # Likewise, and the evaluation fixture's records, read-only, under an index of its own.
     "eval/context_headers.py",
+    # Walks every database the index is built from - the app's included - read-only,
+    # hashing what chunking produces; nothing is embedded, written or sent (Entry 96).
+    "eval/extract_identity.py",
     "ingest.py",
     "store.py",
 }
@@ -127,7 +130,7 @@ def test_a_full_ingest_never_writes_to_the_app_database(test_db, test_app_db, mo
     before = snapshot(test_app_db)
     assert "attachments.files" in before, "the fixture has no GridFS file to protect"
 
-    store = ChunkStore(uri=mongo_uri, db_name=test_db.name)
+    store = ChunkStore(uri=mongo_uri, db_name=test_db.name, records=appdb.wrap(test_app_db))
     _, written, _ = run(store, appdb.wrap(test_app_db))
 
     # It did real work - so "nothing changed" is not the absence of a run.
@@ -142,7 +145,7 @@ def test_chunks_are_written_to_the_store_and_nowhere_near_the_records(
 ):
     Corpus(test_app_db).submission(Corpus.M1, Corpus.ADITYA, text="My hand-in.")
 
-    run(ChunkStore(uri=mongo_uri, db_name=test_db.name), appdb.wrap(test_app_db))
+    run(ChunkStore(uri=mongo_uri, db_name=test_db.name, records=appdb.wrap(test_app_db)), appdb.wrap(test_app_db))
 
     assert "knowledge_chunks" in test_db.list_collection_names()
     assert "knowledge_chunks" not in test_app_db.list_collection_names()

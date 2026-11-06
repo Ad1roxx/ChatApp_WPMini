@@ -81,6 +81,20 @@ async function loadSubmission(id) {
   return { submission };
 }
 
+/**
+ * Whether this user may open the files of this hand-in: the student it
+ * belongs to, and the mentor who set the assignment - the same two people who
+ * can read the hand-in. Takes a submission loaded by `loadSubmission`, with
+ * its assignment populated.
+ *
+ * Shared by the file download route and the agent's file summary, so the
+ * Copilot can never read a file its asker could not download.
+ */
+function canReadSubmissionFile(submission, user) {
+  const me = String(user._id);
+  return me === String(submission.student) || me === String(submission.assignment.mentor);
+}
+
 // ---------------------------------------------------------------------------
 // Shaping helpers the reads share
 // ---------------------------------------------------------------------------
@@ -345,6 +359,7 @@ module.exports = {
   resolveMentorshipAccess,
   loadOwnAssignment,
   loadSubmission,
+  canReadSubmissionFile,
   SESSION_POPULATE,
   lateFor,
   serialiseSubmission,

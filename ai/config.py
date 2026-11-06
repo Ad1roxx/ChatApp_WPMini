@@ -211,3 +211,9 @@ AGENT_MAX_INPUT_TOKENS_CALL = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_CALL", "6
 AGENT_MAX_INPUT_TOKENS_TURN = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_TURN", "12000"))
 # Provisional; set from measurement in Step 5, as ASK_BUDGET_S was.
 AGENT_BUDGET_S = float(os.getenv("AI_AGENT_BUDGET_S", "30"))
+# summarize_attachment (S4 Step 4): at most this many sections, one summary call
+# each, then one call to combine them. All of it is one tool call of the turn,
+# inside the turn's time budget. A section longer than this many tokens is
+# summarised from its beginning, and the summary says so.
+AGENT_SUMMARY_MAX_SECTIONS = int(os.getenv("AI_AGENT_SUMMARY_MAX_SECTIONS", "6"))
+AGENT_SUMMARY_SECTION_TOKENS = int(os.getenv("AI_AGENT_SUMMARY_SECTION_TOKENS", "1500"))

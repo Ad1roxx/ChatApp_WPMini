@@ -30,6 +30,8 @@ const reads = require('./reads');
 
 const MAX_RECORDS = 20;
 const MAX_TEXT = 600;
+// The Submission model's limit on an attachment's name.
+const MAX_FILE_NAME = 200;
 const BOTH = Object.freeze(['mentor', 'student']);
 
 const text = (value) => {
@@ -236,6 +238,48 @@ const TOOLS = {
     }
   },
 
+  /**
+   * Not offered to the model. The AI service calls it for summarize_attachment,
+   * which the model calls with a hand-in's handle and a file name: before it
+   * reads one chunk of the file, this says whether the asker may open that file
+   * and which file the name means. The checks are the download route's, from
+   * lib/reads.js, plus the hand-in being in THIS mentorship.
+   */
+  check_attachment: {
+    roles: BOTH,
+    scope: 'mentorship',
+    internal: true,
+    args: { submissionId: 'objectId', fileName: 'fileName' },
+    async run({ user, mentorship, args }) {
+      const loaded = await reads.loadSubmission(args.submissionId);
+      if (loaded.error) return loaded;
+      const { submission } = loaded;
+      if (idOf(submission.mentorship) !== String(mentorship._id)) {
+        return { error: "That hand-in isn't in this mentorship", status: 403 };
+      }
+      if (!reads.canReadSubmissionFile(submission, user)) {
+        return { error: 'Only the student and the mentor who set this can open it', status: 403 };
+      }
+      const named = (submission.attachments || []).filter((f) => f.name === args.fileName);
+      if (named.length === 0) return { error: 'That hand-in has no file by that name', status: 404 };
+      // Names are not unique on upload; guessing between two would summarise the wrong one.
+      if (named.length > 1) return { error: 'More than one file in that hand-in has that name', status: 422 };
+      const [file] = named;
+      return {
+        records: [
+          {
+            kind: 'file',
+            id: String(file.fileId),
+            submissionId: String(submission._id),
+            mentorshipId: idOf(submission.mentorship),
+            name: text(file.name),
+            contentType: file.contentType
+          }
+        ]
+      };
+    }
+  },
+
   /** The asker's next sessions, across all their active mentorships. */
   list_my_upcoming_sessions: {
     roles: BOTH,
@@ -265,9 +309,14 @@ function toolNamed(name) {
   return Object.hasOwn(TOOLS, name) ? TOOLS[name] : null;
 }
 
-/** Names of the tools this role may use. Pure. */
+/** Names of the tools this role may be offered. Pure. */
 function toolsFor(role) {
-  return Object.keys(TOOLS).filter((name) => TOOLS[name].roles.includes(role));
+  return Object.keys(TOOLS).filter((name) => !TOOLS[name].internal && TOOLS[name].roles.includes(role));
+}
+
+/** Names of the tools only the AI service calls, for this role. Pure. */
+function internalToolsFor(role) {
+  return Object.keys(TOOLS).filter((name) => TOOLS[name].internal && TOOLS[name].roles.includes(role));
 }
 
 /**
@@ -290,8 +339,13 @@ function argsProblem(spec, args) {
         return `${key} is not an id`;
       }
     }
+    if (spec.args[key] === 'fileName') {
+      if (typeof args[key] !== 'string' || args[key].length < 1 || args[key].length > MAX_FILE_NAME) {
+        return `${key} is not a file name`;
+      }
+    }
   }
   return null;
 }
 
-module.exports = { TOOLS, toolNamed, toolsFor, argsProblem, MAX_RECORDS, MAX_TEXT };
+module.exports = { TOOLS, toolNamed, toolsFor, internalToolsFor, argsProblem, MAX_RECORDS, MAX_TEXT, MAX_FILE_NAME };

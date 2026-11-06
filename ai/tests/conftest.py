@@ -42,6 +42,26 @@ def forbid_real_databases(name: str) -> str:
     return name
 
 
+@pytest.fixture(autouse=True)
+def no_real_records(monkeypatch):
+    """`appdb.connect()` refuses the real databases for the whole suite.
+
+    `ChunkStore.records` falls back to `appdb.connect()` - the app's own
+    database - when a test does not hand it one. A test that forgot did exactly
+    that in S4 Step 4 (BUILD_NOTES Entry 96): its read-time check queried
+    `chatapp`, read-only, and found nothing. The fixture names were guarded;
+    this default was not. Now it is.
+    """
+    import appdb
+
+    real = appdb.connect
+
+    def guarded(uri: str = config.APP_MONGODB_URI, db_name: str = config.APP_DB_NAME):
+        return real(uri, forbid_real_databases(db_name))
+
+    monkeypatch.setattr(appdb, "connect", guarded)
+
+
 @pytest.fixture(scope="session")
 def mongo_uri() -> str:
     return os.getenv("AI_MONGODB_URI", config.MONGODB_URI)

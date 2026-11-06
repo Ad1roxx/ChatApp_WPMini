@@ -7034,8 +7034,219 @@ every mutation caught; files restored
 
 ---
 
+### Entry 96 — S4 Step 4: `summarize_attachment`, and extraction counts what it couldn't read
+
+The agent can now summarise one file of a hand-in, and say both how much of it
+was covered and that some content couldn't be read. No provider was called to
+build or test it.
+
+**Decided before the code (the user, 2026-11-06).** Saying what couldn't be read
+needs counts that extraction never recorded, so it touches the indexer. The rule
+"don't change the retrieval stack" is about what search finds and ranks, and
+stored counts change neither. The conditions:
+
+- every chunk's text is byte-identical before and after, and rankings are
+  identical on all 120 questions after re-indexing, checked the way the
+  reranker speed-up was (Entry 73);
+- count pages without text, dropped blocks and images in a PDF, and tables
+  and images in a `.docx`. Whenever any count is above zero, say it generally
+  ("Some content, such as tables, images or pages without text, couldn't be
+  read"), never as an exact number;
+- re-index the demo and served data only after the names runs finish, so
+  nothing they measure moves under them.
+
+**The counts** (`ai/extract.py`, `_pdf_unread` and `_docx_unread`). They come from
+a separate pass after the sections are built, and nothing feeds back into the
+sections.
+
+- **PDF:** pages with no text layer; images (`get_images`); and dropped blocks,
+  meaning text blocks of at least three words that the content filter refused
+  and that aren't headings. A lone page number is dropped as before but not
+  counted.
+- **Word:** every table, nested ones included, because a table's layout doesn't
+  survive being read as `cell | cell` lines even though its text is kept; and
+  every picture.
+
+So every `.docx` with a table (the evaluation's `marking-scheme.docx`, say)
+carries the sentence. That is what was asked, and the wording ("some content,
+such as tables…") stays true for it.
+
+`sources.py` carries the counts on the document, and `store.replace_source`
+writes them as `unread` on every chunk of the file. They are never embedded,
+never part of `content`, and never in a search filter.
+
+**The identity check** (`ai/eval/extract_identity.py`, reference
+`extract-identity.json`, committed first in `610eaa9`):
+
+- It walks every database the index is built from (`chatapp`, `chatapp_demo`,
+  `chatapp_eval`) through the real `sources.documents()` and
+  `chunking.chunk_document()`, read-only. It hashes each source's chunks (text,
+  heading, section, pages) and sections.
+- After the change: **88 of 88 sources identical** (21 files, 165 chunks).
+- Control: with one filter threshold moved (`MIN_WORDS_PER_LINE` from 3.0 to
+  2.5), it reports **NOT IDENTICAL** (`chatapp` 2/3), so it can fail.
+- The ranking check on the 120 questions comes after the re-index, which waits
+  for the names runs. Both are open items below.
+
+What the stored files report today: the evaluation's `load-test-report.pdf`
+has 5 dropped blocks (its tables); `marking-scheme.docx` has 1 table; the one
+file in `chatapp` has 8 dropped blocks and 5 images; every other file is clean.
+
+**The tool.** The model calls it with a hand-in's handle and a file's name,
+since a hand-in holds up to five files (the user's choice between that and a
+handle per file).
+
+1. **Checked in the agent first, with no request made:** the handle is a
+   hand-in minted this turn, in this mentorship (`list_my_work` reaches
+   across mentorships; a summary doesn't), and the name is one the hand-in
+   lists. Each failure is a "Not run" sentence to the model.
+2. **Express's internal `check_attachment`,** as the asker, with the turn's token.
+   It is never offered to the model (`internal: true`; `toolsFor` leaves it out,
+   `internalToolsFor` lists it). Its checks: the hand-in exists, it is in the
+   token's mentorship, the asker may open its files, and exactly one file has
+   that name. Two files with one name are refused (422), never guessed between.
+   It returns the file's id; the model never sees it.
+3. **The text is the file's chunks from the index** (`store.file_chunks`), with
+   the same two gates search has: the mentorship and viewer filter in the query,
+   then the read-time check against the records as they are now. It is not a
+   search, so nothing is ranked and `search()` is untouched.
+4. **One summary call per section, at most six, then one to combine them.**
+   Section text is cut at 1,500 estimated tokens; it is fenced with its own
+   random tag and defused, and the prompt says it is data. All of it counts as
+   one tool call. Each call must leave room for the calls after it (a section
+   for the combine and the answer, the combine for the answer). When time runs
+   short the summary covers fewer sections and says so, and the answer keeps
+   its time.
+5. **The code says what was covered, not the model:** "I covered sections 1–N
+   of M in <file>.", plus the unread sentence when any count is above zero, and
+   "Long sections were read only in part." when one was cut. These are
+   appended to the answer and returned as `notes`; the model sees them in the
+   result too. A file with no indexed text says so.
+6. The response carries `summaryCalls` and `summaryInputTokens`. The per-user
+   budget in Step 5 counts model calls, and these are model calls.
+
+**One check, two callers** (`server/lib/reads.js`, `canReadSubmissionFile`):
+"the student it belongs to, or the mentor who set the work". It was inline in
+the download route and now lives in `lib/reads.js`, called by both the route and
+`check_attachment`. Every route test passed unchanged.
+
+**Tests:**
+
+- `test_extract_unread.py` (12): each count rises for its own thing and stays
+  at zero otherwise, and counting leaves the sections unchanged.
+- `test_agent_summary.py` (25), including **a hand-in with two files**: each
+  name reads only its own file's chunks, for the turn's mentorship and
+  viewer.
+- `test_attachments.py` (+5): the counts reach every chunk of a file; and,
+  against the real index, `file_chunks` with two files on one hand-in, the
+  mentorship and viewer filter, the index's own viewer list, and the
+  read-time check after a file is removed with no sync run.
+- `agent-attachment-check.test.js` (11).
+- The cross-check that runs Express's registry under node now also matches
+  `summarize_attachment` with `check_attachment`.
+
+Totals: AI 560 passed, 1 skipped (the opt-in live call); Node 718 passed.
+
+**The suite was reading `chatapp`.** `ChunkStore.records` falls back to
+`appdb.connect()`, which opens the app's real database, when a store isn't
+given one. My first `file_chunks` test didn't give one, and its read-time check
+queried `chatapp`. Looking for how, a guard found the same default in older
+fixtures:
+
+- `test_attachments.py`, `test_versions.py` and two tests in `test_appdb.py`
+  built stores without records. Since contextual headers were switched on
+  (Entry 90), `replace_source` has looked up the parties' names through that
+  default.
+- Every such query was a read by ids that exist only in the test, through the
+  read-only wrapper, so nothing matched and nothing could be written. But the
+  rule says tests never touch `chatapp`, and they did.
+- **The fix:** every store fixture now passes its test database as `records`.
+  An autouse fixture in `conftest.py` makes `appdb.connect()` refuse
+  `chatapp`, `chatapp_rag` and `chatapp_eval` for the whole suite. With the
+  guard in and the fixtures not yet fixed, 40 tests failed on it; with the
+  fixtures fixed, none do. The guard only gets tested this way, by failing,
+  because a test can't fail its own fixture.
+
+**Mutations: 38, all caught.** For the moved check, the route's tests and the
+tool's tests are run and counted separately.
+
+- Every change to `canReadSubmissionFile` fails **both** callers.
+- The two "skips the check" mutations each fail only the caller they remove it
+  from, as they should.
+- The tool's tests reach `canReadSubmissionFile` by making the records
+  disagree: a hand-in in this mentorship whose student is someone else, and
+  work whose setter isn't this mentor. Without that, the mentorship check
+  alone would already refuse, and the moved check would be untested on that
+  path.
+
+The first run missed three:
+
+- **The viewer filter in `file_chunks`.** The read-time check caught the same
+  case after it, so nothing tested the filter alone. A new test narrows the
+  index's own viewer list below the record's.
+- **Two mutations to storing the counts.** The script's test selection left out
+  the test that covers them. That was a gap in the script, not the tests.
+
+```
+caught  canReadSubmissionFile lets anyone read: route 3, tool 3
+caught  canReadSubmissionFile forgets the student: route 3, tool 5
+caught  canReadSubmissionFile forgets the mentor: route 7, tool 5
+caught  canReadSubmissionFile lets nobody read: route 9, tool 8
+caught  the download route skips the check (route only: one caller): route 3
+caught  check_attachment skips the check (tool only: one caller): tool 3
+caught  a hand-in in another mentorship is accepted: tool 2
+caught  two files of one name: the first is taken: tool 1
+caught  names match whatever their case: tool 1
+caught  the internal tool is offered to the model: tool 1, readtools 5
+caught  a file name of any length: tool 1
+caught  a file name of any type: tool 1
+caught  any record's handle is taken as a hand-in: agent 1
+caught  a hand-in from another mentorship is summarised: agent 1
+caught  a file the hand-in does not list is asked about: agent 1
+caught  the chunks read are not the file Express named: agent 12
+caught  Express's answer is not required to name a file: agent 1
+caught  no cap on sections: agent 1
+caught  section text not defused: agent 1
+caught  long sections not cut: agent 1
+caught  summaries leave no time for the answer: agent 2
+caught  unread content not mentioned: agent 2
+caught  the coverage sentence is left to the model: agent 9
+caught  summary calls not counted: agent 5
+caught  the turn log names the file: agent 1
+caught  file_chunks ignores the viewer: index 1
+caught  file_chunks ignores the mentorship: index 1
+caught  file_chunks skips the read-time check: index 1
+caught  the counts are not stored on the chunks: index 1
+caught  the counts are not carried to the index: index 1
+caught  pages with no text not counted: extract 2
+caught  images not counted: extract 2
+caught  dropped blocks not counted: extract 1
+caught  a lone page number counts: extract 1
+caught  Word tables not counted: extract 2
+caught  nested Word tables not counted: extract 1
+caught  Word pictures not counted: extract 1
+caught  has_unread always no: extract 1, agent 2
+every mutation caught by every caller named; files restored
+```
+
+**Recorded as a deliberate decision: no LangSmith tracing.** LangGraph brings in
+`langsmith`, which, when a tracing variable is set, sends every prompt and tool
+result to LangSmith. Tool results are mentorship records and passages from
+people's hand-ins. That would put them with a third party the project has no
+agreement with, and §2.6 allows nothing but the model provider. So `agent.py`
+refuses to import while any of `LANGSMITH_TRACING`, `LANGSMITH_TRACING_V2`,
+`LANGCHAIN_TRACING_V2` or `LANGCHAIN_TRACING` is on (Entry 95, tested and
+mutation-checked there). The refusal is the default and isn't a setting: turning
+tracing on would mean changing this decision, not flipping a variable.
+
+---
+
+---
+
 ### Open items / "later" list
 
+- **Re-index the demo and served data, then check rankings** (Entry 96). After the names runs finish: re-index `chatapp_demo` and the served index, run `eval/extract_identity.py` again, and check the 120 questions' rankings identical to `s2-reranker-rankings.json` the way Entry 73 did.
+- **The one file in `chatapp` looks like real coursework** (a roll-number file name). Local extraction and indexing never send it anywhere, but `summarize_attachment` would send its text to the provider. Decide before the agent runs against `chatapp`: remove it, or keep the agent off there.
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
 - **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). A 503 is now retried once if time allows (Entry 91); a sustained burst still fails. Groq is the manual fallback.
 - **Names (`s2-v4`) are undecided in effect** — not adopted, on a probe a 503 kept from being judged (Entry 90). Asked again, the injection check passed 30/30. What remains is the `s2-v3` and `s2-v4` answer runs on the new search.
