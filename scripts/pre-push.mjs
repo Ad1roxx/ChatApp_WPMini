@@ -1,5 +1,7 @@
 /**
- * The pre-push gate: refuses a push unless every suite and the key scan pass.
+ * The pre-push gate: refuses a push unless every suite and the key scan pass, and no
+ * commit being pushed holds a private detail of the app's real records
+ * (`scripts/check-private.mjs`, with its terms in the git-ignored `.private-terms`).
  *
  * Run by `.githooks/pre-push`, which `npm run hooks:install` turns on. Git hands it the
  * refs being pushed on stdin. It needs MongoDB on 27017 and the Atlas container on 27018.
@@ -18,6 +20,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { privateRefusal } from './check-private.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SUITE_LIMIT_MS = 15 * 60 * 1000;
@@ -104,6 +107,13 @@ async function main() {
     console.error(`pre-push: push refused. ${refusal}`);
     return 1;
   }
+  // Before the suites: every commit being pushed, not just the tree they test.
+  const leak = privateRefusal(refs, ROOT);
+  if (leak) {
+    console.error(`pre-push: push refused. ${leak}`);
+    return 1;
+  }
+  console.log('pre-push: no private details in the commits being pushed.');
   const failed = (await runGate()).filter((r) => !r.passed).map((r) => r.name);
   if (failed.length) {
     console.error(`pre-push: push refused. Failed: ${failed.join(', ')}.`);

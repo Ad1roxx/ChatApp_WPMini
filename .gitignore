@@ -33,6 +33,8 @@ ai/.llm-usage.json
 ai/.llm-usage.json.lock
 # extract_identity.py's reference for the app's real database stays local (Entry 97)
 ai/eval/extract-identity.local.json
+# The terms scripts/check-private.mjs refuses to push; a tracked list would publish them (Entry 97)
+.private-terms
 
 # Keep example env files tracked
 !.env.example
