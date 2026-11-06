@@ -6835,10 +6835,22 @@ On the rebuilt demo index, the served search gets 34/40 at recall@1, which is wh
 
 ---
 
+### Entry 91 — A 503 is retried once
+
+Decided after Entry 90's latency figures: one retry for a 503, only if the time budget allows, the same pattern as a 429. Groq stays a manual setting (`LLM_PROVIDER`), not an automatic fallback.
+
+**The rule** (`ai/providers.py`): on a 503, wait the response's retry-after, or `RETRY_503_S` (1 s) if it names none, and ask again, but only on the first attempt and only if the wait leaves `MIN_CALL_S` before the deadline. A turn gets one retry in all, so a 429 and then a 503 is not retried twice. Other 5xx are not retried. The retry is a real call and counts against the shared budget.
+
+**What it buys, and what it does not.** With the served 8 s budget, a 503 is retried only if it came back within 4 s. Gemini's 503s came in a burst (19 of 48 in 17 minutes, Entry 90), so a retry one second later can meet the same burst; this helps a stray 503, not a sustained one. It has not been measured against the live provider.
+
+**Tests and mutations** (`ai/tests/test_providers.py`): seven new tests. Removing the retry fails four; retrying more than once fails two; ignoring the time left fails one; ignoring retry-after fails one; retrying every 5xx fails two. The control run passes.
+
+---
+
 ### Open items / "later" list
 
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
-- **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). The provider layer does not retry a 503, so each is a failure message. Decide on a retry or a fallback once the latency day is in.
+- **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). A 503 is now retried once if time allows (Entry 91); a sustained burst still fails. Groq is the manual fallback.
 - **Names (`s2-v4`) are undecided in effect** — not adopted, on a probe a 503 kept from being judged (Entry 90). Asked again, the injection check passed 30/30. What remains is the `s2-v3` and `s2-v4` answer runs on the new search.
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
   ID tokens are verified on every REST route and at the socket handshake.

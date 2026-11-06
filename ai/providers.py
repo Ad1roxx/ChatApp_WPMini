@@ -16,7 +16,9 @@ Each provider is one POST with one JSON shape, and the rules this layer exists
 to enforce sit exactly where an SDK hides things:
 
 - **Retries.** S2 retries a 429 once, and only if its retry-after fits the time
-  left. The Groq SDK retries 429s itself (twice, by default) and the Gemini SDK
+  left. A 503 gets the same: one retry, after its retry-after or `RETRY_503_S`,
+  only if that leaves room for the call (BUILD_NOTES Entry 91). One retry per
+  turn in all, so a 429 then a 503 is not retried twice. The Groq SDK retries 429s itself (twice, by default) and the Gemini SDK
   has its own policy; either would have to be switched off and then trusted to
   stay off across upgrades.
 - **Headers.** Groq's budget is read from `x-ratelimit-*` on every response,
@@ -94,6 +96,9 @@ PLAIN = {
 # Seconds a call needs to be worth starting. A wait or a retry that would leave
 # less than this before the deadline is not attempted.
 MIN_CALL_S = 3.0
+# Wait before retrying a 503 that names no retry-after. Gemini's come in bursts
+# and clear in seconds (BUILD_NOTES Entries 89-91).
+RETRY_503_S = 1.0
 DEFAULT_BUDGET_S = 20.0
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -453,6 +458,13 @@ class _HttpProvider:
                     self.sleep(retry)
                     continue
                 return result(RATE_LIMITED, retry_after=retry, detail=f"http 429 {self._error_code(response)}".strip())
+
+            if status == 503:
+                retry = self._retry_after(response)
+                wait = RETRY_503_S if retry is None else retry
+                if attempts == 1 and self.clock() + wait <= deadline - MIN_CALL_S:
+                    self.sleep(wait)
+                    continue
 
             code = self._error_code(response)
             if status == 404 or code in ("model_not_found", "model_decommissioned"):

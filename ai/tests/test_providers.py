@@ -16,6 +16,8 @@ import pytest
 
 import providers
 from providers import (
+    MIN_CALL_S,
+    RETRY_503_S,
     FAILED,
     NOT_CONFIGURED,
     OK,
@@ -231,6 +233,71 @@ def test_groq_429_retry_after_header_is_honoured():
     assert result.ok and clock.slept == [3.0]
 
 
+# ---------------------------------------------------------------- 503
+
+
+def gemini_503() -> httpx.Response:
+    return httpx.Response(503, json={"error": {"code": 503, "status": "UNAVAILABLE", "message": "high demand"}})
+
+
+def test_a_503_is_retried_once_after_a_short_wait():
+    server, clock = Server(gemini_503(), gemini_ok()), Clock()
+    result = gemini(server, clock).generate(SYSTEM, USER, budget_s=8)
+
+    assert result.ok
+    assert result.attempts == 2
+    assert clock.slept == [RETRY_503_S]
+    assert len(server.requests) == 2
+
+
+def test_a_second_503_is_failed_not_retried_again():
+    server, clock = Server(gemini_503(), gemini_503()), Clock()
+    result = gemini(server, clock).generate(SYSTEM, USER, budget_s=8)
+
+    assert result.outcome == FAILED
+    assert result.detail == "http 503 UNAVAILABLE"
+    assert result.attempts == 2
+    assert result.message == PLAIN[FAILED]
+
+
+def test_a_503_is_not_retried_when_the_wait_leaves_no_room_for_the_call():
+    server, clock = Server(gemini_503()), Clock()
+    result = gemini(server, clock).generate(SYSTEM, USER, budget_s=MIN_CALL_S + RETRY_503_S - 0.5)
+
+    assert result.outcome == FAILED and result.attempts == 1
+    assert clock.slept == []
+
+
+def test_a_503_retry_after_is_honoured():
+    server, clock = Server(httpx.Response(503, headers={"retry-after": "2"}, json={"error": {"code": "service_unavailable"}}),
+                           groq_ok()), Clock()
+    result = groq(server, clock).generate(SYSTEM, USER, budget_s=8)
+    assert result.ok and clock.slept == [2.0]
+
+
+def test_a_429_then_a_503_is_not_retried_twice():
+    server, clock = Server(gemini_429(delay="1s"), gemini_503()), Clock()
+    result = gemini(server, clock).generate(SYSTEM, USER, budget_s=20)
+
+    assert result.outcome == FAILED
+    assert result.attempts == 2
+    assert len(server.requests) == 2
+
+
+def test_a_retried_503_counts_twice_against_the_budget(tmp_path):
+    server, clock = Server(gemini_503(), gemini_ok()), Clock()
+    provider = gemini(server, clock, path=str(tmp_path / "usage.json"))
+    assert provider.generate(SYSTEM, USER, budget_s=8).ok
+    assert provider.budget.used()[0] == 2
+
+
+def test_other_server_errors_are_not_retried():
+    server, clock = Server(httpx.Response(500, json={}), httpx.Response(502, json={})), Clock()
+    provider = gemini(server, clock)
+    assert provider.generate(SYSTEM, USER, budget_s=8).attempts == 1
+    assert provider.generate(SYSTEM, USER, budget_s=8).attempts == 1
+
+
 # ---------------------------------------------------------------- Gemini's own count
 
 
@@ -438,7 +505,6 @@ def test_a_rejected_key_is_unavailable():
 
 
 @pytest.mark.parametrize("response, detail", [
-    (httpx.Response(503, json={"error": {"status": "UNAVAILABLE", "message": "high demand"}}), "http 503 UNAVAILABLE"),
     (httpx.Response(200, text="not json"), "malformed"),
     (httpx.Response(200, json={"promptFeedback": {"blockReason": "SAFETY"}}), "blocked SAFETY"),
     (gemini_ok(finish="SAFETY"), "SAFETY"),
