@@ -29,3 +29,12 @@ python-docx==1.2.0
 # service enforces (providers.py says why in full). Pinned because the
 # retry and timeout behaviour the tests prove is httpx's.
 httpx==0.28.1
+
+# --- S4: the agent loop (agent.py) ---
+# LangGraph owns the loop and one turn's state, nothing else (AGENT_PLAN S4).
+# Pinned: a change in how the graph steps or counts its recursion limit is a
+# change in the agent's caps. It brings in langsmith, which traces to a remote
+# service if a tracing variable is set; agent.py refuses to run if one is.
+langgraph==1.2.20
+# Tool arguments are validated against each tool's JSON Schema before it runs.
+jsonschema==4.26.0

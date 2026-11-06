@@ -124,6 +124,11 @@ class Generation:
     retry_after: float | None = None
     # A status code and the provider's one-word error code, never free text.
     detail: str = ""
+    # S4: the tools the model asked for, as (call_id, name, args), args None if
+    # they were not valid JSON. Excluded from repr: arguments can quote the user.
+    calls: tuple = field(default=(), repr=False)
+    # The provider's own record of the reply, replayed on the next step.
+    raw: object = field(default=None, repr=False, compare=False)
 
     @property
     def ok(self) -> bool:
@@ -420,6 +425,35 @@ class _HttpProvider:
     def _error_code(self, response: httpx.Response) -> str: return ""
 
     def generate(self, system: str, user: str, *, budget_s: float = DEFAULT_BUDGET_S) -> Generation:
+        return self._exchange(
+            lambda: self._body(system, user), self._parse, lambda: self._claim(system, user), budget_s
+        )
+
+    # -- tool calling (S4) --
+    def _converse_body(self, system: str, messages: list[dict], tools: list[dict]) -> dict: raise NotImplementedError
+    def _parse_turn(self, body: dict) -> tuple[str, int | None, int | None, tuple, object]: raise NotImplementedError
+    def _claim_turn(self, system: str, messages: list[dict], tools: list[dict]) -> float: return 0.0
+
+    def converse(
+        self, system: str, messages: list[dict], tools: list[dict], *, budget_s: float = DEFAULT_BUDGET_S
+    ) -> Generation:
+        """One step of an agent turn: the conversation so far, and the tools on offer.
+
+        `messages` are provider-neutral (see `agent.py`): `{"role": "user", "text"}`,
+        `{"role": "model", "text", "calls", "raw"}` and `{"role": "tool", "call_id",
+        "name", "content"}`. The reply is a `Generation` whose `calls` holds the
+        tools the model asked for, as `(call_id, name, args)`, and whose `raw` is
+        the provider's own record of the reply, replayed as-is on the next step.
+        Same retries, budgets and outcomes as `generate`.
+        """
+        return self._exchange(
+            lambda: self._converse_body(system, messages, tools),
+            self._parse_turn,
+            lambda: self._claim_turn(system, messages, tools),
+            budget_s,
+        )
+
+    def _exchange(self, make_body, parse, claim, budget_s: float) -> Generation:
         started = self.clock()
         deadline = started + budget_s
         attempts = 0
@@ -433,17 +467,17 @@ class _HttpProvider:
         while True:
             # Check the budget and, for Gemini, count the call - in one step,
             # so no other process can take the same slot in between.
-            wait = self._claim(system, user)
+            wait = claim()
             while wait > 0:
                 if self.clock() + wait > deadline - MIN_CALL_S:
                     return result(RATE_LIMITED, retry_after=wait, detail="budget")
                 self.sleep(wait)
-                wait = self._claim(system, user)
+                wait = claim()
 
             attempts += 1
             try:
                 response = self.client.post(
-                    self._url(), json=self._body(system, user), timeout=max(deadline - self.clock(), 1.0)
+                    self._url(), json=make_body(), timeout=max(deadline - self.clock(), 1.0)
                 )
             except httpx.TimeoutException:
                 return result(FAILED, detail="timeout")
@@ -480,12 +514,14 @@ class _HttpProvider:
                 return result(FAILED, detail=f"http {status} {code}".strip())
 
             try:
-                text, tokens_in, tokens_out = self._parse(response.json())
-            except _Parsed as parsed:
-                return result(parsed.outcome, detail=parsed.detail)
+                parsed = parse(response.json())
+            except _Parsed as failure:
+                return result(failure.outcome, detail=failure.detail)
             except (ValueError, KeyError, IndexError, TypeError, AttributeError):
                 return result(FAILED, detail="malformed")
-            return result(OK, text=text, input_tokens=tokens_in, output_tokens=tokens_out)
+            text, tokens_in, tokens_out, *turn = parsed
+            calls, raw = turn if turn else ((), None)
+            return result(OK, text=text, input_tokens=tokens_in, output_tokens=tokens_out, calls=calls, raw=raw)
 
 
 class GeminiProvider(_HttpProvider):
@@ -554,6 +590,74 @@ class GeminiProvider(_HttpProvider):
             raise _Parsed(FAILED, "empty")
         return text, tokens_in, tokens_out
 
+    # -- tool calling --
+    @staticmethod
+    def _declaration(tool: dict) -> dict:
+        """Gemini's `parameters` is an OpenAPI subset without `additionalProperties`.
+        Dropping it loses nothing: arguments are validated against the full schema
+        in agent.py before any tool runs, and again by Express."""
+        def strip(schema):
+            if isinstance(schema, dict):
+                return {k: strip(v) for k, v in schema.items() if k != "additionalProperties"}
+            return schema
+        return {"name": tool["name"], "description": tool["description"], "parameters": strip(tool["parameters"])}
+
+    def _converse_body(self, system: str, messages: list[dict], tools: list[dict]) -> dict:
+        contents = []
+        for m in messages:
+            if m["role"] == "user":
+                contents.append({"role": "user", "parts": [{"text": m["text"]}]})
+            elif m["role"] == "model":
+                # Replayed exactly, thought signatures included: Gemini 3 needs them back.
+                contents.append({"role": "model", "parts": m["raw"]})
+            else:
+                part = {"functionResponse": {"name": m["name"], "response": {"result": m["content"]}}}
+                if contents and contents[-1]["role"] == "user" and "functionResponse" in contents[-1]["parts"][0]:
+                    contents[-1]["parts"].append(part)
+                else:
+                    contents.append({"role": "user", "parts": [part]})
+        body = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": contents,
+            "generationConfig": {"maxOutputTokens": self.max_output_tokens, "temperature": 0},
+        }
+        if tools:
+            body["tools"] = [{"functionDeclarations": [self._declaration(t) for t in tools]}]
+            body["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO"}}
+        return body
+
+    def _parse_turn(self, body: dict):
+        usage = body.get("usageMetadata") or {}
+        tokens_in = usage.get("promptTokenCount")
+        out = [usage.get("candidatesTokenCount"), usage.get("thoughtsTokenCount")]
+        tokens_out = sum(t for t in out if t) if any(t is not None for t in out) else None
+        candidates = body.get("candidates") or []
+        if not candidates:
+            reason = _code((body.get("promptFeedback") or {}).get("blockReason"))
+            raise _Parsed(FAILED, f"blocked {reason}".strip())
+        candidate = candidates[0]
+        finish = candidate.get("finishReason")
+        if finish == "MAX_TOKENS":
+            raise _Parsed(TRUNCATED, "MAX_TOKENS")
+        if finish not in ("STOP", None):
+            raise _Parsed(FAILED, _code(finish) or "finish")
+        parts = (candidate.get("content") or {}).get("parts") or []
+        calls = []
+        for i, part in enumerate(parts):
+            call = part.get("functionCall")
+            if isinstance(call, dict):
+                args = call.get("args", {})
+                # Gemini sends no call ids; the position is one, stable within the reply.
+                calls.append((f"g{i}", str(call.get("name", "")), args if isinstance(args, dict) else None))
+        calls = tuple(calls)
+        text = "".join(p.get("text", "") for p in parts if not p.get("thought") and "text" in p).strip()
+        if not text and not calls:
+            raise _Parsed(FAILED, "empty")
+        return text, tokens_in, tokens_out, calls, parts
+
+    def _claim_turn(self, system: str, messages: list[dict], tools: list[dict]) -> float:
+        return self.budget.claim()
+
 
 class GroqProvider(_HttpProvider):
     name = "groq"
@@ -608,6 +712,63 @@ class GroqProvider(_HttpProvider):
             raise _Parsed(FAILED, "empty")
         return text.strip(), usage.get("prompt_tokens"), usage.get("completion_tokens")
 
+    # -- tool calling --
+    @staticmethod
+    def _messages(system: str, messages: list[dict]) -> list[dict]:
+        out = [{"role": "system", "content": system}]
+        for m in messages:
+            if m["role"] == "user":
+                out.append({"role": "user", "content": m["text"]})
+            elif m["role"] == "model":
+                out.append(m["raw"])
+            else:
+                out.append({"role": "tool", "tool_call_id": m["call_id"], "content": m["content"]})
+        return out
+
+    def _converse_body(self, system: str, messages: list[dict], tools: list[dict]) -> dict:
+        body = {
+            "model": self.model,
+            "messages": self._messages(system, messages),
+            "max_completion_tokens": self.max_output_tokens,
+            "reasoning_effort": self.reasoning_effort,
+            "temperature": 0,
+        }
+        if tools:
+            body["tools"] = [{"type": "function", "function": t} for t in tools]
+            body["tool_choice"] = "auto"
+            body["parallel_tool_calls"] = False
+        return body
+
+    def _parse_turn(self, body: dict):
+        usage = body.get("usage") or {}
+        choice = body["choices"][0]
+        finish = choice.get("finish_reason")
+        if finish == "length":
+            raise _Parsed(TRUNCATED, "length")
+        if finish not in ("stop", "tool_calls", None):
+            raise _Parsed(FAILED, _code(finish) or "finish")
+        message = choice.get("message") or {}
+        calls = []
+        for call in message.get("tool_calls") or []:
+            function = call.get("function") or {}
+            try:
+                args = json.loads(function.get("arguments") or "{}")
+            except ValueError:
+                args = None
+            calls.append((str(call.get("id", "")), str(function.get("name", "")), args if isinstance(args, dict) else None))
+        text = (message.get("content") or "").strip()
+        if not text and not calls:
+            raise _Parsed(FAILED, "empty")
+        # Replayed as the assistant message on the next step: only what Groq accepts back.
+        raw = {"role": "assistant", "content": message.get("content") or ""}
+        if message.get("tool_calls"):
+            raw["tool_calls"] = message["tool_calls"]
+        return text, usage.get("prompt_tokens"), usage.get("completion_tokens"), tuple(calls), raw
+
+    def _claim_turn(self, system: str, messages: list[dict], tools: list[dict]) -> float:
+        prompt = json.dumps(self._messages(system, messages)) + json.dumps(tools)
+        return self.budget.wait_s(estimate_tokens(prompt) + GROQ_TEMPLATE_TOKENS + self.max_output_tokens)
+
 
 class Unconfigured:
     """The provider when its key is missing: answers every call with a plain 503."""
@@ -616,6 +777,9 @@ class Unconfigured:
         self.name, self.model = name, model
 
     def generate(self, system: str, user: str, *, budget_s: float = DEFAULT_BUDGET_S) -> Generation:
+        return Generation(NOT_CONFIGURED, self.name, self.model, detail="no key")
+
+    def converse(self, system, messages, tools, *, budget_s: float = DEFAULT_BUDGET_S) -> Generation:
         return Generation(NOT_CONFIGURED, self.name, self.model, detail="no key")
 
 
@@ -641,6 +805,25 @@ class ScriptedProvider:
         if isinstance(reply, Generation):
             return reply
         return Generation(OK, self.name, self.model, text=reply, input_tokens=0, output_tokens=0, attempts=1)
+
+    def converse(self, system, messages, tools, *, budget_s: float = DEFAULT_BUDGET_S) -> Generation:
+        """An agent step. A reply is answer text, a `Generation`, a list of
+        `(name, args)` tool calls, or a function of (system, messages, tools)."""
+        # A copy: the agent's list keeps growing after this call.
+        self.calls.append((system, [dict(m) for m in messages], [t["name"] for t in tools]))
+        if not self.replies:
+            raise AssertionError("ScriptedProvider has no reply left for this call")
+        reply = self.replies.pop(0)
+        if callable(reply):
+            reply = reply(system, messages, tools)
+        if isinstance(reply, Generation):
+            return reply
+        if isinstance(reply, list):
+            calls = tuple((f"c{len(self.calls)}-{i}", name, args) for i, (name, args) in enumerate(reply))
+            return Generation(OK, self.name, self.model, input_tokens=100, output_tokens=10, attempts=1,
+                              calls=calls, raw={"calls": calls})
+        return Generation(OK, self.name, self.model, text=reply, input_tokens=100, output_tokens=10,
+                          attempts=1, raw={"text": reply})
 
 
 def build_provider(name: str = LLM_PROVIDER) -> LLMProvider:

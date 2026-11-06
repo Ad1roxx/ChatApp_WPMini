@@ -6961,6 +6961,79 @@ A loader that skips its own check fails the route tests only, because on the too
 
 ---
 
+### Entry 95 — S4 Step 3: the agent loop
+
+`ai/agent.py`, `run_turn(Turn) -> response`. Not wired to a route yet; that is Step 5. No provider was called to build or test it.
+
+**What each part owns.**
+
+- **The tools are data.** `TOOLS` holds eight `ToolSpec`s, each with a name, the description and JSON Schema the model reads, the roles that may use it, its scope, and where it runs. `tools_for(role)` is a pure function, and the model is offered only its result. A test runs `toolsFor` in `server/lib/agentTools.js` under node, and checks that both sides give each role the same tools.
+- **Arguments are validated before anything runs.** jsonschema checks them, and every schema sets `additionalProperties: false` and has no field for identity. A call that fails is answered "Not run" and never reaches Express. Express validates the arguments again.
+- **Express runs the record tools.** Each call is `POST /internal/agent/tools/:name` on loopback, with `X-AI-Secret` and the token as a bearer header. The model names records only by handle. `get_assignment_overview` takes a handle, which ai/ turns into an id, from a work record or from a hand-in's `assignmentId`; Express hand-ins now carry that field. Gate refusals from Express now say `endsTurn: true`, and the turn stops with Express's sentence. A refused lookup (no such tool, a role the tool doesn't list, bad arguments, the tool's own refusal) is told to the model, and the turn goes on.
+- **Search runs here**, for the turn's mentorship and viewer, never from arguments. Its passages are numbered `[n]` across the turn.
+- **LangGraph owns the loop.** It's a model node, a tool node and a `TypedDict` state of messages and counters, built per turn, with no checkpointer. The token lives on the `Turn` the nodes close over, never in the state. `RECURSION_LIMIT` is set once, at import, as a backstop behind the step cap.
+- **One call at a time.** If a reply holds several calls, only the first runs. Each of the others is answered "Not run: call one tool at a time", so the conversation stays well formed for both providers.
+- **Caps, each with a plain sentence:** 4 model calls, 3 tool calls (after three, the model is offered no tools), 6,000 estimated input tokens per call and 12,000 per turn (checked before the call is sent), and 30 s. The 30 s is provisional; Step 5 sets it from measurement.
+- **Results are fenced** with the turn's random tag, `<<<RESULT Tn tag>>>` for records and `<<<SOURCE n tag>>>` for passages. Record text and the question are defused. Ids are never shown to the model.
+- **Verification** keeps `[Tn]` and `[n]` only if they were minted this turn. Anything else is stripped and counted. `NO_ANSWER`, an answer that only denies, and an answer with no valid handle all abstain, as in S2. Narrow and no-break spaces in the answer become plain spaces. Groq's answers in Entry 93 carried U+202F; handles verify either way, because `\s` matches it, which the mutation run showed (below).
+- **Logging:** one line per model call (`log_call`) and one per turn, counts only: the tools called and their statuses, model and tool calls, input tokens, how many handles were stripped, and milliseconds. No question, no answer, no result text, no ids.
+- **No tracing.** LangGraph brings in langsmith, which sends prompts and tool results to LangSmith when a tracing variable is set. `agent.py` refuses to import if one is on.
+
+**Providers** (`ai/providers.py`): `converse(system, messages, tools)` sits beside `generate`. Both go through one `_exchange` loop, so retries, budgets and outcomes are shared. `generate`'s behaviour is unchanged: all 174 provider, answer and route tests passed after the refactor, before any new test.
+
+- **Gemini:** each step is claimed on the shared `CallBudget`. `additionalProperties` is dropped from what Gemini is sent, since its `parameters` field doesn't take it; arguments are still checked in full here. The model's parts are replayed as received, thought signatures included.
+- **Groq:** `parallel_tool_calls: false`. A step reserves its estimated prompt (messages and schemas) plus the output cap from the token bucket. Only `content` and `tool_calls` are replayed, never `reasoning`. Arguments that aren't JSON become `None`, for the agent to refuse.
+- `Generation` gained `calls` and `raw`, both kept out of its repr.
+
+**Dependencies** (`ai/requirements.txt`): `langgraph==1.2.20` (bringing langchain-core 1.7.6, langgraph-checkpoint 4.3.1 and langsmith 0.14.17) and `jsonschema==4.26.0`. A dry run before installing showed one existing package changed: certifi, 2026.7.22 to 2026.10.23, the CA bundle httpx uses. pydantic, httpx and everything the evaluation scripts run on are unchanged. The names runs use this environment, so that was checked first.
+
+**Tests:** `ai/tests/test_agent.py` (53) and `ai/tests/test_providers_tools.py` (14), with a scripted model, a mock Express that records every request, and a fake store. On the Node side, `endsTurn` (8) and `assignmentId` (1) were added. The whole AI suite: 519 passed, 1 skipped (the opt-in live call).
+
+**Mutations: 29 in the agent and adapters, all caught; 3 on the Express side, all caught.** The first run missed four, each fixed before this was written:
+
+- The time check: the test went through Express, which has its own check; it now uses search.
+- The recursion backstop: the assertion used the patched limit.
+- A redundant `isinstance` check: jsonschema already refuses a non-object, so the line was removed.
+- The narrow-space map: it isn't needed for handles. It is now tested, and described, for what it does.
+
+The map's characters had also been written into the source as invisible literals; they're escapes now.
+
+```
+control: 0 failing
+caught  role filter: every tool for every role: 4
+caught  a call is looked up in every tool, not the offered ones: 1
+caught  arguments not validated: 6
+caught  no-argument tools allow extra keys: 3
+caught  every call in a reply runs: 1
+caught  tools offered after the tool cap: 1
+caught  tool cap not checked when a call is made anyway: 1
+caught  step cap not checked: 1
+caught  time budget not checked: 1
+caught  input tokens not checked: 1
+caught  no recursion limit backstop: 1
+caught  record text not defused: 1
+caught  question not defused: 1
+caught  one fixed tag: 1
+caught  any T handle verifies: 4
+caught  narrow spaces not normalised: 1
+caught  an answer with no valid handle is shown: 2
+caught  a refusal of the turn is told to the model instead: 1
+caught  an Express error body is shown: 1
+caught  the token rides in the arguments too: 3
+caught  tracing allowed: 4
+caught  an overview of any record's id: 1
+caught  ids shown to the model: 1
+caught  the turn log names the question: 1
+caught  Groq may call tools in parallel: 1
+caught  Groq replays its reasoning: 1
+caught  Gemini tool steps not counted: 1
+caught  Groq tool steps skip the token bucket: 1
+caught  tool arguments in a Generation's repr: 1
+every mutation caught; files restored
+```
+
+---
+
 ### Open items / "later" list
 
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.

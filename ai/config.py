@@ -199,3 +199,15 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 # which takes about half a second with the reranker on (server/index.js,
 # COPILOT_ASK_TIMEOUT_MS). Re-checked against 120 calls in Entries 68 and 73.
 ASK_BUDGET_S = float(os.getenv("AI_ASK_BUDGET_S", "8"))
+
+# --- S4: the agent (agent.py; AGENT_PLAN S4, decided at Step 0) ---
+# Where Express's internal tool endpoint listens. Loopback only: Express refuses
+# any other peer, and the capability token is sent nowhere else.
+AGENT_TOOLS_URL = os.getenv("AI_AGENT_TOOLS_URL", "http://127.0.0.1:3001")
+# Caps on one turn. Each has a plain sentence when it is reached (agent.STOPPED).
+AGENT_MAX_MODEL_CALLS = int(os.getenv("AI_AGENT_MAX_MODEL_CALLS", "4"))
+AGENT_MAX_TOOL_CALLS = int(os.getenv("AI_AGENT_MAX_TOOL_CALLS", "3"))
+AGENT_MAX_INPUT_TOKENS_CALL = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_CALL", "6000"))
+AGENT_MAX_INPUT_TOKENS_TURN = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_TURN", "12000"))
+# Provisional; set from measurement in Step 5, as ASK_BUDGET_S was.
+AGENT_BUDGET_S = float(os.getenv("AI_AGENT_BUDGET_S", "30"))

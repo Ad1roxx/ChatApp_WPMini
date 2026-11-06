@@ -160,6 +160,7 @@ test('list_mentorship_assignments: this mentorship\'s hand-ins with status and r
     assert.equal(h.kind, 'submission');
     assert.equal(h.assignment, 'Write a postmortem');
     assert.equal(h.status, 'changes-requested');
+    assert.equal(h.assignmentId, String(both._id));
     assert.equal(h.review.comment, 'Add the timeline');
     assert.equal(h.late, false);
   });

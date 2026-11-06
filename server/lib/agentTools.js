@@ -63,6 +63,8 @@ function handIn(s) {
     kind: 'submission',
     id: String(s._id),
     mentorshipId: idOf(s.mentorship),
+    // For get_assignment_overview by this hand-in's handle; never shown to the model.
+    assignmentId: idOf(s.assignment),
     assignment: text(s.assignment.title),
     dueAt: when(s.assignment.dueAt),
     status: s.status,

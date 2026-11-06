@@ -231,3 +231,29 @@ test('a tool name that is not a tool reaches nothing', async (t) => {
     await t.test(name, async () => expect(await call(token, { name }), 404, /No such tool/));
   }
 });
+
+test('a refusal of the turn says it ends the turn; a refused lookup does not', async (t) => {
+  const ends = async (res, status) => {
+    assert.equal(res.status, status);
+    assert.equal((await res.json()).endsTurn, true);
+  };
+  await t.test('no token', async () => ends(await call(null), 401));
+  await t.test('the wrong secret', async () => ends(await call(tokenFor(USERS.student, mine, 'student'), { secret: 'x' }), 401));
+  await t.test('not your mentorship', async () => ends(await call(tokenFor(USERS.student, theirs, 'student')), 403));
+  await t.test('a role the record does not support', async () => ends(await call(tokenFor(USERS.student, mine, 'mentor')), 403));
+  await t.test('over the cap', async () => {
+    const token = tokenFor(USERS.student, mine, 'student');
+    for (let i = 0; i < 3; i += 1) await call(token);
+    await ends(await call(token), 429);
+  });
+  await t.test('no such tool: the model is told, the turn goes on', async () => {
+    const res = await call(tokenFor(USERS.student, mine, 'student'), { name: 'read_everything' });
+    assert.equal(res.status, 404);
+    assert.equal((await res.json()).endsTurn, undefined);
+  });
+  await t.test('arguments that are not the shape: the same', async () => {
+    const res = await call(tokenFor(USERS.student, mine, 'student'), { body: { args: { mentorshipId: String(theirs._id) } } });
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).endsTurn, undefined);
+  });
+});

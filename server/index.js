@@ -3890,23 +3890,27 @@ function countAgentCall(jti, expiresAtMs) {
  * Identity comes only from the token. The body carries the tool's arguments
  * and nothing about who is asking or where.
  *
- * Every refusal is one plain sentence the service can show the user.
+ * Every refusal is one plain sentence the service can show the user. Refusals
+ * of the turn itself (the checks above, and the cap) carry `endsTurn: true`: the
+ * service stops and shows the sentence. A refused lookup (no such tool, a role
+ * the tool does not list, bad arguments, or the tool's own refusal) does not:
+ * the model is told, and may answer from what it has.
  */
 app.post('/internal/agent/tools/:name', async (req, res) => {
   try {
     if (!isLoopback(req.socket.remoteAddress)) {
-      return res.status(403).json({ error: 'Not available from here' });
+      return res.status(403).json({ error: 'Not available from here', endsTurn: true });
     }
     // A browser always sends Origin on a cross-site POST; the AI service never
     // does. So a page open on this machine cannot use this route either.
     if (req.headers.origin) {
-      return res.status(403).json({ error: 'Not available from here' });
+      return res.status(403).json({ error: 'Not available from here', endsTurn: true });
     }
     if (!sameSecret(req.headers['x-ai-secret'], AI_SERVICE_SECRET)) {
-      return res.status(401).json({ error: 'Not available from here' });
+      return res.status(401).json({ error: 'Not available from here', endsTurn: true });
     }
     if (!AGENT_TOKEN_SECRET) {
-      return res.status(503).json({ error: 'The agent is not configured on this server' });
+      return res.status(503).json({ error: 'The agent is not configured on this server', endsTurn: true });
     }
 
     const bearer = /^Bearer (.+)$/i.exec(req.headers.authorization || '');
@@ -3914,28 +3918,28 @@ app.post('/internal/agent/tools/:name', async (req, res) => {
     try {
       claims = agentToken.verifyAgentToken(AGENT_TOKEN_SECRET, bearer ? bearer[1] : '');
     } catch {
-      return res.status(401).json({ error: 'This question has run out of time. Ask it again.' });
+      return res.status(401).json({ error: 'This question has run out of time. Ask it again.', endsTurn: true });
     }
 
     const user = await User.findById(claims.sub);
     if (!user) {
-      return res.status(403).json({ error: 'This account no longer exists' });
+      return res.status(403).json({ error: 'This account no longer exists', endsTurn: true });
     }
     if (user.suspended) {
-      return res.status(403).json({ error: 'Your account has been suspended' });
+      return res.status(403).json({ error: 'Your account has been suspended', endsTurn: true });
     }
 
     const access = await resolveMentorshipAccess(claims.mid, user);
     if (access.error) {
-      return res.status(access.status).json({ error: access.error });
+      return res.status(access.status).json({ error: access.error, endsTurn: true });
     }
     const role = access.isMentor ? 'mentor' : 'student';
     if (role !== claims.role) {
-      return res.status(403).json({ error: 'Your role in this mentorship has changed. Ask again.' });
+      return res.status(403).json({ error: 'Your role in this mentorship has changed. Ask again.', endsTurn: true });
     }
     const refusal = assistantRefusal(access.mentorship);
     if (refusal) {
-      return res.status(409).json({ error: refusal });
+      return res.status(409).json({ error: refusal, endsTurn: true });
     }
 
     const name = req.params.name;
@@ -3957,7 +3961,10 @@ app.post('/internal/agent/tools/:name', async (req, res) => {
     if (!countAgentCall(claims.jti, claims.exp * 1000)) {
       return res
         .status(429)
-        .json({ error: `I can look things up at most ${AGENT_TOOL_CALLS_PER_TURN} times for one question.` });
+        .json({
+          error: `I can look things up at most ${AGENT_TOOL_CALLS_PER_TURN} times for one question.`,
+          endsTurn: true
+        });
     }
 
     const started = Date.now();
