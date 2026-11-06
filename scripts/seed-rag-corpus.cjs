@@ -21,7 +21,8 @@
  *     cd ai && .venv/Scripts/python.exe eval/seed_documents.py
  */
 
-const ROOT = 'C:/Users/Aditya Dubey/Documents/Aditya_dubey_16010423006/chat_app_miniproject/server';
+// Mongoose comes from the server's install; this script has no node_modules of its own.
+const ROOT = require('path').join(__dirname, '..', 'server');
 const mongoose = require(ROOT + '/node_modules/mongoose');
 
 const URI = 'mongodb://127.0.0.1:27018/chatapp_eval?directConnection=true';

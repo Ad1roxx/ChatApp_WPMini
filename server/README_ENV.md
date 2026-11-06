@@ -16,7 +16,7 @@ it is left over from an earlier design and can be deleted.
 ---------------------
 
 ```powershell
-cd 'C:\Users\Aditya Dubey\Documents\Aditya_dubey_16010423006\chat_app_miniproject\server'
+cd server   # from the repository root
 Copy-Item .env.example .env
 notepad .env
 ```
