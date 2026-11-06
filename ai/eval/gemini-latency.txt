@@ -1,10 +1,10 @@
 Gemini latency - calls the size of a real turn, 30 s budget.
 
-  from 2026-11-03T13:48:09+00:00 to 2026-11-06T03:24:41+00:00 (UTC)
-  samples 48: called 48, no room in the counter 0
-  outcomes: failed http 503 UNAVAILABLE 1, failed timeout 1, ok 46
-  ok calls, ms: median 1452, p90 6753, p95 15696, slowest 21593
-  would have missed the served 8 s budget: 6 of 48
+  from 2026-11-03T13:48:09+00:00 to 2026-11-06T13:25:11+00:00 (UTC)
+  samples 68: called 68, no room in the counter 0
+  outcomes: failed http 503 UNAVAILABLE 1, failed timeout 1, ok 66
+  ok calls, ms: median 1414, p90 5471, p95 15435, slowest 21593
+  would have missed the served 8 s budget: 6 of 68
 
   by hour, IST:   calls   median ms   slowest ms
   00:00              4        1349         5425
@@ -16,8 +16,16 @@ Gemini latency - calls the size of a real turn, 30 s budget.
   06:00              2        1243         1308
   07:00              2        1330         1348
   08:00              2        1808         2037
-  09:00              1        1016         1016
-  10:00              2        3389         5471
+  09:00              3        1063         1133
+  10:00              4        1498         5471
+  11:00              2        1374         1472
+  12:00              2        1308         1380
+  13:00              2        1421         1493
+  14:00              2        1772         2071
+  15:00              2        1096         1155
+  16:00              2        2264         3376
+  17:00              2        1551         2063
+  18:00              2        1369         1476
   19:00              2       11426        21593
   20:00              4       10420        16340
   21:00              4        4090         6471
