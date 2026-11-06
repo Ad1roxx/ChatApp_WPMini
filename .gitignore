@@ -31,6 +31,8 @@ out/
 # The AI service's count of its own LLM calls (ai/config.py, LLM_USAGE_FILE)
 ai/.llm-usage.json
 ai/.llm-usage.json.lock
+# extract_identity.py's reference for the app's real database stays local (Entry 97)
+ai/eval/extract-identity.local.json
 
 # Keep example env files tracked
 !.env.example
