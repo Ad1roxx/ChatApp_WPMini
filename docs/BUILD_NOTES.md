@@ -6595,7 +6595,8 @@ budget, so the counts of chunks must match. Record chunks have no heading and do
 **The labels, committed and pushed before any measurement:** `ai/eval/questions_demo.jsonl`, 46 questions over the demo's own documents. 40 are answerable:
 
 - **`demo` (9):** every answerable question in `ai/eval/s3-demo-log.txt`. That is nine rather than eight: the S3 report counted eight because the ninth, the hostel survey,
-  hit the provider's timeout and never reached an answer. It is included.
+  is about Ananya's mentorship, and `demo-check.mjs` asks it in Rohan's, where the right answer is to abstain. Here it is labelled in Ananya's mentorship, where it is
+  answerable. *(Corrected in Entry 92's follow-up: this first said the S3 report left it out because it timed out.)*
 - **`more` (31):** others in the same style, across both active mentorships, as a student and as the mentor. Some use a section's own words, some do not, and eight are
   about records with no heading, which this change can only hurt.
 - **Not scored by the rule (6):** three the corpus cannot answer and three about the other mentorship.
@@ -6864,7 +6865,7 @@ Decided after Entry 90's latency figures: one retry for a 503, only if the time 
 | Mentor | Which milestones on Rohan's goal are still to do? | abstained | **answered**, cites the goal | 1,951 |
 | Mentor | What did Ananya find in the hostel survey? | timed out | abstained | 1,943 |
 
-**Every abstention is the model declining, not search coming back empty.** Each had four sources (`cause=declined`). Replaying the served search for each (no calls): for *"How did Rohan test…"* and *"What is still open…"* the labelled section ranked first, and for *"What does Meera want me to change…"* the hand-in ranked second. So three of the five abstentions had the answer in front of the model. *"Which algorithm…"* is still a search miss: "Why a token bucket" is not in the top four. The hostel survey question is asked in Rohan's mentorship by `demo-check.mjs`, and the survey is in Ananya's, so that abstention is right; Entry 80 counted it as answerable, which was wrong.
+**Every abstention is the model declining, not search coming back empty.** Each had four sources (`cause=declined`). Replaying the served search for each (no calls): for *"How did Rohan test…"* and *"What is still open…"* the labelled section ranked first, and for *"What does Meera want me to change…"* the hand-in ranked second. So three of the five abstentions had the answer in front of the model. *"Which algorithm…"* is still a search miss: "Why a token bucket" is not in the top four. The hostel survey question is asked in Rohan's mentorship by `demo-check.mjs`, and the survey is in Ananya's, so that abstention is right. Entry 80 already counted it that way ("the eight questions this mentorship can answer"). *(Corrected: this first said Entry 80 counted it as answerable. It did not; Entry 81's account of why was the wrong one, and is corrected there.)*
 
 **So names are tested again, on the new search,** as decided after this run: the name question still abstains. Same rule as Entry 76, applied by the same code (`compare_names_fresh.py`), read through `eval/compare_names_new_search.py` (committed before any run): runs 5 and 6 of `s2-v4`, then the injection check made again after them, then `s2-v3` runs 5 and 6 only if `s2-v4` meets every other condition. The `s2-v4` runs made on the old search, 1 to 4, are left out. The runs start when the latency probe ends, so its last samples are not starved of room in the shared counter.
 
