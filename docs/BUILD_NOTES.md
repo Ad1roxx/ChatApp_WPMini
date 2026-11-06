@@ -6871,6 +6871,33 @@ Decided after Entry 90's latency figures: one retry for a 503, only if the time 
 
 ---
 
+### Entry 93 — S4 Step 1: the capability token and the internal tool endpoint
+
+**Step 0, accepted.** The decisions are recorded in AGENT_PLAN under S4 ("Decided at S4 Step 0"), with an amendment to D4. Most differ from the plan only in detail; the one real departure is no checkpointer until S5.
+
+**Function calling on Groq** (`openai/gpt-oss-120b`, 3 calls, synthetic question and result, `parallel_tool_calls: false`):
+
+| Call | ms | Prompt tokens | Output tokens | What it did |
+| --- | --- | --- | --- | --- |
+| One trivial tool | 1,085 | 128 | 40 | called it, with the right argument |
+| Agent step 1: draft prompt, 8 tool schemas | 1,992 | 668 | 27 | chose `list_goals` |
+| Agent step 2: the result fed back | 880 | 767 | 64 | answered both remaining milestones, cited `[T1]` |
+
+The answer used narrow no-break spaces (U+202F) in places, so the verifier will normalise them before matching handles. Gemini's check (at most 5 calls) waits until the names runs have what they need from today's allowance.
+
+**What Step 1 adds.** Nothing calls it yet; the agent route that mints tokens is Step 5, and the registry is empty until Step 2.
+
+- `server/lib/agentToken.js`: mint and verify. HS256 pinned; `aud`, `iss`, `exp` and a 120 s `maxAge` checked; claims validated on mint and on verify (24-hex ids, role `mentor` or `student`, a token id).
+- `server/lib/internalRequest.js`: `isLoopback` (the socket's address, never a header) and a constant-time `sameSecret`.
+- `POST /internal/agent/tools/:name` (`server/index.js`): from loopback, with no `Origin` (a browser always sends one on a cross-site POST), with `X-AI-Secret`, with a valid token; then the user reloaded (gone or suspended: refused), `resolveMentorshipAccess` again (same 404 or 403 as the API), the role compared with the token's, `assistantRefusal` again (409), and at most three calls per token. Only then is the tool looked up, as an own property, so `constructor` and the like reach nothing. Identity comes only from the token; the body carries arguments.
+- `AGENT_TOKEN_SECRET`: unset, the endpoint answers 503. Set but under 32 characters, or equal to `AI_SERVICE_SECRET`, the server refuses to start and does not print either key.
+
+**Tests** (`server/test/agent-token.test.js`, `agent-tools.test.js`, `agent-tools-config.test.js`; 59): every way a token can be wrong, including one signed with the shared secret, which is the token the AI service could make on its own; a user's own sign-in; a browser `Origin`; a call to this machine's LAN address, so the peer is not loopback; a role claim the record does not support; a user suspended, and a mentorship ended, between two calls with the same token; the cap, per token, with refused calls not counted.
+
+**Mutations: 25, all caught; control clean.** Each check removed or weakened in turn: loopback, `isLoopback`, Origin, the secret, a prefix-matching `sameSecret`, decode without verifying, the algorithm pin, audience, issuer, `maxAge`, a required `exp`, claim checks on verify, the role set, the lifetime cap, suspension, a deleted user, membership, the role comparison, the status check, the cap, the cap off by one, one cap shared by every turn, lookup through the prototype, equal keys allowed at startup, a bad key warned about but not refused.
+
+---
+
 ### Open items / "later" list
 
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.

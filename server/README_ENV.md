@@ -53,6 +53,10 @@ Optional:
   about tells the service which record changed (`lib/indexSync.js`). With them
   unset the Copilot answers 503, nothing is sent, and the rest of the app is
   unaffected — which is how CI runs.
+- **`AGENT_TOKEN_SECRET`** — signs the agent's per-turn capability tokens.
+  Express only; never in `ai/.env`. At least 32 characters and different from
+  `AI_SERVICE_SECRET`, or the server will not start. Unset, the agent's tool
+  endpoint answers 503.
 
 
 2) Start it

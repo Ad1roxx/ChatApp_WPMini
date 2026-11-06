@@ -822,6 +822,45 @@ expected tool.
 Probes: why the tool list is filtered before the model sees it; what LangGraph
 owns and what it must never own.
 
+**Decided at S4 Step 0 (2026-11-06; BUILD_NOTES Entry 93).** Where these differ from the deliverables above, these win.
+
+- **No checkpointer in S4. A departure from "LangGraph loop with checkpointer" above.** S4 has no `interrupt()`, so there is nothing to
+  resume, and turn state kept after the turn would only be somewhere for tool results to linger. `InMemorySaver` arrives in S5 with
+  `interrupt()`. One thread per question, no memory across turns.
+- **How a tool call reaches Node: a per-turn capability token.** Express mints it for one turn (HS256 pinned; `sub` the user, `mid` the
+  mentorship, `role` from the record, `aud` `agent-tools`, a `jti`; it expires with the turn plus 5 s, and never after 120 s), signed
+  with `AGENT_TOKEN_SECRET`, which only Express holds. The AI service presents it, with `X-AI-Secret`, from loopback, to
+  `POST /internal/agent/tools/:name`. Express reloads the user (suspension), re-runs `resolveMentorshipAccess` and compares the role,
+  re-runs `assistantRefusal`, and counts calls per `jti`, on every call. The secret says the caller is the AI service; the token says
+  whom it is for. The token travels as per-run context, never in LangGraph state, and is never logged.
+- **Search stays in-process** in the AI service, as for `/ask`: Express has checked access before the turn, and the store applies the
+  viewer filter and the read-time check.
+- **`summarize_attachment` reads from the index.** Express authorises the file (the file route's check, extracted); the AI service
+  reads that file's sections from the index under the viewer filter, so it never handles raw files. It takes the hand-in's handle and
+  a file name (a hand-in holds up to five files), says "I covered sections 1-N of M" when a cap stops it, and says what it could not
+  read: tables, images, pages with no text.
+- **`get_assignment_overview` gives counts only**, for an assignment with a hand-in in this mentorship: per-student rows carry names.
+- **Two self tools** (`list_my_work`, `list_my_upcoming_sessions`), so the panel's scope note becomes "this mentorship's material, and
+  your own work and sessions". Their citations need scroll-to-anchor on the pages they lead to.
+- **Each permission check in one place.** The routes' checks and queries move into loaders in `server/lib/reads.js`, called by both the
+  route and the tool. Every existing route test passes unchanged, and each extracted check is mutation-checked through both callers.
+- **A per-user budget on the agent route, counted in model calls,** per minute and per day, so no one user can spend the 480-a-day
+  allowance. A plain sentence when it is reached.
+- **One panel**, switched between S2 and the agent by a server setting (`COPILOT_AGENT`), off until S4's evaluation.
+- **LangGraph pinned at 1.2.20.** It owns the loop, the step count and one turn's state. Not the prebuilt `ToolNode`, which runs calls in
+  parallel: our own node runs exactly one.
+- **Provider:** Gemini drives the agent if its function-calling check passes, with Groq as a manual setting; to be confirmed once that
+  check has run. Groq passed (BUILD_NOTES Entry 93).
+
+**Rejected, and why.**
+
+- *A service token that can read as any user.* The shared secret alone would then be every user's read access.
+- *Forwarding the user's Firebase token to the AI service.* Valid for an hour, on every route, writes included.
+- *Tools querying MongoDB directly from the AI service.* The permission checks would exist twice, and drift.
+- *Giving the model every tool and relying on the server's check.* The role filter is the first layer (§4.2), not an optimisation.
+- *Parallel tool calls.* One at a time keeps the cap, the logs and the order of results simple to reason about.
+- *Memory across turns.* Nothing in v1 needs it, and it is one more place for one turn's tool results to reach another.
+
 **What S3 hands to S4 (BUILD_NOTES Entry 80).**
 
 - **The demo's weakest questions are S4's job or retrieval's.** "Which milestones are still to do?" is state, for a read tool, though the
@@ -1152,6 +1191,13 @@ credentials. The caveat recorded in §2.4 is that the result the browser reports
 on resume is **client-supplied and never security-relevant** — tampering with
 it can only mislead the user's own session, and nothing downstream may act on
 it.
+
+*S4 amendment (2026-11-06).* The agent now carries one credential: a per-turn,
+read-only capability token (S4, "Decided at S4 Step 0"). It names one user, one
+mentorship and one role, expires with the turn, opens only the read-tool
+endpoint, and is re-checked against the database on every call. It cannot
+write and cannot outlive the turn, so the point of D4 stands: nothing the agent
+holds can do what the user could not, or do it later.
 
 **D5, modified.** A rubric is a marking scheme, and a student who can read it
 before submitting is in a different exam from one who cannot. Default
