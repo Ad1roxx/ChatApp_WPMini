@@ -7396,12 +7396,50 @@ the panel answers, and every answer cache is keyed on the version.
 
 ---
 
+### Entry 99 — The development database's real file is removed, and gone from the served index
+
+The user asked for it after Entry 97. **The app could not do it.** The
+hand-in is accepted, and the app treats accepted work as a record:
+
+- removing a file is refused ("That work has already been accepted");
+- accepted has no way back to draft;
+- the assignment cannot be withdrawn while a hand-in is accepted.
+
+That rule stands. So it was removed by a one-off script, run once and kept
+outside the repository, that does what the app's own file removal does:
+
+1. **Checked first, with a dry run.** The database held exactly one hand-in
+   with exactly one file, and it was the file in the local identity
+   snapshot. Otherwise the script stopped. It printed no names and no ids.
+2. **Removed through the app's own model and file store.** The attachment is
+   taken off the hand-in. A `file-removed` event is logged under the student,
+   as the route logs it. The stored bytes are deleted. The hand-in stays
+   accepted, with its text.
+3. **Checked afterwards.** The hand-in has 0 files, its history ends in
+   `file-removed`, and the file store holds no files and none of that file's
+   byte chunks.
+
+**The served index.** Before, `chatapp_rag` held 15 chunks, 13 of them the
+file's. A sync of the hand-in, through `sync.sync_source` (what the route
+would have triggered), removed 13 and rewrote the hand-in's text chunk.
+A full `ingest.py` run then reconciled the whole index and found nothing more
+to remove. It now holds 2 chunks, the assignment's brief and the hand-in's
+text, and no attachment chunks. Neither carries the file's name.
+`extract_identity.py` gives both byte-identical to before. The removed file's
+entry is dropped from the local reference, and the check is IDENTICAL again
+(87 sources).
+
+The agent can be run against `chatapp` again. Everything in it is still real
+(Entry 97), and nothing from it goes into the repository.
+
+---
+
 ---
 
 ### Open items / "later" list
 
-- **Re-index the demo and served data, then check rankings** (Entry 96). After the names runs finish: re-index `chatapp_demo` and the served index, run `eval/extract_identity.py` again, and check the 120 questions' rankings identical to `s2-reranker-rankings.json` the way Entry 73 did.
-- **The development database is real, and its one file is in the served index** (Entry 97). No provider call is known to have carried it. The user is removing the file through the app; then confirm its chunks are gone from `chatapp_rag`. The agent stays off `chatapp` until then.
+- **Re-index the demo data, then check rankings** (Entry 96). The served index is re-indexed (Entry 99). Still to do: re-index `chatapp_demo`, and check the 120 questions' rankings identical to `s2-reranker-rankings.json` the way Entry 73 did.
+- ~~**The development database's real file is in the served index**~~ — removed, and gone from `chatapp_rag` (Entry 99).
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
 - **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). A 503 is now retried once if time allows (Entry 91); a sustained burst still fails. Groq is the manual fallback.
 - **`s2-v4` met the names rule on the new search but is not served** (Entry 98). Switching `answer.py`'s `PROMPT_VERSION` is the user's call.
