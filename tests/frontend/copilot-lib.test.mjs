@@ -4,10 +4,14 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { ANCHOR } from '../../src/lib/anchors.js';
 import {
   MESSAGES,
   anchorOf,
   chipLabel,
+  isRecord,
+  recordKindOf,
+  recordTarget,
   outcomeOf,
   pagesOf,
   refusalFor,
@@ -88,4 +92,72 @@ test('a passage is cut at about 300 characters, at a word', () => {
   assert.ok(short.length <= 301);
   assert.ok(short.endsWith('word…'));
   assert.equal(shortenPassage('  a\n\n b  '), 'a b');
+});
+
+// ---------------------------------------------------------------------------
+// The agent's answers (S4 Step 5)
+// ---------------------------------------------------------------------------
+const MID = 'dddddddddddddddddddddddd';
+const OTHER = 'cccccccccccccccccccccccc';
+const ID = 'eeeeeeeeeeeeeeeeeeeeeee1';
+const t1 = { handle: 'T1', kind: 'goal', id: ID, mentorshipId: MID, title: 'Be ready' };
+const p1 = { handle: '1', title: 'design.pdf', sourceType: 'attachment' };
+
+test("an agent's answer cites records as [T1] and passages as [1], by their text", () => {
+  assert.deepEqual(splitAnswer('Left [T1], see [1].', [t1, p1]), [
+    'Left ', { handle: 'T1', citation: t1 }, ', see ', { handle: '1', citation: p1 }, '.'
+  ]);
+});
+
+test('an unlisted [T7] stays text, and S2 number handles still work', () => {
+  assert.deepEqual(splitAnswer('Left [T7].', [t1]), ['Left [T7].']);
+  const s2 = { handle: 1, title: 'report.pdf' };
+  assert.deepEqual(splitAnswer('Five [1].', [s2]), ['Five ', { handle: 1, citation: s2 }, '.']);
+});
+
+test('only a T handle is a record', () => {
+  assert.equal(isRecord(t1), true);
+  assert.equal(isRecord(p1), false);
+  assert.equal(isRecord({ handle: 1 }), false);
+});
+
+test('a record in this mentorship leads to its row here; a file summary to its hand-in', () => {
+  assert.deepEqual(recordTarget(t1, MID), { anchor: `source-goal-${ID}` });
+  assert.deepEqual(recordTarget({ ...t1, kind: 'session' }, MID), { anchor: `source-session-${ID}` });
+  assert.deepEqual(recordTarget({ ...t1, kind: 'file' }, MID), { anchor: `source-submission-${ID}` });
+  assert.equal(recordKindOf({ kind: 'file' }), 'hand-in');
+});
+
+test('a record in another mentorship leads to that page, at its row', () => {
+  assert.deepEqual(recordTarget({ ...t1, kind: 'submission', mentorshipId: OTHER }, MID), {
+    path: `/mentorships/${OTHER}#source-submission-${ID}`
+  });
+});
+
+test('ids that are not ids, and kinds with no row, lead nowhere', () => {
+  assert.equal(recordTarget({ ...t1, id: 'javascript:alert(1)' }, MID), null);
+  assert.equal(recordTarget({ ...t1, mentorshipId: '../../admin' }, MID), null);
+  assert.equal(recordTarget({ ...t1, kind: 'counts' }, MID), null);
+  assert.equal(recordTarget({ ...t1, kind: 'constructor' }, MID), null);
+});
+
+test('a URL hash is followed only when it is one of our own row anchors', () => {
+  assert.ok(ANCHOR.test(`source-session-${ID}`));
+  for (const bad of [`source-x-${ID}`, 'source-goal-123', `source-goal-${ID}x`, 'login', '']) assert.ok(!ANCHOR.test(bad), bad);
+});
+
+test("a turn a cap stopped, and one refused because the mentorship ended, get our sentences", () => {
+  assert.deepEqual(outcomeOf(200, { status: 'stopped', message: 'internals' }), {
+    state: 'stopped', message: MESSAGES.stopped
+  });
+  assert.deepEqual(outcomeOf(200, { status: 'refused', httpStatus: 409, message: 'internals' }), {
+    state: 'refused', message: MESSAGES.ended
+  });
+  assert.equal(outcomeOf(200, { status: 'refused', httpStatus: 403 }).state, 'failed');
+});
+
+test("an answer's notes are kept, strings only", () => {
+  const out = outcomeOf(200, { status: 'answered', answer: 'x [T1]', citations: [t1], notes: ['I covered 1 of 1.', { x: 1 }, 7] });
+  assert.deepEqual(out.notes, ['I covered 1 of 1.']);
+  assert.deepEqual(outcomeOf(200, { status: 'answered', answer: 'x' }).notes, []);
 });

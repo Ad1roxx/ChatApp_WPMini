@@ -26,7 +26,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from answer import PROMPT_VERSION, answer
-from config import ASK_BUDGET_S, CATCHUP, RERANK, SERVED_K, SERVICE_SECRET
+from config import APP_DB_NAME, ASK_BUDGET_S, CATCHUP, RERANK, SERVED_K, SERVICE_SECRET, agent_database_problem
 from providers import FAILED, NOT_CONFIGURED, PLAIN, RATE_LIMITED, TRUNCATED, UNAVAILABLE, build_provider
 from store import ChunkStore, embed_query, reranker
 from sync import SyncWorker
@@ -244,4 +244,66 @@ def ask(body: AskRequest) -> JSONResponse:
             content={"status": "error", "message": PLAIN[FAILED], "promptVersion": PROMPT_VERSION},
         )
     status = ASK_STATUS.get(result["outcome"], 200) if result["status"] == "error" else 200
+    return JSONResponse(status_code=status, content=result)
+
+
+# ---------------------------------------------------------------------------
+# The agent (S4 Step 5)
+# ---------------------------------------------------------------------------
+# What the user reads when the agent may not run here. One sentence, the same
+# whatever the reason: which database is configured is not theirs to learn.
+AGENT_NOT_CONFIGURED = "The agent is not configured on this server."
+# The app database `/agent` reads records from: a module attribute, so a test can
+# set it without touching any database.
+AGENT_APP_DB = APP_DB_NAME
+
+
+class AgentRequest(BaseModel):
+    """One agent turn: who is asking, where, in what role, the question, and the turn's token.
+
+    As for `/ask`, `role` comes from the mentorship record, read by Express after
+    its membership check. `token` is the capability token Express minted for this
+    turn alone; it is passed to Express's tool endpoint and nowhere else, and is
+    never logged. Extra fields are refused.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    mentorshipId: str = Field(pattern=_OBJECT_ID)
+    viewerId: str = Field(pattern=_OBJECT_ID)
+    role: Literal["student", "mentor"]
+    question: str = Field(min_length=1, max_length=1000)
+    token: str = Field(min_length=20, max_length=4096, repr=False)
+    mentorName: str = Field(default="", max_length=200)
+    studentName: str = Field(default="", max_length=200)
+
+
+@app.post("/agent", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def agent_turn(body: AgentRequest) -> JSONResponse:
+    """One agent turn, through `agent.run_turn`.
+
+    503 "not configured" unless the app database and the index are both
+    synthetic (config.AGENT_SYNTHETIC_DATABASES), checked before anything is
+    read, searched or sent; and if tracing would send the turn to a third party
+    (agent.py refuses to import). Otherwise 200 for every turn that ran,
+    answered, abstained, stopped by a cap or refused by Express, and the provider
+    layer's status for a provider problem, as for `/ask`.
+    """
+    log = logging.getLogger("copilot.agent")
+    index_db = getattr(getattr(store, "db", None), "name", "")
+    problem = agent_database_problem(AGENT_APP_DB, index_db)
+    if problem:
+        log.warning("agent refused: %s", problem)
+        return JSONResponse(status_code=503, content={"status": "error", "message": AGENT_NOT_CONFIGURED})
+    try:
+        import agent  # refuses to import while tracing is switched on
+    except RuntimeError as error:
+        log.warning("agent refused: %s", error)
+        return JSONResponse(status_code=503, content={"status": "error", "message": AGENT_NOT_CONFIGURED})
+
+    result = agent.run_turn(agent.Turn(
+        mentorship_id=body.mentorshipId, viewer_id=body.viewerId, role=body.role,
+        question=body.question, token=body.token, provider=provider, store=store,
+        parties={"mentor": body.mentorName, "student": body.studentName},
+    ))
+    status = ASK_STATUS.get(result.get("outcome"), 502) if result["status"] == "error" else 200
     return JSONResponse(status_code=status, content=result)

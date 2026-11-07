@@ -209,7 +209,7 @@ AGENT_MAX_MODEL_CALLS = int(os.getenv("AI_AGENT_MAX_MODEL_CALLS", "4"))
 AGENT_MAX_TOOL_CALLS = int(os.getenv("AI_AGENT_MAX_TOOL_CALLS", "3"))
 AGENT_MAX_INPUT_TOKENS_CALL = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_CALL", "6000"))
 AGENT_MAX_INPUT_TOKENS_TURN = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_TURN", "12000"))
-# Provisional; set from measurement in Step 5, as ASK_BUDGET_S was.
+# Provisional; set from measurement in Step 5, as ASK_BUDGET_S was (Entry 101).
 AGENT_BUDGET_S = float(os.getenv("AI_AGENT_BUDGET_S", "30"))
 # summarize_attachment (S4 Step 4): at most this many sections, one summary call
 # each, then one call to combine them. All of it is one tool call of the turn,
@@ -217,3 +217,25 @@ AGENT_BUDGET_S = float(os.getenv("AI_AGENT_BUDGET_S", "30"))
 # summarised from its beginning, and the summary says so.
 AGENT_SUMMARY_MAX_SECTIONS = int(os.getenv("AI_AGENT_SUMMARY_MAX_SECTIONS", "6"))
 AGENT_SUMMARY_SECTION_TOKENS = int(os.getenv("AI_AGENT_SUMMARY_SECTION_TOKENS", "1500"))
+
+# The agent runs on synthetic data only (the user, 2026-11-07; BUILD_NOTES Entry 101).
+# `/agent` refuses, as "not configured", unless both the app database it reads
+# records from and the index it reads chunks from are on this list: the demo, the
+# evaluation fixtures, and the tests' own databases. Never `chatapp` or
+# `chatapp_rag`, which hold real people's records. Deliberately not read from the
+# environment: putting a real database on it is a change to this decision, made
+# in code and reviewed, not a variable someone sets. Express keeps the same list
+# (server/lib/agentDatabases.js) and checks its own database too.
+AGENT_SYNTHETIC_DATABASES = frozenset({
+    "chatapp_demo",
+    "chatapp_eval", "chatapp_demo_eval", "chatapp_eval_ctx",
+    "chatapp_test", "chatapp_rag_pytest", "chatapp_rag_pytest_app",
+})
+
+
+def agent_database_problem(app_db: str, index_db: str) -> str | None:
+    """Why the agent must not run on these databases, for the log; None if it may."""
+    for kind, name in (("app database", app_db), ("index", index_db)):
+        if name not in AGENT_SYNTHETIC_DATABASES:
+            return f"the {kind} {name!r} is not one of the synthetic databases the agent may run on"
+    return None

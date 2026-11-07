@@ -25,6 +25,8 @@ const ASSIGNMENT = 'eeeeeeeeeeeeeeeeeeeeeee2';
 const GOAL = 'eeeeeeeeeeeeeeeeeeeeeee3';
 const RESOURCE = 'eeeeeeeeeeeeeeeeeeeeeee4';
 const FILE = 'fffffffffffffffffffffff1';
+const SESSION = 'eeeeeeeeeeeeeeeeeeeeeee5';
+const OTHER_MID = 'cccccccccccccccccccccccc';
 const QUESTION = 'How many retries does my handler make?';
 
 const me = { _id: ME, displayName: 'Rohan Kapoor', email: 'r@x.invalid', role: 'student', photoURL: '' };
@@ -97,14 +99,14 @@ test.after(async () => {
  * { status, body, delay } or a function of the request count returning one.
  * `never: true` never replies. Returns what the test needs to look at.
  */
-async function open({ status = 'active', ask = answered('Yes.'), timeout = 30000 } = {}) {
+async function open({ status = 'active', ask = answered('Yes.'), mode = null, agent = null, timeout = 30000 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
   const page = await context.newPage();
   page.setDefaultTimeout(timeout);
   // How long Vite takes to serve a page is not what is being tested, and on a slow
   // machine a first load can pass 30 s even after the warm-up in `before`.
   page.setDefaultNavigationTimeout(180000);
-  const seen = { asks: [], files: [], dialogs: 0, console: [], pageErrors: [] };
+  const seen = { asks: [], agentAsks: [], files: [], dialogs: 0, console: [], pageErrors: [] };
 
   page.on('dialog', (d) => { seen.dialogs += 1; d.dismiss(); });
   page.on('console', (m) => seen.console.push(m.text()));
@@ -136,6 +138,19 @@ async function open({ status = 'active', ask = answered('Yes.'), timeout = 30000
     }
     if (p === `/api/mentorships/${MID}/resources`) {
       return json(route, [{ _id: RESOURCE, title: 'k6 documentation', url: 'https://example.com/k6', note: '', addedBy: mentor }]);
+    }
+    if (p === '/api/copilot/mode' && mode) return json(route, { mode });
+    if (p === `/api/mentorships/${MID}/sessions`) {
+      return json(route, [{
+        _id: SESSION, title: 'Mock interview', agenda: '', status: 'confirmed', durationMinutes: 45,
+        scheduledFor: new Date(Date.now() + 2 * 864e5).toISOString(), proposedBy: mentor, notes: ''
+      }]);
+    }
+    if (p === `/api/mentorships/${MID}/copilot/agent`) {
+      seen.agentAsks.push(request.postDataJSON());
+      if (agent.never) return undefined;
+      if (agent.delay) await new Promise((r) => setTimeout(r, agent.delay));
+      return json(route, agent.body, agent.status);
     }
     if (p === `/api/mentorships/${MID}/copilot/ask`) {
       seen.asks.push(request.postDataJSON());
@@ -283,7 +298,7 @@ test('a 409 during the session shows the same sentence, not the body', async () 
 });
 
 for (const [status, message] of [
-  [429, 'The assistant has reached its limit for now. Try again in a minute.'],
+  [429, 'The assistant has reached its limit for now. Try again later.'],
   [503, "The assistant isn't available right now. The rest of this page still works."],
   [502, "The assistant couldn't answer that. Try again."],
   [500, "The assistant couldn't answer that. Try again."]
@@ -432,5 +447,115 @@ test('history is kept for the session and gone on reload, and says what it can s
   await t.page.reload();
   await t.page.getByRole('heading', { name: 'Ask about this mentorship' }).waitFor();
   assert.equal(await t.panel.locator('ol > li').count(), 0);
+  await t.close();
+});
+
+// ---------------------------------------------------------------------------
+// The agent (S4 Step 5): the same panel, when the server says so
+// ---------------------------------------------------------------------------
+const record = (handle, kind, id, title, mentorshipId = MID) => ({ handle, kind, id, mentorshipId, title });
+const agentAnswer = (answer, citations = [], notes = []) => ({
+  status: 200,
+  body: { status: 'answered', answer, citations, notes, modelCalls: 2, toolCalls: 1, promptVersion: 'agent-v1' }
+});
+
+test('with the agent on, the panel asks the agent route and says it sees your own work too', async () => {
+  const t = await open({ mode: 'agent', agent: agentAnswer('One milestone left [T1].', [record('T1', 'goal', GOAL, 'Be ready')]) });
+  await send(t);
+  await t.panel.getByText('One milestone left').waitFor();
+  assert.equal(t.seen.agentAsks.length, 1);
+  assert.deepEqual(t.seen.agentAsks[0], { question: QUESTION });
+  assert.equal(t.seen.asks.length, 0, 'the S2 route was not asked');
+  await t.panel.getByText("Sees this mentorship's material, and your own work and sessions.", { exact: false }).waitFor();
+  await t.close();
+});
+
+test('without the server saying agent, the panel asks as before', async () => {
+  const t = await open({ mode: 'ask' });
+  await send(t);
+  await t.panel.getByText('Yes.').waitFor();
+  assert.equal(t.seen.asks.length, 1);
+  assert.equal(t.seen.agentAsks.length, 0);
+  await t.panel.getByText("Sees this mentorship's material only.", { exact: false }).waitFor();
+  await t.close();
+});
+
+test('a record chip leads to its row on this page, sessions included', async () => {
+  const t = await open({
+    mode: 'agent',
+    agent: agentAnswer('Goal [T1], hand-in [T2], session [T3].', [
+      record('T1', 'goal', GOAL, 'Be ready'),
+      record('T2', 'submission', SUB, 'Design rate limiting'),
+      record('T3', 'session', SESSION, 'Mock interview')
+    ])
+  });
+  await send(t);
+  for (const [name, anchor, label] of [
+    [/^Record T1/, `source-goal-${GOAL}`, 'Go to the goal'],
+    [/^Record T2/, `source-submission-${SUB}`, 'Go to the hand-in'],
+    [/^Record T3/, `source-session-${SESSION}`, 'Go to the session']
+  ]) {
+    await t.panel.getByRole('button', { name }).click();
+    await t.panel.getByRole('button', { name: label }).click();
+    assert.equal(await t.page.evaluate(() => document.activeElement?.id), anchor);
+  }
+  await t.close();
+});
+
+test("a record in another mentorship is a link to that mentorship's page, at its row", async () => {
+  const t = await open({
+    mode: 'agent',
+    agent: agentAnswer('Due Friday [T1].', [record('T1', 'submission', SUB, 'Other work', OTHER_MID)])
+  });
+  await send(t);
+  await t.panel.getByRole('button', { name: /^Record T1/ }).click();
+  const link = t.panel.getByRole('link', { name: 'Open the hand-in' });
+  assert.equal(await link.getAttribute('href'), `/mentorships/${OTHER_MID}#source-submission-${SUB}`);
+  await t.close();
+});
+
+test('a record with an id that is not an id leads nowhere', async () => {
+  const t = await open({
+    mode: 'agent',
+    agent: agentAnswer('See [T1].', [record('T1', 'goal', 'javascript:alert(1)', 'Odd', '../../admin')])
+  });
+  await send(t);
+  await t.panel.getByRole('button', { name: /^Record T1/ }).click();
+  assert.equal(await t.panel.getByRole('link').count(), 0);
+  assert.equal(await t.panel.getByRole('button', { name: /^Go to/ }).count(), 0);
+  await t.close();
+});
+
+test("the code's notes about a file summary are shown as text after the answer", async () => {
+  const t = await open({
+    mode: 'agent',
+    agent: agentAnswer('It covers retries [T1].', [record('T1', 'file', SUB, 'design.pdf')], [
+      'I covered sections 1-3 of 5 in design.pdf.',
+      '<b>Some content</b>, such as tables, images or pages without text, could not be read.'
+    ])
+  });
+  await send(t);
+  await t.panel.getByText('I covered sections 1-3 of 5 in design.pdf.').waitFor();
+  await t.panel.getByText('<b>Some content</b>', { exact: false }).waitFor();
+  assert.equal(await t.panel.locator('b').count(), 0, 'a note became markup');
+  await t.close();
+});
+
+test('while an agent turn runs, it says what it is doing and for how long', async () => {
+  const t = await open({ mode: 'agent', agent: { ...agentAnswer('Done [T1].', [record('T1', 'goal', GOAL, 'Be ready')]), delay: 2500 } });
+  await send(t);
+  await t.panel.getByText(/Looking through this mentorship's records and material… [1-9] s/).waitFor();
+  await t.panel.getByText('Done').waitFor();
+  await t.close();
+});
+
+test('a turn a cap stopped shows our sentence, never the turn\'s own', async () => {
+  const t = await open({
+    mode: 'agent',
+    agent: { status: 200, body: { status: 'stopped', message: 'INTERNAL cap detail', cause: 'tool_calls' } }
+  });
+  await send(t);
+  await t.panel.getByText("I couldn't finish looking that up within my limits.", { exact: false }).waitFor();
+  assert.equal(await t.panel.getByText('INTERNAL', { exact: false }).count(), 0);
   await t.close();
 });

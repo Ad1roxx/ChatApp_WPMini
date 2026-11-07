@@ -4,6 +4,7 @@
  *   npm run demo                       # Rohan (student) and Meera (mentor)
  *   npm run demo -- --student ananya   # the other student
  *   npm run demo -- --reseed           # rebuild the demo data first
+ *   npm run demo -- --agent            # the panel uses the agent (COPILOT_AGENT)
  *
  * Checks Docker and MongoDB, starts the Atlas container if it is stopped, starts
  * the AI service, Express and two copies of the front end, waits until the service
@@ -157,6 +158,9 @@ async function main() {
   // ---- the service: /health only answers once its models have loaded, because
   // the start-up that loads them runs before it accepts a connection.
   const secret = randomBytes(24).toString('hex');
+  // The agent's capability tokens are signed with a key only Express holds,
+  // never the service's secret (server/lib/agentToken.js). Fresh for each run.
+  const agentSecret = randomBytes(32).toString('hex');
   console.log('Starting the AI service; loading its models takes a little while…');
   const aiStart = Date.now();
   run('ai', PYTHON, ['-m', 'uvicorn', 'app:app', '--host', '127.0.0.1', '--port', String(AI_PORT)], {
@@ -166,7 +170,9 @@ async function main() {
       AI_DB_NAME: DB,
       AI_APP_DB_NAME: DB,
       AI_SERVICE_SECRET: secret,
-      AI_CATCHUP: 'full'
+      AI_CATCHUP: 'full',
+      // The agent's tools run through this run's Express, not the dev server's.
+      AI_AGENT_TOOLS_URL: API
     }
   });
   await until(
@@ -191,7 +197,10 @@ async function main() {
       MONGODB_URI: `mongodb://127.0.0.1:27017/${DB}`,
       ALLOW_DEV_AUTH: 'true',
       AI_SERVICE_URL: `http://127.0.0.1:${AI_PORT}`,
-      AI_SERVICE_SECRET: secret
+      AI_SERVICE_SECRET: secret,
+      AGENT_TOKEN_SECRET: agentSecret,
+      // Off unless asked for: the agent is off until S4's evaluation.
+      COPILOT_AGENT: args.includes('--agent') ? '1' : ''
     }
   });
   await until('Express', () => portOpen(API_PORT), 60);

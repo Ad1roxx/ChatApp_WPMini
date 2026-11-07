@@ -47,6 +47,10 @@ const { syncSource, syncMentorship } = require('./lib/indexSync');
 // AI service on this machine may make. See the internal tool endpoint.
 const agentToken = require('./lib/agentToken');
 const { isLoopback, sameSecret } = require('./lib/internalRequest');
+// The agent route's two guards of its own: synthetic databases only, and each
+// person's share of the model calls.
+const { agentDatabaseRefusal, AGENT_NOT_CONFIGURED } = require('./lib/agentDatabases');
+const { ModelCallBudget } = require('./lib/agentBudget');
 
 // Reads with their permission checks, shared by the routes below and the
 // agent's tools, so that each check is written once.
@@ -3845,6 +3849,175 @@ app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
     return res.status(502).json({ error: 'The Copilot could not answer that' });
   } catch (err) {
     console.error('Error asking the Copilot:', err.name === 'AbortError' ? 'timed out' : err);
+    res.status(502).json({ error: 'The Copilot could not answer that' });
+  }
+});
+
+// ============================================
+// MENTORSHIP COPILOT - AGENT (S4)
+// ============================================
+
+/**
+ * Whether the panel uses the agent rather than S2's answer. Off by default, and
+ * off until S4's evaluation (AGENT_PLAN S4). With it off the agent route answers
+ * "not configured" and the panel keeps asking /copilot/ask.
+ */
+const COPILOT_AGENT = ['1', 'true'].includes(String(process.env.COPILOT_AGENT || '').toLowerCase());
+
+/**
+ * How long Express waits for one agent turn, in milliseconds. The capability
+ * token expires with it. Provisional until measured (BUILD_NOTES Entry 101).
+ */
+const COPILOT_AGENT_TIMEOUT_MS = Number(process.env.COPILOT_AGENT_TIMEOUT_MS) || 35000;
+
+/**
+ * The most model calls one turn can make: the turn's own cap (4, ai/config.py
+ * AGENT_MAX_MODEL_CALLS) plus one file summary's (6 sections and 1 to combine
+ * them). What a turn reserves from the budget before it starts.
+ */
+const AGENT_TURN_MAX_CALLS = 11;
+
+/**
+ * Each person's share, in model calls (lib/agentBudget.js). 12 a minute leaves
+ * room under Gemini's 15 for everyone else; 60 a day is an eighth of the 480.
+ */
+const agentBudget = new ModelCallBudget({
+  perMinute: Number(process.env.AGENT_CALLS_PER_MINUTE) || 12,
+  perDay: Number(process.env.AGENT_CALLS_PER_DAY) || 60
+});
+
+const AGENT_LIMIT = {
+  minute: "You're asking faster than the assistant can answer. Wait a minute and try again.",
+  day: "You've reached today's limit for the assistant. It will be available again tomorrow."
+};
+
+/** Why the agent cannot run on this server, or null. Checked before anything else. */
+function agentUnavailable() {
+  if (!COPILOT_AGENT) return AGENT_NOT_CONFIGURED;
+  if (!AI_SERVICE_URL || !AI_SERVICE_SECRET || !AGENT_TOKEN_SECRET) return AGENT_NOT_CONFIGURED;
+  return agentDatabaseRefusal(mongoose.connection.name);
+}
+
+/**
+ * GET /api/copilot/mode
+ *
+ * Which of the two the panel should use: `agent` only when the agent can run
+ * here, otherwise `ask`. Says nothing about why.
+ */
+app.get('/api/copilot/mode', requireAuth, (req, res) => {
+  res.json({ mode: agentUnavailable() ? 'ask' : 'agent' });
+});
+
+/**
+ * POST /api/mentorships/:id/copilot/agent
+ *
+ * One agent turn about ONE mentorship: the agent may look things up with its
+ * read tools, as the asker, and answers citing what it looked at.
+ *
+ *   token -> requireAuth -> agent may run here (setting, synthetic database)
+ *     -> resolveMentorshipAccess -> active -> role -> question
+ *     -> this person's share of the model calls -> capability token -> turn
+ *
+ * The role is the asker's position in the mentorship record, as for /ask. The
+ * capability token names this user, this mentorship and that role, for this
+ * turn only; it is sent to the AI service and to nothing else, and never
+ * logged. Every tool call comes back through /internal/agent/tools with it,
+ * where all of this is checked again.
+ *
+ * Statuses: 200 for every turn that ran (answered, abstained, stopped by a cap,
+ * or refused partway; the body says which); 400 for an empty or over-long
+ * question; 409 for a mentorship that is not active; 429 when this person's
+ * share is used, or the provider's limit is reached; 503 when the agent is not
+ * configured here, the database included; 502 for anything else upstream, a
+ * timeout included. Every error body is one plain sentence.
+ */
+app.post('/api/mentorships/:id/copilot/agent', requireAuth, async (req, res) => {
+  try {
+    const unavailable = agentUnavailable();
+    if (unavailable) {
+      return res.status(503).json({ error: unavailable });
+    }
+
+    const access = await resolveMentorshipAccess(req.params.id, req.authUser);
+    if (access.error) {
+      return res.status(access.status).json({ error: access.error });
+    }
+    const refusal = assistantRefusal(access.mentorship);
+    if (refusal) {
+      return res.status(409).json({ error: refusal });
+    }
+    const role = access.isMentor ? 'mentor' : 'student';
+
+    const question = String(req.body?.question || '').trim();
+    if (!question) {
+      return res.status(400).json({ error: 'Ask a question' });
+    }
+    if (question.length > 1000) {
+      return res.status(400).json({ error: 'That question is too long' });
+    }
+
+    const reserved = agentBudget.reserve(String(req.authUser._id), AGENT_TURN_MAX_CALLS);
+    if (reserved.limit) {
+      return res.status(429).json({ error: AGENT_LIMIT[reserved.limit] });
+    }
+
+    const parties = await User.find({
+      _id: { $in: [access.mentorship.mentor, access.mentorship.student] }
+    }).select('displayName');
+    const nameOf = (id) =>
+      String(parties.find((p) => String(p._id) === String(id))?.displayName || '').slice(0, 200);
+
+    const { token } = agentToken.mintAgentToken(AGENT_TOKEN_SECRET, {
+      userId: String(req.authUser._id),
+      mentorshipId: String(access.mentorship._id),
+      role,
+      turnMs: COPILOT_AGENT_TIMEOUT_MS
+    });
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), COPILOT_AGENT_TIMEOUT_MS);
+    let upstream;
+    let body;
+    try {
+      upstream = await fetch(`${AI_SERVICE_URL}/agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-AI-Secret': AI_SERVICE_SECRET },
+        body: JSON.stringify({
+          mentorshipId: String(access.mentorship._id),
+          viewerId: String(req.authUser._id),
+          role,
+          question,
+          token,
+          mentorName: nameOf(access.mentorship.mentor),
+          studentName: nameOf(access.mentorship.student)
+        }),
+        signal: controller.signal
+      });
+      body = await upstream.json().catch(() => null);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // What the turn spent, if it says; otherwise it keeps its reservation.
+    if (body && Number.isFinite(body.modelCalls)) {
+      agentBudget.settle(reserved.entry, body.modelCalls + (Number(body.summaryCalls) || 0));
+    }
+    // One line per turn: as what, how it ended, what it spent. Never the
+    // question, the answer, the token or anyone's id.
+    console.log(
+      `agent turn as ${role}: ${upstream.status} ${body?.status || '-'}, ` +
+        `${body?.modelCalls ?? '?'} model calls, ${body?.toolCalls ?? '?'} tool calls`
+    );
+
+    if (upstream.ok && body) {
+      return res.json(body);
+    }
+    if ([429, 502, 503].includes(upstream.status) && typeof body?.message === 'string') {
+      return res.status(upstream.status).json({ error: body.message });
+    }
+    return res.status(502).json({ error: 'The Copilot could not answer that' });
+  } catch (err) {
+    console.error('Error running an agent turn:', err.name === 'AbortError' ? 'timed out' : err.message);
     res.status(502).json({ error: 'The Copilot could not answer that' });
   }
 });

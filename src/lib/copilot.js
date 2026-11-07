@@ -19,12 +19,15 @@
 
 export const MAX_QUESTION = 1000;
 export const REQUEST_TIMEOUT_MS = 15000; // above Express's 10 s, so that answers first
+// An agent turn: above Express's own wait for one (COPILOT_AGENT_TIMEOUT_MS), so that answers first.
+export const AGENT_REQUEST_TIMEOUT_MS = 40000;
 
 export const MESSAGES = {
   abstained: "I couldn't find an answer to that in what I can search in this mentorship.",
   ended: "The assistant isn't available for ended mentorships.",
   notActive: 'The assistant is only available in active mentorships.',
-  limited: 'The assistant has reached its limit for now. Try again in a minute.',
+  limited: 'The assistant has reached its limit for now. Try again later.',
+  stopped: "I couldn't finish looking that up within my limits. Try a narrower question.",
   unavailable: "The assistant isn't available right now. The rest of this page still works.",
   failed: "The assistant couldn't answer that. Try again."
 };
@@ -47,10 +50,17 @@ export function outcomeOf(httpStatus, body) {
       return {
         state: 'answered',
         answer: body.answer,
-        citations: Array.isArray(body.citations) ? body.citations : []
+        citations: Array.isArray(body.citations) ? body.citations : [],
+        // Agent turns: what a file summary covered, in sentences our service's code
+        // wrote, never the model. Plain text, like everything else here.
+        notes: Array.isArray(body.notes) ? body.notes.filter((n) => typeof n === 'string') : []
       };
     }
     if (body?.status === 'abstained') return { state: 'abstained', message: MESSAGES.abstained };
+    // Agent turns only: a cap stopped it, or a check refused it partway (the
+    // mentorship ended, say). Our sentences, never the turn's own.
+    if (body?.status === 'stopped') return { state: 'stopped', message: MESSAGES.stopped };
+    if (body?.status === 'refused' && body.httpStatus === 409) return { state: 'refused', message: MESSAGES.ended };
     return { state: 'failed', message: MESSAGES.failed };
   }
   // Only reachable if the mentorship stopped being active while this page was open,
@@ -66,16 +76,18 @@ export function outcomeOf(httpStatus, body) {
  *
  *   'Five [1], then [7].' -> ['Five ', { handle: 1, citation }, ', then [7].']
  *
- * A handle the response does not list stays part of the text. It is a number in
- * brackets, not a link to anything.
+ * An agent's answer also cites records it looked up, as `[T1]`; S2's handles are
+ * numbers and the agent's are strings, so both are matched by their text. A handle
+ * the response does not list stays part of the text. It is a number in brackets,
+ * not a link to anything.
  */
 export function splitAnswer(answer, citations) {
-  const byHandle = new Map((citations || []).map((c) => [c.handle, c]));
+  const byHandle = new Map((citations || []).map((c) => [String(c.handle), c]));
   const parts = [];
   let last = 0;
 
-  for (const match of String(answer).matchAll(/\[(\d+)\]/g)) {
-    const citation = byHandle.get(Number(match[1]));
+  for (const match of String(answer).matchAll(/\[(T?\d+)\]/g)) {
+    const citation = byHandle.get(match[1]);
     if (!citation) continue;
     if (match.index > last) parts.push(answer.slice(last, match.index));
     parts.push({ handle: citation.handle, citation });
@@ -114,6 +126,62 @@ export function kindOf(citation) {
 /** The record's element on this page; see the ids on its rows. */
 export function anchorOf(citation) {
   return `source-${citation.sourceType}-${citation.sourceId}`;
+}
+
+// ---------------------------------------------------------------------------
+// The agent's record citations: `{ handle: 'T1', kind, id, mentorshipId, title }`
+// ---------------------------------------------------------------------------
+
+/** Which row a record leads to. A file summary leads to its hand-in. */
+const RECORD_ROW = {
+  goal: 'goal',
+  submission: 'submission',
+  assignment: 'assignment',
+  resource: 'resource',
+  session: 'session',
+  file: 'submission'
+};
+
+const RECORD_KIND = {
+  goal: 'goal',
+  submission: 'hand-in',
+  assignment: 'assignment',
+  resource: 'saved resource',
+  session: 'session',
+  file: 'hand-in',
+  counts: 'summary'
+};
+
+/** True for a citation of a record the agent looked up, not a passage. */
+export function isRecord(citation) {
+  return typeof citation?.handle === 'string' && citation.handle.startsWith('T');
+}
+
+/** "goal", "session" and so on, for the card and the button. */
+export function recordKindOf(citation) {
+  return Object.hasOwn(RECORD_KIND, citation.kind) ? RECORD_KIND[citation.kind] : 'record';
+}
+
+/**
+ * Where a record citation leads: `{ anchor }` on this page, `{ path }` to its own
+ * mentorship's page when it is in another one (the self tools reach across
+ * mentorships), or null when there is nothing to go to. Ids must look like ids:
+ * they become part of a URL.
+ */
+export function recordTarget(citation, currentMentorshipId) {
+  // Own keys only: a kind of "constructor" must not find Object's.
+  const row = Object.hasOwn(RECORD_ROW, citation.kind) ? RECORD_ROW[citation.kind] : null;
+  if (!row || !/^[0-9a-f]{24}$/.test(String(citation.id || ''))) return null;
+  const anchor = `source-${row}-${citation.id}`;
+  const mid = String(citation.mentorshipId || '');
+  if (!mid || mid === String(currentMentorshipId)) return { anchor };
+  if (!/^[0-9a-f]{24}$/.test(mid)) return null;
+  return { path: `/mentorships/${mid}#${anchor}` };
+}
+
+/** The chip's words for a screen reader: "Record T1: Ready for interviews, goal". */
+export function recordChipLabel(citation) {
+  return `Record ${citation.handle}: ${citation.title || recordKindOf(citation)}, ${recordKindOf(citation)}`;
 }
 
 /** The passage for the card, about `limit` characters, cut at a word. */

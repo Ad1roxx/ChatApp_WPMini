@@ -19,6 +19,7 @@
 
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useScrollToHash } from '../lib/anchors';
 import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
 import Card from '../components/Card';
@@ -101,6 +102,9 @@ export default function MentorshipDetailPage() {
 
     load();
   }, [id, authFetch]);
+
+  // A citation from another mentorship's assistant leads here as #source-<kind>-<id>.
+  useScrollToHash(!loading && !notFound);
 
   /** Live goal updates — the other party ticking something shows up here. */
   useEffect(() => {

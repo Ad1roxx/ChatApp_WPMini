@@ -288,7 +288,7 @@ export default function Sessions({ mentorshipId, active, isMentor }) {
     const rating = ratingId === session._id;
 
     return (
-      <li key={session._id} className={styles.session}>
+      <li key={session._id} className={styles.session} id={`source-session-${session._id}`}>
         {/* A date rail rather than another line of prose: the date is what you
             scan a list of meetings for, so it gets its own column. Hidden from
             screen readers because the <time> below already says all of it. */}

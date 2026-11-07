@@ -16,9 +16,17 @@
  *
  * History is component state. It is not persisted, not sent anywhere and gone on
  * reload, and no question or answer is written to the console.
+ *
+ * ## Two modes, one panel
+ *
+ * The server says which (`GET /api/copilot/mode`): S2's answer from search, or the
+ * agent, which may also look records up and cites them as `[T1]`. The agent is off
+ * unless the server's COPILOT_AGENT setting is on and the agent may run on its
+ * database; until the server says `agent`, the panel asks as before.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from './Button';
 import Card from './Card';
@@ -27,11 +35,17 @@ import FilePreview from './FilePreview';
 import { InlineLoader } from './Loading';
 import { useToast } from './Toast';
 import { previewKind } from '../lib/attachments';
+import { scrollToAnchor } from '../lib/anchors';
 import {
+  AGENT_REQUEST_TIMEOUT_MS,
   MAX_QUESTION,
   REQUEST_TIMEOUT_MS,
   anchorOf,
   chipLabel,
+  isRecord,
+  recordChipLabel,
+  recordKindOf,
+  recordTarget,
   kindOf,
   outcomeOf,
   pagesOf,
@@ -41,7 +55,11 @@ import {
 } from '../lib/copilot';
 import styles from './CopilotPanel.module.css';
 
-const NOTE = "Sees this mentorship's material only. Answers can be incomplete, so check the cited source.";
+const NOTE = {
+  ask: "Sees this mentorship's material only. Answers can be incomplete, so check the cited source.",
+  agent:
+    "Sees this mentorship's material, and your own work and sessions. Answers can be incomplete, so check the cited source."
+};
 
 export default function CopilotPanel({ mentorshipId, status }) {
   const { authFetch } = useAuth();
@@ -52,6 +70,21 @@ export default function CopilotPanel({ mentorshipId, status }) {
   // was before either of them, and the ref is what stops the second.
   const sending = useRef(false);
   const nextId = useRef(1);
+  // 'ask' until the server says otherwise, and on any failure to ask it.
+  const [mode, setMode] = useState('ask');
+
+  useEffect(() => {
+    let live = true;
+    authFetch('/api/copilot/mode')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (live && body?.mode === 'agent') setMode('agent');
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [authFetch]);
 
   const refusal = refusalFor(status);
 
@@ -62,16 +95,20 @@ export default function CopilotPanel({ mentorshipId, status }) {
     sending.current = true;
     setPending(true);
     const id = nextId.current++;
-    setTurns((all) => [...all, { id, question: asked, state: 'loading' }]);
+    setTurns((all) => [...all, { id, question: asked, state: 'loading', mode, startedAt: Date.now() }]);
     setQuestion('');
 
-    // The route gives up at 10 s; this is for when it never answers at all.
+    // The route gives up first; this is for when it never answers at all.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(
+      () => controller.abort(),
+      mode === 'agent' ? AGENT_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS
+    );
 
     let outcome;
     try {
-      const res = await authFetch(`/api/mentorships/${mentorshipId}/copilot/ask`, {
+      const route = mode === 'agent' ? 'agent' : 'ask';
+      const res = await authFetch(`/api/mentorships/${mentorshipId}/copilot/${route}`, {
         method: 'POST',
         body: JSON.stringify({ question: asked }),
         signal: controller.signal
@@ -117,7 +154,13 @@ export default function CopilotPanel({ mentorshipId, status }) {
       {turns.length > 0 && (
         <ol className={styles.turns} aria-live="polite" aria-relevant="additions text" aria-label="Questions and answers">
           {turns.map((turn) => (
-            <Turn key={turn.id} turn={turn} disabled={pending} onRetry={() => ask(turn.question)} />
+            <Turn
+              key={turn.id}
+              turn={turn}
+              mentorshipId={mentorshipId}
+              disabled={pending}
+              onRetry={() => ask(turn.question)}
+            />
           ))}
         </ol>
       )}
@@ -141,22 +184,29 @@ export default function CopilotPanel({ mentorshipId, status }) {
         </div>
       </form>
 
-      <p className={styles.note}>{NOTE}</p>
+      <p className={styles.note}>{NOTE[mode]}</p>
     </Card>
   );
 }
 
-function Turn({ turn, disabled, onRetry }) {
+function Turn({ turn, mentorshipId, disabled, onRetry }) {
   return (
     <li className={styles.turn}>
       <p className={styles.question}>
         <span className={styles.you}>You:</span> {turn.question}
       </p>
-      {turn.state === 'loading' && <InlineLoader label="Searching this mentorship's material…" />}
-      {turn.state === 'answered' && <Answer answer={turn.answer} citations={turn.citations} />}
+      {turn.state === 'loading' &&
+        (turn.mode === 'agent' ? (
+          <AgentProgress startedAt={turn.startedAt} />
+        ) : (
+          <InlineLoader label="Searching this mentorship's material…" />
+        ))}
+      {turn.state === 'answered' && (
+        <Answer answer={turn.answer} citations={turn.citations} notes={turn.notes} mentorshipId={mentorshipId} />
+      )}
       {turn.state === 'abstained' && <p className={styles.abstained}>{turn.message}</p>}
       {turn.state === 'refused' && <p className={styles.refusal}>{turn.message}</p>}
-      {['limited', 'unavailable', 'failed'].includes(turn.state) && (
+      {['limited', 'unavailable', 'failed', 'stopped'].includes(turn.state) && (
         <div className={styles.problem}>
           <p role="alert">{turn.message}</p>
           <Button size="sm" onClick={onRetry} disabled={disabled}>
@@ -168,7 +218,21 @@ function Turn({ turn, disabled, onRetry }) {
   );
 }
 
-function Answer({ answer, citations }) {
+/**
+ * An agent turn takes longer than a search, and has steps the browser cannot see.
+ * Rather than a longer spinner: what it is doing, and for how long so far.
+ */
+function AgentProgress({ startedAt }) {
+  // Seconds so far, counted by the interval rather than read from the clock in render.
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const tick = setInterval(() => setSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000))), 1000);
+    return () => clearInterval(tick);
+  }, [startedAt]);
+  return <InlineLoader label={`Looking through this mentorship's records and material… ${seconds} s`} />;
+}
+
+function Answer({ answer, citations, notes = [], mentorshipId }) {
   const [open, setOpen] = useState(null);
   const current = citations.find((c) => c.handle === open);
 
@@ -183,7 +247,7 @@ function Answer({ answer, citations }) {
               key={`${part.handle}-${i}`}
               type="button"
               className={`${styles.chip} ${open === part.handle ? styles.chipOpen : ''}`}
-              aria-label={chipLabel(part.citation)}
+              aria-label={isRecord(part.citation) ? recordChipLabel(part.citation) : chipLabel(part.citation)}
               aria-expanded={open === part.handle}
               onClick={() => setOpen(open === part.handle ? null : part.handle)}
             >
@@ -192,8 +256,39 @@ function Answer({ answer, citations }) {
           )
         )}
       </p>
-      {current && <SourceCard citation={current} />}
+      {notes.map((note) => (
+        <p key={note} className={styles.sourceWhere}>
+          {note}
+        </p>
+      ))}
+      {current &&
+        (isRecord(current) ? (
+          <RecordCard citation={current} mentorshipId={mentorshipId} />
+        ) : (
+          <SourceCard citation={current} />
+        ))}
     </div>
+  );
+}
+
+/** A record the agent looked up: what it is, and the way to its row. */
+function RecordCard({ citation, mentorshipId }) {
+  const [missing, setMissing] = useState(false);
+  const target = recordTarget(citation, mentorshipId);
+  const kind = recordKindOf(citation);
+
+  return (
+    <aside className={styles.source} aria-label={`Record ${citation.handle}`}>
+      <p className={styles.sourceTitle}>{citation.title || kind}</p>
+      <p className={styles.sourceWhere}>{target?.path ? `${kind} · in another mentorship` : kind}</p>
+      {target?.anchor && (
+        <Button size="sm" onClick={() => setMissing(!scrollToAnchor(target.anchor))}>
+          Go to the {kind}
+        </Button>
+      )}
+      {target?.path && <Link to={target.path}>Open the {kind}</Link>}
+      {missing && <p className={styles.sourceWhere}>That isn&apos;t on this page any more.</p>}
+    </aside>
   );
 }
 
