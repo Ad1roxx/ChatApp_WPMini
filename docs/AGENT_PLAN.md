@@ -849,8 +849,8 @@ owns and what it must never own.
 - **One panel**, switched between S2 and the agent by a server setting (`COPILOT_AGENT`), off until S4's evaluation.
 - **LangGraph pinned at 1.2.20.** It owns the loop, the step count and one turn's state. Not the prebuilt `ToolNode`, which runs calls in
   parallel: our own node runs exactly one.
-- **Provider:** Gemini drives the agent if its function-calling check passes, with Groq as a manual setting; to be confirmed once that
-  check has run. Groq passed (BUILD_NOTES Entry 93).
+- **Provider:** Gemini drives the agent, with Groq as a manual setting. Both passed the function-calling check: Groq in BUILD_NOTES
+  Entry 93, Gemini in Entry 100.
 
 **Rejected, and why.**
 

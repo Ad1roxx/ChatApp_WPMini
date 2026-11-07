@@ -7434,11 +7434,67 @@ The agent can be run against `chatapp` again. Everything in it is still real
 
 ---
 
+### Entry 100 — The re-index, rankings unchanged on all 120 questions, and Gemini drives the agent
+
+**Re-indexed after the names runs, as Entry 96 required.** The served index
+was rebuilt in Entry 99. The evaluation and demo indexes are rebuilt here, and
+every file chunk now carries its unread counts (`chatapp_eval` 112 of 112
+chunks, `chatapp_demo` 38). `extract_identity.py` is IDENTICAL across all four
+databases.
+
+**Rankings: identical on all 120 questions.** Entry 73's reference cannot judge
+this. It was captured on 2026-11-02, before contextual headers changed every
+chunk's text, and the current index is 0 of 120 against it before anything is
+re-indexed. So `eval/rankings_identity.py` takes Entry 73's measurement, with
+`reranker_speed.py`'s own pieces (the real `search()`, reranker on, served k,
+soft cap, the reranker's order over every candidate recorded), against a
+reference taken just before the re-index (`s4-rankings-before-reindex.json`,
+committed first in `ca157d7`).
+
+- The names runs had already rebuilt the evaluation index with the new code
+  (each answer run rebuilds it), so the "before" index was rebuilt first with
+  the code from before Step 4 (`b9101a5`, in a separate worktree). That build
+  stores no counts. The reference captured from it is byte-identical to one
+  captured from the new code's build.
+- Rebuilt again with today's code: the order over all candidates is
+  identical on **120 of 120**, and the final results on **120 of 120**.
+- Stability: two runs on one index, 120 of 120 both times. Control: the
+  reranker seeing passages cut to 200 characters fails (8 of 120 final
+  results identical). Its order figure, 0 of 120, says less, because
+  candidates are keyed by a hash of the text scored.
+
+**Gemini's function-calling check passes** (`eval/function_calling_check.py`,
+`s4-function-calling.txt`). Three calls, the same three as Groq's in Entry 93,
+with nothing read from any database and every input invented. It refuses
+without `AI_LIVE_SMOKE=1`, and it was run first against a scripted provider.
+
+| Call | ms | In | Out | What it did |
+| --- | --- | --- | --- | --- |
+| One trivial tool | 671 | 85 | 20 | called it, with the right argument |
+| Agent step 1, through `run_turn`, 8 tools | 715 | 796 | 10 | chose `list_goals` |
+| Agent step 2, the stub's goal fed back | 971 | 897 | 18 | "The milestone still to do on your goal is to pass a mock interview [T1]." |
+
+The turn ran through the real `agent.run_turn` with Express played by a stub:
+status answered, 2 model calls, 1 tool call, citation `T1` verified, nothing
+stripped. Made at 23:24 IST, in the hours the latency probe found slow
+(`eval/gemini-latency.txt`).
+
+**Provider decision for the agent: Gemini** (`gemini-3.5-flash-lite`), as
+decided at Step 0 if this check passed. Groq (`openai/gpt-oss-120b`) stays a
+manual setting, `AI_LLM_PROVIDER=groq`, for the evening (README). Nothing
+switches automatically.
+
+**Names decision, from Entry 98, under the rule committed before the runs:
+`s2-v4`.** It met every condition against `s2-v3`, and is not yet served:
+switching `answer.py` is the user's call.
+
+---
+
 ---
 
 ### Open items / "later" list
 
-- **Re-index the demo data, then check rankings** (Entry 96). The served index is re-indexed (Entry 99). Still to do: re-index `chatapp_demo`, and check the 120 questions' rankings identical to `s2-reranker-rankings.json` the way Entry 73 did.
+- ~~**Re-index the demo data, then check rankings**~~ — done in Entry 100: rankings identical on 120 of 120.
 - ~~**The development database's real file is in the served index**~~ — removed, and gone from `chatapp_rag` (Entry 99).
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
 - **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). A 503 is now retried once if time allows (Entry 91); a sustained burst still fails. Groq is the manual fallback.
