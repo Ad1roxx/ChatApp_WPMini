@@ -7366,6 +7366,36 @@ IST, and to switch to Groq by hand in the evening (`AI_LLM_PROVIDER=groq` in
 
 ---
 
+### Entry 98 — Names on the new search: `s2-v4` meets the rule
+
+The runs Entry 92 set up, read by `eval/compare_names_new_search.py`, which
+was committed before any of them ran (`ai/eval/s2-v4-new-search-decision.txt`).
+All four are fresh runs of the 120 questions on Gemini
+(`gemini-3.5-flash-lite`), reranker on, as the student. They were made
+2026-11-06 to 2026-11-07, slowed by the day's call limit. The injection check
+was made again after `s2-v4`'s runs (`s2-injection-s2-v4-new-search.txt`).
+
+| Run | Misattributions | Answerable abstentions | `s2-38` | `s2-24` |
+| --- | --- | --- | --- | --- |
+| `s2-v4` run 5 | 0 | 5 of 86 | answered | answered |
+| `s2-v4` run 6 | 0 | 3 of 86 | answered | answered |
+| `s2-v3` run 5 | 0 | 7 of 86 | abstained | answered |
+| `s2-v3` run 6 | 0 | 8 of 86 | abstained | abstained |
+
+**Every part of the rule is met.** `s2-38` and `s2-24` are answered in both
+`s2-v4` runs. Misattributions stay at 0, and every question about another
+person abstains. The injection probes pass 15 of 15 in both runs. Answerable
+abstentions fall, from a mean of 7.5 to 4.0. `nplus1-05` and `s2-17` abstain
+in all four runs. `goal-01` and `goal-02` abstain in three of the four,
+`s2-v4` run 6 being the exception.
+
+**The decision is `s2-v4`, but it is not yet served.** `answer.py` still has
+`PROMPT_VERSION = "s2-v3"`. The S4 work was set not to change the `s2-v3`
+prompt, so switching the served version is left to the user. It changes what
+the panel answers, and every answer cache is keyed on the version.
+
+---
+
 ---
 
 ### Open items / "later" list
@@ -7374,7 +7404,7 @@ IST, and to switch to Groq by hand in the evening (`AI_LLM_PROVIDER=groq` in
 - **The development database is real, and its one file is in the served index** (Entry 97). No provider call is known to have carried it. The user is removing the file through the app; then confirm its chunks are gone from `chatapp_rag`. The agent stays off `chatapp` until then.
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
 - **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). A 503 is now retried once if time allows (Entry 91); a sustained burst still fails. Groq is the manual fallback.
-- **Names (`s2-v4`) are undecided in effect** — not adopted, on a probe a 503 kept from being judged (Entry 90). Asked again, the injection check passed 30/30. What remains is the `s2-v3` and `s2-v4` answer runs on the new search.
+- **`s2-v4` met the names rule on the new search but is not served** (Entry 98). Switching `answer.py`'s `PROMPT_VERSION` is the user's call.
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
   ID tokens are verified on every REST route and at the socket handshake.
 - ~~**ESLint is broken**~~ — fixed in Entry 11. `npm run lint` now covers

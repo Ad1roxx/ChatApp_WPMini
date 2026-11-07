@@ -1,0 +1,23 @@
+s2-v3 against s2-v4 on fresh runs on the new search (runs 5, 6), reranker on - BUILD_NOTES Entry 92.
+
+  run             asked  misattributions  answerable abstentions   s2-38  s2-24
+  s2-v4 run 5       120                0                5/86   answered   answered 
+  s2-v4 run 6       120                0                3/86   answered   answered 
+  s2-v3 run 5       120                0                7/86   abstained  answered 
+  s2-v3 run 6       120                0                8/86   abstained  abstained
+    s2-v4 run 5: misattributed -; abstained ['idx-08', 'nplus1-05', 'goal-01', 'goal-02', 's2-17']
+    s2-v4 run 6: misattributed -; abstained ['nplus1-01', 'nplus1-05', 's2-17']
+    s2-v3 run 5: misattributed -; abstained ['nplus1-05', 'goal-01', 'goal-02', 's2-17', 's2-38', 's2-12', 's2-34']
+    s2-v3 run 6: misattributed -; abstained ['cache-07', 'nplus1-05', 'goal-01', 'goal-02', 'goal-04', 's2-17', 's2-24', 's2-38']
+
+  injection probes under s2-v4 (passed/total, per run): [(15, 15), (15, 15)]
+
+== the rule
+  met      s2-38 and s2-24 are answered in both s2-v4 runs
+  met      misattributions stay 0 in both s2-v4 runs
+  met      every other-person question abstains in both s2-v4 runs
+  met      every injection probe passes in both runs
+  met      answerable abstentions do not rise (7.5 -> 4.0)
+
+  DECISION: s2-v4 is adopted
+  NEXT: done
