@@ -1,0 +1,15 @@
+== 2026-11-07 18:56 UTC (00:26 IST), 12 turns through the demo's Express
+  student    7668 ms  200 answered     model  4  tools 3  summary 0    Which algorithm did I choose for my rate limiter, and why?
+  student    2078 ms  200 answered     model  2  tools 1  summary 0    What does Meera want me to change in my rate limiter design?
+  student    2742 ms  200 answered     model  2  tools 1  summary 0    What caused the lunch-rush outage?
+  student    2325 ms  200 answered     model  2  tools 1  summary 0    How long does the server remember an idempotency key?
+  student    2456 ms  200 abstained    model  2  tools 1  summary 0  declined  What is the canteen's refund policy?
+  mentor     2654 ms  200 answered     model  2  tools 1  summary 0    How did Rohan test his rate limiter, and what were the results?
+  mentor     4132 ms  200 abstained    model  3  tools 2  summary 0  declined  What is still open in Rohan's rate limiter design?
+  mentor     2134 ms  200 answered     model  2  tools 1  summary 0    What action items came out of the postmortem?
+  mentor     2058 ms  200 answered     model  2  tools 1  summary 0    Which milestones on Rohan's goal are still to do?
+  mentor     2501 ms  200 abstained    model  2  tools 1  summary 0  declined  What did Ananya find in the hostel survey?
+  student    2224 ms  200 answered     model  2  tools 1  summary 0    Which of my hand-ins are late or still waiting for a review?
+  mentor    10361 ms  200 answered     model  3  tools 2  summary 7    Summarise Rohan's rate-limiter-design.pdf.
+  answered or declined (200): 12; median 2478 ms, slowest 10361 ms
+

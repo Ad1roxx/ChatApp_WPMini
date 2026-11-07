@@ -209,7 +209,10 @@ AGENT_MAX_MODEL_CALLS = int(os.getenv("AI_AGENT_MAX_MODEL_CALLS", "4"))
 AGENT_MAX_TOOL_CALLS = int(os.getenv("AI_AGENT_MAX_TOOL_CALLS", "3"))
 AGENT_MAX_INPUT_TOKENS_CALL = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_CALL", "6000"))
 AGENT_MAX_INPUT_TOKENS_TURN = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_TURN", "12000"))
-# Provisional; set from measurement in Step 5, as ASK_BUDGET_S was (Entry 101).
+# Set from measurement (Entry 101): 12 real turns on the demo, median 2.5 s, slowest
+# 10.4 s, a whole-file summary of 10 model calls. 30 s is about three times that.
+# Express waits 35 s (COPILOT_AGENT_TIMEOUT_MS) and the browser 40 s, so each
+# layer answers before the one in front of it gives up.
 AGENT_BUDGET_S = float(os.getenv("AI_AGENT_BUDGET_S", "30"))
 # summarize_attachment (S4 Step 4): at most this many sections, one summary call
 # each, then one call to combine them. All of it is one tool call of the turn,

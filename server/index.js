@@ -3866,7 +3866,10 @@ const COPILOT_AGENT = ['1', 'true'].includes(String(process.env.COPILOT_AGENT ||
 
 /**
  * How long Express waits for one agent turn, in milliseconds. The capability
- * token expires with it. Provisional until measured (BUILD_NOTES Entry 101).
+ * token expires with it. Measured (BUILD_NOTES Entry 101): 12 turns on the demo,
+ * median 2.5 s, slowest 10.4 s (a whole-file summary, 10 model calls). The AI
+ * service gives a turn 30 s (AGENT_BUDGET_S, about three times that); this is
+ * that plus room for the token, the tools' round trips and the response.
  */
 const COPILOT_AGENT_TIMEOUT_MS = Number(process.env.COPILOT_AGENT_TIMEOUT_MS) || 35000;
 
@@ -3878,11 +3881,16 @@ const COPILOT_AGENT_TIMEOUT_MS = Number(process.env.COPILOT_AGENT_TIMEOUT_MS) ||
 const AGENT_TURN_MAX_CALLS = 11;
 
 /**
- * Each person's share, in model calls (lib/agentBudget.js). 12 a minute leaves
- * room under Gemini's 15 for everyone else; 60 a day is an eighth of the 480.
+ * Each person's share, in model calls (lib/agentBudget.js). 60 a day is an
+ * eighth of the 480, and is the share that protects the allowance. 15 a minute
+ * is Gemini's own limit for the whole app: the AI service's count enforces that
+ * across everyone, and this only stops one person bursting past it. It was 12,
+ * and measured (BUILD_NOTES Entry 101): with a turn reserving 11, a second turn
+ * after a typical 2-call one needed 13, so each person could ask about once a
+ * minute. At 15, about three typical turns a minute.
  */
 const agentBudget = new ModelCallBudget({
-  perMinute: Number(process.env.AGENT_CALLS_PER_MINUTE) || 12,
+  perMinute: Number(process.env.AGENT_CALLS_PER_MINUTE) || 15,
   perDay: Number(process.env.AGENT_CALLS_PER_DAY) || 60
 });
 

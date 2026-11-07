@@ -19,7 +19,8 @@
 
 export const MAX_QUESTION = 1000;
 export const REQUEST_TIMEOUT_MS = 15000; // above Express's 10 s, so that answers first
-// An agent turn: above Express's own wait for one (COPILOT_AGENT_TIMEOUT_MS), so that answers first.
+// An agent turn: above Express's own 35 s wait for one (COPILOT_AGENT_TIMEOUT_MS), so that answers
+// first. Measured turns took 2.5 s typically and 10.4 s at most (BUILD_NOTES Entry 101).
 export const AGENT_REQUEST_TIMEOUT_MS = 40000;
 
 export const MESSAGES = {

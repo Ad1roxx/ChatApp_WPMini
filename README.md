@@ -76,6 +76,10 @@ to 21.6 s (`ai/eval/gemini-latency.txt`). In the evening, switch to Groq by hand
 `GROQ_API_KEY` there), then restart `npm run demo`. Switch back to `gemini` the same way. Nothing switches automatically: a
 Gemini failure is shown as a failure, never retried on Groq.
 
+**The agent.** `npm run demo -- --agent` switches the panel to the agent, which can also look up the mentorship's goals, work,
+sessions and files, and cites them as chips that lead to their rows. It runs only on the demo's invented data: on any other
+database, the development one included, it answers "not configured". Each person has a share of 60 model calls a day.
+
 Open a mentorship and ask the assistant something. It answers from that mentorship's material only, and every number is a chip you
 can click through to the source:
 

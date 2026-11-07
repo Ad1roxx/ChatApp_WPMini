@@ -847,6 +847,9 @@ owns and what it must never own.
 - **A per-user budget on the agent route, counted in model calls,** per minute and per day, so no one user can spend the 480-a-day
   allowance. A plain sentence when it is reached.
 - **One panel**, switched between S2 and the agent by a server setting (`COPILOT_AGENT`), off until S4's evaluation.
+- **Synthetic data only** (the user, 2026-11-07; BUILD_NOTES Entry 101). The agent refuses, as "not configured", unless the app
+  database and the index are on a list kept in code in both services: the demo, the evaluation fixtures and the tests' own
+  databases. Never `chatapp`. The S2 ask route is unchanged.
 - **LangGraph pinned at 1.2.20.** It owns the loop, the step count and one turn's state. Not the prebuilt `ToolNode`, which runs calls in
   parallel: our own node runs exactly one.
 - **Provider:** Gemini drives the agent, with Groq as a manual setting. Both passed the function-calling check: Groq in BUILD_NOTES

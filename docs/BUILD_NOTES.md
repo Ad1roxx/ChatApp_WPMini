@@ -7490,6 +7490,142 @@ switching `answer.py` is the user's call.
 
 ---
 
+### Entry 101 — S4 Step 5: the agent route, on synthetic data only, and the panel
+
+**Decided by the user first (2026-11-07): the agent does not run against `chatapp`.**
+It holds real people's accounts and messages, and the agent's tools read the
+app's records. So the agent refuses unless the database it would read is
+synthetic. The S2 ask route keeps its behaviour.
+
+- **One list, in both services:** `chatapp_demo`, the evaluation fixtures
+  (`chatapp_eval`, `chatapp_demo_eval`, `chatapp_eval_ctx`) and the tests'
+  own databases (`chatapp_test`, `chatapp_rag_pytest`,
+  `chatapp_rag_pytest_app`). The lists are `server/lib/agentDatabases.js` and
+  `ai/config.py` `AGENT_SYNTHETIC_DATABASES`, and a test holds them equal.
+- **Express** checks the database it is connected to before anything else
+  on the agent route. **The AI service** checks both the app database it
+  reads records from and the index it reads chunks from, before anything is
+  searched or sent.
+- **Anywhere else, the answer is one sentence:** "The agent is not configured
+  on this server." That is the same sentence as for a missing setting, so it
+  doesn't say which database is configured.
+- **The list lives in code, deliberately.** It is not read from the
+  environment, so putting a real database on it is a reviewed change to this
+  decision, not a variable someone sets. A test holds that.
+- **Tested for `chatapp`:** on the check itself in both services, and on
+  `/agent` with the app database set to `chatapp` (503, nothing searched, no
+  model called). A real Express is also run on a throwaway database that
+  isn't on the list (`chatapp_agent_unlisted_test`, seeded and dropped by the
+  test). Its agent route refuses, its mode is `ask`, and its S2 ask route
+  still answers. Tests never connect to `chatapp` itself.
+
+**The route** (`POST /api/mentorships/:id/copilot/agent`):
+
+```
+token -> requireAuth -> the agent may run here -> resolveMentorshipAccess -> active
+  -> role from the record -> question -> this person's share -> capability token -> /agent
+```
+
+- **"May run here"** means `COPILOT_AGENT` is on (off by default), the AI
+  service and token secret are set, and the database is on the list.
+  `GET /api/copilot/mode` tells the panel `agent` only then.
+- **The token** is minted from the mentorship record. It names the user, the
+  mentorship and the role, and expires with the turn. It is sent only to the
+  AI service, which passes it only to the tool endpoint, and it is never
+  logged (tested).
+- **The AI service's `/agent`** has the same secret and local-only rules as
+  `/ask`, refuses extra fields, and runs `agent.run_turn`. It gives 200 for
+  every turn that ran, and the provider status for a provider problem.
+
+**Each person's share, in model calls** (`server/lib/agentBudget.js`).
+
+- **Reserve, then settle.** A turn reserves its worst case before it starts:
+  11 calls, the turn's 4 plus a file summary's 7. When it ends, the
+  reservation is settled to what it actually spent. A turn that doesn't say
+  what it spent keeps its reservation. Windows are rolling, and the sentences
+  are plain: "Wait a minute" or "available again tomorrow".
+- **60 a day** per person: an eighth of the 480, and the share that protects
+  the allowance.
+- **15 a minute** per person, Gemini's own limit. It was 12, and the
+  measurement below found that too tight. With 11 reserved, a second turn
+  after a typical 2-call one needed 13, so each person could ask about once a
+  minute. The AI service's count still holds the whole app to 15 a minute.
+
+**The panel.**
+
+- **Agent mode** asks `/copilot/agent` and shows the wider scope note: "this
+  mentorship's material, and your own work and sessions".
+- **Record citations** (`[T1]`) open a card that leads to the record's row.
+  Sessions now carry anchors. A file summary leads to its hand-in. A record in
+  another mentorship (from the self tools) is a link to that mentorship's
+  page, at its row, and the page follows the hash once the row has loaded.
+- **Only real ids are followed.** Ids must be 24-hex before they go into a
+  URL or an anchor, and a URL hash is followed only if it is one of our own
+  row anchors.
+- **The code's notes** on a file summary are shown as plain text after the
+  answer.
+- **While a turn runs**, a progress line says what it is doing and for how
+  long. A turn stopped by a cap gets our own sentence.
+
+**Two bugs the tests caught before any commit:**
+
+- **The route sent the whole `{ token, jti }` object as the token**, so the
+  AI service would have refused every turn. The test now asserts the token
+  is a string, and checks its claims against the body.
+- **The kind map was looked up through the prototype**, so a record of kind
+  `constructor` became an anchor. It now uses own keys only.
+
+**Mutations: 27, all caught.** They cover: either service's database check
+removed or widened; `chatapp` added to either list; the list read from the
+environment; the switch or the token secret ignored; membership or the
+ended-mentorship refusal skipped; the viewer or the token's role taken from
+the body; the token logged; the budget unenforced, settled upward, without
+its daily limit, settled to nothing when a turn doesn't say, or reserving
+less than the worst case; the panel following non-id ids, prototype kinds or
+any hash; a stopped turn's own text shown; the agent as the panel's default;
+sessions without anchors. The first run missed the token's role taken from
+the body: the test checked the role sent to the AI service, not the token's.
+Its claims are asserted now.
+
+**Timeouts, from measurement** (`eval/agent_turns_probe.py`, committed before
+it ran; `s4-agent-latency.txt`). Twelve real turns on the demo, through
+Express as its invented student and mentor, with `npm run demo -- --agent`.
+They were the panel's ten questions from Entry 92, plus a record-tool
+question and a whole-file summary. They ran at 00:26 IST, inside one of
+Gemini's quick stretches (`gemini-latency.txt`).
+
+- 12 of 12 ran: 9 answered and 3 declined, the same three Entry 92's panel
+  declined. Ananya's survey is rightly out of scope.
+- Median **2.5 s**. Slowest **10.4 s**: the file summary, 3 model calls plus 7
+  summary calls, covering the whole file. Most turns used 2 model calls; the
+  most was 4.
+- **Settings.** The turn's own budget stays at 30 s, about three times the
+  slowest. Express waits 35 s, and the token expires with that. The browser
+  waits 40 s, so each layer answers before the one in front of it gives up.
+- In Gemini's slow evening hours a turn can still hit the 30 s budget, and it
+  then stops with its sentence. The README's advice stands: demo between
+  11:00 and 19:00 IST on Gemini, and switch to Groq by hand in the evening.
+
+**A live check through the real panel** on the demo, as Rohan: "Which
+milestones on my goal are still to do?"
+
+- It was in agent mode, with the wider note, and showed the progress line
+  while the turn ran.
+- It answered in 2.4 s with the three unticked milestones, matching the
+  goal on the page.
+- The `T1` chip's card offered "Go to the goal" and moved focus to the
+  goal's row. No page errors.
+
+**The demo** gets `--agent`, which switches the panel to the agent. Every run
+now gets a fresh token key that only its Express holds, and points the AI
+service's tool calls at that run's Express. Stopping the probe's demo from a
+background task left its four processes running; they were found by port and
+stopped. Ctrl+C in a terminal stops them as before.
+
+Totals: AI 583 passed and 1 skipped; Node 745; frontend 76.
+
+---
+
 ---
 
 ### Open items / "later" list
