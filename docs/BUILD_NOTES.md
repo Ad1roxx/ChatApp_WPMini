@@ -7685,6 +7685,23 @@ the addresses not looked for; the gate not requiring `server.env`.
 
 ---
 
+### Entry 104 — An escape warning that was only a docstring, and pytest's missing summary
+
+**The `\s` warning from `test_appdb.py` was not a weakened guard.** That test parses
+every script in `ai/` to see which ones import `appdb`, so it reports warnings from
+the files it parses. This one was the docstring of `agent.verify`, which mentions
+`\s` in a string that wasn't raw. The citation patterns themselves (`_CITES` and the
+handle clean-up) are raw strings, and `\s` in them means what was intended, as the
+existing tests with narrow no-break spaces show. It was the only invalid escape in
+any script, evaluation or test under `ai/`. The docstring is now raw. No behaviour
+changed, so there was nothing to mutation-check.
+
+**The summary line.** `pytest.ini` set `-q` by default, so one more `-q` on the
+command line made `-qq`, which drops the "N passed" line. The default is gone, and
+the count is printed with or without `-q`.
+
+---
+
 ---
 
 ### Open items / "later" list

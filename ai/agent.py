@@ -272,7 +272,7 @@ _CITES = re.compile(r"\[\s*((?:T\s*\d+|\d+)(?:\s*,\s*(?:T\s*\d+|\d+))*)\s*\]", r
 
 
 def verify(text: str, handles: Handles) -> tuple[str, list[str], list[str]]:
-    """Keep the handles minted this turn; strip the rest.
+    r"""Keep the handles minted this turn; strip the rest.
 
     Returns the cleaned text, the valid handles in order of first use (`"T1"`,
     `"2"`), and the invalid ones as written. Narrow and no-break spaces in the
