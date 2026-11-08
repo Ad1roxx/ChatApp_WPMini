@@ -262,8 +262,9 @@ AGENT_BUDGET_S = float(os.getenv("AI_AGENT_BUDGET_S", "30"))
 AGENT_SUMMARY_MAX_SECTIONS = int(os.getenv("AI_AGENT_SUMMARY_MAX_SECTIONS", "6"))
 AGENT_SUMMARY_SECTION_TOKENS = int(os.getenv("AI_AGENT_SUMMARY_SECTION_TOKENS", "1500"))
 
-# The agent runs on synthetic data only (the user, 2026-11-07; BUILD_NOTES Entry 101).
-# `/agent` refuses, as "not configured", unless both the app database it reads
+# The agent and the S2 ask route run on synthetic data only (the user, 2026-11-07
+# and 2026-11-09; BUILD_NOTES Entries 101, 105).
+# `/agent` and `/ask` refuse, as "not configured", unless both the app database it reads
 # records from and the index it reads chunks from are on this list: the demo, the
 # evaluation fixtures, and the tests' own databases. Never `chatapp` or
 # `chatapp_rag`, which hold real people's records. Deliberately not read from the
@@ -272,7 +273,7 @@ AGENT_SUMMARY_SECTION_TOKENS = int(os.getenv("AI_AGENT_SUMMARY_SECTION_TOKENS", 
 # (server/lib/agentDatabases.js) and checks its own database too.
 AGENT_SYNTHETIC_DATABASES = frozenset({
     "chatapp_demo",
-    "chatapp_eval", "chatapp_demo_eval", "chatapp_eval_ctx",
+    "chatapp_eval", "chatapp_demo_eval", "chatapp_eval_ctx", "chatapp_agent_eval", "chatapp_asklive",
     "chatapp_test", "chatapp_rag_pytest", "chatapp_rag_pytest_app",
 })
 

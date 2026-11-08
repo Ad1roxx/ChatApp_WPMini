@@ -8,6 +8,8 @@ fields, and the status each outcome becomes.
 
 from __future__ import annotations
 
+import types
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -27,8 +29,9 @@ HIT = {
 
 
 class Store:
-    def __init__(self, hits=(HIT,), fail=False):
+    def __init__(self, hits=(HIT,), fail=False, db_name="chatapp_demo"):
         self.hits, self.fail, self.calls = list(hits), fail, []
+        self.db = types.SimpleNamespace(name=db_name)
 
     def search(self, mentorship_id, viewer_id, query, k=4):
         self.calls.append((mentorship_id, viewer_id, query, k))
@@ -45,6 +48,7 @@ def wire(monkeypatch):
         monkeypatch.setattr(service, "store", store)
         monkeypatch.setattr(service, "provider", provider)
         monkeypatch.setattr(service, "SERVICE_SECRET", SECRET)
+        monkeypatch.setattr(service, "AGENT_APP_DB", "chatapp_demo")
         # No `with`: the lifespan (index build, sync worker) is not run.
         return TestClient(service.app, client=("127.0.0.1", 50000)), store, provider
     return _wire
@@ -90,11 +94,12 @@ def test_a_provider_problem_has_its_status_and_plain_message(wire, outcome, stat
     assert res.json()["promptVersion"] == PROMPT_VERSION
 
 
-def test_names_in_the_body_are_accepted_and_the_serving_prompt_ignores_them(wire):
+def test_names_in_the_body_reach_the_serving_prompt_as_data(wire):
     client, _, provider = wire("Yes [1].")
     assert post(client, dict(BODY, mentorName="Meera Iyer", studentName="Rohan Kapoor")).status_code == 200
     (system, user), = provider.calls
-    assert "Meera" not in user and "Meera" not in system
+    assert "Meera Iyer" in user and "Rohan Kapoor" in user
+    assert "Meera" not in system, "names are data, never instructions"
 
 
 def test_a_search_failure_is_502_and_the_model_is_not_called(wire):
@@ -154,3 +159,27 @@ def test_a_missing_role_is_refused(wire):
     body = {k: v for k, v in BODY.items() if k != "role"}
     assert post(client, body).status_code == 422
     assert store.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Synthetic databases only (BUILD_NOTES Entry 105)
+# ---------------------------------------------------------------------------
+def test_ask_refuses_for_chatapp_before_anything_is_searched_or_sent(wire, monkeypatch):
+    client, store, provider = wire("Yes [1].")
+    monkeypatch.setattr(service, "AGENT_APP_DB", "chatapp")
+    res = post(client)
+    assert res.status_code == 503
+    assert res.json()["message"] == "The Copilot is not configured on this server"
+    assert "chatapp" not in res.text.replace("promptVersion", "")
+    assert store.calls == [] and provider.calls == []
+
+
+def test_ask_refuses_for_the_served_index_of_chatapp(wire):
+    client, store, provider = wire("Yes [1].", store=Store(db_name="chatapp_rag"))
+    assert post(client).status_code == 503
+    assert store.calls == [] and provider.calls == []
+
+
+def test_ask_answers_on_a_synthetic_database(wire):
+    client, _, _ = wire("Yes [1].")
+    assert post(client).status_code == 200

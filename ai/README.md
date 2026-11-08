@@ -190,7 +190,7 @@ else:
 `role` is the asker's position in that mentorship's record, `student` or
 `mentor`, decided by Express and never by the question. The service searches,
 asks the model with the sources numbered and fenced (`answer.py`, prompt
-`s2-v3`; BUILD_NOTES entries 71 and 76 say why), verifies every citation against this
+`s2-v4`; BUILD_NOTES entries 71, 76 and 98 say why), verifies every citation against this
 turn's results, and answers 200 with
 `status: answered` or `abstained` (one message, its `cause` in a field), or
 429 / 502 / 503 with a plain sentence when the provider cannot answer. Shared

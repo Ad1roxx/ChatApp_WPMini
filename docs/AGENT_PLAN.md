@@ -728,7 +728,7 @@ consistent.
 
 ### S2 — Generation with verified citations
 
-**Done** (BUILD_NOTES entries 62–76). `s2-v3` serves, on
+**Done** (BUILD_NOTES entries 62–76). `s2-v4` serves since 2026-11-09 (Entries 98, 105), on
 `gemini-3.5-flash-lite`, through `POST /api/mentorships/:id/copilot/ask`.
 
 Deliverables: `LLMProvider` protocol + Gemini adapter; a prompt that cites
@@ -770,7 +770,7 @@ two runs of 120, on the corrected labels of Entry 69).**
 `s2-v3` replaced `s2-v2` under a rule committed before the runs. Its known cost
 is partial answers that do not say what is missing (Entry 71). `s2-v4`, the two parties' names as
 fenced data, was measured and not adopted: it answered `s2-38` but not `s2-24` in both runs, which the rule
-required (Entry 76). **This is where Entry 41's finding is discharged** — abstention reads the
+required (Entry 76). Measured again on the new search it met every condition, and it now serves (Entries 98, 105). **This is where Entry 41's finding is discharged** — abstention reads the
 retrieved text, never a score threshold.
 
 BUILD_NOTES: must state the **synthetic-data-only rule** and why — free-tier
@@ -849,7 +849,7 @@ owns and what it must never own.
 - **One panel**, switched between S2 and the agent by a server setting (`COPILOT_AGENT`), off until S4's evaluation.
 - **Synthetic data only** (the user, 2026-11-07; BUILD_NOTES Entry 101). The agent refuses, as "not configured", unless the app
   database and the index are on a list kept in code in both services: the demo, the evaluation fixtures and the tests' own
-  databases. Never `chatapp`. The S2 ask route is unchanged.
+  databases. Never `chatapp`. The S2 ask route refuses on the same list (Entry 105).
 - **LangGraph pinned at 1.2.20.** It owns the loop, the step count and one turn's state. Not the prebuilt `ToolNode`, which runs calls in
   parallel: our own node runs exactly one.
 - **Provider:** Gemini drives the agent, with Groq as a manual setting. Both passed the function-calling check: Groq in BUILD_NOTES
@@ -934,10 +934,10 @@ is a known number rather than a surprise.
 
 Measured: tool accuracy, argument accuracy, faithfulness, refusal correctness.
 
-**`s2-v4` is deferred to here.** `s2-v3` can leave out that part of a question went
+**A tighter rule 2 is deferred to here.** The served prompt can leave out that part of a question went
 unanswered, and only reading finds it today. The judge should score "did the answer
-address every part"; with that count in hand, tighten rule 2 as `s2-v4` and compare
-over two runs of each, as `s2-v3` was.
+address every part"; with that count in hand, tighten rule 2 as a new prompt version and compare
+over two runs of each, as `s2-v3` was. (`s2-v4` became the names prompt, Entries 76, 98.)
 
 **What S2 hands to S6 (BUILD_NOTES entries 66, 68, 70, 71).** Level 3 must look for
 what level 2 passed: a valid handle on a claim its source does not support

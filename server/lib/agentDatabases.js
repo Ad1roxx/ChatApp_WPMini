@@ -1,7 +1,7 @@
 /**
- * The agent runs on synthetic data only.
+ * The agent and the S2 ask route run on synthetic data only.
  *
- * Decided by the user on 2026-11-07 (BUILD_NOTES Entry 101): the development
+ * Decided by the user on 2026-11-07 and 2026-11-09 (BUILD_NOTES Entries 101, 105): the development
  * database `chatapp` holds real people's accounts and messages, and the agent's
  * tools read the app's records through this server. So the agent route refuses,
  * with the same plain "not configured" sentence as any other missing setting,
@@ -13,8 +13,8 @@
  * value someone sets. The AI service keeps the same list
  * (ai/config.py, AGENT_SYNTHETIC_DATABASES) and checks its own databases too.
  *
- * The S2 ask route is not affected: it reads only the index, through the AI
- * service, as before.
+ * Free-tier providers may use what they are sent, so nothing built from real
+ * records may reach one: the S2 ask route refuses on the same list.
  */
 
 const SYNTHETIC_DATABASES = Object.freeze([
@@ -22,6 +22,8 @@ const SYNTHETIC_DATABASES = Object.freeze([
   'chatapp_eval',
   'chatapp_demo_eval',
   'chatapp_eval_ctx',
+  'chatapp_agent_eval',
+  'chatapp_asklive',
   'chatapp_test',
   'chatapp_rag_pytest',
   'chatapp_rag_pytest_app'

@@ -212,6 +212,16 @@ class AskRequest(BaseModel):
     studentName: str = Field(default="", max_length=200)
 
 
+# The app database `/ask` and `/agent` read records from: a module attribute, so a
+# test can set it without touching any database.
+AGENT_APP_DB = APP_DB_NAME
+
+
+def database_problem() -> str | None:
+    """Why neither route may run on these databases, for the log; None if they may."""
+    return agent_database_problem(AGENT_APP_DB, getattr(getattr(store, "db", None), "name", ""))
+
+
 # A provider problem, as Express should pass it on. The body carries the
 # provider layer's plain sentence, which is all the user ever sees of it.
 ASK_STATUS = {
@@ -233,6 +243,14 @@ def ask(body: AskRequest) -> JSONResponse:
     check): nothing is answered from chunks nobody checked.
     """
     log = logging.getLogger("copilot.answer")
+    problem = database_problem()
+    if problem:
+        log.warning("ask refused: %s", problem)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "message": "The Copilot is not configured on this server",
+                     "promptVersion": PROMPT_VERSION},
+        )
     try:
         result = answer(
             store, body.mentorshipId, body.viewerId, body.question, provider,
@@ -255,9 +273,6 @@ def ask(body: AskRequest) -> JSONResponse:
 # What the user reads when the agent may not run here. One sentence, the same
 # whatever the reason: which database is configured is not theirs to learn.
 AGENT_NOT_CONFIGURED = "The agent is not configured on this server."
-# The app database `/agent` reads records from: a module attribute, so a test can
-# set it without touching any database.
-AGENT_APP_DB = APP_DB_NAME
 
 
 class AgentRequest(BaseModel):
@@ -291,8 +306,7 @@ def agent_turn(body: AgentRequest) -> JSONResponse:
     layer's status for a provider problem, as for `/ask`.
     """
     log = logging.getLogger("copilot.agent")
-    index_db = getattr(getattr(store, "db", None), "name", "")
-    problem = agent_database_problem(AGENT_APP_DB, index_db)
+    problem = database_problem()
     if problem:
         log.warning("agent refused: %s", problem)
         return JSONResponse(status_code=503, content={"status": "error", "message": AGENT_NOT_CONFIGURED})

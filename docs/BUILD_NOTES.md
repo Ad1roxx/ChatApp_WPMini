@@ -7702,6 +7702,30 @@ the count is printed with or without `-q`.
 
 ---
 
+### Entry 105 — The ask route joins the synthetic-only rule, and `s2-v4` serves
+
+**The S2 ask route now refuses non-synthetic databases** (the user, 2026-11-09,
+reversing the 2026-11-07 decision that it keep its behaviour). It uses the same list
+as the agent, checked in Express before anything is read, and in the AI service for
+both the app database and the index. Anywhere else it answers "The Copilot is not
+configured on this server". The test that had a real server's ask route still
+answering on an unlisted database now asserts the refusal, and nothing reaches the
+service. Refused for `chatapp` on `/ask` itself. `/copilot/search` isn't changed: it
+returns passages and calls no provider.
+
+The list gains two synthetic databases: `chatapp_asklive`, which the live ask check
+uses and which would otherwise now be refused, and `chatapp_agent_eval`, the fixture
+for S4's evaluation.
+
+**`answer.py` serves `s2-v4`** (`PROMPT_VERSION`), the decision Entry 98 recorded
+under the committed rule. The two parties' names, which it needs, were already sent
+by Express. The `s2-v3` prompt stays, so earlier runs remain reproducible.
+
+**Mutations: 4, all caught:** Express's check removed; the AI service's check removed;
+`chatapp` added to Express's list; `PROMPT_VERSION` back at `s2-v3`.
+
+---
+
 ---
 
 ### Open items / "later" list
@@ -7710,7 +7734,7 @@ the count is printed with or without `-q`.
 - ~~**The development database's real file is in the served index**~~ — removed, and gone from `chatapp_rag` (Entry 99).
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
 - **Gemini returns 503s in bursts** — 19 of 48 calls in one 17-minute window (Entry 90). A 503 is now retried once if time allows (Entry 91); a sustained burst still fails. Groq is the manual fallback.
-- **`s2-v4` met the names rule on the new search but is not served** (Entry 98). Switching `answer.py`'s `PROMPT_VERSION` is the user's call.
+- ~~**`s2-v4` met the names rule on the new search but was not served**~~ — it serves (Entry 105).
 - ~~**Server-side auth on mutating endpoints**~~ — done in Entry 15. Firebase
   ID tokens are verified on every REST route and at the socket handshake.
 - ~~**ESLint is broken**~~ — fixed in Entry 11. `npm run lint` now covers

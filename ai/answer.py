@@ -71,7 +71,7 @@ log = logging.getLogger("copilot.answer")
 # PROMPTS below can all still be run (`answer(..., prompt_version=...)`), so a
 # comparison between them uses the same code; this is the one that serves.
 # s2-v3: the rule in BUILD_NOTES Entry 76 did not adopt s2-v4 (eval/s2-v4-decision.txt).
-PROMPT_VERSION = "s2-v3"
+PROMPT_VERSION = "s2-v4"
 
 ABSTAIN_MARKER = "NO_ANSWER"
 

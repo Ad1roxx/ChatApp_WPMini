@@ -23,7 +23,7 @@ test('and for the served index, and for anything not listed', () => {
 
 test('the list is the demo, the evaluation fixtures and the tests\' own databases, as the AI service has it', () => {
   assert.deepEqual([...SYNTHETIC_DATABASES].sort(), [
-    'chatapp_demo', 'chatapp_demo_eval', 'chatapp_eval', 'chatapp_eval_ctx',
+    'chatapp_agent_eval', 'chatapp_asklive', 'chatapp_demo', 'chatapp_demo_eval', 'chatapp_eval', 'chatapp_eval_ctx',
     'chatapp_rag_pytest', 'chatapp_rag_pytest_app', 'chatapp_test'
   ]);
   for (const name of SYNTHETIC_DATABASES) assert.equal(agentDatabaseRefusal(name), null);

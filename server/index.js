@@ -3778,6 +3778,11 @@ function allowAsk(userId) {
  */
 app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
   try {
+    // Synthetic databases only, as for the agent. Before anything else is read.
+    if (agentDatabaseRefusal(mongoose.connection.name)) {
+      return res.status(503).json({ error: 'The Copilot is not configured on this server' });
+    }
+
     const access = await resolveMentorshipAccess(req.params.id, req.authUser);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });

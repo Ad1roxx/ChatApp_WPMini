@@ -9,7 +9,8 @@
  * goes down the same path. That database is made, seeded with the fixture
  * users, and dropped by this file.
  *
- * In every case the S2 ask route keeps working exactly as before.
+ * The S2 ask route is refused on the same list (BUILD_NOTES Entry 105), and keeps
+ * working when only the agent is switched off.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -127,9 +128,11 @@ test('on a database that is not on the list, the agent is not configured, even s
     assert.deepEqual(await res.json(), NOT_CONFIGURED, 'the same sentence: which database is not said');
     assert.deepEqual(await mode(), { mode: 'ask' });
 
-    // The S2 ask route keeps its behaviour on the same server.
-    assert.equal((await ask(id)).status, 200);
-    assert.deepEqual(received.map((r) => r.path), ['/ask'], 'nothing reached the agent');
+    // The S2 ask route is refused on the same list, and nothing reaches the service.
+    const asked = await ask(id);
+    assert.equal(asked.status, 503);
+    assert.deepEqual(await asked.json(), { error: 'The Copilot is not configured on this server' });
+    assert.deepEqual(received, [], 'nothing reached the AI service');
   } finally {
     await stop();
     await conn.dropDatabase();

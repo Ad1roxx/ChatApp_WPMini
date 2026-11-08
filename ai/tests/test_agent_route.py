@@ -87,7 +87,7 @@ def test_only_the_listed_names_pass(name):
 
 def test_the_list_is_the_demo_the_evaluation_fixtures_and_the_tests_own_databases():
     assert AGENT_SYNTHETIC_DATABASES == {
-        "chatapp_demo", "chatapp_eval", "chatapp_demo_eval", "chatapp_eval_ctx",
+        "chatapp_demo", "chatapp_eval", "chatapp_demo_eval", "chatapp_eval_ctx", "chatapp_agent_eval", "chatapp_asklive",
         "chatapp_test", "chatapp_rag_pytest", "chatapp_rag_pytest_app",
     }
     assert agent_database_problem("chatapp_demo", "chatapp_demo") is None
