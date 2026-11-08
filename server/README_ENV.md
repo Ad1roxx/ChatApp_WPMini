@@ -45,7 +45,9 @@ Two values are required:
 Optional:
 
 - **`ADMIN_EMAILS`** — comma-separated addresses granted `admin` at sign-in.
-  This is the only way to become an admin.
+  This is the only way to become an admin. Real addresses stay out of the
+  repository folder: it goes in `server.env`, beside the file `AI_ENV_FILE`
+  names. The server will not start without that file, though it may be empty.
 - **`PORT`** — defaults to 3001.
 - **`AI_SERVICE_URL`** and **`AI_SERVICE_SECRET`** — where the retrieval
   service (`ai/`) listens, and the secret it expects. Both or neither. With

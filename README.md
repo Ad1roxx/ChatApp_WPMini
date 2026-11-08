@@ -110,8 +110,8 @@ You need **Node.js** and a **MongoDB** instance (local or Atlas).
 ```bash
 cd server
 npm install
-cp .env.example .env      # set MONGODB_URI, FIREBASE_PROJECT_ID, and
-                          # ADMIN_EMAILS if you want the dashboard
+cp .env.example .env      # set MONGODB_URI and FIREBASE_PROJECT_ID. ADMIN_EMAILS goes in
+                          # server.env beside the AI_ENV_FILE file: see .env.example
 node index.js             # http://localhost:3001
 ```
 

@@ -5,8 +5,9 @@
  *
  * Fails on anything shaped like a Google or Groq API key, and, where the file named by
  * `AI_ENV_FILE` exists, on the exact values of the secrets in it. Also fails if that file
- * is inside the repository, or if `ai/.env` holds a secret: other tools work in this
- * folder and can read any file in it, git-ignored or not. Printed by file and kind only:
+ * is inside the repository, or if `ai/.env` or `server/.env` holds a secret or the real
+ * admin addresses (those live in `server.env` beside it): other tools work in this folder
+ * and can read any file in it, git-ignored or not. Printed by file and kind only:
  * a scan that echoed a key would be a leak of its own.
  *
  * With CHECK_KEYS_REQUIRE_VALUES=1 (the pre-push gate), having no values to check for is a
@@ -31,7 +32,7 @@ const FIREBASE_FILE = 'src/firebase.js';
 export function secretsIn(text) {
   const keys = {};
   for (const line of text.split(/\r?\n/)) {
-    const match = line.match(/^\s*(GEMINI_API_KEY|GROQ_API_KEY|AI_SERVICE_SECRET)\s*=\s*(.+?)\s*$/);
+    const match = line.match(/^\s*(GEMINI_API_KEY|GROQ_API_KEY|AI_SERVICE_SECRET|ADMIN_EMAILS)\s*=\s*(.+?)\s*$/);
     if (!match) continue;
     const value = match[2].replace(/^["']|["']$/g, '');
     if (value) keys[match[1]] = value;
@@ -40,8 +41,11 @@ export function secretsIn(text) {
 }
 
 /** What is wrong with where the secrets are kept; pure, so it can be tested. */
-export function placementProblems({ root, envFile, repoEnvText }) {
-  const found = Object.keys(secretsIn(repoEnvText || '')).map((name) => `ai/.env holds ${name}: move it to the AI_ENV_FILE file`);
+export function placementProblems({ root, envFile, repoEnvText, serverRepoEnvText }) {
+  const found = [
+    ...Object.keys(secretsIn(repoEnvText || '')).map((name) => `ai/.env holds ${name}: move it to the AI_ENV_FILE file`),
+    ...Object.keys(secretsIn(serverRepoEnvText || '')).map((name) => `server/.env holds ${name}: move it to server.env beside the AI_ENV_FILE file`)
+  ];
   if (envFile) {
     const relative = path.relative(path.resolve(root), path.resolve(envFile));
     if (!relative.startsWith('..') && !path.isAbsolute(relative)) found.push('AI_ENV_FILE is inside the repository');
@@ -70,17 +74,19 @@ function main() {
     .split('\n')
     .filter(Boolean);
   const envFile = process.env.AI_ENV_FILE || '';
-  const secrets = secretsIn(readIf(envFile));
-  const haveValues = Object.keys(secrets).length > 0;
+  const aiSecrets = secretsIn(readIf(envFile));
+  const serverPrivate = secretsIn(readIf(envFile ? path.join(path.dirname(envFile), 'server.env') : ''));
+  const secrets = { ...aiSecrets, ...serverPrivate };
+  const haveValues = Object.keys(aiSecrets).length > 0 && Object.keys(serverPrivate).length > 0;
   let scanned = 0;
   let failed = false;
 
-  for (const problem of placementProblems({ root: ROOT, envFile, repoEnvText: readIf(path.join(ROOT, 'ai', '.env')) })) {
+  for (const problem of placementProblems({ root: ROOT, envFile, repoEnvText: readIf(path.join(ROOT, 'ai', '.env')), serverRepoEnvText: readIf(path.join(ROOT, 'server', '.env')) })) {
     console.error(problem);
     failed = true;
   }
   if (!haveValues && process.env.CHECK_KEYS_REQUIRE_VALUES === '1') {
-    console.error('AI_ENV_FILE does not name a file with secrets in it, so their exact values could not be checked for.');
+    console.error('AI_ENV_FILE does not name a file with secrets in it, with a server.env beside it, so their exact values could not be checked for.');
     failed = true;
   }
 
@@ -96,7 +102,7 @@ function main() {
     }
   }
 
-  console.log(`Scanned ${scanned} files${haveValues ? ', with the values in the AI_ENV_FILE file' : ', by shape only'}: ${failed ? 'PROBLEMS FOUND' : 'clean'}.`);
+  console.log(`Scanned ${scanned} files${haveValues ? ', with the values in the private files' : ', by shape only'}: ${failed ? 'PROBLEMS FOUND' : 'clean'}.`);
   if (failed) process.exit(1);
 }
 

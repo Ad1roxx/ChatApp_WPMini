@@ -4,6 +4,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { placementProblems, problemsIn, secretsIn } from '../../scripts/check-keys.mjs';
 
@@ -72,4 +76,37 @@ test('asked to require the exact values, the scan fails when it has none', () =>
 test('the pre-push gate requires the exact values, and the key scan is what it runs', async () => {
   const { suiteEnv } = await import('../../scripts/pre-push.mjs');
   assert.equal(suiteEnv({}).CHECK_KEYS_REQUIRE_VALUES, '1');
+});
+
+test('asked to require the exact values, the scan fails with secrets but no server.env beside them', (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'check-keys-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const envFile = path.join(dir, 'ai.env');
+  // Made at run time, so that no scanned file can hold it and fail the scan some other way.
+  writeFileSync(envFile, `GEMINI_API_KEY=${randomBytes(16).toString('hex')}\n`);
+  const script = fileURLToPath(new URL('../../scripts/check-keys.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [script], {
+    encoding: 'utf8',
+    env: { ...process.env, AI_ENV_FILE: envFile, CHECK_KEYS_REQUIRE_VALUES: '1' }
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /could not be checked for/);
+});
+
+test('real admin addresses in server/.env fail, naming the setting and never the addresses', () => {
+  const address = 'someone@example.test';
+  const problems = placementProblems({ root: 'C:/repo', envFile: 'C:/private/ai.env', serverRepoEnvText: `PORT=3001\nADMIN_EMAILS=${address}\n` });
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /server\/\.env holds ADMIN_EMAILS/);
+  assert.ok(!problems[0].includes(address));
+});
+
+test('server/.env with only settings passes', () => {
+  assert.deepEqual(placementProblems({ root: 'C:/repo', envFile: 'C:/private/ai.env', serverRepoEnvText: 'PORT=3001\nADMIN_EMAILS=\n' }), []);
+});
+
+test('the real admin addresses are among the exact values looked for', () => {
+  const value = 'someone@example.test';
+  const found = problemsIn('docs/notes.md', `mail ${value}`, secretsIn(`ADMIN_EMAILS=${value}\n`));
+  assert.deepEqual(found, ['the value of ADMIN_EMAILS']);
 });

@@ -7661,8 +7661,27 @@ inside; the service secret not treated as a secret; no exact values not a
 failure when required; the gate not requiring them; the terms looked for in the
 repository; no terms file passing.
 
-**Still in the folder, and not secrets:** `server/.env` has `ADMIN_EMAILS`, which
-is real addresses. Left for the user to decide.
+---
+
+### Entry 103 — The real admin addresses move out too
+
+`ADMIN_EMAILS` names real people, so it follows the keys (Entry 102). It is now in
+`server.env`, beside the file `AI_ENV_FILE` names, and `server/.env` no longer
+holds it. There is no second variable to set.
+
+- **`server/lib/privateEnv.js`** finds the file. The server refuses to start, with
+  a plain sentence, if `AI_ENV_FILE` is unset or `server.env` isn't there, as it
+  does without `FIREBASE_PROJECT_ID`. The file may be empty.
+- **Order:** the environment, then `server.env`, then `server/.env`.
+- **Test servers** are given an empty fixture instead, so no test reads the real
+  file, and CI, which has none, can start one.
+- **The key scan** now fails on `ADMIN_EMAILS` in `server/.env`, looks for its
+  exact value in every file, and in the pre-push gate requires `server.env` too.
+
+**Mutations: 9, all caught:** unset not refused; `server.env` missing not refused;
+the file not loaded; the file overriding the environment; the server ignoring the
+problem; the example assigning an address; addresses in `server/.env` allowed;
+the addresses not looked for; the gate not requiring `server.env`.
 
 ---
 

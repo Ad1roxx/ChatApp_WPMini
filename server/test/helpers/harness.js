@@ -23,6 +23,9 @@ const { io } = require('socket.io-client');
 const PORT = Number(process.env.TEST_PORT || 3199);
 const BASE = `http://127.0.0.1:${PORT}`;
 const TEST_DB = 'mongodb://127.0.0.1:27017/chatapp_test';
+// Beside this name is a server.env with nothing in it, so a test server never reads
+// the real one, and CI, which has none, can start one.
+const FIXTURE_ENV_FILE = path.join(__dirname, 'private-env', 'ai.env');
 
 // Fixed ids so tests can reference users without a lookup dance.
 const USERS = {
@@ -109,6 +112,7 @@ async function start({ seedFirst = true, extraEnv = {} } = {}) {
       ...process.env,
       PORT: String(PORT),
       MONGODB_URI: TEST_DB,
+      AI_ENV_FILE: FIXTURE_ENV_FILE,
       // Any non-empty value works: no test presents a real Google token, so
       // the audience check is never reached.
       FIREBASE_PROJECT_ID: 'test-project',
@@ -199,7 +203,7 @@ function once(socket, event, ms = 2000) {
 const settle = (ms = 500) => new Promise((r) => setTimeout(r, ms));
 
 module.exports = {
-  BASE, PORT, TEST_DB, USERS,
+  BASE, PORT, TEST_DB, USERS, FIXTURE_ENV_FILE,
   start, stop, seed, api, db, mongoose,
   connect, once, settle
 };

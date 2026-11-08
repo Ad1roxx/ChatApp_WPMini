@@ -10,7 +10,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { start, stop, api, seed } = require('./helpers/harness');
+const { start, stop, api, seed, FIXTURE_ENV_FILE } = require('./helpers/harness');
 
 /** Run the server with this environment until it exits; resolve with code and output. */
 function boot(extraEnv) {
@@ -20,6 +20,7 @@ function boot(extraEnv) {
       env: {
         ...process.env,
         PORT: '3198',
+        AI_ENV_FILE: FIXTURE_ENV_FILE,
         MONGODB_URI: 'mongodb://127.0.0.1:27017/chatapp_test',
         FIREBASE_PROJECT_ID: 'test-project',
         ...extraEnv

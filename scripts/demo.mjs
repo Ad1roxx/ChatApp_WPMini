@@ -126,6 +126,9 @@ async function main() {
   if (!process.env.AI_ENV_FILE || !existsSync(process.env.AI_ENV_FILE)) {
     fail('AI_ENV_FILE must name the file outside the repository that holds the keys. See ai/.env.example.');
   }
+  if (!existsSync(path.join(path.dirname(process.env.AI_ENV_FILE), 'server.env'))) {
+    fail('There is no server.env beside the AI_ENV_FILE file. See server/.env.example.');
+  }
   if (docker('info').status !== 0) {
     fail('Docker is not running. Start Docker Desktop, wait for it to say it is running, and run this again.');
   }

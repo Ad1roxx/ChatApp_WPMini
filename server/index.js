@@ -15,7 +15,15 @@
  * - WebSocket (Socket.IO): For real-time events (new messages, typing indicators)
  */
 
+// The private file first: neither overrides what the environment sets, so the order
+// is the environment, then server.env outside the repository, then server/.env.
+const { loadServerEnv } = require('./lib/privateEnv');
+const privateEnvProblem = loadServerEnv();
 require('dotenv').config();
+if (privateEnvProblem) {
+  console.error(`\n${privateEnvProblem}\n`);
+  process.exit(1);
+}
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
