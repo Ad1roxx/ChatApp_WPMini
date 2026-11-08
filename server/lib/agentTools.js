@@ -186,7 +186,10 @@ const TOOLS = {
             title: text(read.assignment.title),
             dueAt: when(read.assignment.dueAt),
             students: summary.total,
-            handedIn: summary.handedIn,
+            // Everything handed in, including what has been sent back. The page's own
+            // `handedIn` leaves those out; said to a mentor as a count it reads as "0 handed
+            // in" about work that has been (BUILD_NOTES Entry 107). Shown beside its own count.
+            handedIn: summary.handedIn + summary.changesRequested,
             waitingForReview: summary.toReview,
             accepted: summary.accepted,
             changesRequested: summary.changesRequested,

@@ -255,6 +255,11 @@ AGENT_MAX_INPUT_TOKENS_TURN = int(os.getenv("AI_AGENT_MAX_INPUT_TOKENS_TURN", "1
 # Express waits 35 s (COPILOT_AGENT_TIMEOUT_MS) and the browser 40 s, so each
 # layer answers before the one in front of it gives up.
 AGENT_BUDGET_S = float(os.getenv("AI_AGENT_BUDGET_S", "30"))
+# Times are shown to the model in this zone, already formatted (Entry 107). A record
+# holds UTC, and the service does not know where a viewer is, so this is one fixed
+# zone: the one the people using this app are in.
+AGENT_TIME_OFFSET_MINUTES = int(os.getenv("AI_AGENT_TIME_OFFSET_MINUTES", "330"))
+AGENT_TIME_ZONE_NAME = os.getenv("AI_AGENT_TIME_ZONE_NAME", "IST")
 # summarize_attachment (S4 Step 4): at most this many sections, one summary call
 # each, then one call to combine them. All of it is one tool call of the turn,
 # inside the turn's time budget. A section longer than this many tokens is

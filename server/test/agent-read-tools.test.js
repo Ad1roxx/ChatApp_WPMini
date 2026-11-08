@@ -201,7 +201,7 @@ test('get_assignment_overview: counts for work set in this mentorship, to the me
     assert.equal(a.title, 'Write a postmortem');
     assert.equal(a.students, 2);
     assert.equal(a.changesRequested, 1);
-    assert.equal(a.handedIn, 0);
+    assert.equal(a.handedIn, 1, 'what was sent back has been handed in');
     assert.equal(a.submissions, undefined);
   });
   await t.test('not for work set only in their other mentorship', async () => {

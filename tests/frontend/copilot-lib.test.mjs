@@ -161,3 +161,10 @@ test("an answer's notes are kept, strings only", () => {
   assert.deepEqual(out.notes, ['I covered 1 of 1.']);
   assert.deepEqual(outcomeOf(200, { status: 'answered', answer: 'x' }).notes, []);
 });
+
+test("data the agent can't see gets our own sentence, whatever came back", () => {
+  assert.deepEqual(outcomeOf(200, { status: 'abstained', cause: 'not_visible', message: 'internals' }), {
+    state: 'abstained', message: MESSAGES.notVisible
+  });
+  assert.equal(outcomeOf(200, { status: 'abstained', cause: 'declined' }).message, MESSAGES.abstained);
+});

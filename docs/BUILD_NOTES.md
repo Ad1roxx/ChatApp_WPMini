@@ -7824,6 +7824,7 @@ which that check had not been given.
 
 ### Open items / "later" list
 
+- **Antigravity is out of the development workflow for now** (2026-11-09). Headless mode could not finish a provider check under restricted settings: it was denied a command it wanted, then ran past 200 s when told to use web tools only. The offered fix was `--dangerously-skip-permissions`, which is not used. Research and provider checks are done directly. Its browser checks were never tested.
 - **The agent addresses a mentor as the student** (Entry 106): `agent-v1` isn't given the two parties' names. A new prompt version, measured as `s2-v4` was.
 - **A refused request can be answered with the asker's own data, unannounced** (Entry 106). Not a leak; the reader should be told.
 - **`summarize_attachment` can spend a turn without answering** (Entry 106, `su-04`): the fourth model call runs out. Give the summary's answer room, or stop it trying a handle it hasn't got.

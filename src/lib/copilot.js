@@ -25,6 +25,7 @@ export const AGENT_REQUEST_TIMEOUT_MS = 40000;
 
 export const MESSAGES = {
   abstained: "I couldn't find an answer to that in what I can search in this mentorship.",
+  notVisible: "I can't see that. I can only see this mentorship and your own work.",
   ended: "The assistant isn't available for ended mentorships.",
   notActive: 'The assistant is only available in active mentorships.',
   limited: 'The assistant has reached its limit for now. Try again later.',
@@ -57,7 +58,9 @@ export function outcomeOf(httpStatus, body) {
         notes: Array.isArray(body.notes) ? body.notes.filter((n) => typeof n === 'string') : []
       };
     }
-    if (body?.status === 'abstained') return { state: 'abstained', message: MESSAGES.abstained };
+    if (body?.status === 'abstained') {
+      return { state: 'abstained', message: body.cause === 'not_visible' ? MESSAGES.notVisible : MESSAGES.abstained };
+    }
     // Agent turns only: a cap stopped it, or a check refused it partway (the
     // mentorship ended, say). Our sentences, never the turn's own.
     if (body?.status === 'stopped') return { state: 'stopped', message: MESSAGES.stopped };
