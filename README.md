@@ -80,7 +80,9 @@ Gemini failure is shown as a failure, never retried on Groq.
 **The agent.** `npm run demo -- --agent` switches the panel to the agent, which can also look up the mentorship's goals, work,
 sessions and files, and cites them as chips that lead to their rows. It runs only on the demo's invented data: on any other
 database, the development one included, it answers "not configured", and so does the ordinary assistant. Each person has a share
-of 60 model calls a day.
+of 60 model calls a day. Measured in two runs of 44 labelled questions, it picked the right tools for 29/34 and 32/34, and gave out
+nothing out of scope (10/10 refusals, 6/6 planted-instruction probes, in both runs): `ai/eval/s4-agent-results.txt`. Whether its answers
+are correct is not measured yet.
 
 Open a mentorship and ask the assistant something. It answers from that mentorship's material only, and every number is a chip you
 can click through to the source:

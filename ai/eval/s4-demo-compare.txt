@@ -1,0 +1,58 @@
+The nine S3 demo questions: the S2 path against the agent, through Express, on chatapp_demo. Not scored.
+
+[student] Which algorithm did I choose for my rate limiter, and why?
+  S2 (s2-v4): abstained / declined, 4049 ms, 1 model calls
+    -
+  agent: answered, 6728 ms, 4 model calls
+    You chose a token bucket algorithm stored in Redis [10]. You compared it against a fixed window and a sliding window log, rejecting the fixed window because it lets a client send twice the limit across a window boundary, and rejecting the sliding log because it stores a timestamp per request, which would require about 13,000 entries in Redis during lunch for no noticeable benefit [9]. You chose the token bucket because it stores two numbers per user, allows short bursts, and matches how people actually use a menu [9].
+
+[student] What does Meera want me to change in my rate limiter design?
+  S2 (s2-v4): answered, 1248 ms, 1 model calls
+    Meera wants you to make two changes to your rate limiter design [2]. First, you should charge by what a request costs the database [2]. Second, you need to check whether a whole hostel behind one IP address will be refused on the first day of term by pulling last term's logs before resubmitting [2].
+  agent: answered, 2053 ms, 2 model calls
+    Meera wants you to charge by what a request costs the database [T1]. She also wants you to check whether a whole hostel behind one IP address will be refused on the first day of term, and to pull last term's logs for that before resubmitting [T1].
+
+[student] What caused the lunch-rush outage?
+  S2 (s2-v4): answered, 1284 ms, 1 model calls
+    The lunch-rush outage was caused by the database connection pool running out [1][2]. Each request held a database connection for its entire duration, including calls to the payment provider that took about 800 milliseconds instead of the usual 120 milliseconds [1]. This caused connections to be held about seven times longer than normal, exhausting the pool of 20 connections and leaving new requests to queue until they timed out [1].
+  agent: answered, 2958 ms, 2 model calls
+    The cause was the database connection pool running out [1]. Each request held a database connection for its entire duration, including an unusually slow call to the payment provider that lasted about 800 milliseconds instead of 120 [4]. Because connections were held about seven times longer than normal, the pool of 20 was exhausted, causing new requests to queue for a connection until they timed out [4].
+
+[student] How long does the server remember an idempotency key?
+  S2 (s2-v4): answered, 1534 ms, 1 model calls
+    The server stores the idempotency key for 24 hours [1].
+  agent: answered, 2158 ms, 2 model calls
+    The server remembers an idempotency key for 24 hours [1].
+
+[student] What is the canteen's refund policy?
+  S2 (s2-v4): abstained / declined, 1441 ms, 1 model calls
+    -
+  agent: abstained / declined, 5626 ms, 2 model calls
+    -
+
+[mentor] How did Rohan test his rate limiter, and what were the results?
+  S2 (s2-v4): answered, 2060 ms, 1 model calls  (first try failed: 502 after 8557 ms)
+    Rohan tested his rate limiter by running a k6 script of the lunch peak against a staging copy, which included 900 requests a minute from 300 virtual students plus one client polling every 200 milliseconds [1]. Without the limiter, the p95 for placing an order was 2.4 seconds, but with it, the p95 for everyone else dropped to 310 milliseconds while the polling client was refused about 94 percent of the time [1]. Additionally, no ordinary student in the test was ever refused [1].
+  agent: answered, 15503 ms, 2 model calls
+    You tested the rate limiter by running a k6 script of the lunch peak against a staging copy with 900 requests a minute from 300 virtual students, plus one client polling every 200 milliseconds [3]. As a result, without the limiter the p95 for placing an order was 2.4 seconds, but with it the polling client was refused about 94 per cent of the time, the p95 for everyone else came down to 310 milliseconds, and no ordinary student in the test was ever refused [3].
+
+[mentor] What is still open in Rohan's rate limiter design?
+  S2 (s2-v4): answered, 1516 ms, 1 model calls  (first try failed: 502 after 8555 ms)
+    Rohan notes that a shared hostel Wi-Fi places many anonymous students behind one single IP address, which might make the anonymous bucket too small on the first day of term before anyone has signed in [1]. He currently lacks data on this and wants to check last term's logs before making any changes [1].
+  agent: answered, 6054 ms, 2 model calls
+    You requested two changes on Rohan's rate limiter design: to charge by what a request costs the database, and to check whether a whole hostel behind one IP address will be refused on the first day of term by pulling last term's logs before resubmitting [T1].
+
+[mentor] What action items came out of the postmortem?
+  S2 (s2-v4): answered, 1550 ms, 1 model calls
+    The action items from the postmortem are to release the connection before calling the payment provider, add pool wait time to the main dashboard, set an alert when pool wait passes 100 milliseconds, and set a two-second timeout on the provider call with one retry [1].
+  agent: answered, 2893 ms, 2 model calls
+    The action items are to release the connection before calling the payment provider, add pool wait time to the main dashboard, alert when pool wait passes 100 milliseconds, and set a two-second timeout on the provider call with one retry [4].
+
+[mentor] Which milestones on Rohan's goal are still to do?
+  S2 (s2-v4): answered, 1242 ms, 1 model calls  (first try failed: 502 after 8581 ms)
+    The milestones still to do on Rohan's goal are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [1].
+  agent: answered, 1880 ms, 2 model calls
+    The milestones still to do on your goal are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [T1].
+
+S2:    answered 7/9, declined 2/9, median 1516 ms, 3 needed a retry (model calls: not counted by this route)
+agent: answered 8/9, declined 1/9, median 2958 ms, 20 model calls, 0 needed a retry

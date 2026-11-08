@@ -810,6 +810,42 @@ footnote text.
 
 ### S4 — Agent loop, read tools only
 
+**Done** (BUILD_NOTES entries 93–106). Off by default (`COPILOT_AGENT`), and only on synthetic databases.
+Measured in two runs of 44 labelled questions under a rule committed first: tool selection 29/34 and 32/34,
+arguments 10/10 and 10/10, refusals 10/10 and 10/10, injection 6/6 and 6/6 with every plant reaching the model
+and no out-of-scope call tried. Provider: Gemini, Groq as a manual setting. Faithfulness is still S6's.
+
+**The tools as built** (`ai/agent.py`, `server/lib/agentTools.js`). The plan's twelve became these nine, plus one
+internal check the model is never offered:
+
+| Tool | Who | Reach | Runs in |
+| --- | --- | --- | --- |
+| `list_goals` | both | this mentorship | Express |
+| `list_mentorship_assignments` | both | this mentorship | Express |
+| `list_sessions` | both | this mentorship | Express |
+| `list_resources` | both | this mentorship | Express |
+| `search_mentorship_material` | both | this mentorship | AI service, viewer filter and read-time check |
+| `get_assignment_overview` | mentor | work set in this mentorship; counts only | Express |
+| `list_my_work` | both | the asker's own, across mentorships | Express |
+| `list_my_upcoming_sessions` | both | the asker's own, across mentorships | Express |
+| `summarize_attachment` | both | one file of a hand-in in this mentorship | Express checks, text from the index |
+| `check_attachment` (internal) | both | never offered to the model | Express |
+
+**What S5 should change, from S4:**
+
+- **How `interrupt()` sits in this loop.** A write node calls `interrupt()` before anything runs, between the model
+  node and execution. That needs the checkpointer S4 left out, a thread id for the turn, and a graph that can be rebuilt on
+  resume: today the nodes are closures over a `Turn`, compiled per turn.
+- **The token cannot outlive the wait.** A capability token expires with the turn and never after 120 s; a person may take
+  longer to confirm. Resuming must mint a new one and re-run every check, and the token stays out of checkpointed state.
+- **The LangGraph restart caveat.** `InMemorySaver` loses a paused turn when the service restarts, so a pending proposal must
+  say it expired rather than vanish. A resumed node re-runs from its start, so anything before `interrupt()` must be safe to
+  repeat. The test in S5's list holds this.
+- **Caps count from the start of the turn.** A confirmation must not eat the 30 s, and `su-04` (Entry 106) shows the fourth model
+  call can already run out.
+- **The agent prompt needs the parties' names**, as data (`s2-v4`'s way), before any proposal says who something is for: it
+  addresses a mentor as the student today. And tool times need formatting before a dialog shows one.
+
 Deliverables: LangGraph loop with checkpointer; the `ToolSpec` registry; the
 12 read tools; **role filtering from day one**; step and token caps.
 

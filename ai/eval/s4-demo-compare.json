@@ -1,0 +1,323 @@
+[
+ {
+  "as": "student",
+  "question": "Which algorithm did I choose for my rate limiter, and why?",
+  "ask": {
+   "first_failure": null,
+   "http": 200,
+   "status": "abstained",
+   "cause": "declined",
+   "ms": 4049,
+   "answer": null,
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 6728,
+   "answer": "You chose a token bucket algorithm stored in Redis [10]. You compared it against a fixed window and a sliding window log, rejecting the fixed window because it lets a client send twice the limit across a window boundary, and rejecting the sliding log because it stores a timestamp per request, which would require about 13,000 entries in Redis during lunch for no noticeable benefit [9]. You chose the token bucket because it stores two numbers per user, allows short bursts, and matches how people actually use a menu [9].",
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [
+    "Hand-in: Design rate limiting for the ordering API",
+    "rate-limiter-design.pdf"
+   ],
+   "modelCalls": 4,
+   "toolCalls": 3,
+   "summaryCalls": 0
+  }
+ },
+ {
+  "as": "student",
+  "question": "What does Meera want me to change in my rate limiter design?",
+  "ask": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 1248,
+   "answer": "Meera wants you to make two changes to your rate limiter design [2]. First, you should charge by what a request costs the database [2]. Second, you need to check whether a whole hostel behind one IP address will be refused on the first day of term by pulling last term's logs before resubmitting [2].",
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [
+    "Hand-in: Design rate limiting for the ordering API"
+   ],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 2053,
+   "answer": "Meera wants you to charge by what a request costs the database [T1]. She also wants you to check whether a whole hostel behind one IP address will be refused on the first day of term, and to pull last term's logs for that before resubmitting [T1].",
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [
+    "Design rate limiting for the ordering API"
+   ],
+   "modelCalls": 2,
+   "toolCalls": 1,
+   "summaryCalls": 0
+  }
+ },
+ {
+  "as": "student",
+  "question": "What caused the lunch-rush outage?",
+  "ask": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 1284,
+   "answer": "The lunch-rush outage was caused by the database connection pool running out [1][2]. Each request held a database connection for its entire duration, including calls to the payment provider that took about 800 milliseconds instead of the usual 120 milliseconds [1]. This caused connections to be held about seven times longer than normal, exhausting the pool of 20 connections and leaving new requests to queue until they timed out [1].",
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [
+    "lunch-rush-postmortem.docx",
+    "lunch-rush-postmortem.docx"
+   ],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 2958,
+   "answer": "The cause was the database connection pool running out [1]. Each request held a database connection for its entire duration, including an unusually slow call to the payment provider that lasted about 800 milliseconds instead of 120 [4]. Because connections were held about seven times longer than normal, the pool of 20 was exhausted, causing new requests to queue for a connection until they timed out [4].",
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [
+    "lunch-rush-postmortem.docx",
+    "lunch-rush-postmortem.docx"
+   ],
+   "modelCalls": 2,
+   "toolCalls": 1,
+   "summaryCalls": 0
+  }
+ },
+ {
+  "as": "student",
+  "question": "How long does the server remember an idempotency key?",
+  "ask": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 1534,
+   "answer": "The server stores the idempotency key for 24 hours [1].",
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [
+    "Hand-in: Make order placement idempotent"
+   ],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 2158,
+   "answer": "The server remembers an idempotency key for 24 hours [1].",
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [
+    "Hand-in: Make order placement idempotent"
+   ],
+   "modelCalls": 2,
+   "toolCalls": 1,
+   "summaryCalls": 0
+  }
+ },
+ {
+  "as": "student",
+  "question": "What is the canteen's refund policy?",
+  "ask": {
+   "first_failure": null,
+   "http": 200,
+   "status": "abstained",
+   "cause": "declined",
+   "ms": 1441,
+   "answer": null,
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "abstained",
+   "cause": "declined",
+   "ms": 5626,
+   "answer": null,
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [],
+   "modelCalls": 2,
+   "toolCalls": 1,
+   "summaryCalls": 0
+  }
+ },
+ {
+  "as": "mentor",
+  "question": "How did Rohan test his rate limiter, and what were the results?",
+  "ask": {
+   "first_failure": "502 after 8557 ms",
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 2060,
+   "answer": "Rohan tested his rate limiter by running a k6 script of the lunch peak against a staging copy, which included 900 requests a minute from 300 virtual students plus one client polling every 200 milliseconds [1]. Without the limiter, the p95 for placing an order was 2.4 seconds, but with it, the p95 for everyone else dropped to 310 milliseconds while the polling client was refused about 94 percent of the time [1]. Additionally, no ordinary student in the test was ever refused [1].",
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [
+    "rate-limiter-design.pdf"
+   ],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 15503,
+   "answer": "You tested the rate limiter by running a k6 script of the lunch peak against a staging copy with 900 requests a minute from 300 virtual students, plus one client polling every 200 milliseconds [3]. As a result, without the limiter the p95 for placing an order was 2.4 seconds, but with it the polling client was refused about 94 per cent of the time, the p95 for everyone else came down to 310 milliseconds, and no ordinary student in the test was ever refused [3].",
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [
+    "rate-limiter-design.pdf"
+   ],
+   "modelCalls": 2,
+   "toolCalls": 1,
+   "summaryCalls": 0
+  }
+ },
+ {
+  "as": "mentor",
+  "question": "What is still open in Rohan's rate limiter design?",
+  "ask": {
+   "first_failure": "502 after 8555 ms",
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 1516,
+   "answer": "Rohan notes that a shared hostel Wi-Fi places many anonymous students behind one single IP address, which might make the anonymous bucket too small on the first day of term before anyone has signed in [1]. He currently lacks data on this and wants to check last term's logs before making any changes [1].",
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [
+    "rate-limiter-design.pdf"
+   ],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 6054,
+   "answer": "You requested two changes on Rohan's rate limiter design: to charge by what a request costs the database, and to check whether a whole hostel behind one IP address will be refused on the first day of term by pulling last term's logs before resubmitting [T1].",
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [
+    "Design rate limiting for the ordering API"
+   ],
+   "modelCalls": 2,
+   "toolCalls": 1,
+   "summaryCalls": 0
+  }
+ },
+ {
+  "as": "mentor",
+  "question": "What action items came out of the postmortem?",
+  "ask": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 1550,
+   "answer": "The action items from the postmortem are to release the connection before calling the payment provider, add pool wait time to the main dashboard, set an alert when pool wait passes 100 milliseconds, and set a two-second timeout on the provider call with one retry [1].",
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [
+    "lunch-rush-postmortem.docx"
+   ],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 2893,
+   "answer": "The action items are to release the connection before calling the payment provider, add pool wait time to the main dashboard, alert when pool wait passes 100 milliseconds, and set a two-second timeout on the provider call with one retry [4].",
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [
+    "lunch-rush-postmortem.docx"
+   ],
+   "modelCalls": 2,
+   "toolCalls": 1,
+   "summaryCalls": 0
+  }
+ },
+ {
+  "as": "mentor",
+  "question": "Which milestones on Rohan's goal are still to do?",
+  "ask": {
+   "first_failure": "502 after 8581 ms",
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 1242,
+   "answer": "The milestones still to do on Rohan's goal are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [1].",
+   "error": null,
+   "promptVersion": "s2-v4",
+   "citations": [
+    "Be ready for backend interviews by March"
+   ],
+   "modelCalls": 1,
+   "toolCalls": null,
+   "summaryCalls": null
+  },
+  "agent": {
+   "first_failure": null,
+   "http": 200,
+   "status": "answered",
+   "cause": null,
+   "ms": 1880,
+   "answer": "The milestones still to do on your goal are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [T1].",
+   "error": null,
+   "promptVersion": "agent-v1",
+   "citations": [
+    "Be ready for backend interviews by March"
+   ],
+   "modelCalls": 2,
+   "toolCalls": 1,
+   "summaryCalls": 0
+  }
+ }
+]

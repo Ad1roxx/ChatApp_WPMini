@@ -196,6 +196,16 @@ turn's results, and answers 200 with
 429 / 502 / 503 with a plain sentence when the provider cannot answer. Shared
 secret, and local callers only. `PROMPT_VERSION` is in every response.
 
+**The agent** (`agent.py`, `POST /agent`) takes one turn at a time through read tools, with Express checking each call
+against a per-turn token. It refuses, as "not configured", unless the app database and the index are synthetic
+(`config.AGENT_SYNTHETIC_DATABASES`), as `/ask` does. To measure it (real calls, opt-in):
+
+```bash
+.venv/Scripts/python.exe eval/seed_agent_eval.py
+AI_LIVE_SMOKE=1 .venv/Scripts/python.exe eval/agent_eval.py --run 1    # and --run 2
+.venv/Scripts/python.exe eval/agent_eval.py --report                   # no calls
+```
+
 Generation is configured in `.env` (`AI_LLM_PROVIDER` and the rest in
 `.env.example`), with the keys in the file `AI_ENV_FILE` names, outside the
 repository. The service will not start without that variable. **Free tiers, synthetic data only**: no real
