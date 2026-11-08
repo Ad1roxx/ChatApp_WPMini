@@ -1,7 +1,7 @@
 /**
  * The pre-push gate: refuses a push unless every suite and the key scan pass, and no
  * commit being pushed holds a private detail of the app's real records
- * (`scripts/check-private.mjs`, with its terms in the git-ignored `.private-terms`).
+ * (`scripts/check-private.mjs`, with its terms kept beside the AI_ENV_FILE file).
  *
  * Run by `.githooks/pre-push`, which `npm run hooks:install` turns on. Git hands it the
  * refs being pushed on stdin. It needs MongoDB on 27017 and the Atlas container on 27018.
@@ -36,7 +36,7 @@ export const SUITES = [
 ];
 
 export function suiteEnv(env = process.env) {
-  const clean = { ...env, AI_TESTS_REQUIRE_ATLAS: '1' };
+  const clean = { ...env, AI_TESTS_REQUIRE_ATLAS: '1', CHECK_KEYS_REQUIRE_VALUES: '1' };
   delete clean.AI_LIVE_SMOKE;
   // Git sets these for its hooks, and they would redirect any git command a test runs.
   for (const name of Object.keys(clean)) if (name.startsWith('GIT_')) delete clean[name];

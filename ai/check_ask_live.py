@@ -14,7 +14,7 @@ through the development sign-in:
 3. the student asks one question, timed from the request to the response.
 
 The response and the timing are written to `eval/s2-live-ask.txt`. Synthetic
-data only. The key is read by the service from ai/.env, as in production.
+data only. The key is read by the service from the AI_ENV_FILE file, as in production.
 """
 
 from __future__ import annotations

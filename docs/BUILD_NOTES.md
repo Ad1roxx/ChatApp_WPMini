@@ -7626,6 +7626,46 @@ Totals: AI 583 passed and 1 skipped; Node 745; frontend 76.
 
 ---
 
+### Entry 102 — The secrets and the private files move out of the repository
+
+Development tools other than the app itself now work in this folder, and they
+can read any file in it, git-ignored or not. So the user had the secrets moved
+out. Nothing about what the app does changes.
+
+- **Keys.** `GEMINI_API_KEY`, `GROQ_API_KEY` and `AI_SERVICE_SECRET` are in a
+  file under the user's profile, named by the `AI_ENV_FILE` environment
+  variable. `ai/.env` keeps only settings that aren't secret. Checked by name,
+  by each value and by key shape: it holds none of them.
+- **`ai/config.py`.** A value of `AI_ENV_FILE` that names no file stops every
+  import with a plain sentence. Unset is allowed on import, which every test
+  and tool does, but the service refuses to start (in `lifespan`, before it
+  touches anything), and `npm run demo` says so up front. A key missing from
+  the file still leaves `/ask` answering 503 and `/search` working.
+- **Order.** The environment, then the secrets file, then `ai/.env`.
+- **Private files.** The terms for `check-private.mjs` and the `chatapp` part
+  of the identity snapshot are beside the secrets file, found from
+  `AI_ENV_FILE`. The snapshot wasn't named in the request, but it holds the
+  same real record ids as the terms, so moving only the terms would have left
+  them here.
+- **The key scan** reads the exact values from the new file, and now fails if
+  `ai/.env` holds a secret, or if `AI_ENV_FILE` is inside the repository. The
+  pre-push gate sets `CHECK_KEYS_REQUIRE_VALUES`, so having no values to check
+  for is a failure there, not a quietly weaker scan. CI has no secrets file
+  and scans by shape.
+
+**Mutations: 14, all caught:** a missing named file not an error; the file not
+loaded; the file overriding the environment; the service starting without it;
+`.env.example` assigning a secret; a secret in `ai/.env` allowed; a secrets file
+in the repository allowed; a sibling folder with a similar name counted as
+inside; the service secret not treated as a secret; no exact values not a
+failure when required; the gate not requiring them; the terms looked for in the
+repository; no terms file passing.
+
+**Still in the folder, and not secrets:** `server/.env` has `ADMIN_EMAILS`, which
+is real addresses. Left for the user to decide.
+
+---
+
 ---
 
 ### Open items / "later" list

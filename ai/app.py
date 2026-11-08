@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from answer import PROMPT_VERSION, answer
+import config
 from config import APP_DB_NAME, ASK_BUDGET_S, CATCHUP, RERANK, SERVED_K, SERVICE_SECRET, agent_database_problem
 from providers import FAILED, NOT_CONFIGURED, PLAIN, RATE_LIMITED, TRUNCATED, UNAVAILABLE, build_provider
 from store import ChunkStore, embed_query, reranker
@@ -56,6 +57,7 @@ async def lifespan(_app):
     check does not depend on the index being current, only on the records.
     """
     global worker
+    config.require_env_file(config.ENV_FILE)  # before anything else: a clear sentence, not a 401 later
     store.ensure_vector_index()
     # Load the models before taking a request, not on the first one. Lazily,
     # the first search after start-up waited behind the load and the catch-up's

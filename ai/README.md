@@ -75,6 +75,7 @@ Then, from `ai/`:
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements.txt   # Windows
 cp .env.example .env
+# Secrets go outside the repository: see the top of .env.example for AI_ENV_FILE.
 
 # The served index, from the app's own database (read-only):
 .venv/Scripts/python.exe ingest.py --drop
@@ -195,10 +196,11 @@ turn's results, and answers 200 with
 429 / 502 / 503 with a plain sentence when the provider cannot answer. Shared
 secret, and local callers only. `PROMPT_VERSION` is in every response.
 
-Generation is configured in `.env` (`GEMINI_API_KEY`, `AI_LLM_PROVIDER`, and
-the rest in `.env.example`). **Free tiers, synthetic data only**: no real
-student work through either provider, and no billing on either. Without a key,
-`/ask` is a 503 and `/search` works.
+Generation is configured in `.env` (`AI_LLM_PROVIDER` and the rest in
+`.env.example`), with the keys in the file `AI_ENV_FILE` names, outside the
+repository. The service will not start without that variable. **Free tiers, synthetic data only**: no real
+student work through either provider, and no billing on either. With a key
+missing from that file, `/ask` is a 503 and `/search` works.
 
 ### Keeping the index in step: `POST /index/sync`
 

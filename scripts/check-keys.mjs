@@ -3,9 +3,14 @@
  *
  *   npm run check:keys              # every tracked and every new, unignored file
  *
- * Fails on anything shaped like a Google or Groq API key, and, where `ai/.env`
- * exists, on the exact values of the Gemini and Groq keys in it. Printed by file and
- * kind only: a scan that echoed a key would be a leak of its own.
+ * Fails on anything shaped like a Google or Groq API key, and, where the file named by
+ * `AI_ENV_FILE` exists, on the exact values of the secrets in it. Also fails if that file
+ * is inside the repository, or if `ai/.env` holds a secret: other tools work in this
+ * folder and can read any file in it, git-ignored or not. Printed by file and kind only:
+ * a scan that echoed a key would be a leak of its own.
+ *
+ * With CHECK_KEYS_REQUIRE_VALUES=1 (the pre-push gate), having no values to check for is a
+ * failure rather than a weaker scan. CI has no secrets file, so it scans by shape.
  *
  * One allowance: the Firebase web key in `src/firebase.js`. It is public client
  * config by design, identifying the project to Google rather than authorising
@@ -22,16 +27,29 @@ const GOOGLE = /AIza[0-9A-Za-z_-]{35}/g;
 const GROQ = /gsk_[0-9A-Za-z]{20,}/g;
 const FIREBASE_FILE = 'src/firebase.js';
 
-function envKeys() {
-  const file = path.join(ROOT, 'ai', '.env');
-  if (!existsSync(file)) return {};
+/** The secrets assigned non-empty values in an env file's text. */
+export function secretsIn(text) {
   const keys = {};
-  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const match = line.match(/^(GEMINI_API_KEY|GROQ_API_KEY)\s*=\s*(.+?)\s*$/);
-    if (match) keys[match[1]] = match[2].replace(/^["']|["']$/g, '');
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.match(/^\s*(GEMINI_API_KEY|GROQ_API_KEY|AI_SERVICE_SECRET)\s*=\s*(.+?)\s*$/);
+    if (!match) continue;
+    const value = match[2].replace(/^["']|["']$/g, '');
+    if (value) keys[match[1]] = value;
   }
   return keys;
 }
+
+/** What is wrong with where the secrets are kept; pure, so it can be tested. */
+export function placementProblems({ root, envFile, repoEnvText }) {
+  const found = Object.keys(secretsIn(repoEnvText || '')).map((name) => `ai/.env holds ${name}: move it to the AI_ENV_FILE file`);
+  if (envFile) {
+    const relative = path.relative(path.resolve(root), path.resolve(envFile));
+    if (!relative.startsWith('..') && !path.isAbsolute(relative)) found.push('AI_ENV_FILE is inside the repository');
+  }
+  return found;
+}
+
+const readIf = (file) => (file && existsSync(file) ? readFileSync(file, 'utf8') : '');
 
 /** The problems in one file's text; pure, so it can be tested. */
 export function problemsIn(file, text, secrets = {}) {
@@ -51,9 +69,20 @@ function main() {
   const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: ROOT, encoding: 'utf8' })
     .split('\n')
     .filter(Boolean);
-  const secrets = envKeys();
+  const envFile = process.env.AI_ENV_FILE || '';
+  const secrets = secretsIn(readIf(envFile));
+  const haveValues = Object.keys(secrets).length > 0;
   let scanned = 0;
   let failed = false;
+
+  for (const problem of placementProblems({ root: ROOT, envFile, repoEnvText: readIf(path.join(ROOT, 'ai', '.env')) })) {
+    console.error(problem);
+    failed = true;
+  }
+  if (!haveValues && process.env.CHECK_KEYS_REQUIRE_VALUES === '1') {
+    console.error('AI_ENV_FILE does not name a file with secrets in it, so their exact values could not be checked for.');
+    failed = true;
+  }
 
   for (const file of files) {
     const full = path.join(ROOT, file);
@@ -67,7 +96,7 @@ function main() {
     }
   }
 
-  console.log(`Scanned ${scanned} files${Object.keys(secrets).length ? ', with the values in ai/.env' : ''}: ${failed ? 'KEYS FOUND' : 'clean'}.`);
+  console.log(`Scanned ${scanned} files${haveValues ? ', with the values in the AI_ENV_FILE file' : ', by shape only'}: ${failed ? 'PROBLEMS FOUND' : 'clean'}.`);
   if (failed) process.exit(1);
 }
 

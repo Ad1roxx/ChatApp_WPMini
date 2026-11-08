@@ -835,12 +835,12 @@ def build_provider(name: str = LLM_PROVIDER) -> LLMProvider:
     """
     if name == "gemini":
         if not GEMINI_API_KEY:
-            log.warning("llm provider=gemini has no GEMINI_API_KEY: the ask route will answer 503")
+            log.warning("llm provider=gemini has no GEMINI_API_KEY in the AI_ENV_FILE file: the ask route will answer 503")
             return Unconfigured("gemini", GEMINI_MODEL)
         return GeminiProvider(GEMINI_API_KEY)
     if name == "groq":
         if not GROQ_API_KEY:
-            log.warning("llm provider=groq has no GROQ_API_KEY: the ask route will answer 503")
+            log.warning("llm provider=groq has no GROQ_API_KEY in the AI_ENV_FILE file: the ask route will answer 503")
             return Unconfigured("groq", GROQ_MODEL)
         return GroqProvider(GROQ_API_KEY)
     raise ValueError(f"unknown AI_LLM_PROVIDER {name!r}; expected 'gemini' or 'groq'")

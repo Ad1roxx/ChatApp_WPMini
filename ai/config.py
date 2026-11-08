@@ -14,9 +14,50 @@ Copilot had never searched anything a real user wrote.
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
+# The keys and the service secret live outside the repository, in the file this
+# variable names: other tools work in the repository folder and can read any
+# file in it (BUILD_NOTES Entry 102). `ai/.env` holds only settings that are not
+# secret, and the key scan fails if a secret appears in it.
+ENV_FILE_VAR = "AI_ENV_FILE"
+
+
+def load_env_file(env=os.environ) -> Path | None:
+    """Load the secrets file named by AI_ENV_FILE. Returns its path, or None if unset.
+
+    Set but missing is always an error: someone meant to use it. Unset is an error
+    for the running service (`require_env_file`), not for importing this module,
+    which every test and tool does.
+    """
+    value = env.get(ENV_FILE_VAR, "").strip()
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_file():
+        raise SystemExit(
+            f"{ENV_FILE_VAR} is set to {value}, but there is no file there. "
+            "Create it with GEMINI_API_KEY, GROQ_API_KEY and AI_SERVICE_SECRET, or correct the setting."
+        )
+    load_dotenv(path)
+    return path
+
+
+def require_env_file(path: Path | None) -> None:
+    """Stop the service with a clear sentence if it has no secrets file."""
+    if path is None:
+        raise RuntimeError(
+            f"{ENV_FILE_VAR} is not set. Set it to the file outside the repository that holds "
+            "GEMINI_API_KEY, GROQ_API_KEY and AI_SERVICE_SECRET, for example "
+            "%USERPROFILE%\\.mentorconnect\\ai.env. See ai/.env.example."
+        )
+
+
+# Neither call overrides what the environment already sets, so the order is:
+# the environment, then the secrets file, then `ai/.env`.
+ENV_FILE = load_env_file()
 load_dotenv()
 
 # The chunk store: the Atlas Local container. $vectorSearch does not exist on a

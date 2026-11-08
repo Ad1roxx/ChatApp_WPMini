@@ -399,7 +399,7 @@ def main() -> None:
 
     built = providers.build_provider(LLM_PROVIDER)
     if isinstance(built, providers.Unconfigured):
-        raise SystemExit(f"no key for {built.name}: set it in ai/.env")
+        raise SystemExit(f"no key for {built.name}: set AI_ENV_FILE to the file outside the repository that holds it")
     provider = RecordingProvider(built)
     table = rows()
     path = cache_path(provider)

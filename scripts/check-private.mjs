@@ -8,8 +8,9 @@
  * in one commit and deleted in the next is still refused.
  *
  * The terms (the real file's name, the roll number, the institution's email domain,
- * the real records' ids) are kept in `.private-terms`, one per line, which git
- * ignores: a check that listed them in a tracked file would publish them itself.
+ * the real records' ids) are kept one per line in a file called `private-terms`, beside
+ * the file AI_ENV_FILE names and outside the repository: a check that listed them in a
+ * tracked file would publish them itself, and other tools can read anything in this folder.
  * Matching ignores case. A report names a term by its line number, never its text,
  * and leaves out any path that contains one. With no terms file the check refuses
  * rather than passes, because it would have checked nothing.
@@ -21,7 +22,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const TERMS_FILE = '.private-terms';
+export const TERMS_FILE = 'private-terms';
 const NO_COMMIT = /^0+$/;
 
 /** One term per line; blank lines and `#` comments are skipped. */
@@ -35,10 +36,14 @@ export function termsIn(text, terms) {
   return terms.flatMap((term, i) => (lower.includes(term.toLowerCase()) ? [i + 1] : []));
 }
 
+/** Where the terms are kept, or null when AI_ENV_FILE is not set. */
+export function termsFile(env = process.env) {
+  return env.AI_ENV_FILE ? path.join(path.dirname(env.AI_ENV_FILE), TERMS_FILE) : null;
+}
+
 /** The terms, or null when there are none to check with. */
-export function loadTerms(root = ROOT) {
-  const file = path.join(root, TERMS_FILE);
-  if (!existsSync(file)) return null;
+export function loadTerms(file = termsFile()) {
+  if (!file || !existsSync(file)) return null;
   const terms = parseTerms(readFileSync(file, 'utf8'));
   return terms.length ? terms : null;
 }
@@ -90,9 +95,9 @@ export function commitProblems(commits, terms, root = ROOT) {
 }
 
 /** Why this push would publish something private, or null. */
-export function privateRefusal(refs, root = ROOT) {
-  const terms = loadTerms(root);
-  if (!terms) return `There is no ${TERMS_FILE} with terms in it, so nothing private could be checked for.`;
+export function privateRefusal(refs, root = ROOT, file = termsFile()) {
+  const terms = loadTerms(file);
+  if (!terms) return `There is no ${TERMS_FILE} file with terms in it beside AI_ENV_FILE, so nothing private could be checked for.`;
   const problems = commitProblems(commitsToPush(refs, root), terms, root);
   return problems.length ? `It would publish private details:\n  ${problems.join('\n  ')}` : null;
 }
@@ -100,7 +105,7 @@ export function privateRefusal(refs, root = ROOT) {
 function main() {
   const terms = loadTerms();
   if (!terms) {
-    console.error(`No ${TERMS_FILE} with terms in it: nothing private could be checked for.`);
+    console.error(`No ${TERMS_FILE} file with terms in it beside AI_ENV_FILE: nothing private could be checked for.`);
     process.exit(1);
   }
   const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: ROOT, encoding: 'utf8' })

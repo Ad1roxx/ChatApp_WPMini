@@ -123,6 +123,9 @@ async function main() {
   mkdirSync(LOGS, { recursive: true });
 
   // ---- what has to be there already
+  if (!process.env.AI_ENV_FILE || !existsSync(process.env.AI_ENV_FILE)) {
+    fail('AI_ENV_FILE must name the file outside the repository that holds the keys. See ai/.env.example.');
+  }
   if (docker('info').status !== 0) {
     fail('Docker is not running. Start Docker Desktop, wait for it to say it is running, and run this again.');
   }

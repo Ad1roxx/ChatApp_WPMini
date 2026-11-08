@@ -18,9 +18,10 @@ embedded and no provider is called.
 `--capture` refuses to overwrite the reference.
 
 The reference is in two files. `chatapp` holds real people's records, and its
-record ids are keys here, so its part is written to `extract-identity.local.json`,
-which git ignores (Entry 97); the rest is committed. A check reads both, and
-fails if the local part is missing rather than quietly checking less.
+record ids are keys here, so its part is kept in `extract-identity.local.json`,
+beside the AI_ENV_FILE file and outside the repository (Entries 97, 102); the rest
+is committed. A check reads both, and fails if the local part is missing rather
+than quietly checking less.
 """
 
 from __future__ import annotations
@@ -36,11 +37,11 @@ sys.path.insert(0, str(HERE.parent))
 
 import appdb  # noqa: E402
 from chunking import chunk_document  # noqa: E402
-from config import APP_MONGODB_URI, CHUNK_BUDGET_TOKENS, MONGODB_URI  # noqa: E402
+from config import APP_MONGODB_URI, CHUNK_BUDGET_TOKENS, ENV_FILE, MONGODB_URI  # noqa: E402
 from sources import documents  # noqa: E402
 
 REFERENCE = HERE / "extract-identity.json"
-LOCAL_REFERENCE = HERE / "extract-identity.local.json"
+LOCAL_REFERENCE = ENV_FILE.parent / "extract-identity.local.json" if ENV_FILE else None
 # Real records: their part of the reference never goes into git.
 LOCAL_ONLY = ("chatapp",)
 # Where records live: the served app and the demo on the app's server; the
@@ -81,6 +82,8 @@ def main() -> None:
     args = parser.parse_args()
     now = snapshot()
     if args.capture:
+        if LOCAL_REFERENCE is None:
+            raise SystemExit("AI_ENV_FILE is not set, so there is nowhere outside the repository to keep the local part")
         for path in (REFERENCE, LOCAL_REFERENCE):
             if path.exists():
                 raise SystemExit(f"{path.name} exists and is not rewritten")
@@ -96,10 +99,10 @@ def main() -> None:
 
     reference = json.loads(REFERENCE.read_text(encoding="utf-8"))["databases"]
     failed = False
-    if LOCAL_REFERENCE.exists():
+    if LOCAL_REFERENCE and LOCAL_REFERENCE.exists():
         reference.update(json.loads(LOCAL_REFERENCE.read_text(encoding="utf-8"))["databases"])
     else:
-        print(f"{', '.join(LOCAL_ONLY)}: no {LOCAL_REFERENCE.name} on this machine, so not checked")
+        print(f"{', '.join(LOCAL_ONLY)}: no local reference beside AI_ENV_FILE on this machine, so not checked")
         failed = True
     for name, sources in reference.items():
         current = now.get(name, {})

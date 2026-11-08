@@ -1,6 +1,6 @@
 /**
  * The private-details check. Its terms here are invented; the real ones live only in
- * the git-ignored `.private-terms`. The commit tests build throwaway repositories.
+ * a file outside the repository. The commit tests build throwaway repositories.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { commitProblems, commitsToPush, parseTerms, privateRefusal, termsIn, TERMS_FILE } from '../../scripts/check-private.mjs';
+import { commitProblems, commitsToPush, parseTerms, privateRefusal, termsFile, termsIn, TERMS_FILE } from '../../scripts/check-private.mjs';
 
 const TERMS = ['99999999999', 'Fake_Report.pdf', 'example-uni.edu'];
 const ZERO = '0'.repeat(40);
@@ -49,14 +49,14 @@ test('a clean push passes', (t) => {
   const r = repo();
   t.after(r.done);
   const head = r.commit('notes.md', 'synthetic data only');
-  assert.equal(privateRefusal(push(head), r.dir), null);
+  assert.equal(privateRefusal(push(head), r.dir, path.join(r.dir, TERMS_FILE)), null);
 });
 
 test('a term in a file is refused, and the report never repeats the term', (t) => {
   const r = repo();
   t.after(r.done);
   const head = r.commit('notes.md', 'roll 99999999999');
-  const refusal = privateRefusal(push(head), r.dir);
+  const refusal = privateRefusal(push(head), r.dir, path.join(r.dir, TERMS_FILE));
   assert.match(refusal, /notes\.md has term 1/);
   for (const term of TERMS) assert.ok(!refusal.includes(term));
 });
@@ -67,19 +67,19 @@ test('a term added in one commit and removed in the next is still refused', (t) 
   r.commit('a.md', 'clean');
   r.commit('ids.json', '{"from": "someone@example-uni.edu"}');
   const head = r.remove('ids.json');
-  assert.match(privateRefusal(push(head), r.dir), /ids\.json has term 3/);
+  assert.match(privateRefusal(push(head), r.dir, path.join(r.dir, TERMS_FILE)), /ids\.json has term 3/);
 });
 
 test('a term in a commit message or a path is refused, and the path is not printed', (t) => {
   const r = repo();
   t.after(r.done);
   const message = r.commit('a.md', 'clean', 'add Fake_Report.pdf notes');
-  assert.match(privateRefusal(push(message), r.dir), /commit message or author has term 2/);
+  assert.match(privateRefusal(push(message), r.dir, path.join(r.dir, TERMS_FILE)), /commit message or author has term 2/);
   const r2 = repo();
   t.after(r2.done);
   // Its contents hold a term too, so the file is reported twice; neither report may name it.
   const named = r2.commit('99999999999-notes.md', 'mail someone@example-uni.edu');
-  const refusal = privateRefusal(push(named), r2.dir);
+  const refusal = privateRefusal(push(named), r2.dir, path.join(r2.dir, TERMS_FILE));
   assert.match(refusal, /a file path has term 1/);
   assert.ok(!refusal.includes('99999999999'));
 });
@@ -102,9 +102,9 @@ test('with no terms file the push is refused, because nothing was checked', (t) 
   t.after(r.done);
   const head = r.commit('a.md', 'clean');
   rmSync(path.join(r.dir, TERMS_FILE));
-  assert.match(privateRefusal(push(head), r.dir), /nothing private could be checked/);
+  assert.match(privateRefusal(push(head), r.dir, path.join(r.dir, TERMS_FILE)), /nothing private could be checked/);
   writeFileSync(path.join(r.dir, TERMS_FILE), '# only a comment\n');
-  assert.match(privateRefusal(push(head), r.dir), /nothing private could be checked/);
+  assert.match(privateRefusal(push(head), r.dir, path.join(r.dir, TERMS_FILE)), /nothing private could be checked/);
 });
 
 test('the pre-push hook runs the check before the suites', async () => {
@@ -117,7 +117,20 @@ test('the pre-push hook runs the check before the suites', async () => {
 
 test('the terms file and the local snapshot are ignored by git', () => {
   const root = fileURLToPath(new URL('../../', import.meta.url));
-  for (const file of [TERMS_FILE, 'ai/eval/extract-identity.local.json']) {
+  for (const file of ['.private-terms', 'ai/eval/extract-identity.local.json']) {
     execFileSync('git', ['check-ignore', '-q', file], { cwd: root });
   }
+});
+
+test('the terms are kept beside the AI_ENV_FILE file, outside the repository', () => {
+  const env = path.join('C:', 'private', 'ai.env');
+  assert.equal(termsFile({ AI_ENV_FILE: env }), path.join('C:', 'private', TERMS_FILE));
+  assert.equal(termsFile({}), null);
+});
+
+test('with AI_ENV_FILE unset the push is refused, because nothing was checked', (t) => {
+  const r = repo();
+  t.after(r.done);
+  const head = r.commit('a.md', 'clean');
+  assert.match(privateRefusal(push(head), r.dir, null), /nothing private could be checked/);
 });

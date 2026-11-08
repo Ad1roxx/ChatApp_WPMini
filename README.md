@@ -66,14 +66,15 @@ npm run demo
 ```
 
 It needs Docker Desktop running, MongoDB on 27017, and the Python environment from [`ai/README.md`](ai/README.md), with
-`GEMINI_API_KEY` in `ai/.env` for answers. It starts the Atlas container, the AI service, Express and two front ends on databases
+the `AI_ENV_FILE` environment variable naming a file outside the repository that holds `GEMINI_API_KEY`, `GROQ_API_KEY` and
+`AI_SERVICE_SECRET` (see [`ai/.env.example`](ai/.env.example)). It starts the Atlas container, the AI service, Express and two front ends on databases
 of their own, seeds the demo data, and prints two addresses, already signed in: a student on
 <http://localhost:5173> and their mentor on <http://localhost:3000>. Ctrl+C stops what it started.
 
 **When to demo.** Between 11:00 and 19:00 IST, demo on Gemini, the default. Over three days of probing, Gemini's hourly medians
 in that window were 1.1–2.3 s, and its slowest call took 3.4 s. From 19:00 it slowed: hourly medians of 10–11 s, with calls of up
 to 21.6 s (`ai/eval/gemini-latency.txt`). In the evening, switch to Groq by hand: set `AI_LLM_PROVIDER=groq` in `ai/.env` (with
-`GROQ_API_KEY` there), then restart `npm run demo`. Switch back to `gemini` the same way. Nothing switches automatically: a
+`GROQ_API_KEY` in the `AI_ENV_FILE` file), then restart `npm run demo`. Switch back to `gemini` the same way. Nothing switches automatically: a
 Gemini failure is shown as a failure, never retried on Groq.
 
 **The agent.** `npm run demo -- --agent` switches the panel to the agent, which can also look up the mentorship's goals, work,
