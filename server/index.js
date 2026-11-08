@@ -3772,9 +3772,9 @@ function allowAsk(userId) {
  * configured or unavailable; 502 for anything else that went wrong upstream,
  * a timeout included. Every error body is one plain sentence.
  *
- * Ended mentorships behave as they do for search: resolveMentorshipAccess
- * does not look at status, so both parties can still ask. Recorded for the S3
- * decision on ended mentorships (BUILD_NOTES open items).
+ * A mentorship that is not active is refused with a 409, after the membership
+ * check, so an outsider gets the same 403 whatever its status is
+ * (assistantRefusal; BUILD_NOTES Entry 75).
  */
 app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
   try {
