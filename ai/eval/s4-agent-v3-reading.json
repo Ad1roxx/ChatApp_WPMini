@@ -1,0 +1,10 @@
+{
+  "agent-v1 run 3": {
+    "st-02": "Asked by the mentor about Rohan's goal. \"The milestones on your goal\": (a), \"your\" means the other party's goal.",
+    "se-03": "Asked by the mentor about Rohan's test. \"You tested your rate limiter\": (a), \"you\" means the other party.",
+    "cr-05": "Asked by the mentor. \"Your goal is to be ready for backend interviews by March\": (a), \"your\" means the student's goal."
+  },
+  "agent-v3 run 1": {},
+  "agent-v3 run 2": {},
+  "ruling on su-02, agent-v3 run 2": "\"Rohan wrote a design note for your ordering API.\" Ruled by the human, 2026-11-09: not misaddressing under the committed definition. The \"your\" refers to the asker, so neither (a) nor (b) applies. It is a faithfulness error, because it claims the API is Meera's, and is logged for S6."
+}

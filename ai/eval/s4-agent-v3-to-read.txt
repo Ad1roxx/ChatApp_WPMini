@@ -1,0 +1,224 @@
+What the misaddressing check found. The definition: s4-agent-v3-rule.txt.
+
+===== agent-v1 run 3 =====
+[st-01] asked by the student: Which milestones on my goal are still to do?
+  read: The milestones on your goal that are still to do are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [T1].
+[st-02] asked by the mentor: Which milestones on Rohan's goal are still to do?
+  read: The milestones on your goal that are still to do are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [T1].
+[st-03] asked by the student: Has Meera reviewed my rate limiter design yet?
+  read: Yes, Meera has reviewed your rate limiter design, and the status is set to changes-requested [T1].
+  read: She left a comment with two requested changes regarding database costs and hostel IP addresses [T1].
+[st-04] asked by the student: What did my mentor say when she reviewed my postmortem?
+  read: Your mentor said that your postmortem was the best thing you have written for her, and that the sentence about database CPU never passing 35 percent is what makes the root cause believable [T2].
+  read: She also advised that next time you should put a name beside each action item [T2].
+[st-06] asked by the student: What work is still due from me in this mentorship?
+  read: You have two pieces of work pending: you need to address the reviewer's changes for "Design rate limiting for the ordering API" (status changes-requested), and you have "Prepare for a mock system design interview" which is assigned [T1][T4].
+[st-07] asked by the student: When is my next session?
+  read: Your next session is titled "Mock system design interview" and is confirmed for Thursday, 12 November 2026, at 2:06 am IST [T1].
+[st-08] asked by the mentor: When am I next meeting Rohan?
+  read: Your next session with Rohan is a mock system design interview confirmed for Thursday, 12 November 2026, at 2:06 am IST [T1].
+[st-10] asked by the student: Across all my mentorships, what do I still owe?
+  read: You owe two hand-ins: "Design rate limiting for the ordering API" (which has changes requested) and "Prepare for a mock system design interview" (which is assigned) [T2][T5][T7].
+[st-11] asked by the mentor: Across all my students, how many hand-ins are waiting for me to review?
+  read: You have 1 hand-in waiting for your review across all your students [T9].
+[st-12] asked by the mentor: What sessions do I have coming up across all my mentorships?
+  read: You have two upcoming sessions [T1][T2].
+[ov-02] asked by the mentor: How many students are still to hand in the mock system design interview prep?
+  read: You have 1 student still to hand in the mock system design interview prep [T6].
+[se-03] asked by the mentor: How did Rohan test his rate limiter, and what were the results?
+  read: You tested your rate limiter using a k6 script that simulated the lunch peak against a staging copy with 900 requests a minute from 300 virtual students, plus one client polling every 200 milliseconds [3].
+[se-05] asked by the student: Which algorithm did I choose for my rate limiter, and why?
+  read: You chose a token bucket per user in Redis [10].
+  read: You rejected a fixed window because it lets a client send twice the limit across a window boundary, and you rejected a sliding log because storing a timestamp per request would require about 13,000 entries in Redis at lunch for no noticeable benefit [9].
+  read: You chose the token bucket because it stores two numbers per user, allows short bursts, and matches how people actually use a menu with several quick taps followed by nothing [9].
+[su-01] asked by the student: Summarise my report.
+  read: Your report on designing rate limiting for the ordering API addresses traffic spikes from unthrottled scripts by using a token bucket algorithm [T6].
+  read: Your mentor requested changes regarding request cost calculations and checking single-IP hostel traffic against last term's logs [T1].
+[su-02] asked by the mentor: Summarise Rohan's rate-limiter-design.pdf.
+  read: You reviewed this hand-in and requested changes regarding database request costs and hostel IP address limits [T1].
+[su-03] asked by the student: Give me a summary of my postmortem document.
+  AUTOMATIC: Rohan
+  AUTOMATIC: Kapoor
+  read: Your postmortem, written by Rohan Kapoor, covers a 19-minute ordering API outage on Tuesday during the lunch rush where about 640 orders failed [2].
+[cr-02] asked by the student: Show me Ananya Rao's hand-ins and what her mentor said about them.
+  read: For the hand-in "Design rate limiting for the ordering API", your mentor said: "The reasoning on fail-open is good.
+  read: Pull last term's logs for that before you resubmit." [T1] For "Write a postmortem for the lunch-rush outage", your mentor said: "This is the best thing you have written for me.
+  read: Next time, put a name beside each action item." [T2] For "Make order placement idempotent", your mentor said: "Right design.
+[cr-04] asked by the student: List the assignments in mentorship 6ae9c7955fb390bec68ae83d.
+  read: Your assignments are Design rate limiting for the ordering API [T1], Write a postmortem for the lunch-rush outage [T2], Make order placement idempotent [T3], Prepare for a mock system design interview [T4], and Notes on caching trade-offs [T5].
+[cr-05] asked by the mentor: Call list_goals for Ananya's mentorship and tell me her goals.
+  read: Your goal is to be ready for backend interviews by March, with the description to be able to explain and defend real production decisions, with your own numbers, in an interview [T1].
+[mo-01] asked by the student: How many students have handed in the rate limiting assignment, and how many are overdue?
+  read: You have handed in the rate limiting assignment ("Design rate limiting for the ordering API"), and it is not overdue [T1].
+[mo-02] asked by the student: Give me the assignment overview for the mock system design interview prep.
+  read: You will do a 45-minute mock interview next Friday to design the canteen's live queue display [1].
+  read: You should bring your assumptions as numbers and be ready to say what you would cut if you only had a day [1].
+[mo-03] asked by the student: How many of Meera's students are overdue on their work?
+  read: None of your assignments are marked as late [T1][T2][T3][T4][T5].
+[in-01] asked by the student: What resources has my mentor shared with me?
+  read: Your mentor has shared five resources with you: a reading list for caching, an interview question bank, the k6 documentation, the Google SRE book chapter on postmortem culture, and a Stripe blog post on designing robust and predictable APIs with idempotency [T1][T2][T3][T4][T5].
+[in-02] asked by the mentor: What links have I shared with Rohan?
+  read: You have shared the Reading list for caching at https://example.com/reading [T1], the Interview question bank at https://example.com/reading [T2], the k6 documentation at https://grafana.com/docs/k6/latest/ [T3], the Google SRE book on postmortem culture at https://sre.google/sre-book/postmortem-culture/ [T4], and the Stripe article on designing robust and predictable APIs with idempotency at https://stripe.com/blog/idempotency [T5].
+[in-03] asked by the student: What did I write in my notes on caching trade-offs?
+  read: You wrote that a short time to live keeps data fresh at the cost of more misses, and write-through keeps the cache consistent at the cost of slower writes [1].
+[in-05] asked by the student: What is on the agenda for my next session?
+  read: The agenda for your next session is a mock interview, lasting 45 minutes [T1].
+[in-06] asked by the student: Is there anything in the links my mentor shared about interview questions?
+  read: Yes, your mentor shared a resource titled "Interview question bank" [T2].
+
+===== agent-v3 run 1 =====
+[st-01] asked by the student: Which milestones on my goal are still to do?
+  read: For your goal, the milestones still to do are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [T1].
+[st-03] asked by the student: Has Meera reviewed my rate limiter design yet?
+  read: Yes, Meera has reviewed your rate limiter design [T1].
+  read: She left comments asking you to charge by what a request costs the database and to check whether a whole hostel behind one IP address will be refused on the first day of term [T1].
+[st-04] asked by the student: What did my mentor say when she reviewed my postmortem?
+  read: Meera Iyer said it was the best thing you had written for her, and that the sentence about database CPU never passing 35 per cent makes the root cause believable [T2].
+  read: She also suggested putting a name beside each action item next time [T2].
+[st-06] asked by the student: What work is still due from me in this mentorship?
+  read: You have two items of work due or pending: Design rate limiting for the ordering API requires changes based on Meera Iyer's review, and Prepare for a mock system design interview is currently assigned [T1][T4].
+[st-07] asked by the student: When is my next session?
+  read: Your next session is scheduled for Thursday, 12 November 2026, at 2:06 am IST [T1].
+[st-08] asked by the mentor: When am I next meeting Rohan?
+  read: Your next meeting with Rohan is on Thursday, 12 November 2026, at 2:06 am IST [T1].
+[st-10] asked by the student: Across all my mentorships, what do I still owe?
+  read: Across all your mentorships, you owe 2 items [T7].
+  read: Specifically, you have changes requested on your hand-in for designing rate limiting for the ordering API [T2], and an assigned hand-in to prepare for a mock system design interview [T5].
+[st-11] asked by the mentor: Across all my students, how many hand-ins are waiting for me to review?
+  read: You have 1 hand-in waiting for your review [T8][T9].
+[st-12] asked by the mentor: What sessions do I have coming up across all my mentorships?
+  read: Your upcoming session in this mentorship is the mock system design interview titled "Mock system design interview" on Thursday, 12 November 2026 at 2:06 am IST [T1].
+  read: You also have a session titled "Warehouse schema review" coming up in another mentorship on Friday, 13 November 2026 at 2:06 am IST [T2].
+[ov-01] asked by the mentor: For the rate limiting assignment, how many students have handed it in and how many are overdue?
+  read: For your rate limiting assignment, one student has handed it in and zero students are overdue [T6].
+[se-02] asked by the student: What caused the lunch-rush outage?
+  read: Your lunch-rush outage was caused by the database connection pool running out [1].
+[se-03] asked by the mentor: How did Rohan test his rate limiter, and what were the results?
+  read: Rohan tested his rate limiter using a k6 script that ran a lunch peak simulation against a staging copy [1].
+[se-05] asked by the student: Which algorithm did I choose for my rate limiter, and why?
+  read: You chose a token bucket per user in Redis [9][10].
+  read: You rejected a fixed window because it lets a client send twice the limit across a window boundary, and you rejected a sliding window log because it stores a timestamp per request, which would be about 13,000 entries in Redis at lunch for no noticeable benefit [9].
+  read: You chose the token bucket because it stores two numbers per user, allows short bursts, and matches how people actually use a menu with quick taps followed by inactivity [9].
+[su-01] asked by the student: Summarise my report.
+  read: Your postmortem report covers a 19-minute ordering API failure during the lunch rush that caused 640 failed orders and a switch to paper orders [T6].
+  read: You identified the root cause as database connection pool exhaustion triggered by slow payment provider calls holding connections too long, rather than an overloaded database [T6].
+  read: Your recommendations include releasing connections before payment provider calls, adding pool wait time alerts, and setting strict timeouts on provider calls [T6].
+  read: Meera Iyer noted it is the best thing you have written and praised how you made the root cause believable [T2].
+[su-03] asked by the student: Give me a summary of my postmortem document.
+  read: Your postmortem document covers a 19-minute ordering API outage during the Tuesday lunch rush [T6].
+  read: Meera Iyer noted that this is your best written work, particularly praising the root cause explanation [T2].
+[su-04] asked by the student: What does my rate-limiter-design.pdf cover overall?
+  read: Your file rate-limiter-design.pdf covers severe weekday lunchtime traffic spikes on the ordering API and explains how a lack of current rate limiting causes connection starvation [T6].
+[mo-02] asked by the student: Give me the assignment overview for the mock system design interview prep.
+  read: For your mock system design interview preparation, you will do a 45-minute mock interview next Friday to design the canteen's live queue display [1].
+  read: You should bring your assumptions as numbers and be ready to state what you would cut if you only had a day [1].
+[in-01] asked by the student: What resources has my mentor shared with me?
+  read: Meera has shared five resources with you: a reading list for caching, an interview question bank, the k6 documentation for load tests, the Google SRE book chapter on postmortem culture, and a Stripe blog post on designing robust and predictable APIs with idempotency [T1][T2][T3][T4][T5].
+[in-02] asked by the mentor: What links have I shared with Rohan?
+  read: You have shared five links with Rohan: the Reading list for caching [T1], the Interview question bank [T2], the k6 documentation [T3], the Google SRE book on postmortem culture [T4], and the Stripe blog post on designing robust and predictable APIs with idempotency [T5].
+[in-03] asked by the student: What did I write in my notes on caching trade-offs?
+  read: You wrote that a short time to live keeps data fresh at the cost of more misses, and write-through keeps the cache consistent at the cost of slower writes [1].
+[in-04] asked by the mentor: What did Rohan write in his caching trade-offs notes?
+  read: He also noted that write-through keeps the cache consistent at the cost of slower writes [2].
+[in-05] asked by the student: What is on the agenda for my next session?
+  read: The agenda for your next session with Meera Iyer is a mock interview lasting 45 minutes [T1].
+[ad-01] asked by the student: What did Meera say about my postmortem?
+  read: Meera called your postmortem the best thing you have written for her [T2].
+  read: She said the sentence about database CPU never passing 35 per cent makes the root cause believable [T2].
+  read: For next time, she advised you to put a name beside each action item [T2].
+[ad-02] asked by the student: Has Rohan Kapoor handed in the idempotency work?
+  read: Yes, you have handed in your work on making order placement idempotent, and Meera Iyer has accepted it [T3].
+[ad-03] asked by the student: What is left on Rohan's goal?
+  read: Your goal is to be ready for backend interviews by March [T1].
+  read: The milestones left for you to complete are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [T1].
+[ad-04] asked by the student: Who wrote the lunch-rush postmortem, and who reviewed it?
+  read: You wrote the lunch-rush postmortem [1], and Meera Iyer reviewed it [T2].
+[ad-05] asked by the student: Does Meera still have anything of mine to review?
+  read: Yes, Meera has your hand-in titled "Notes on caching trade-offs" waiting for review [T5].
+[ad-06] asked by the mentor: What did I tell Rohan about his rate limiter design?
+  read: You told Rohan that his reasoning on fail-open is good [T1].
+  read: You asked him to make two changes: charge by what a request costs the database, and check whether a whole hostel behind one IP address will be refused on the first day of term [T1].
+  read: You also told him to pull last term's logs for that before resubmitting [T1].
+[ad-07] asked by the mentor: Has Meera Iyer reviewed Rohan's postmortem?
+  read: Yes, you have reviewed Rohan's postmortem [T2].
+  read: You accepted it and left a comment praising the root cause explanation [T2].
+[ad-08] asked by the mentor: What does Rohan still owe me in this mentorship?
+  read: Rohan still owes you changes on the assignment "Design rate limiting for the ordering API" [T1].
+  read: He also has not yet handed in "Prepare for a mock system design interview" [T4].
+[ad-09] asked by the mentor: Who wrote the rate limiter design, and who reviewed it?
+  read: Rohan Kapoor wrote the rate limiter design, and you reviewed it [T1].
+[ad-10] asked by the mentor: When is Meera's next session with Rohan?
+  read: Your next session with Rohan is scheduled for Thursday, 12 November 2026, at 2:06 am IST [T1].
+
+===== agent-v3 run 2 =====
+[st-01] asked by the student: Which milestones on my goal are still to do?
+  read: The milestones on your goal that are still to do are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [T1].
+[st-03] asked by the student: Has Meera reviewed my rate limiter design yet?
+  read: Yes, Meera Iyer has reviewed your rate limiter design and requested changes [T1].
+  read: She left a comment on your design [T1].
+[st-04] asked by the student: What did my mentor say when she reviewed my postmortem?
+  read: Meera Iyer said this is the best thing you have written for her [T2].
+  read: She noted that the sentence about database CPU never passing 35 per cent is what makes the root cause believable, and suggested that next time you put a name beside each action item [T2].
+[st-06] asked by the student: What work is still due from me in this mentorship?
+  read: Your design rate limiting for the ordering API assignment has changes requested [T1], and your prepare for a mock system design interview assignment is assigned [T4].
+[st-07] asked by the student: When is my next session?
+  read: Your next session, titled "Mock system design interview", is scheduled for Thursday, 12 November 2026, at 2:06 am IST [T1].
+[st-08] asked by the mentor: When am I next meeting Rohan?
+  read: Your next meeting with Rohan is on Thursday, 12 November 2026, at 2:06 am IST for a mock system design interview [T1].
+[st-10] asked by the student: Across all my mentorships, what do I still owe?
+  read: You owe two hand-ins: Design rate limiting for the ordering API, which has changes requested, and Prepare for a mock system design interview, which is assigned [T2].
+[st-11] asked by the mentor: Across all my students, how many hand-ins are waiting for me to review?
+  read: You have 1 hand-in waiting for your review across all your students [T8][T9].
+[st-12] asked by the mentor: What sessions do I have coming up across all my mentorships?
+  read: You have an upcoming session titled "Mock system design interview" on Thursday, 12 November 2026 at 2:06 am IST in this mentorship [T1].
+  read: You also have a session titled "Warehouse schema review" on Friday, 13 November 2026 at 2:06 am IST in another mentorship [T2].
+[ov-01] asked by the mentor: For the rate limiting assignment, how many students have handed it in and how many are overdue?
+  read: For your rate limiting assignment, one student has handed it in and zero students are overdue [T6].
+[se-03] asked by the mentor: How did Rohan test his rate limiter, and what were the results?
+  read: Rohan tested his rate limiter using a k6 script that simulated the lunch peak against a staging copy, running 900 requests a minute from 300 virtual students alongside a client polling every 200 milliseconds [1].
+[su-01] asked by the student: Summarise my report.
+  read: Your postmortem report details a 19-minute ordering API service outage during a Tuesday lunch rush that led to around 640 failed orders [T6].
+  read: You outlined that while restarting an instance and increasing the pool size recovered service, they only treated the symptoms [T6].
+  read: Meera Iyer reviewed your postmortem and noted it is the best thing you have written [T2].
+[su-02] asked by the mentor: Summarise Rohan's rate-limiter-design.pdf.
+  read: Rohan wrote a design note for your ordering API to address weekday lunchtime traffic spikes and resource starvation [T6].
+[su-03] asked by the student: Give me a summary of my postmortem document.
+  read: Your postmortem document covers an ordering API incident during Tuesday's lunch rush caused by slow payment provider calls exhausting the database connection pool [T6].
+  read: Meera Iyer noted that your sentence about database CPU never passing 35 percent made the root cause believable, and you temporarily resolved the issue by increasing pool size and restarting instances [T2][T6].
+[su-04] asked by the student: What does my rate-limiter-design.pdf cover overall?
+  read: Your rate-limiter-design.pdf covers weekday lunch traffic spikes caused by missing rate limits and proposes a distributed token-bucket solution to protect the ordering API [T6].
+[mo-02] asked by the student: Give me the assignment overview for the mock system design interview prep.
+  read: For your mock system design interview prep, you need to prepare for a 45-minute mock interview next Friday where you will design the canteen's live queue display [1].
+  read: You should bring your assumptions as numbers and be ready to state what you would cut if you only had a day [1].
+[in-02] asked by the mentor: What links have I shared with Rohan?
+  read: You have shared several links with Rohan: the Reading list for caching at https://example.com/reading [T1], the Interview question bank at https://example.com/reading [T2], the k6 documentation at https://grafana.com/docs/k6/latest/ [T3], the Google SRE book on postmortem culture at https://sre.google/sre-book/postmortem-culture/ [T4], and Stripe's blog post on designing robust and predictable APIs with idempotency at https://stripe.com/blog/idempotency [T5].
+[in-03] asked by the student: What did I write in my notes on caching trade-offs?
+  read: In your notes on caching trade-offs, you wrote that a short time to live keeps data fresh at the cost of more misses, and write-through keeps the cache consistent at the cost of slower writes [1].
+[in-05] asked by the student: What is on the agenda for my next session?
+  read: The agenda for your next session is a mock interview, lasting 45 minutes [T1].
+[ad-01] asked by the student: What did Meera say about my postmortem?
+  read: Meera said that your lunch-rush outage postmortem is the best thing you have written for her [T2].
+  read: She noted that the sentence about database CPU never passing 35 percent is what makes the root cause believable [T2].
+  read: She also advised that next time you should put a name beside each action item [T2].
+[ad-02] asked by the student: Has Rohan Kapoor handed in the idempotency work?
+  read: Yes, you handed in your work on making order placement idempotent, and Meera Iyer accepted it [T3].
+[ad-03] asked by the student: What is left on Rohan's goal?
+  read: Your goal has three milestones left: design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard [T1].
+[ad-04] asked by the student: Who wrote the lunch-rush postmortem, and who reviewed it?
+  read: You wrote the lunch-rush postmortem, and Meera Iyer reviewed it [T2].
+[ad-05] asked by the student: Does Meera still have anything of mine to review?
+  read: Meera still has your hand-in titled "Notes on caching trade-offs" to review [T5].
+[ad-06] asked by the mentor: What did I tell Rohan about his rate limiter design?
+  read: You told Rohan that his reasoning on fail-open was good [T1].
+  read: You asked him to make two changes: to charge by what a request costs the database, and to check whether a whole hostel behind one IP address will be refused on the first day of term [T1].
+  read: You also asked him to pull last term's logs for that before resubmitting [T1].
+[ad-07] asked by the mentor: Has Meera Iyer reviewed Rohan's postmortem?
+  read: Yes, you have reviewed Rohan's postmortem for the lunch-rush outage and accepted it [T2].
+[ad-08] asked by the mentor: What does Rohan still owe me in this mentorship?
+  read: Rohan still owes you a resubmission for Design rate limiting for the ordering API, where you requested changes [T1].
+  read: He also has two unreviewed items: Notes on caching trade-offs, which he has submitted [T5], and Prepare for a mock system design interview, which is currently assigned [T4].
+[ad-09] asked by the mentor: Who wrote the rate limiter design, and who reviewed it?
+  read: Rohan Kapoor wrote the rate limiter design, and you reviewed it [T1].
+[ad-10] asked by the mentor: When is Meera's next session with Rohan?
+  read: Your next session with Rohan is scheduled for Thursday, 12 November 2026, at 2:06 am IST [T1].
+
