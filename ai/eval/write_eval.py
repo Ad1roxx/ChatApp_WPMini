@@ -29,6 +29,7 @@ from pathlib import Path
 
 import httpx
 from bson import ObjectId as O
+from pymongo import MongoClient
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -209,13 +210,19 @@ def prepared(tool: str, input_args: dict, role: str, meta: dict) -> dict:
     return json.loads(out.stdout)
 
 
+def setup_collection():
+    """The only write this harness makes: a session it adds for one case and removes after it. `records` is read-only by design."""
+    assert DB in AGENT_SYNTHETIC_DATABASES, "the evaluation database is not on the synthetic list"
+    return MongoClient(APP_MONGODB_URI, serverSelectionTimeoutMS=5000)[DB]["sessions"]
+
+
 def ask(q: dict, meta: dict, ctx: dict, records) -> dict:
     import agent
 
     other = {"student": "mentor", "mentor": "student"}[q["as"]]
     inserted = None
     if q.get("setup") == "proposed_session":
-        inserted = records.sessions.insert_one({
+        inserted = setup_collection().insert_one({
             "mentorship": O(meta["mentorship"]), "title": SETUP_TITLE, "agenda": "", "status": "proposed", "durationMinutes": 30,
             "scheduledFor": datetime.now(timezone.utc) + timedelta(days=20), "proposedBy": O(s4.PEOPLE[other]), "notes": "",
             "createdAt": datetime.now(timezone.utc), "updatedAt": datetime.now(timezone.utc),
@@ -243,7 +250,7 @@ def ask(q: dict, meta: dict, ctx: dict, records) -> dict:
     finally:
         express.close()
         if inserted is not None:
-            records.sessions.delete_one({"_id": inserted})
+            setup_collection().delete_one({"_id": inserted})
     writes = {t.name for t in agent.WRITE_TOOLS}
     return {
         "as": q["as"], "question": q["question"], "today": today, "status": result["status"], "reason": result.get("reason"), "cause": result.get("cause"),

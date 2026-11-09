@@ -48,6 +48,7 @@ ALLOWED_IMPORTERS = {
     # Walks every database the index is built from - the app's included - read-only,
     # hashing what chunking produces; nothing is embedded, written or sent (Entry 96).
     "eval/extract_identity.py", "eval/agent_eval.py", "eval/seed_agent_eval.py",
+    "eval/extract_identity.py", "eval/write_eval.py", "eval/seed_agent_eval.py",
     "ingest.py",
     "store.py",
 }
