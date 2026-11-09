@@ -66,7 +66,7 @@ def run_file(n: int, version: str = "agent-v1") -> Path:
 def labels_for(version: str) -> dict:
     """The 44 committed questions; agent-v3 is asked those and the 10 about who is who."""
     labels = json.loads(LABELS.read_text(encoding="utf-8"))
-    if version == "agent-v3":
+    if version in ("agent-v3", "agent-v4"):
         more = json.loads(ADDRESS_LABELS.read_text(encoding="utf-8"))["questions"]
         labels["questions"] = labels["questions"] + more
     return labels
