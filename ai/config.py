@@ -266,6 +266,9 @@ AGENT_TIME_ZONE_NAME = os.getenv("AI_AGENT_TIME_ZONE_NAME", "IST")
 # summarised from its beginning, and the summary says so.
 AGENT_SUMMARY_MAX_SECTIONS = int(os.getenv("AI_AGENT_SUMMARY_MAX_SECTIONS", "6"))
 AGENT_SUMMARY_SECTION_TOKENS = int(os.getenv("AI_AGENT_SUMMARY_SECTION_TOKENS", "1500"))
+# How long a paused turn is kept for: a proposal's five minutes (server/lib/agentProposal.js)
+# and a little more, so this side never forgets one that Express would still accept.
+AGENT_PROPOSAL_WAIT_S = float(os.getenv("AI_AGENT_PROPOSAL_WAIT_S", "330"))
 
 # The agent and the S2 ask route run on synthetic data only (the user, 2026-11-07
 # and 2026-11-09; BUILD_NOTES Entries 101, 105).

@@ -7952,11 +7952,31 @@ S5 Step 0 was accepted on 2026-11-10 with three decisions by the human. A resume
 
 ---
 
+### Entry 111 — S5 Step 2: a write pauses the turn, and a resumed turn does nothing but end
+
+**The pause.** A call to a write tool never runs. It becomes the turn's one proposal, and the turn stops at `interrupt()` in a node that holds nothing else, because a resumed node restarts from its first line. The AI service returns a tool name and validated arguments. It has no route, key or token that can write, and a test holds that the module makes one HTTP call, to the read tools' endpoint.
+
+**A resumed turn ends in code** (the human, 2026-11-10). No model call, no tool, no token. The graph is rebuilt on resume with model and tool nodes that raise if anything reaches them. Resume is told one of two fixed words, `approved` or `dismissed`, and the thread is deleted straight after. The browser's report goes nowhere: extra fields are refused with a 422.
+
+**What is kept while a person decides.** The token was never in the graph's state. The messages are cleared before the pause and the run uses `durability="exit"`, so tool results aren't checkpointed either. A turn with no write tools has no checkpointer at all.
+
+**Two things LangGraph won't do for us**, both measured on 1.2.20 at Step 0. Resuming a lost thread doesn't fail: it starts the graph from the top. And a second resume of a finished thread returns the old state with no error. So `resume_turn` checks the thread is really waiting first, and at most once is ours. After a restart the claim route asks the service, hears "not waiting", and answers expired, and nothing runs.
+
+**The last allowed model call can only answer** (the human, 2026-11-10). It declares the tools and disables them in the request: Gemini's `functionCallingConfig` mode `NONE`, Groq's `tool_choice: "none"`. Four calls and the 11-call reservation are unchanged. Checked on the real providers with invented text, two calls each (`ai/eval/s5-tools-disabled-check.txt`): both accepted it after a real tool exchange and returned no tool call. Gemini's answer named the value it was given. Groq's did not match the exact string I searched for, and I did not read the reply, so that check says only that the request is accepted and no tool came back.
+
+**Correction to Entry 108.** Its open item said a call to a tool that doesn't exist stops the turn. It doesn't, and never did: the model is told "no tool by that name" (`NOT_RUN_UNKNOWN`). What stopped `se-05`'s second run was the last allowed call asking for a tool anyway, which disabling tools on that call now prevents.
+
+**Tests.** 36 new in `test_agent_pause.py` and 9 more on the claim and close routes, 80 in that file. 25 mutations, all caught, including the pause not pausing, a proposal skipping it, resume without the thread check, the token or tool results in a checkpoint, a retained graph, and either provider being told to allow calls.
+
+**Review.** Codex's per-step review said proposals are not yet signed from a model's call. True, and it is Step 3, as the brief said. Its attack review headed one item "an expired proposal can still be claimed", but its own text says the database condition refuses it and only the status differs in a millisecond race; nothing runs, so it is not a finding. Its test-gap review found two real gaps, that the graph is rebuilt and that production uses `InMemorySaver`, both now tested. Its third, that the browser's report never reaches the model, is held by the close test and the resume route's refusal of extra fields together.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
 - **Antigravity is out of the development workflow for now** (2026-11-09). Headless mode could not finish a provider check under restricted settings: it was denied a command it wanted, then ran past 200 s when told to use web tools only. The offered fix was `--dangerously-skip-permissions`, which is not used. Research and provider checks are done directly. Its browser checks were never tested.
-- **When the model calls a tool that doesn't exist, the turn stops** (Entry 108, `se-05`, run 2). It should get a plain "no such tool" message and answer with its remaining budget. Changes a measured turn's behaviour, so not made at adoption.
+- ~~**When the model calls a tool that doesn't exist, the turn stops**~~ — that was wrong (Entry 111). The model was always told, and what stopped `se-05` was the last allowed call asking for a tool, which now has tools disabled.
 - **`su-02`: a faithfulness case for S6** (Entry 108). "Rohan wrote a design note for your ordering API" claims the API is the mentor's. It's the canteen's. By the human's ruling, not misaddressing.
 - **`agent-v3` has not been evaluated on Groq** (Entry 108). In a two-question panel check it was faster than Gemini but abstained on one question Gemini answered. Groq stays a manual setting.
 - ~~**The agent misaddresses people**~~ — `agent-v3` serves: zero misaddressing on 54 questions in both runs (Entry 108).

@@ -465,14 +465,18 @@ class _HttpProvider:
         )
 
     # -- tool calling (S4) --
-    def _converse_body(self, system: str, messages: list[dict], tools: list[dict]) -> dict: raise NotImplementedError
+    def _converse_body(self, system: str, messages: list[dict], tools: list[dict], allow_calls: bool = True) -> dict: raise NotImplementedError
     def _parse_turn(self, body: dict) -> tuple[str, int | None, int | None, tuple, object]: raise NotImplementedError
     def _claim_turn(self, system: str, messages: list[dict], tools: list[dict]) -> float: return 0.0
 
     def converse(
-        self, system: str, messages: list[dict], tools: list[dict], *, budget_s: float = DEFAULT_BUDGET_S
+        self, system: str, messages: list[dict], tools: list[dict], *, budget_s: float = DEFAULT_BUDGET_S,
+        allow_calls: bool = True,
     ) -> Generation:
         """One step of an agent turn: the conversation so far, and the tools on offer.
+
+        `allow_calls=False` still declares the tools, which the conversation refers to,
+        but tells the provider none may be called: this step can only answer.
 
         `messages` are provider-neutral (see `agent.py`): `{"role": "user", "text"}`,
         `{"role": "model", "text", "calls", "raw"}` and `{"role": "tool", "call_id",
@@ -482,7 +486,7 @@ class _HttpProvider:
         Same retries, budgets and outcomes as `generate`.
         """
         return self._exchange(
-            lambda: self._converse_body(system, messages, tools),
+            lambda: self._converse_body(system, messages, tools, allow_calls),
             self._parse_turn,
             lambda: self._claim_turn(system, messages, tools),
             budget_s,
@@ -637,7 +641,7 @@ class GeminiProvider(_HttpProvider):
             return schema
         return {"name": tool["name"], "description": tool["description"], "parameters": strip(tool["parameters"])}
 
-    def _converse_body(self, system: str, messages: list[dict], tools: list[dict]) -> dict:
+    def _converse_body(self, system: str, messages: list[dict], tools: list[dict], allow_calls: bool = True) -> dict:
         contents = []
         for m in messages:
             if m["role"] == "user":
@@ -658,7 +662,7 @@ class GeminiProvider(_HttpProvider):
         }
         if tools:
             body["tools"] = [{"functionDeclarations": [self._declaration(t) for t in tools]}]
-            body["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO"}}
+            body["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO" if allow_calls else "NONE"}}
         return body
 
     def _parse_turn(self, body: dict):
@@ -760,7 +764,7 @@ class GroqProvider(_HttpProvider):
                 out.append({"role": "tool", "tool_call_id": m["call_id"], "content": m["content"]})
         return out
 
-    def _converse_body(self, system: str, messages: list[dict], tools: list[dict]) -> dict:
+    def _converse_body(self, system: str, messages: list[dict], tools: list[dict], allow_calls: bool = True) -> dict:
         body = {
             "model": self.model,
             "messages": self._messages(system, messages),
@@ -770,7 +774,7 @@ class GroqProvider(_HttpProvider):
         }
         if tools:
             body["tools"] = [{"type": "function", "function": t} for t in tools]
-            body["tool_choice"] = "auto"
+            body["tool_choice"] = "auto" if allow_calls else "none"
             body["parallel_tool_calls"] = False
         return body
 
@@ -814,7 +818,7 @@ class Unconfigured:
     def generate(self, system: str, user: str, *, budget_s: float = DEFAULT_BUDGET_S) -> Generation:
         return Generation(NOT_CONFIGURED, self.name, self.model, detail="no key")
 
-    def converse(self, system, messages, tools, *, budget_s: float = DEFAULT_BUDGET_S) -> Generation:
+    def converse(self, system, messages, tools, *, budget_s: float = DEFAULT_BUDGET_S, allow_calls: bool = True) -> Generation:
         return Generation(NOT_CONFIGURED, self.name, self.model, detail="no key")
 
 
@@ -841,11 +845,13 @@ class ScriptedProvider:
             return reply
         return Generation(OK, self.name, self.model, text=reply, input_tokens=0, output_tokens=0, attempts=1)
 
-    def converse(self, system, messages, tools, *, budget_s: float = DEFAULT_BUDGET_S) -> Generation:
+    def converse(self, system, messages, tools, *, budget_s: float = DEFAULT_BUDGET_S, allow_calls: bool = True) -> Generation:
         """An agent step. A reply is answer text, a `Generation`, a list of
-        `(name, args)` tool calls, or a function of (system, messages, tools)."""
+        `(name, args)` tool calls, or a function of (system, messages, tools).
+
+        What is recorded as offered is what the model could call, so none when calls are disabled."""
         # A copy: the agent's list keeps growing after this call.
-        self.calls.append((system, [dict(m) for m in messages], [t["name"] for t in tools]))
+        self.calls.append((system, [dict(m) for m in messages], [t["name"] for t in tools] if allow_calls else []))
         if not self.replies:
             raise AssertionError("ScriptedProvider has no reply left for this call")
         reply = self.replies.pop(0)

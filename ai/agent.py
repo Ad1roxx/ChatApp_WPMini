@@ -23,8 +23,14 @@ AGENT_PLAN S4 (decided at Step 0). What each part owns:
   is said by this code, not left to the model.
 - **LangGraph owns the loop**: a model node, a tool node, one turn's state, and
   a recursion limit behind our own caps. It never owns permissions, the role
-  filter, validation, handlers, retrieval, verification or the token. No
-  checkpointer (S4 has no `interrupt()`) and nothing kept after the turn.
+  filter, validation, handlers, retrieval, verification or the token. A turn
+  that can propose a write has a checkpointer, for its one `interrupt()`. Nothing
+  is kept after the turn, and a turn with no write tools has no checkpointer.
+- **The agent never writes** (S5, AGENT_PLAN §2.4). A write tool's call pauses the
+  turn and comes back as a proposal: a tool name and validated arguments. Express
+  checks and signs it, a person approves it, and their own browser calls the real
+  route. This service has no route, key or token that can write. A resumed turn
+  ends in code: no model call, no tool, no token.
 - **The token is never in the graph's state.** It lives on the `Turn` the
   nodes close over, goes only into the Authorization header of a call to
   Express, and is never logged.
@@ -44,6 +50,7 @@ import logging
 import os
 import re
 import secrets
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, field
@@ -59,6 +66,7 @@ from config import (
     AGENT_MAX_INPUT_TOKENS_TURN,
     AGENT_MAX_MODEL_CALLS,
     AGENT_MAX_TOOL_CALLS,
+    AGENT_PROPOSAL_WAIT_S,
     AGENT_SUMMARY_MAX_SECTIONS,
     AGENT_SUMMARY_SECTION_TOKENS,
     AGENT_TIME_OFFSET_MINUTES,
@@ -102,6 +110,8 @@ def _require_no_tracing() -> None:
 _require_no_tracing()
 from langgraph.graph import END, START, StateGraph  # noqa: E402  (after the check, on purpose)
 from langgraph.errors import GraphRecursionError  # noqa: E402
+from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
+from langgraph.types import Command, interrupt  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # The tools, as data
@@ -119,7 +129,7 @@ class ToolSpec:
     parameters: dict
     roles: tuple[str, ...]
     scope: str  # "mentorship" or "self"
-    runs: str  # "express", "search", or "summary" (summarize_attachment)
+    runs: str  # "express", "search", "summary" (summarize_attachment), or "write" (only ever a proposal)
 
     def offer(self) -> dict:
         """What the model is shown: name, description, schema. Nothing else."""
@@ -483,6 +493,8 @@ class Turn:
     clock: Callable[[], float] = time.monotonic
     k: int = SERVED_K
     prompt_version: str = PROMPT_VERSION
+    # Chosen by Express, and also the id of the proposal if this turn makes one.
+    thread_id: str | None = None
 
 
 class State(TypedDict, total=False):
@@ -491,6 +503,98 @@ class State(TypedDict, total=False):
     tool_calls: int
     input_tokens: int
     final: dict
+    proposal: dict
+
+
+# ---------------------------------------------------------------------------
+# A paused turn
+# ---------------------------------------------------------------------------
+
+# Paused turns live here, and only here: a restart loses them, and the person is told
+# the proposal expired (`resume_turn`, and the claim route's check on `is_paused`).
+SAVER = InMemorySaver()
+_paused: dict[str, float] = {}
+_paused_lock = threading.RLock()
+DECISIONS = ("approved", "dismissed")
+
+
+def _thread_config(thread_id: str) -> dict:
+    return {"recursion_limit": RECURSION_LIMIT, "configurable": {"thread_id": thread_id}}
+
+
+def _forget(thread_id: str) -> None:
+    with _paused_lock:
+        _paused.pop(thread_id, None)
+        SAVER.delete_thread(thread_id)
+
+
+def _sweep(now: float | None = None) -> None:
+    """Forget paused turns nobody came back to: Express refuses them by now anyway."""
+    now = time.monotonic() if now is None else now
+    with _paused_lock:
+        for thread_id in [t for t, at in _paused.items() if now - at > AGENT_PROPOSAL_WAIT_S]:
+            _forget(thread_id)
+
+
+def confirm(state: State) -> State:
+    """The pause. Nothing but `interrupt()`, because a resumed node restarts from its first line."""
+    decision = interrupt(state["proposal"])
+    return {"final": {"status": "closed", "decision": decision}}
+
+
+def build_graph(model_node, tool_node, checkpointer=None):
+    """The turn's graph. Rebuilt on resume, so nothing about a turn may depend on the object."""
+    graph = StateGraph(State)
+    graph.add_node("model", model_node)
+    graph.add_node("tools", tool_node)
+    graph.add_node("confirm", confirm)
+    graph.add_edge(START, "model")
+    graph.add_conditional_edges("model", lambda s: END if s.get("final") else "tools", ["tools", END])
+    graph.add_conditional_edges(
+        "tools", lambda s: END if s.get("final") else "confirm" if s.get("proposal") else "model", ["model", "confirm", END]
+    )
+    graph.add_edge("confirm", END)
+    return graph.compile(checkpointer=checkpointer)
+
+
+def _nothing_runs_after_a_pause(state: State) -> State:
+    raise RuntimeError("a resumed turn calls no model and no tool")
+
+
+def _resume_graph():
+    return build_graph(_nothing_runs_after_a_pause, _nothing_runs_after_a_pause, SAVER)
+
+
+def is_paused(thread_id: str) -> bool:
+    """Whether this turn is still waiting. False after a restart or once it has expired."""
+    with _paused_lock:
+        _sweep()
+        waiting = bool(_resume_graph().get_state(_thread_config(thread_id)).next)
+        if not waiting:
+            _forget(thread_id)  # reading a thread leaves an empty entry behind
+        return waiting
+
+
+def resume_turn(thread_id: str, decision: str) -> dict:
+    """End a paused turn, at most once. Calls no model and no tool, and nothing is kept.
+
+    The check comes first because LangGraph does not refuse a lost thread: resuming one
+    starts the graph again from the top (S5 Step 0, measured on 1.2.20). `decision` says
+    only which of two things the person did. It is not a report of what happened.
+    """
+    if decision not in DECISIONS:
+        raise ValueError("decision must be 'approved' or 'dismissed'")
+    with _paused_lock:
+        _sweep()
+        app = _resume_graph()
+        config = _thread_config(thread_id)
+        if not app.get_state(config).next:
+            _forget(thread_id)
+            return {"status": "expired"}
+        app.invoke(Command(resume=decision), config=config, durability="exit")
+        _forget(thread_id)
+    log.info("agent resumed decision=%s", decision)
+    return {"status": "closed"}
 
 
 def _express_client() -> httpx.Client:
@@ -513,6 +617,7 @@ def run_turn(turn: Turn) -> dict:
     # Sentences the code adds to an answer, never the model: what a file summary covered.
     notes: list[str] = []
     summary_use = {"calls": 0, "input_tokens": 0}
+    proposing: list[dict] = []
 
     def finish(status: str, **fields) -> dict:
         return {"status": status, **fields}
@@ -531,16 +636,16 @@ def run_turn(turn: Turn) -> dict:
         # The last call this turn can afford is for the answer, so it is offered no tools:
         # out of model calls, out of time for another call after this one, or out of tokens.
         spent = state.get("input_tokens", 0)
-        with_tools = estimate_tokens(system + json.dumps(state["messages"], default=str)
-                                     + json.dumps([t.offer() for t in offered]))
-        last_call = (calls_made + 1 >= AGENT_MAX_MODEL_CALLS or remaining < 2 * MIN_CALL_S
-                     or spent + 2 * with_tools > AGENT_MAX_INPUT_TOKENS_TURN)
-        tools = [t.offer() for t in offered] if state.get("tool_calls", 0) < AGENT_MAX_TOOL_CALLS and not last_call else []
+        tools = [t.offer() for t in offered]
         estimate = estimate_tokens(system + json.dumps(state["messages"], default=str) + json.dumps(tools))
+        last_call = (calls_made + 1 >= AGENT_MAX_MODEL_CALLS or remaining < 2 * MIN_CALL_S
+                     or spent + 2 * estimate > AGENT_MAX_INPUT_TOKENS_TURN)
+        # With tools disabled in the request itself, so this call can only answer (the human, 2026-11-10).
+        allow_calls = state.get("tool_calls", 0) < AGENT_MAX_TOOL_CALLS and not last_call
         if estimate > AGENT_MAX_INPUT_TOKENS_CALL or state.get("input_tokens", 0) + estimate > AGENT_MAX_INPUT_TOKENS_TURN:
             return {"final": stop("input_tokens")}
 
-        g: Generation = turn.provider.converse(system, state["messages"], tools, budget_s=remaining)
+        g: Generation = turn.provider.converse(system, state["messages"], tools, budget_s=remaining, allow_calls=allow_calls)
         last["generation"] = g
         log_call(g, prompt_version=turn.prompt_version)
         used = state.get("input_tokens", 0) + (g.input_tokens if g.input_tokens is not None else estimate)
@@ -549,7 +654,7 @@ def run_turn(turn: Turn) -> dict:
                     "final": finish("error", message=g.message, outcome=g.outcome)}
         messages = state["messages"] + [{"role": "model", "text": g.text, "calls": g.calls, "raw": g.raw}]
         update: State = {"messages": messages, "model_calls": calls_made + 1, "input_tokens": used}
-        if g.calls and last_call:  # it was offered nothing to call, and there is no call left to answer in
+        if g.calls and not allow_calls:  # tools were disabled, so this is only a backstop for a provider that ignored that
             update["final"] = stop("model_calls")
             return update
         if not g.calls:
@@ -566,6 +671,9 @@ def run_turn(turn: Turn) -> dict:
                 messages.append({"role": "tool", "call_id": call_id, "name": name, "content": NOT_RUN_ONE_AT_A_TIME})
                 continue
             content, ended = run_one(name, args, tool_calls)
+            if proposing:  # one proposal, which ends the turn's work: nothing after it runs
+                # The messages go here: what is checkpointed while a person decides holds no tool result.
+                return {"messages": [], "tool_calls": tool_calls, "proposal": proposing[0]}
             if content is not None and not content.startswith("Not run"):
                 tool_calls += 1
             if ended:
@@ -584,12 +692,20 @@ def run_turn(turn: Turn) -> dict:
         if args_problem(spec, args):
             steps.append({"tool": name, "status": "bad_args"})
             return NOT_RUN_ARGS, None
+        if spec.runs == "write":
+            return run_write(spec, args)
         began = turn.clock()
         if spec.runs == "search":
             return run_search(spec, args, began), None
         if spec.runs == "summary":
             return run_summary(spec, args, began)
         return run_express(spec, args, began)
+
+    def run_write(spec: ToolSpec, args: dict) -> tuple[str | None, dict | None]:
+        """Never runs anything. The call becomes this turn's proposal, and the turn pauses."""
+        steps.append({"tool": spec.name, "status": "proposal"})
+        proposing.append({"tool": spec.name, "args": args})
+        return None, None
 
     def run_search(spec: ToolSpec, args: dict, began: float) -> str:
         hits = turn.store.search(turn.mentorship_id, turn.viewer_id, search_query(args["query"], turn.parties), k=turn.k)
@@ -750,22 +866,32 @@ def run_turn(turn: Turn) -> dict:
             out.append(defuse(str(body["note"])))
         return "\n\n".join(out), None
 
-    graph = StateGraph(State)
-    graph.add_node("model", model)
-    graph.add_node("tools", tool)
-    graph.add_edge(START, "model")
-    graph.add_conditional_edges("model", lambda s: END if s.get("final") else "tools")
-    graph.add_conditional_edges("tools", lambda s: END if s.get("final") else "model")
-    app = graph.compile()  # no checkpointer: nothing outlives the turn
+    # Only a turn that can pause has a checkpointer. Otherwise nothing outlives the turn.
+    can_pause = any(t.runs == "write" for t in offered)
+    app = build_graph(model, tool, SAVER if can_pause else None)
+    thread_id = turn.thread_id or secrets.token_hex(16)
+    config: dict = _thread_config(thread_id) if can_pause else {"recursion_limit": RECURSION_LIMIT}
+    run_options = {"durability": "exit"} if can_pause else {}
 
     initial: State = {"messages": [{"role": "user", "text": opening_message(turn.question, turn.parties, tag, turn.prompt_version, turn.role)}],
                       "model_calls": 0, "tool_calls": 0, "input_tokens": 0}
+    paused = False
     try:
-        state = app.invoke(initial, config={"recursion_limit": RECURSION_LIMIT})
-        final = state["final"]
+        if can_pause:
+            _sweep()
+        state = app.invoke(initial, config=config, **run_options)
+        if state.get("__interrupt__"):
+            paused = True
+            with _paused_lock:
+                _paused[thread_id] = time.monotonic()
+            final = {"status": "proposal", "threadId": thread_id, **state["__interrupt__"][0].value}
+        else:
+            final = state["final"]
     except GraphRecursionError:
         state, final = initial, stop("model_calls")
     finally:
+        if can_pause and not paused:
+            _forget(thread_id)
         if turn.express is None:
             express.close()
 
@@ -797,6 +923,10 @@ def _respond(final: dict, handles: Handles, generation: Generation | None, state
         "inputTokens": state.get("input_tokens", 0),
     }
     kind = final["status"]
+    if kind == "proposal":
+        return {**base, "status": "proposal", "threadId": final["threadId"], "tool": final["tool"], "args": final["args"]}
+    if kind == "closed":  # only ever if the pause did not hold: nothing to say, and no proposal
+        return {**base, "status": "closed"}
     if kind == "error":
         return {**base, "status": "error", "message": final["message"], "outcome": final.get("outcome")}
     if kind == "refused":

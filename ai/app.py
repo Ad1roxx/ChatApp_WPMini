@@ -275,6 +275,9 @@ def ask(body: AskRequest) -> JSONResponse:
 AGENT_NOT_CONFIGURED = "The agent is not configured on this server."
 
 
+_THREAD_ID = r"^[0-9a-f]{32}$"
+
+
 class AgentRequest(BaseModel):
     """One agent turn: who is asking, where, in what role, the question, and the turn's token.
 
@@ -292,6 +295,20 @@ class AgentRequest(BaseModel):
     token: str = Field(min_length=20, max_length=4096, repr=False)
     mentorName: str = Field(default="", max_length=200)
     studentName: str = Field(default="", max_length=200)
+    threadId: str | None = Field(default=None, pattern=_THREAD_ID)
+
+
+class PausedRequest(BaseModel):
+    """Which paused turn. Extra fields are refused."""
+
+    model_config = ConfigDict(extra="forbid")
+    threadId: str = Field(pattern=_THREAD_ID)
+
+
+class ResumeRequest(PausedRequest):
+    """End a paused turn. `decision` is which of two things the person did, never what happened."""
+
+    decision: Literal["approved", "dismissed"]
 
 
 @app.post("/agent", dependencies=[Depends(require_secret), Depends(require_localhost)])
@@ -319,7 +336,36 @@ def agent_turn(body: AgentRequest) -> JSONResponse:
     result = agent.run_turn(agent.Turn(
         mentorship_id=body.mentorshipId, viewer_id=body.viewerId, role=body.role,
         question=body.question, token=body.token, provider=provider, store=store,
-        parties={"mentor": body.mentorName, "student": body.studentName},
+        parties={"mentor": body.mentorName, "student": body.studentName}, thread_id=body.threadId,
     ))
     status = ASK_STATUS.get(result.get("outcome"), 502) if result["status"] == "error" else 200
     return JSONResponse(status_code=status, content=result)
+
+
+def _paused_turns():
+    """The agent module, or None if the agent may not run here. As for `/agent`."""
+    if database_problem():
+        return None
+    try:
+        import agent
+    except RuntimeError:
+        return None
+    return agent
+
+
+@app.post("/agent/paused", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def agent_paused(body: PausedRequest) -> JSONResponse:
+    """Whether this turn is still waiting for a person. Reads only."""
+    agent = _paused_turns()
+    if agent is None:
+        return JSONResponse(status_code=503, content={"status": "error", "message": AGENT_NOT_CONFIGURED})
+    return JSONResponse(content={"paused": agent.is_paused(body.threadId)})
+
+
+@app.post("/agent/resume", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def agent_resume(body: ResumeRequest) -> JSONResponse:
+    """End a paused turn, at most once. `closed`, or `expired` if it is not waiting any more."""
+    agent = _paused_turns()
+    if agent is None:
+        return JSONResponse(status_code=503, content={"status": "error", "message": AGENT_NOT_CONFIGURED})
+    return JSONResponse(content=agent.resume_turn(body.threadId, body.decision))

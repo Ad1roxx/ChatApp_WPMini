@@ -1,0 +1,3 @@
+S5 Step 2: tools disabled on the last call, checked on the real providers, invented text. 2026-11-09 19:13 UTC
+gemini gemini-3.5-flash-lite: first call ok, called get_room_code; second call, tools disabled: ok, 0 tool calls, answer names the code: True
+groq openai/gpt-oss-120b: first call ok, called get_room_code; second call, tools disabled: ok, 0 tool calls, answer names the code: False

@@ -845,7 +845,7 @@ internal check the model is never offered:
 - **Caps count from the start of the turn.** A confirmation must not eat the 30 s, and `su-04` (Entry 106) shows the fourth model
   call can already run out.
 - **The agent prompt gets the asker right** since `agent-v3` (Entry 108), and a proposal has to keep it so: one can't be approved if it's unclear whose it is.
-- **A call to a tool that doesn't exist stops the turn** (open item, Entry 108). It should come back to the model as "no such tool".
+- **A call to a tool that doesn't exist** comes back to the model as "no such tool", as it always did. The open item in Entry 108 was wrong; what stopped `se-05` was the last allowed call asking for a tool, and that call now has tools disabled (Entry 111).
 
 Deliverables: LangGraph loop with checkpointer; the `ToolSpec` registry; the
 12 read tools; **role filtering from day one**; step and token caps.

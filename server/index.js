@@ -4080,6 +4080,22 @@ app.post('/api/mentorships/:id/copilot/agent', requireAuth, async (req, res) => 
 
 const PROPOSAL_EXPIRED = 'That proposal has expired. Ask again if you still want it.';
 const PROPOSAL_USED = 'That proposal has already been used.';
+const AGENT_THREAD_TIMEOUT_MS = 3000;
+
+/** One short call to the AI service about a paused turn. Null if it did not answer properly. */
+async function callPausedTurn(path, body) {
+  try {
+    const upstream = await fetch(`${AI_SERVICE_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-AI-Secret': AI_SERVICE_SECRET },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(AGENT_THREAD_TIMEOUT_MS)
+    });
+    return upstream.ok ? await upstream.json().catch(() => null) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * POST /api/copilot/proposals/claim
@@ -4089,15 +4105,16 @@ const PROPOSAL_USED = 'That proposal has already been used.';
  *
  *   token -> requireAuth -> agent may run here -> proposal verified -> it is this
  *   person's -> resolveMentorshipAccess -> same role -> still active -> a tool we
- *   list, for that role -> atomically pending to claimed
+ *   list, for that role -> its turn is still paused -> atomically pending to claimed
  *
  * It writes nothing but the claim. The write is the real route, called next by the
  * browser with the person's own token, so it passes every check a manual one does.
  *
- * Statuses: 200 claimed; 410 expired, or not a proposal we signed (the same answer
- * for both); 403 not this person's, or not their role; 409 already used
- * (`reason: used`) or the mentorship is no longer active (`reason: ended`); 503
- * not configured here. A refusal before the last step leaves it unused.
+ * Statuses: 200 claimed; 410 expired, not a proposal we signed, or its paused turn
+ * was lost to a restart (the same answer for all three); 403 not this person's, or
+ * not their role; 409 already used (`reason: used`) or the mentorship is no longer
+ * active (`reason: ended`); 503 not configured here, or the AI service did not say
+ * the turn is waiting. A refusal before the last step leaves it unused.
  */
 app.post('/api/copilot/proposals/claim', requireAuth, async (req, res) => {
   try {
@@ -4135,6 +4152,15 @@ app.post('/api/copilot/proposals/claim', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'That is not something the assistant can do for you' });
     }
 
+    // Asked before the claim, so a service that is down costs nobody their proposal.
+    const turn = await callPausedTurn('/agent/paused', { threadId: claims.jti });
+    if (!turn) {
+      return res.status(503).json({ error: AGENT_NOT_CONFIGURED });
+    }
+    if (turn.paused !== true) {
+      return res.status(410).json({ error: PROPOSAL_EXPIRED });
+    }
+
     const claimed = await AgentProposal.findOneAndUpdate(
       {
         _id: claims.jti,
@@ -4167,6 +4193,9 @@ app.post('/api/copilot/proposals/claim', requireAuth, async (req, res) => {
  * `dismissed` closes one still pending. `approved` closes one already claimed.
  * An expired proposal may be closed: what ran a moment before it expired still has
  * to be finished with. Every other check on the token stands.
+ *
+ * This is also what ends the paused turn in the AI service. No model is called for
+ * that, and what it is told is only which of the two decisions this was.
  */
 app.post('/api/copilot/proposals/close', requireAuth, async (req, res) => {
   try {
@@ -4196,6 +4225,9 @@ app.post('/api/copilot/proposals/close', requireAuth, async (req, res) => {
     if (!closed) {
       return res.status(409).json({ error: PROPOSAL_USED, reason: 'used' });
     }
+
+    // Ends the paused turn. If this fails the turn expires by itself, and nothing depends on it.
+    await callPausedTurn('/agent/resume', { threadId: claims.jti, decision });
 
     res.json({ ok: true });
   } catch (err) {
