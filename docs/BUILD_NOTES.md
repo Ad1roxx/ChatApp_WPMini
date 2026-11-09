@@ -8008,6 +8008,20 @@ S5 Step 0 was accepted on 2026-11-10 with three decisions by the human. A resume
 
 ---
 
+### Entry 114 — S5 Step 5: every tool, role and scope, with filtering and refusal tested apart
+
+Two files, so that a regression in one layer can't be hidden by the other (§4.3.8). `ai/tests/test_agent_role_matrix.py` is what the model is offered: each of the seven tools against student, mentor, admin, an empty role and an unknown one. `server/test/agent-role-matrix.test.js` takes the model's filter out of the picture, because the stub AI service returns whatever call a test says, as if the filter had failed. It is driven from a table of 56 rows, actor by mentorship by tool. An allowed row is signed, claimed, run through the browser's own mapping against the real route, and the stored record is checked. A refused row checks the refusal and that nothing was created.
+
+An admin who holds a mentorship gets the mentor's tools there and nothing in anyone else's. `admin` is never a role the agent is given, so asking the filter about it returns nothing.
+
+**§4.3**, each named in a test: 1 a student can't create, edit, reschedule or withdraw an assignment; 2 no announcement or group; 3 another mentor's mentorship is a 403, not an empty result; 4 no role change; 5 no admin function; 6 a proposer can't confirm their own, through the agent, by a forged proposal, or on the real route; 7 a suspended user gets nothing at the turn, the claim or the route; 8 is the split above. **9, a rubric not shared, is S8's**, because rubrics don't exist yet. Its mechanism, the viewer filter inside the search, is tested today by `test_search.py` and `test_agent.py`, and the file says so.
+
+**Tests.** 46 and 112, written by the implementer from my table and read by me. 13 mutations, all caught, including the filter offering everything, Express's list opened or closed for a role, the turn route skipping its access check, and the suspended check. One first survived: a later check also refuses another person's proposal, so a 403 alone proved nothing, and the test now says which check answered.
+
+**Review.** Codex's per-step review found a real bug in the evaluation script from the next step: a passage whose call failed was never retried. Fixed. Its attack review claimed `ai/agent.py` defines tools such as `submit_assignment`; a text search finds none, and the §4.4 absences are tested, so that finding is discarded, and `add_student` was added to the names tried at execution, since that list had left it out. Its other points were about things outside these two files or deferred to S8, as the file says. Its test-gap review named only property 9.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
