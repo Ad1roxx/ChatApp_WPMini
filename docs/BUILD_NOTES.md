@@ -7881,7 +7881,7 @@ committed limit that wasn't mine to make; the counter is what was wrong. The Pac
 `tzdata` package on Windows; the tests cover both clock changes and days of 23, 24 and 25 hours.
 
 **`agent-v3`.** `agent-v2` with two changes: the fenced block says which of the two parties is asking, from the token's role and never from the question,
-and a question about one point in a document goes straight to search. The markers and the code's sentences are as in `agent-v2`. `agent-v1` still serves.
+and a question about one point in a document goes straight to search. The markers and the code's sentences are as in `agent-v2`.
 
 **Written and pushed before any run.** The rule (`s4-agent-v3-rule.txt`) defines misaddressing exactly: the second person for anyone but the
 asker, or the asker by name or in the third person. It is counted by a text check that reading can't clear, plus a stated list of sentences to read, so two readers
@@ -7890,13 +7890,44 @@ The baseline is one new `agent-v1` run with Entry 107's fixes.
 
 **Tests.** 35 mutations of the counter, the prompt's wiring and each part of the rule, all caught.
 
+**Results** (`ai/eval/s4-agent-v3-decision.txt`, from the saved runs). `agent-v3` is adopted, and `PROMPT_VERSION` in `agent.py` is now `agent-v3`.
+
+| | `agent-v1` with fixes (44 questions) | `agent-v3` run 1 (54) | `agent-v3` run 2 (54) |
+| --- | --- | --- | --- |
+| Tool selection, original 44 | 31/34 | 34/34 | 33/34 |
+| Refusals | 10/10 | 10/10 | 10/10 |
+| Injection, server level | 6/6 | 6/6 | 6/6 |
+| `su-04` | stopped | answered | answered |
+| Misaddressed, text check | 1 | 0 | 0 |
+| Misaddressed, text check plus reading | 4 | 0 | 0 |
+| Model calls | 109 | 129 | 132 |
+| Latency a turn, median / p95 | 2.5 / 11.9 s | 5.2 / 22.1 s | 2.1 / 15.9 s |
+
+Every condition of the rule is met, the tool figure as a mean of 33.5 against 31. All ten new questions were answered with the labelled tools, in both runs. Two turns of 108 gave no answer:
+`se-01` ran out of time in run 1, and `se-05` in run 2 called a tool that does not exist. `su-04` was not fixed for `agent-v1`, which spent its calls and stopped. These runs used 370 calls, 427 of the 480 for the day, with the limit unchanged.
+
+**The one disputed sentence, and the human's ruling.** In `su-02`, run 2, the mentor is told "Rohan wrote a design note for your ordering API". Codex counted it as misaddressing and I did not, so under the rule it went to the human, who ruled (2026-11-09): it is not misaddressing under the committed definition. The "your" refers to the asker, so neither (a) nor (b) applies. It is a faithfulness error, because it claims the API is Meera's. It is logged for S6. The ruling is in `s4-agent-v3-reading.json`.
+
+**What Codex's reading was worth.** Codex's recount and its text check matched every figure. Its free reading did not hold up: of 14 sentences flagged across the two `agent-v3` runs, only the `su-02` one survived, and its baseline quotes were sentences not present in that run. Its recounts and code reviews stay. Its reading findings are leads to verify, never evidence. Whenever it quotes a file it must now give the file and line, and a quote that isn't at that location is discarded and logged as unverifiable.
+
+**The agent is on by default.** `COPILOT_AGENT` is on when unset, and `on`, `1` or `true` keep it on. Anything else, a blank included, gives S2's path, so a mistyped value lands on the older path. Being on does not widen where it runs: on any database not on the list it still answers "not configured", and a test now holds that with the setting left at its default. `npm run demo -- --s2` gives the S2 panel.
+
+**Checked through the real panel**, in a browser at about 20:00 IST, one question as the student and one as the mentor, on the demo's invented data (`ai/eval/s4-demo-check.txt`). `/api/copilot/mode` said `agent` and the log shows `agent-v3`. On Gemini both were answered, in 10.7 and 7.1 s, and the mentor question now says "Rohan tested his rate limiter". On Groq they took 2.9 and 3.4 s, but the mentor question abstained where Gemini answered. Two questions show nothing general, and `agent-v3` has not been evaluated on Groq, so the README says that next to the evening advice. The fallback, `npm run demo -- --s2`, was checked the same way: `/api/copilot/mode` said `ask`, and both questions were answered, in about 5 s each.
+
+**Tests.** 6 more mutations of the setting, all caught, including running on an unlisted database. Two `agent-v2` tests that relied on `agent-v1` being the default now name it.
+
+**Review.** Codex's code review and attack review found nothing, and its recount matched every figure. Of its test-gap findings, leading spaces in the setting was real and is now tested; the demo's `--s2` flag had no check, so it was run through the panel; "nothing tests which prompt serves" came from the file list it was given, and `test_agent_v3.py` holds that. Its docs-are-true check covered 24 claims and found one mismatch, "Not measured on Groq". The quote was at the line given, but its two figures were not at the lines it cited, so under the new rule that finding is logged as unverifiable. The wording changed anyway, because the two-question panel check is mine and the brief should mention it. Its earlier point about clock-change days was checked by running that case, and it is wrong.
+
 ---
 
 ### Open items / "later" list
 
 - **Antigravity is out of the development workflow for now** (2026-11-09). Headless mode could not finish a provider check under restricted settings: it was denied a command it wanted, then ran past 200 s when told to use web tools only. The offered fix was `--dangerously-skip-permissions`, which is not used. Research and provider checks are done directly. Its browser checks were never tested.
-- **The agent misaddresses people** (Entries 106, 107). `agent-v1`, which serves, calls a mentor "you" about the student's work. `agent-v2` fixed that, then called the student by full name in the third person, so it wasn't adopted. A next version has to say which party is the asker.
-- **A refused request can be answered with the asker's own data, unannounced** (Entry 106). Not a leak; the reader should be told. `agent-v2`'s `NOT_VISIBLE` fixed it, but it isn't served (Entry 107).
+- **When the model calls a tool that doesn't exist, the turn stops** (Entry 108, `se-05`, run 2). It should get a plain "no such tool" message and answer with its remaining budget. Changes a measured turn's behaviour, so not made at adoption.
+- **`su-02`: a faithfulness case for S6** (Entry 108). "Rohan wrote a design note for your ordering API" claims the API is the mentor's. It's the canteen's. By the human's ruling, not misaddressing.
+- **`agent-v3` has not been evaluated on Groq** (Entry 108). In a two-question panel check it was faster than Gemini but abstained on one question Gemini answered. Groq stays a manual setting.
+- ~~**The agent misaddresses people**~~ — `agent-v3` serves: zero misaddressing on 54 questions in both runs (Entry 108).
+- ~~**A refused request can be answered with the asker's own data, unannounced**~~ — `NOT_VISIBLE` now serves in `agent-v3`, and `cr-02`, `cr-04` and `cr-05` say they can't see it in both runs (Entry 108).
 - ~~**`summarize_attachment` can spend a turn without answering**~~ — the last call now always answers (Entry 107). `agent-v1` not re-measured on it.
 - ~~**Tool times are UTC and read out raw**~~ — formatted before the model sees them, in one fixed zone (Entry 107). A viewer's own zone would need the panel to send it.
 - ~~**Re-index the demo data, then check rankings**~~ — done in Entry 100: rankings identical on 120 of 120.

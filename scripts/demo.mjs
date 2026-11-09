@@ -4,7 +4,7 @@
  *   npm run demo                       # Rohan (student) and Meera (mentor)
  *   npm run demo -- --student ananya   # the other student
  *   npm run demo -- --reseed           # rebuild the demo data first
- *   npm run demo -- --agent            # the panel uses the agent (COPILOT_AGENT)
+ *   npm run demo -- --s2               # the panel uses S2's answer, not the agent (COPILOT_AGENT=off)
  *
  * Checks Docker and MongoDB, starts the Atlas container if it is stopped, starts
  * the AI service, Express and two copies of the front end, waits until the service
@@ -205,8 +205,7 @@ async function main() {
       AI_SERVICE_URL: `http://127.0.0.1:${AI_PORT}`,
       AI_SERVICE_SECRET: secret,
       AGENT_TOKEN_SECRET: agentSecret,
-      // Off unless asked for: the agent is off until S4's evaluation.
-      COPILOT_AGENT: args.includes('--agent') ? '1' : ''
+      COPILOT_AGENT: args.includes('--s2') ? 'off' : 'on'
     }
   });
   await until('Express', () => portOpen(API_PORT), 60);

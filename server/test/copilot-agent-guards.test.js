@@ -105,6 +105,34 @@ test('with COPILOT_AGENT off, the agent is not configured, and asking works as b
   }
 });
 
+for (const value of ['off', 'OFF', '0', 'false', 'typo']) {
+  test(`COPILOT_AGENT=${value} falls back to S2's path`, async () => {
+    await start({ extraEnv: env({ COPILOT_AGENT: value }) });
+    try {
+      assert.deepEqual(await mode(), { mode: 'ask' });
+      const id = await mentorship();
+      assert.equal((await agent(id)).status, 503);
+      assert.equal((await ask(id)).status, 200);
+      assert.deepEqual(received.map((r) => r.path), ['/ask']);
+    } finally {
+      await stop();
+    }
+  });
+}
+
+for (const [name, setting] of [['left unset', {}], ['on', { COPILOT_AGENT: 'on' }], [' ON ', { COPILOT_AGENT: ' ON ' }], ['1', { COPILOT_AGENT: '1' }], ['true', { COPILOT_AGENT: 'true' }]]) {
+  test(`COPILOT_AGENT ${name}: the panel uses the agent`, async () => {
+    await start({ extraEnv: env(setting) });
+    try {
+      assert.deepEqual(await mode(), { mode: 'agent' });
+      assert.equal((await agent(await mentorship())).status, 200);
+      assert.deepEqual(received.map((r) => r.path), ['/agent']);
+    } finally {
+      await stop();
+    }
+  });
+}
+
 test('with no capability-token secret, the agent is not configured', async () => {
   await start({ extraEnv: env({ COPILOT_AGENT: '1', AGENT_TOKEN_SECRET: '' }) });
   try {
@@ -117,9 +145,9 @@ test('with no capability-token secret, the agent is not configured', async () =>
   }
 });
 
-test('on a database that is not on the list, the agent is not configured, even switched on', async () => {
+for (const [name, setting] of [['switched on', { COPILOT_AGENT: '1' }], ['left at its default', {}]]) test(`on a database that is not on the list, the agent is not configured, ${name}`, async () => {
   const conn = await seedUnlisted();
-  await start({ seedFirst: false, extraEnv: env({ COPILOT_AGENT: '1', MONGODB_URI: UNLISTED }) });
+  await start({ seedFirst: false, extraEnv: env({ ...setting, MONGODB_URI: UNLISTED }) });
   try {
     const id = await mentorship();
     assert.ok(id, 'the server is up on the unlisted database');

@@ -1,0 +1,32 @@
+The demo, through the real panel in a browser, after the agent was turned on by default. Invented data.
+
+== gemini, 2026-11-09T14:31:35.445Z. /api/copilot/mode: {"mode":"agent"}. Invented data, chatapp_demo.
+
+Rohan Kapoor (student): Which milestones on my goal are still to do?
+  agent's loader shown: true; 10682 ms; citation chips: 1; page errors: none
+  Your milestones that are still to do are to design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard T1.
+
+Meera Iyer (mentor): How did Rohan test his rate limiter, and what were the results?
+  agent's loader shown: true; 7061 ms; citation chips: 3; page errors: none
+  Rohan tested his rate limiter using a k6 script that simulated the lunch peak against a staging copy with 900 requests a minute from 300 virtual students, plus a client polling every 200 milliseconds 1. Without the limiter, the p95 for placing an order was 2.4 seconds, but with it, the polling client was refused about 94 percent of the time and the p95 for everyone else dropped to 310 milliseconds 1. Additionally, no ordinary student in the test was ever refused 1.
+
+== groq, 2026-11-09T14:33:38.488Z. /api/copilot/mode: {"mode":"agent"}. Invented data, chatapp_demo.
+
+Rohan Kapoor (student): Which milestones on my goal are still to do?
+  agent's loader shown: true; 2948 ms; citation chips: 1; page errors: none
+  The milestones that are still to do are: - Design a rate limiter - Pass a mock system design interview - Explain consensus at a whiteboard T1
+
+Meera Iyer (mentor): How did Rohan test his rate limiter, and what were the results?
+  agent's loader shown: true; 3432 ms; citation chips: 0; page errors: none
+  I couldn't find an answer to that in what I can search in this mentorship.
+
+== gemini, npm run demo -- --s2, 2026-11-09T14:39:31.523Z. /api/copilot/mode: {"mode":"ask"}. Invented data, chatapp_demo.
+
+Rohan Kapoor (student): Which milestones on my goal are still to do?
+  agent's loader shown: false; 5062 ms; citation chips: 1; page errors: none
+  Your goal to be ready for backend interviews by March has three milestones still to do: design a rate limiter, pass a mock system design interview, and explain consensus at a whiteboard 1.
+
+Meera Iyer (mentor): How did Rohan test his rate limiter, and what were the results?
+  agent's loader shown: false; 5057 ms; citation chips: 3; page errors: none
+  Rohan tested his rate limiter by running a k6 script of the lunch peak against a staging copy, which included 900 requests a minute from 300 virtual students and one client polling every 200 milliseconds 1. Without the limiter, the p95 for placing an order was 2.4 seconds, but with it, the p95 for everyone else dropped to 310 milliseconds while the polling client was refused about 94 per cent of the time 1. Additionally, no ordinary student in the test was ever refused 1.
+

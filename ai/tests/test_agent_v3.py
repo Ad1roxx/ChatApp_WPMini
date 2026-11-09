@@ -27,8 +27,8 @@ def goals():
 # ---------------------------------------------------------------------------
 # The prompt
 # ---------------------------------------------------------------------------
-def test_v1_still_serves_until_the_rule_says_otherwise():
-    assert agent.PROMPT_VERSION == "agent-v1"
+def test_v3_serves_as_the_rule_decided():
+    assert agent.PROMPT_VERSION == "agent-v3"
 
 
 @pytest.mark.parametrize("role,other,name", [("student", "the mentor", "Rohan Kapoor"), ("mentor", "the student", "Meera Iyer")])

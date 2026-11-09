@@ -3871,11 +3871,13 @@ app.post('/api/mentorships/:id/copilot/ask', requireAuth, async (req, res) => {
 // ============================================
 
 /**
- * Whether the panel uses the agent rather than S2's answer. Off by default, and
- * off until S4's evaluation (AGENT_PLAN S4). With it off the agent route answers
- * "not configured" and the panel keeps asking /copilot/ask.
+ * Whether the panel uses the agent rather than S2's answer. On unless the setting
+ * says otherwise (S4's evaluation, BUILD_NOTES Entry 108). Any value that is not
+ * on, 1 or true, a blank included, turns it off: the agent route then answers "not
+ * configured" and the panel asks /copilot/ask, S2's path. Being on does not widen
+ * where it runs: agentUnavailable still refuses any database not on the list.
  */
-const COPILOT_AGENT = ['1', 'true'].includes(String(process.env.COPILOT_AGENT || '').toLowerCase());
+const COPILOT_AGENT = ['1', 'true', 'on'].includes(String(process.env.COPILOT_AGENT ?? 'on').trim().toLowerCase());
 
 /**
  * How long Express waits for one agent turn, in milliseconds. The capability

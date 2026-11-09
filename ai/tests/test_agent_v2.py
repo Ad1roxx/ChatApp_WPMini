@@ -121,8 +121,8 @@ def test_a_handle_that_is_not_a_hand_in_gets_a_sentence_saying_what_to_do():
 # ---------------------------------------------------------------------------
 # agent-v2's prompt
 # ---------------------------------------------------------------------------
-def test_v1_is_still_what_serves_until_the_rule_says_otherwise():
-    assert agent.PROMPT_VERSION == "agent-v1"
+def test_v3_is_what_serves_and_an_unknown_version_is_refused():
+    assert agent.PROMPT_VERSION == "agent-v3"
     with pytest.raises(ValueError, match="unknown prompt version"):
         system_prompt("student", "tag", "agent-v9")
 
@@ -152,7 +152,7 @@ def test_a_turn_reports_the_version_it_ran():
     t, _ = turn(ScriptedProvider("NO_ANSWER"), goals(), **V2)
     assert run_turn(t)["promptVersion"] == "agent-v2"
     t, _ = turn(ScriptedProvider("NO_ANSWER"), goals())
-    assert run_turn(t)["promptVersion"] == "agent-v1"
+    assert run_turn(t)["promptVersion"] == "agent-v3"
 
 
 def test_not_visible_gives_the_codes_sentence():
@@ -179,7 +179,7 @@ def test_a_marker_inside_other_text_is_not_a_marker_and_uncited_text_is_still_no
 
 @pytest.mark.parametrize("marker", ["NOT_VISIBLE", "SMALL_TALK"])
 def test_the_markers_mean_nothing_to_v1(marker):
-    t, _ = turn(ScriptedProvider(marker), goals())
+    t, _ = turn(ScriptedProvider(marker), goals(), prompt_version="agent-v1")
     result = run_turn(t)
     assert result["status"] == "abstained" and result["message"] == ABSTAIN_MESSAGE
 

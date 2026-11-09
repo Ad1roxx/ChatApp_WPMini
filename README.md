@@ -73,16 +73,20 @@ of their own, seeds the demo data, and prints two addresses, already signed in: 
 
 **When to demo.** Between 11:00 and 19:00 IST, demo on Gemini, the default. Over three days of probing, Gemini's hourly medians
 in that window were 1.1–2.3 s, and its slowest call took 3.4 s. From 19:00 it slowed: hourly medians of 10–11 s, with calls of up
-to 21.6 s (`ai/eval/gemini-latency.txt`). In the evening, switch to Groq by hand: set `AI_LLM_PROVIDER=groq` in `ai/.env` (with
+to 21.6 s (`ai/eval/gemini-latency.txt`). In the evening you can switch to Groq by hand: set `AI_LLM_PROVIDER=groq` in `ai/.env` (with
 `GROQ_API_KEY` in the `AI_ENV_FILE` file), then restart `npm run demo`. Switch back to `gemini` the same way. Nothing switches automatically: a
 Gemini failure is shown as a failure, never retried on Groq.
 
-**The agent.** `npm run demo -- --agent` switches the panel to the agent, which can also look up the mentorship's goals, work,
-sessions and files, and cites them as chips that lead to their rows. It runs only on the demo's invented data: on any other
-database, the development one included, it answers "not configured", and so does the ordinary assistant. Each person has a share
-of 60 model calls a day. Measured in two runs of 44 labelled questions, it picked the right tools for 29/34 and 32/34, and gave out
-nothing out of scope (10/10 refusals, 6/6 planted-instruction probes, in both runs): `ai/eval/s4-agent-results.txt`. Whether its answers
-are correct is not measured yet.
+Groq is quicker but less proven with the agent, which was evaluated on Gemini only. In one check through the panel at about 20:00 IST, one question each
+as the student and the mentor, Groq took 2.9 and 3.4 s and Gemini 10.7 and 7.1 s, but Groq abstained on the mentor's question, which Gemini answered
+(`ai/eval/s4-demo-check.txt`). Two questions prove little, so try what you plan to show first. A multi-step turn on an evening Gemini can reach the 30 s limit and stop with a message.
+
+**The agent.** The panel uses the agent by default. It can look up the mentorship's goals, work, sessions and files, and cites them as chips
+that lead to their rows. `npm run demo -- --s2` gives the earlier assistant instead, which answers from search alone; outside the demo, that's
+`COPILOT_AGENT=off`. It runs only on the demo's invented data: on any other database, the development one included, it answers "not configured", and so
+does the ordinary assistant. Each person has a share of 60 model calls a day. Measured on Gemini in two runs of 54 labelled questions, it picked the right tools
+for 34/34 and 33/34, gave out nothing out of scope (10/10 refusals, 6/6 planted-instruction probes, in both runs), and addressed the person asking
+correctly throughout: `ai/eval/s4-agent-v3-decision.txt`. Whether its answers are correct is not measured yet.
 
 Open a mentorship and ask the assistant something. It answers from that mentorship's material only, and every number is a chip you
 can click through to the source:
@@ -97,7 +101,7 @@ An ended mentorship refuses, before anything is searched:
 
 ![The ended-mentorship state](docs/images/copilot-ended.png)
 
-It often abstains on questions it could answer: see BUILD_NOTES Entry 80 for what it found and why. The tests:
+The earlier assistant often abstains on questions it could answer: see BUILD_NOTES Entry 80 for what it found and why. The tests:
 
 ```bash
 npm run test:frontend     # the panel in a real browser, with servers stubbed

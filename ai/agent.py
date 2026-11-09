@@ -72,7 +72,7 @@ from providers import FAILED, MIN_CALL_S, PLAIN, Generation, estimate_tokens, lo
 
 log = logging.getLogger("copilot.agent")
 
-PROMPT_VERSION = "agent-v1"
+PROMPT_VERSION = "agent-v3"
 
 # LangGraph's own limit on steps, fixed when the module loads: a backstop that holds
 # even if the step cap in the model node were lost. Two graph steps per model call.

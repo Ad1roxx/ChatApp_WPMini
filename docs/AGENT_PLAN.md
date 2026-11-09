@@ -810,11 +810,11 @@ footnote text.
 
 ### S4 — Agent loop, read tools only
 
-**Done** (BUILD_NOTES entries 93–106). Off by default (`COPILOT_AGENT`), and only on synthetic databases.
-Measured in two runs of 44 labelled questions under a rule committed first: tool selection 29/34 and 32/34,
-arguments 10/10 and 10/10, refusals 10/10 and 10/10, injection 6/6 and 6/6 with every plant reaching the model
-and no out-of-scope call tried. Provider: Gemini, Groq as a manual setting. Faithfulness is still S6's. `agent-v1` serves: `agent-v2` was measured
-under a rule committed first and not adopted, because it addressed the student in the third person (Entry 107).
+**Closed** (BUILD_NOTES entries 93–108). On by default (`COPILOT_AGENT`, with `off` for S2's path), and only on synthetic databases.
+`agent-v3` serves, adopted under a rule committed first, in two runs of 54 labelled questions on Gemini: tool selection 34/34 and 33/34 on the original 44,
+arguments 11/11 and 11/11, refusals 10/10 and 10/10, injection 6/6 and 6/6 with every plant reaching the model and no out-of-scope call tried, and no
+misaddressing. The baseline, `agent-v1` with the code fixes, scored 31/34 and misaddressed 4. `agent-v2` was measured and not adopted (Entry 107). Groq stays a manual
+setting and `agent-v3` has not been evaluated on it. Faithfulness is still S6's, with `su-02` as a logged case.
 
 **The tools as built** (`ai/agent.py`, `server/lib/agentTools.js`). The plan's twelve became these nine, plus one
 internal check the model is never offered:
@@ -844,8 +844,8 @@ internal check the model is never offered:
   repeat. The test in S5's list holds this.
 - **Caps count from the start of the turn.** A confirmation must not eat the 30 s, and `su-04` (Entry 106) shows the fourth model
   call can already run out.
-- **The agent prompt must get the asker right** before any proposal says who something is for: `agent-v1` addresses a mentor as the student, and
-  `agent-v2`, given both names, addresses the student by name (Entry 107). A proposal can't be approved if it's unclear whose it is.
+- **The agent prompt gets the asker right** since `agent-v3` (Entry 108), and a proposal has to keep it so: one can't be approved if it's unclear whose it is.
+- **A call to a tool that doesn't exist stops the turn** (open item, Entry 108). It should come back to the model as "no such tool".
 
 Deliverables: LangGraph loop with checkpointer; the `ToolSpec` registry; the
 12 read tools; **role filtering from day one**; step and token caps.
@@ -883,7 +883,7 @@ owns and what it must never own.
   route and the tool. Every existing route test passes unchanged, and each extracted check is mutation-checked through both callers.
 - **A per-user budget on the agent route, counted in model calls,** per minute and per day, so no one user can spend the 480-a-day
   allowance. A plain sentence when it is reached.
-- **One panel**, switched between S2 and the agent by a server setting (`COPILOT_AGENT`), off until S4's evaluation.
+- **One panel**, switched between S2 and the agent by a server setting (`COPILOT_AGENT`), on since S4's evaluation (Entry 108), with `off` as the fallback to S2.
 - **Synthetic data only** (the user, 2026-11-07; BUILD_NOTES Entry 101). The agent refuses, as "not configured", unless the app
   database and the index are on a list kept in code in both services: the demo, the evaluation fixtures and the tests' own
   databases. Never `chatapp`. The S2 ask route refuses on the same list (Entry 105).
