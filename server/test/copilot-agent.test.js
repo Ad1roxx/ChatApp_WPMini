@@ -99,7 +99,7 @@ test('a turn is answered, and what the AI service is sent comes from the records
   assert.equal(sent.path, '/agent');
   assert.equal(sent.secret, AI_SECRET);
   assert.deepEqual(Object.keys(sent.body).sort(), [
-    'mentorName', 'mentorshipId', 'question', 'role', 'studentName', 'token', 'viewerId'
+    'mentorName', 'mentorshipId', 'question', 'role', 'studentName', 'threadId', 'token', 'viewerId'
   ]);
   assert.equal(typeof sent.body.token, 'string');
   assert.equal(sent.body.role, 'student');

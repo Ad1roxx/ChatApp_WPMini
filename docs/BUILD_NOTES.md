@@ -7972,6 +7972,28 @@ S5 Step 0 was accepted on 2026-11-10 with three decisions by the human. A resume
 
 ---
 
+### Entry 112 — S5 Step 3: the seven write tools, agent-v4, and a dialog built from the same values as the request
+
+**The tools.** The seven from §3.2 and no others, in `ai/agent.py` as the model reads them and in `server/lib/agentWrites.js` as Express checks them. Their schemas take handles and never ids, and nothing about who or where. Every §4.4 action and admin function is absent, by name, in tests on both sides. An `agent-v4` prompt knows about them. `agent-v3` still serves and is offered none, until Step 7's rule says otherwise.
+
+**Express treats the service's call as untrusted.** Exact keys, exact types. A value too long is refused, never cut. Control characters and the ones that reorder or hide text are refused, so a proposal reads as it is. The role, the mentorship and the asker come from the route's own checks. `create_assignment` can only name this mentorship, and Express sets that.
+
+**What is shown is what is stored.** `build` cleans a value as the route will (`trim`, and the link parsed by the route's own `parseSharedUrl`, moved to `lib/sharedUrl.js` and shared). `describe` makes the fields from those values, and each field names the argument it shows. A test holds that every argument in a request has a field. The browser gets the signed token and the turn's figures, and nothing else.
+
+**A proposal can go out of date.** At the claim `describe` runs again and is compared with what was signed. A deadline moved since, a milestone already ticked, a session cancelled, even a renamed person: the person approved something no longer true, so it answers `changed` and stays unused.
+
+**Narrower than the routes**, on purpose. A deadline only moves later, equal counts as not later. A moved deadline says how many students it applies to, because the route moves it for everyone it was set for. A milestone already in that state is refused.
+
+**Times.** `server/lib/agentTime.js` formats for the dialog and must say what Python's `readable_time` says. A test runs both on 1,510 values, including midnight and noon IST, a leap day and the US clock changes, and compares the strings. Today's date, in IST, is in `agent-v4`'s prompt from the service's clock, never from the question. Step 7 measures a relative date on the real model.
+
+**Refusals are reasons, not sentences.** Both sides answer with one of a fixed set, and the panel will hold the wording. `agent-v4` replies `CANNOT_DO`, `ASK_DATE`, `ASK_WHICH` or `ASK_DETAILS` as a whole reply, and the code does the rest, so nothing the model writes reaches a person without a verified citation.
+
+**Tests.** 73 in `test_agent_writes.py` and 66 in `agent-writes.test.js`, the last of which runs each tool from a model's call, through the browser's own mapping, to the real route, and checks what was stored. 43 mutations, all caught. One first survived because past dates were refused twice; the earlier check was redundant and is gone, and the one that also runs at the claim now has a test for each tool with a date.
+
+**Review.** Codex's per-step review raised two P1s. That `agent-v4` isn't the default is deliberate, since it serves only if Step 7's rule passes. That a milestone could change position between approval and running is wrong: the browser sends the stable milestone id, never its number (`src/lib/agentActions.js`). The attack review's only finding was the same default. Of its test gaps, the equal deadline was real and is tested; the real route refusing a proposer is already in `sessions.test.js`; and the recheck is one comparison shared by all seven tools.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.

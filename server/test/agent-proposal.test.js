@@ -69,18 +69,20 @@ test.after(async () => {
 const collection = () => db().collection('agentproposals');
 const statusOf = async (pid) => (await collection().findOne({ _id: pid }))?.status;
 
-const ARGS = { mentorshipId: '0'.repeat(23) + '1', title: 'A link', url: 'https://example.test/a', note: '' };
-const FIELDS = [
+// add_resource's real args and fields, as agentWrites builds them for this mentorship.
+const argsFor = (mentorship) => ({ mentorshipId: mentorship._id, title: 'A link', url: 'https://example.test/a', note: '' });
+const fieldsFor = (other) => [
   { label: 'Title', value: 'A link', arg: 'title' },
   { label: 'Link', value: 'https://example.test/a', arg: 'url' },
-  { label: 'Note', value: '', arg: 'note' }
+  { label: 'Note', value: '', arg: 'note' },
+  { label: 'Shared with', value: other, arg: 'mentorshipId' }
 ];
 
 /** A proposal as Express issues one: a signed token and its pending record. */
 async function issue({ as = USERS.student, mentorship = mine, role = 'student', tool = 'add_resource', ttlSeconds, record = true, secret = SECRET } = {}) {
   const pid = proposals.newProposalId();
   const { token, exp } = proposals.signProposal(secret, {
-    pid, tool, args: ARGS, heading: 'Pin a link', fields: FIELDS, asked: 'Pin that article',
+    pid, tool, args: argsFor(mentorship), heading: 'Pin a link', fields: fieldsFor(USERS.mentor.displayName), asked: 'Pin that article',
     userId: as._id, mentorshipId: mentorship._id, role, ttlSeconds
   });
   if (record) {
@@ -166,7 +168,7 @@ test('only a proposal signed with this key, for this purpose, is accepted', asyn
   await t.test('a well-formed proposal for another audience', async () => {
     const pid = proposals.newProposalId();
     const token = jwt.sign(
-      { mid: mine._id, role: 'student', tool: 'add_resource', args: ARGS, heading: 'x', fields: FIELDS, asked: 'x' },
+      { mid: mine._id, role: 'student', tool: 'add_resource', args: argsFor(mine), heading: 'x', fields: fieldsFor('x'), asked: 'x' },
       SECRET,
       { algorithm: 'HS256', subject: USERS.student._id, jwtid: pid, audience: agentToken.AUDIENCE, issuer: proposals.ISSUER, expiresIn: 60 }
     );
@@ -196,7 +198,7 @@ test('an expired proposal cannot be claimed', async () => {
   const pid = proposals.newProposalId();
   const now = Math.floor(Date.now() / 1000);
   const token = jwt.sign(
-    { mid: mine._id, role: 'student', tool: 'add_resource', args: ARGS, heading: 'Pin a link', fields: FIELDS, asked: 'x', iat: now - 400, exp: now - 100 },
+    { mid: mine._id, role: 'student', tool: 'add_resource', args: argsFor(mine), heading: 'Pin a link', fields: fieldsFor('x'), asked: 'x', iat: now - 400, exp: now - 100 },
     SECRET,
     { algorithm: 'HS256', subject: USERS.student._id, jwtid: pid, audience: proposals.AUDIENCE, issuer: proposals.ISSUER }
   );
@@ -210,7 +212,7 @@ test('an expired proposal cannot be claimed', async () => {
 
 test('a proposal cannot be signed to live longer than five minutes', () => {
   const { exp } = proposals.signProposal(SECRET, {
-    pid: proposals.newProposalId(), tool: 'add_resource', args: ARGS, heading: 'x', fields: FIELDS, asked: 'x',
+    pid: proposals.newProposalId(), tool: 'add_resource', args: argsFor(mine), heading: 'x', fields: fieldsFor('x'), asked: 'x',
     userId: USERS.student._id, mentorshipId: mine._id, role: 'student', ttlSeconds: 100000
   });
   assert.ok(exp - Date.now() / 1000 <= proposals.PROPOSAL_TTL_S + 1);
@@ -219,7 +221,7 @@ test('a proposal cannot be signed to live longer than five minutes', () => {
 test('a token that claims a long life is refused, even correctly signed', async () => {
   const now = Math.floor(Date.now() / 1000);
   const token = jwt.sign(
-    { mid: mine._id, role: 'student', tool: 'add_resource', args: ARGS, heading: 'x', fields: FIELDS, asked: 'x', iat: now, exp: now + 86400 },
+    { mid: mine._id, role: 'student', tool: 'add_resource', args: argsFor(mine), heading: 'x', fields: fieldsFor('x'), asked: 'x', iat: now, exp: now + 86400 },
     SECRET,
     { algorithm: 'HS256', subject: USERS.student._id, jwtid: proposals.newProposalId(), audience: proposals.AUDIENCE, issuer: proposals.ISSUER }
   );

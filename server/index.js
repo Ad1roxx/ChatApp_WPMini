@@ -82,6 +82,7 @@ const {
 const agentTools = require('./lib/agentTools');
 const agentProposal = require('./lib/agentProposal');
 const agentWrites = require('./lib/agentWrites');
+const { parseSharedUrl } = require('./lib/sharedUrl');
 const AgentProposal = require('./models/AgentProposal');
 
 // Authentication
@@ -2380,34 +2381,6 @@ app.patch('/api/sessions/:sessionId', requireAuth, async (req, res) => {
 // ============================================
 
 /**
- * Accept only http(s), and only a URL the platform can actually parse.
- *
- * The important refusal is `javascript:` — the client renders this straight
- * into an `href`, so a stored `javascript:` URL is stored XSS with a one-click
- * path to the other party. `data:` and `file:` are refused for the same
- * family of reasons. Allow-listing two schemes is the version that stays
- * correct as new schemes are invented; a blocklist is not.
- */
-function parseSharedUrl(raw) {
-  const value = String(raw || '').trim();
-  if (!value) return { error: 'A link is required' };
-  if (value.length > 2000) return { error: 'That link is too long' };
-
-  let parsed;
-  try {
-    parsed = new URL(value);
-  } catch {
-    return { error: 'That does not look like a link' };
-  }
-
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    return { error: 'Only http and https links can be shared' };
-  }
-
-  return { url: parsed.toString() };
-}
-
-/**
  * GET /api/mentorships/:id/resources
  *
  * Everything shared in one mentorship, newest first. Both parties see the
@@ -4019,6 +3992,9 @@ app.post('/api/mentorships/:id/copilot/agent', requireAuth, async (req, res) => 
     const nameOf = (id) =>
       String(parties.find((p) => String(p._id) === String(id))?.displayName || '').slice(0, 200);
 
+    // Also the proposal's id, if this turn makes one.
+    const threadId = agentProposal.newProposalId();
+
     const { token } = agentToken.mintAgentToken(AGENT_TOKEN_SECRET, {
       userId: String(req.authUser._id),
       mentorshipId: String(access.mentorship._id),
@@ -4040,6 +4016,7 @@ app.post('/api/mentorships/:id/copilot/agent', requireAuth, async (req, res) => 
           role,
           question,
           token,
+          threadId,
           mentorName: nameOf(access.mentorship.mentor),
           studentName: nameOf(access.mentorship.student)
         }),
@@ -4061,6 +4038,22 @@ app.post('/api/mentorships/:id/copilot/agent', requireAuth, async (req, res) => 
         `${body?.modelCalls ?? '?'} model calls, ${body?.toolCalls ?? '?'} tool calls`
     );
 
+    // A proposal never goes back as the service sent it: Express checks it, builds what a
+    // person will be shown, signs it, and that token is all the browser receives.
+    if (upstream.ok && body?.status === 'proposal') {
+      return res.json(
+        await proposalFromTurn({
+          body,
+          threadId,
+          user: req.authUser,
+          mentorship: access.mentorship,
+          role,
+          question,
+          parties: { mentor: nameOf(access.mentorship.mentor), student: nameOf(access.mentorship.student) }
+        })
+      );
+    }
+
     if (upstream.ok && body) {
       return res.json(body);
     }
@@ -4080,6 +4073,8 @@ app.post('/api/mentorships/:id/copilot/agent', requireAuth, async (req, res) => 
 
 const PROPOSAL_EXPIRED = 'That proposal has expired. Ask again if you still want it.';
 const PROPOSAL_USED = 'That proposal has already been used.';
+/** What a turn spent, kept on a proposal or a refusal. Counts and names only. */
+const TURN_FIGURES = ['modelCalls', 'toolCalls', 'inputTokens', 'summaryCalls', 'summaryInputTokens', 'promptVersion', 'provider', 'model', 'steps'];
 const AGENT_THREAD_TIMEOUT_MS = 3000;
 
 /** One short call to the AI service about a paused turn. Null if it did not answer properly. */
@@ -4097,6 +4092,58 @@ async function callPausedTurn(path, body) {
   }
 }
 
+/** The names the dialog shows, from the mentorship record. */
+async function partyNames(mentorship) {
+  const people = await User.find({ _id: { $in: [mentorship.mentor, mentorship.student] } }).select('displayName');
+  const nameOf = (id) => String(people.find((p) => String(p._id) === String(id))?.displayName || '').slice(0, 200);
+  return { mentor: nameOf(mentorship.mentor), student: nameOf(mentorship.student) };
+}
+
+/**
+ * A model's call to a write tool, made into something a person can approve, or refused.
+ *
+ *   the turn it came from -> a tool we list, for this role -> agentWrites.prepare
+ *     -> signed -> recorded as pending
+ *
+ * The tool and its arguments come from the AI service, so they are checked as if they
+ * came from anywhere. Who is asking, where, and in what role come from the route's own
+ * checks. The browser is sent the token and the turn's figures, and nothing else.
+ * A refusal says why with one of a fixed set of reasons, and ends the paused turn.
+ */
+async function proposalFromTurn({ body, threadId, user, mentorship, role, question, parties }) {
+  const figures = Object.fromEntries(TURN_FIGURES.filter((k) => k in body).map((k) => [k, body[k]]));
+  const decline = async (reason) => {
+    await callPausedTurn('/agent/resume', { threadId, decision: 'dismissed' });
+    return { ...figures, status: 'declined', reason };
+  };
+
+  if (!AGENT_PROPOSAL_SECRET || body.threadId !== threadId) return decline('unavailable');
+
+  const built = await agentWrites.prepare(body.tool, { input: body.args, user, mentorship, role, parties });
+  if (built.refuse) return decline(built.refuse);
+
+  const { token, exp } = agentProposal.signProposal(AGENT_PROPOSAL_SECRET, {
+    pid: threadId,
+    tool: body.tool,
+    args: built.args,
+    heading: built.heading,
+    fields: built.fields,
+    asked: question,
+    userId: user._id,
+    mentorshipId: mentorship._id,
+    role
+  });
+  await AgentProposal.create({
+    _id: threadId,
+    user: user._id,
+    mentorship: mentorship._id,
+    tool: body.tool,
+    // Past the token's own expiry: this record must outlast anything that could use it.
+    expiresAt: new Date((exp + 60) * 1000)
+  });
+  return { ...figures, status: 'proposal', proposal: token };
+}
+
 /**
  * POST /api/copilot/proposals/claim
  *
@@ -4105,15 +4152,17 @@ async function callPausedTurn(path, body) {
  *
  *   token -> requireAuth -> agent may run here -> proposal verified -> it is this
  *   person's -> resolveMentorshipAccess -> same role -> still active -> a tool we
- *   list, for that role -> its turn is still paused -> atomically pending to claimed
+ *   list, for that role -> it still says what they approved -> its turn is still
+ *   paused -> atomically pending to claimed
  *
  * It writes nothing but the claim. The write is the real route, called next by the
  * browser with the person's own token, so it passes every check a manual one does.
  *
  * Statuses: 200 claimed; 410 expired, not a proposal we signed, or its paused turn
  * was lost to a restart (the same answer for all three); 403 not this person's, or
- * not their role; 409 already used (`reason: used`) or the mentorship is no longer
- * active (`reason: ended`); 503 not configured here, or the AI service did not say
+ * not their role; 409 already used (`reason: used`), the mentorship is no longer
+ * active (`reason: ended`), or what it describes has changed since it was shown
+ * (`reason: changed`); 503 not configured here, or the AI service did not say
  * the turn is waiting. A refusal before the last step leaves it unused.
  */
 app.post('/api/copilot/proposals/claim', requireAuth, async (req, res) => {
@@ -4150,6 +4199,17 @@ app.post('/api/copilot/proposals/claim', requireAuth, async (req, res) => {
     const tool = agentWrites.writeTool(claims.tool);
     if (!tool || !tool.roles.includes(role)) {
       return res.status(403).json({ error: 'That is not something the assistant can do for you' });
+    }
+
+    // What the person approved must still be true: the deadline they saw, the session still open.
+    const still = await agentWrites.recheck(claims, {
+      user: req.authUser,
+      mentorship: access.mentorship,
+      role,
+      parties: await partyNames(access.mentorship)
+    });
+    if (still.refuse) {
+      return res.status(409).json({ error: 'That has changed since it was proposed', reason: 'changed' });
     }
 
     // Asked before the claim, so a service that is down costs nobody their proposal.
