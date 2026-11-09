@@ -245,3 +245,35 @@ test('every change to a goal moves its updatedAt', async (t) => {
     assert.ok((await updatedAt()) > before);
   });
 });
+
+test('a milestone cannot be changed once the mentorship is not active', async (t) => {
+  const other = await (await api('/api/mentorships', {
+    as: USERS.mentor,
+    method: 'POST',
+    body: { studentId: USERS.student2._id, topic: 'Ending soon' }
+  })).json();
+  const goal = await (await api(`/api/mentorships/${other._id}/goals`, {
+    as: USERS.mentor,
+    method: 'POST',
+    body: { title: 'Left unfinished', milestones: ['one'] }
+  })).json();
+  await db().collection('mentorships').updateOne(
+    { _id: new mongoose.Types.ObjectId(other._id) },
+    { $set: { status: 'ended' } }
+  );
+
+  for (const [who, as] of [['the student', USERS.student2], ['the mentor', USERS.mentor]]) {
+    await t.test(`${who} is refused, and nothing changes`, async () => {
+      const res = await tick(goal._id, goal.milestones[0]._id, as, true);
+      assert.equal(res.status, 400);
+      assert.match((await res.json()).error, /active mentorship/);
+      const stored = await db().collection('goals').findOne({ _id: new mongoose.Types.ObjectId(goal._id) });
+      assert.equal(stored.milestones[0].done, false);
+    });
+  }
+
+  await t.test('someone outside it still gets a 403, not the status', async () => {
+    const res = await tick(goal._id, goal.milestones[0]._id, USERS.student, true);
+    assert.equal(res.status, 403);
+  });
+});

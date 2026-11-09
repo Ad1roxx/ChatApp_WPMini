@@ -298,3 +298,40 @@ test('the usual refusals', async (t) => {
     assert.equal(res.status, 401);
   });
 });
+
+test('a session cannot be changed once the mentorship is not active', async (t) => {
+  // Its own mentorship: `USERS.mentor` and `student2` already have a pending one in this file.
+  const other = await (await api('/api/mentorships', {
+    as: USERS.admin,
+    method: 'POST',
+    body: { studentId: USERS.student2._id, topic: 'Ending soon' }
+  })).json();
+  assert.ok(other._id, 'the fixture mentorship was created');
+  const s = await (await propose(USERS.admin, { title: 'Stranded', scheduledFor: soon(60 * 30) }, other._id)).json();
+  assert.equal(String(s.mentorship?._id ?? s.mentorship), other._id);
+  await db().collection('mentorships').updateOne(
+    { _id: new mongoose.Types.ObjectId(other._id) },
+    { $set: { status: 'ended' } }
+  );
+
+  const stored = () => db().collection('sessions').findOne({ _id: new mongoose.Types.ObjectId(s._id) });
+
+  for (const [name, body] of [
+    ['confirming', { action: 'confirm' }],
+    ['rescheduling', { action: 'reschedule', scheduledFor: soon(60 * 40) }],
+    ['cancelling', { action: 'cancel', reason: 'no' }]
+  ]) {
+    await t.test(`${name} is refused, and nothing changes`, async () => {
+      const before = await stored();
+      const res = await act(USERS.student2, s._id, body);
+      assert.equal(res.status, 400);
+      assert.match((await res.json()).error, /active mentorship/);
+      assert.deepEqual(await stored(), before);
+    });
+  }
+
+  await t.test('someone outside it still gets a 403, not the status', async () => {
+    const res = await act(USERS.student, s._id, { action: 'confirm' });
+    assert.equal(res.status, 403);
+  });
+});

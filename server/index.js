@@ -1997,6 +1997,12 @@ app.patch('/api/goals/:goalId/milestones/:milestoneId', requireAuth, async (req,
       return res.status(access.status).json({ error: access.error });
     }
 
+    if (access.mentorship.status !== 'active') {
+      return res.status(400).json({
+        error: 'Milestones can only be changed on an active mentorship'
+      });
+    }
+
     if (goal.status === 'archived') {
       return res.status(400).json({ error: 'That goal is archived' });
     }
@@ -2260,6 +2266,12 @@ app.patch('/api/sessions/:sessionId', requireAuth, async (req, res) => {
     const access = await resolveMentorshipAccess(session.mentorship, req.authUser);
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
+    }
+
+    if (access.mentorship.status !== 'active') {
+      return res.status(400).json({
+        error: 'Sessions can only be changed on an active mentorship'
+      });
     }
 
     const { action, reason = '', notes, scheduledFor, durationMinutes } = req.body;

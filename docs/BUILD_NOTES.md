@@ -7920,8 +7920,21 @@ Every condition of the rule is met, the tool figure as a mean of 33.5 against 31
 
 ---
 
+### Entry 109 — Milestones and sessions refuse on a mentorship that isn't active
+
+Found at S5 Step 0: the other write routes refuse on a mentorship that isn't active, and these two didn't. `PATCH /api/goals/:goalId/milestones/:milestoneId` and `PATCH /api/sessions/:sessionId` now answer 400 after the access check, so someone outside the mentorship still gets the 403 and learns nothing about its status. A small app fix on the human's instruction (2026-11-10), separate from the agent.
+
+It covers every action on the session route, so cancelling, completing or adding notes after a mentorship has ended is refused too.
+
+**Tests.** 77 of 77 in the goals and sessions suites. Removing the milestone guard fails 3 of them and removing the session guard fails 4. The first run of the session test passed the wrong mentorship without saying so, because a failed fixture left its id undefined and the helper's default took over. It now asserts the fixture, and the mutation counts above are from after that fix.
+
+**Review.** Codex's per-step review found nothing.
+
+---
+
 ### Open items / "later" list
 
+- **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
 - **Antigravity is out of the development workflow for now** (2026-11-09). Headless mode could not finish a provider check under restricted settings: it was denied a command it wanted, then ran past 200 s when told to use web tools only. The offered fix was `--dangerously-skip-permissions`, which is not used. Research and provider checks are done directly. Its browser checks were never tested.
 - **When the model calls a tool that doesn't exist, the turn stops** (Entry 108, `se-05`, run 2). It should get a plain "no such tool" message and answer with its remaining budget. Changes a measured turn's behaviour, so not made at adoption.
 - **`su-02`: a faithfulness case for S6** (Entry 108). "Rohan wrote a design note for your ordering API" claims the API is the mentor's. It's the canteen's. By the human's ruling, not misaddressing.
