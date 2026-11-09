@@ -80,6 +80,9 @@ const {
   upcomingSessionsFor
 } = require('./lib/reads');
 const agentTools = require('./lib/agentTools');
+const agentProposal = require('./lib/agentProposal');
+const agentWrites = require('./lib/agentWrites');
+const AgentProposal = require('./models/AgentProposal');
 
 // Authentication
 const {
@@ -3621,6 +3624,20 @@ if (AGENT_TOKEN_SECRET) {
 }
 
 /**
+ * The key the agent's write proposals are signed with (lib/agentProposal.js).
+ * Only Express holds it. Unset, nothing can be proposed or claimed and every read
+ * still works; set but unusable, the server refuses to start.
+ */
+const AGENT_PROPOSAL_SECRET = process.env.AGENT_PROPOSAL_SECRET || '';
+if (AGENT_PROPOSAL_SECRET) {
+  const problem = agentProposal.secretProblem(AGENT_PROPOSAL_SECRET, AI_SERVICE_SECRET, AGENT_TOKEN_SECRET);
+  if (problem) {
+    console.error(`\n${problem}. See server/.env.example.\n`);
+    process.exit(1);
+  }
+}
+
+/**
  * Whether the assistant works in this mentorship, and if not, what to say.
  *
  * Only active mentorships are indexed, so anywhere else it could only answer "I
@@ -4054,6 +4071,136 @@ app.post('/api/mentorships/:id/copilot/agent', requireAuth, async (req, res) => 
   } catch (err) {
     console.error('Error running an agent turn:', err.name === 'AbortError' ? 'timed out' : err.message);
     res.status(502).json({ error: 'The Copilot could not answer that' });
+  }
+});
+
+// ============================================
+// AGENT PROPOSALS (S5)
+// ============================================
+
+const PROPOSAL_EXPIRED = 'That proposal has expired. Ask again if you still want it.';
+const PROPOSAL_USED = 'That proposal has already been used.';
+
+/**
+ * POST /api/copilot/proposals/claim
+ *
+ * The person clicked Approve. This uses the proposal up BEFORE the browser runs
+ * anything, so a double click, a retry or a replay cannot run it twice.
+ *
+ *   token -> requireAuth -> agent may run here -> proposal verified -> it is this
+ *   person's -> resolveMentorshipAccess -> same role -> still active -> a tool we
+ *   list, for that role -> atomically pending to claimed
+ *
+ * It writes nothing but the claim. The write is the real route, called next by the
+ * browser with the person's own token, so it passes every check a manual one does.
+ *
+ * Statuses: 200 claimed; 410 expired, or not a proposal we signed (the same answer
+ * for both); 403 not this person's, or not their role; 409 already used
+ * (`reason: used`) or the mentorship is no longer active (`reason: ended`); 503
+ * not configured here. A refusal before the last step leaves it unused.
+ */
+app.post('/api/copilot/proposals/claim', requireAuth, async (req, res) => {
+  try {
+    if (agentUnavailable() || !AGENT_PROPOSAL_SECRET) {
+      return res.status(503).json({ error: AGENT_NOT_CONFIGURED });
+    }
+
+    let claims;
+    try {
+      claims = agentProposal.verifyProposal(AGENT_PROPOSAL_SECRET, req.body?.proposal);
+    } catch {
+      return res.status(410).json({ error: PROPOSAL_EXPIRED });
+    }
+
+    const me = String(req.authUser._id);
+    if (claims.sub !== me) {
+      return res.status(403).json({ error: 'That proposal is not yours' });
+    }
+
+    const access = await resolveMentorshipAccess(claims.mid, req.authUser);
+    if (access.error) {
+      return res.status(access.status).json({ error: access.error });
+    }
+    const refusal = assistantRefusal(access.mentorship);
+    if (refusal) {
+      return res.status(409).json({ error: refusal, reason: 'ended' });
+    }
+    const role = access.isMentor ? 'mentor' : 'student';
+    if (role !== claims.role) {
+      return res.status(403).json({ error: 'Your place in this mentorship has changed' });
+    }
+
+    const tool = agentWrites.writeTool(claims.tool);
+    if (!tool || !tool.roles.includes(role)) {
+      return res.status(403).json({ error: 'That is not something the assistant can do for you' });
+    }
+
+    const claimed = await AgentProposal.findOneAndUpdate(
+      {
+        _id: claims.jti,
+        user: req.authUser._id,
+        mentorship: claims.mid,
+        tool: claims.tool,
+        status: 'pending',
+        expiresAt: { $gt: new Date() }
+      },
+      { $set: { status: 'claimed', claimedAt: new Date() } }
+    );
+    if (!claimed) {
+      return res.status(409).json({ error: PROPOSAL_USED, reason: 'used' });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error claiming a proposal:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/copilot/proposals/close
+ *
+ * The person dismissed it, or the browser has finished running it. Closing changes
+ * no record but this one and grants nothing. In particular `decision` is not a claim
+ * that anything happened, and nothing is kept about how the write went.
+ *
+ * `dismissed` closes one still pending. `approved` closes one already claimed.
+ * An expired proposal may be closed: what ran a moment before it expired still has
+ * to be finished with. Every other check on the token stands.
+ */
+app.post('/api/copilot/proposals/close', requireAuth, async (req, res) => {
+  try {
+    if (!AGENT_PROPOSAL_SECRET) {
+      return res.status(503).json({ error: AGENT_NOT_CONFIGURED });
+    }
+    const from = { dismissed: 'pending', approved: 'claimed' };
+    const decision = req.body?.decision;
+    if (typeof decision !== 'string' || !Object.hasOwn(from, decision)) {
+      return res.status(400).json({ error: 'Say whether this was approved or dismissed' });
+    }
+
+    let claims;
+    try {
+      claims = agentProposal.verifyProposal(AGENT_PROPOSAL_SECRET, req.body?.proposal, { allowExpired: true });
+    } catch {
+      return res.status(410).json({ error: PROPOSAL_EXPIRED });
+    }
+    if (claims.sub !== String(req.authUser._id)) {
+      return res.status(403).json({ error: 'That proposal is not yours' });
+    }
+
+    const closed = await AgentProposal.findOneAndUpdate(
+      { _id: claims.jti, user: req.authUser._id, status: from[decision] },
+      { $set: { status: 'closed', closedAt: new Date() } }
+    );
+    if (!closed) {
+      return res.status(409).json({ error: PROPOSAL_USED, reason: 'used' });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error closing a proposal:', err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

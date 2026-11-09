@@ -7932,6 +7932,26 @@ It covers every action on the session route, so cancelling, completing or adding
 
 ---
 
+### Entry 110 — S5 Step 1: signed proposals, used once, and a fixed list of what the browser can run
+
+S5 Step 0 was accepted on 2026-11-10 with three decisions by the human. A resumed turn ends in code, with no model call, and the browser's report never reaches the model and is never kept. There is no free fifth call: the last allowed call is sent with tools disabled. And the narrowings stand: one proposal per turn, `create_assignment` for this mentorship only, five minutes to approve.
+
+**The proposal.** One signed token (`server/lib/agentProposal.js`) carries the tool, the exact arguments, the dialog's fields, the question asked, the user, the mentorship and the role. It has its own key, `AGENT_PROPOSAL_SECRET`, which must differ from the other two, and its own audience. The browser reads this token for both the dialog and the request, and the claim route verifies the same token, so there is no second copy to differ from what was shown.
+
+**Single use.** A signature can't be used up, so `AgentProposal` (Mongo, because restarting Express must not make a used proposal usable) moves atomically from pending to claimed to closed. Approving claims first. Only a claimed proposal runs, and nothing is retried after the claim: if the answer is lost we say we can't tell, and the person checks the page. Of eight simultaneous claims, one wins.
+
+**What a signature doesn't do.** It stops a proposal being forged or changed. It doesn't stop the person, who can always call their own routes by hand, which is exactly what these requests are.
+
+**The browser's table.** `src/lib/agentActions.js` maps each of the seven tool names to one function that builds one request. Method and path are written there, ids must look like ids, and named fields are copied, so nothing in a proposal can pick a URL, a method or an extra field. A tool with no entry produces no request, not even a claim. Every sentence shown is ours, chosen from a status.
+
+**The close call decides nothing.** It says only "approved" or "dismissed" and moves the record. Nothing about how the write went is stored, and a test holds the record's exact fields.
+
+**Tests.** 71 server tests and 58 browser-library tests. 29 mutations, all caught: signature, audience, algorithm, expiry, the five-minute cap, key separation, whose it is, single use, the record matching on tool, user and mentorship, role, roles per tool, active mentorship, the close rules, inherited names in both tables, ids in paths, and the mapping. Three first survived or didn't apply, and that was informative: the audience check and "not yours" were masked by later checks, so each now has a case only it can answer, and one mutant's text matched two places and never ran.
+
+**Review.** Codex's per-step and attack reviews found nothing. Its test-gap review found one real gap, a record whose mentorship differs from the token's, which now has a test and a mutation.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
