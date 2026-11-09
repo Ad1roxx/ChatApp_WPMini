@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -26,6 +27,8 @@ from providers import (
     TRUNCATED,
     UNAVAILABLE,
     CallBudget,
+    pacific_day_start,
+    pacific_next_day,
     GeminiProvider,
     Generation,
     GroqProvider,
@@ -361,14 +364,85 @@ def test_the_count_is_shared_through_the_file_and_survives_a_restart(tmp_path):
     assert first.wait_s() == pytest.approx(60.0)
 
 
-def test_calls_older_than_a_day_are_forgotten(tmp_path):
-    path = str(tmp_path / "usage.json")
-    clock = Clock()
-    budget = CallBudget(15, 1, path, clock=clock)
+def utc(*when) -> float:
+    return datetime(*when, tzinfo=timezone.utc).timestamp()
+
+
+@pytest.mark.parametrize("now,start", [
+    (utc(2026, 11, 9, 12, 22), utc(2026, 11, 9, 8)),       # winter, UTC-8: 13:30 IST
+    (utc(2026, 11, 9, 8), utc(2026, 11, 9, 8)),            # the instant of midnight
+    (utc(2026, 11, 9, 7, 59, 59), utc(2026, 11, 8, 8)),    # one second before it
+    (utc(2026, 7, 15, 12), utc(2026, 7, 15, 7)),           # summer, UTC-7
+    (utc(2026, 1, 1, 3), utc(2025, 12, 31, 8)),            # across a new year
+    (utc(2026, 3, 8, 12), utc(2026, 3, 8, 8)),             # after the clocks went forward: midnight was still PST
+    (utc(2026, 3, 8, 9), utc(2026, 3, 8, 8)),              # before they did
+    (utc(2026, 11, 1, 12), utc(2026, 11, 1, 7)),           # after the clocks went back: midnight was still PDT
+    (utc(2026, 11, 1, 8), utc(2026, 11, 1, 7)),            # before they did
+])
+def test_the_day_starts_at_midnight_pacific(now, start):
+    assert pacific_day_start(now) == start
+
+
+@pytest.mark.parametrize("day,hours", [((2026, 3, 8, 8), 23), ((2026, 11, 1, 7), 25), ((2026, 11, 9, 8), 24), ((2026, 7, 15, 7), 24)])
+def test_the_next_day_starts_at_the_next_midnight_on_days_of_every_length(day, hours):
+    assert pacific_next_day(utc(*day) + 60) == utc(*day) + hours * 3600
+    assert pacific_next_day(utc(*day)) == utc(*day) + hours * 3600
+
+
+def test_the_days_count_empties_at_midnight_pacific_not_24_hours_later(tmp_path):
+    midnight = utc(2026, 11, 9, 8)
+    clock = Clock(midnight - 3600)
+    budget = CallBudget(15, 1, str(tmp_path / "usage.json"), clock=clock)
     assert budget.claim() == 0
-    assert budget.wait_s() == pytest.approx(86_400.0)
-    clock.now += 86_400
-    assert budget.wait_s() == 0.0
+    assert budget.used() == (1, 1)
+    assert budget.claim() == pytest.approx(3600.0), "full until midnight, and no longer"
+    clock.now = midnight - 1
+    assert budget.wait_s() == pytest.approx(1.0)
+    clock.now = midnight
+    assert budget.used() == (0, 0)
+    assert budget.claim() == 0
+    assert budget.used() == (1, 1)
+
+
+def test_a_full_day_waits_for_the_next_midnight_however_late_the_calls_were(tmp_path):
+    midnight = utc(2026, 11, 9, 8)
+    clock = Clock(midnight + 10)
+    budget = CallBudget(15, 1, str(tmp_path / "usage.json"), clock=clock)
+    assert budget.claim() == 0
+    clock.now = midnight + 12 * 3600
+    assert budget.wait_s() == pytest.approx(12 * 3600.0)
+
+
+def test_the_per_minute_limit_still_holds_across_midnight(tmp_path):
+    midnight = utc(2026, 11, 9, 8)
+    clock = Clock(midnight - 10)
+    budget = CallBudget(2, 480, str(tmp_path / "usage.json"), clock=clock)
+    assert budget.claim() == 0 and budget.claim() == 0
+    clock.now = midnight + 5
+    assert budget.used() == (2, 0), "the minute remembers them; the day does not"
+    assert budget.claim() == pytest.approx(45.0)
+    clock.now = midnight + 50
+    assert budget.claim() == 0
+
+
+def test_a_call_just_before_midnight_does_not_use_up_the_new_day(tmp_path):
+    midnight = utc(2026, 11, 9, 8)
+    clock = Clock(midnight - 10)
+    budget = CallBudget(15, 1, str(tmp_path / "usage.json"), clock=clock)
+    assert budget.claim() == 0
+    clock.now = midnight + 5
+    assert budget.claim() == 0
+
+
+def test_the_file_forgets_what_no_longer_counts(tmp_path):
+    midnight = utc(2026, 11, 9, 8)
+    path = tmp_path / "usage.json"
+    clock = Clock(midnight - 3600)
+    budget = CallBudget(15, 480, str(path), clock=clock)
+    assert budget.claim() == 0
+    clock.now = midnight + 3600
+    assert budget.claim() == 0
+    assert json.loads(path.read_text()) == {"calls": [midnight + 3600]}
 
 
 def test_an_unreadable_usage_file_does_not_crash(tmp_path):

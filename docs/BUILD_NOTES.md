@@ -7872,6 +7872,24 @@ language finds "Rohan" in exactly the scorer's 7 student turns in each run, and 
 
 ---
 
+### Entry 108 — The quota counter follows Google's day, and `agent-v3` with a stated definition of misaddressing
+
+**The counter.** `CallBudget`'s day is now Google's own: the count empties at midnight Pacific, instead of a rolling 24 hours. The rolling window
+held us back for up to a day after Google had already reset, which is why a run was held up during Entry 107. The per-minute limit is unchanged and
+still holds across midnight. The limit stays at 480. In Entry 107 I raised it for one process to finish a run sooner. That was a change to a
+committed limit that wasn't mine to make; the counter is what was wrong. The Pacific offset is worked out in the code, because `zoneinfo` needs the
+`tzdata` package on Windows; the tests cover both clock changes and days of 23, 24 and 25 hours.
+
+**`agent-v3`.** `agent-v2` with two changes: the fenced block says which of the two parties is asking, from the token's role and never from the question,
+and a question about one point in a document goes straight to search. The markers and the code's sentences are as in `agent-v2`. `agent-v1` still serves.
+
+**Written and pushed before any run.** The rule (`s4-agent-v3-rule.txt`) defines misaddressing exactly: the second person for anyone but the
+asker, or the asker by name or in the third person. It is counted by a text check that reading can't clear, plus a stated list of sentences to read, so two readers
+count the same thing. Ten new questions (`s4-agent-v3-questions.json`), where both roles ask and both parties are named, sit beside the 44, which are unchanged.
+The baseline is one new `agent-v1` run with Entry 107's fixes.
+
+**Tests.** 35 mutations of the counter, the prompt's wiring and each part of the rule, all caught.
+
 ---
 
 ### Open items / "later" list

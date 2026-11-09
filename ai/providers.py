@@ -57,6 +57,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Protocol
 
 import httpx
@@ -217,13 +218,37 @@ class _FileLock:
             self._thread.release()
 
 
+def _pacific_offset(at: datetime) -> timedelta:
+    """UTC-7 from the second Sunday of March, 02:00 PST, to the first Sunday of November, 02:00 PDT; UTC-8 otherwise.
+
+    Worked out here because zoneinfo needs the tzdata package on Windows, and this one rule is all the budget uses.
+    """
+    def sunday(month: int, nth: int) -> datetime:
+        first = datetime(at.year, month, 1, tzinfo=timezone.utc)
+        return first + timedelta(days=(6 - first.weekday()) % 7 + 7 * (nth - 1))
+
+    summer = sunday(3, 2) + timedelta(hours=10) <= at < sunday(11, 1) + timedelta(hours=9)
+    return timedelta(hours=-7 if summer else -8)
+
+
+def pacific_day_start(now: float) -> float:
+    """The latest midnight, Pacific time, at or before `now`. This is when Google resets its daily count."""
+    at = datetime.fromtimestamp(now, timezone.utc)
+    midnight = (at + _pacific_offset(at)).replace(hour=0, minute=0, second=0, microsecond=0)
+    # Midnight can have a different offset from `now`: the clocks change at 02:00.
+    return (midnight - _pacific_offset(midnight - _pacific_offset(at))).timestamp()
+
+
+def pacific_next_day(now: float) -> float:
+    """The next Pacific midnight after `now`. A day is 23, 24 or 25 hours, so 25 after one midnight is always in the next day."""
+    return pacific_day_start(pacific_day_start(now) + 25 * 3600)
+
+
 class CallBudget:
     """Calls per minute and per day, counted by us, for a provider that says nothing.
 
-    Windows are rolling: no more than `rpd` calls in any 24 hours. Google resets
-    its daily count at midnight Pacific; a rolling window can never exceed a
-    calendar day's limit whichever midnight it uses, at the cost of being
-    stricter around it.
+    The minute is rolling. The day is Google's own: it starts at midnight Pacific,
+    so the count empties exactly when Google's does (BUILD_NOTES Entry 108).
 
     With a `path`, the timestamps live in a file that every process using the
     key shares - the service, an evaluation run, a smoke test - so they count
@@ -273,16 +298,26 @@ class CallBudget:
         waits = [0.0]
         if len(minute) >= self.rpm:
             waits.append(minute[-self.rpm] + self.MINUTE - now)
-        if len(calls) >= self.rpd:
-            waits.append(calls[-self.rpd] + self.DAY - now)
+        if len(self._today(now, calls)) >= self.rpd:
+            waits.append(pacific_next_day(now) - now)
         return max(waits)
+
+    @staticmethod
+    def _today(now: float, calls: list[float]) -> list[float]:
+        start = pacific_day_start(now)
+        return [t for t in calls if t >= start]
+
+    def _current(self, now: float) -> list[float]:
+        """Calls that still count for something: today's, and the last minute's across a midnight."""
+        start = pacific_day_start(now)
+        return [t for t in self._load() if t >= start or now - t < self.MINUTE]
 
     def claim(self) -> float:
         """Count a call if it fits now and return 0; otherwise count nothing and
         return the seconds until it would fit. Atomic across processes."""
         with self._lock:
             now = self.clock()
-            calls = [t for t in self._load() if now - t < self.DAY]
+            calls = self._current(now)
             wait = self._wait(now, calls)
             if wait == 0:
                 self._save(calls + [now])
@@ -292,14 +327,14 @@ class CallBudget:
         """Seconds until the next call would fit, counting nothing. For pacing."""
         with self._lock:
             now = self.clock()
-            return self._wait(now, [t for t in self._load() if now - t < self.DAY])
+            return self._wait(now, self._current(now))
 
     def used(self) -> tuple[int, int]:
-        """(calls in the last minute, calls in the last day)."""
+        """(calls in the last minute, calls since Google's day began)."""
         with self._lock:
             now = self.clock()
-            calls = [t for t in self._load() if now - t < self.DAY]
-            return sum(1 for t in calls if now - t < self.MINUTE), len(calls)
+            calls = self._current(now)
+            return sum(1 for t in calls if now - t < self.MINUTE), len(self._today(now, calls))
 
 
 _DURATION = re.compile(r"(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m(?!s))?(?:(\d+(?:\.\d+)?)s)?(?:(\d+(?:\.\d+)?)ms)?$")
