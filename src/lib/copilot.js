@@ -34,6 +34,32 @@ export const MESSAGES = {
   failed: "The assistant couldn't answer that. Try again."
 };
 
+/**
+ * Why the assistant did not propose something. The key comes from the code on either
+ * side of the model, never from what it wrote, and the sentence is always one of these.
+ */
+export const DECLINED = {
+  cannot_do: "I can't do that for you from here. It's either something you'd do yourself, or something only the other person can do.",
+  ask_date: 'When should that be? Ask again with the date and time.',
+  ask_which: 'Which one do you mean? Ask again and name it.',
+  ask_details: 'I need a little more to do that. Ask again with the details, such as a title.',
+  not_allowed: "That isn't something your role in this mentorship can do.",
+  past_date: 'That time has already passed. Ask again with a later one.',
+  not_later: "That isn't later than the current deadline, so I can't move it there.",
+  not_found: "I couldn't find that. Check it still exists and ask again.",
+  not_here: "That isn't part of this mentorship, so I can't change it from here.",
+  not_yours: 'Only the mentor who set that work can change it.',
+  no_change: "It's already like that, so there's nothing to change.",
+  archived: "That goal is archived, so it can't be changed.",
+  your_proposal: 'You proposed that time, so the other person needs to confirm it.',
+  wrong_state: "That session can't be confirmed as it stands.",
+  too_long: 'That was too long for me to put in front of you. Try something shorter.',
+  bad_text: "That has characters I can't show you plainly, so I won't propose it.",
+  bad_url: "That doesn't look like a link I can pin.",
+  bad_args: "I couldn't turn that into something you could approve. Try asking another way.",
+  unavailable: MESSAGES.unavailable
+};
+
 /** The message for a mentorship the assistant does not work in, or null. */
 export function refusalFor(status) {
   if (status === 'active') return null;
@@ -57,6 +83,14 @@ export function outcomeOf(httpStatus, body) {
         // wrote, never the model. Plain text, like everything else here.
         notes: Array.isArray(body.notes) ? body.notes.filter((n) => typeof n === 'string') : []
       };
+    }
+    // Agent turns only: something for the person to approve. The token is all that is kept.
+    if (body?.status === 'proposal' && typeof body.proposal === 'string') {
+      return { state: 'proposal', proposal: body.proposal };
+    }
+    if (body?.status === 'declined') {
+      const known = typeof body.reason === 'string' && Object.hasOwn(DECLINED, body.reason);
+      return { state: 'declined', message: known ? DECLINED[body.reason] : MESSAGES.failed };
     }
     if (body?.status === 'abstained') {
       return { state: 'abstained', message: body.cause === 'not_visible' ? MESSAGES.notVisible : MESSAGES.abstained };

@@ -99,14 +99,14 @@ test.after(async () => {
  * { status, body, delay } or a function of the request count returning one.
  * `never: true` never replies. Returns what the test needs to look at.
  */
-async function open({ status = 'active', ask = answered('Yes.'), mode = null, agent = null, timeout = 30000 } = {}) {
+async function open({ status = 'active', ask = answered('Yes.'), mode = null, agent = null, timeout = 30000, claim = { status: 200 }, real = { status: 200 } } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
   const page = await context.newPage();
   page.setDefaultTimeout(timeout);
   // How long Vite takes to serve a page is not what is being tested, and on a slow
   // machine a first load can pass 30 s even after the warm-up in `before`.
   page.setDefaultNavigationTimeout(180000);
-  const seen = { asks: [], agentAsks: [], files: [], dialogs: 0, console: [], pageErrors: [] };
+  const seen = { asks: [], agentAsks: [], files: [], dialogs: 0, console: [], pageErrors: [], claims: [], closes: [], writes: [], goalReads: 0 };
 
   page.on('dialog', (d) => { seen.dialogs += 1; d.dismiss(); });
   page.on('console', (m) => seen.console.push(m.text()));
@@ -126,6 +126,22 @@ async function open({ status = 'active', ask = answered('Yes.'), mode = null, ag
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     if (p.startsWith('/socket.io')) return route.abort();
     if (p === '/api/auth/login') return json(route, me);
+    if (p === '/api/copilot/proposals/claim') {
+      seen.claims.push(request.postDataJSON());
+      return json(route, claim.body ?? { ok: true }, claim.status);
+    }
+    if (p === '/api/copilot/proposals/close') {
+      seen.closes.push(request.postDataJSON());
+      return json(route, { ok: true });
+    }
+    // Anything else that writes is a real route being called: what these tests are about.
+    if (request.method() !== 'GET' && !p.includes('/copilot/')) {
+      seen.writes.push({ method: request.method(), path: p, body: request.postDataJSON() });
+      if (real.delay) await new Promise((r) => setTimeout(r, real.delay));
+      if (real.abort) return route.abort();
+      return json(route, real.body ?? { ok: true }, real.status);
+    }
+    if (p === `/api/mentorships/${MID}/goals`) seen.goalReads += 1;
     if (p === '/api/mentorships') return json(route, [{ _id: MID, status, topic: 'Backend', student: me, mentor, createdAt: new Date().toISOString() }]);
     if (p === `/api/mentorships/${MID}/goals`) {
       return json(route, [{ _id: GOAL, title: 'Be ready for backend interviews', description: '', status: 'active', milestones: [] }]);
@@ -557,5 +573,296 @@ test('a turn a cap stopped shows our sentence, never the turn\'s own', async () 
   await send(t);
   await t.panel.getByText("I couldn't finish looking that up within my limits.", { exact: false }).waitFor();
   assert.equal(await t.panel.getByText('INTERNAL', { exact: false }).count(), 0);
+  await t.close();
+});
+
+// ---------------------------------------------------------------------------
+// S5: a proposal, and what a person's click does
+// ---------------------------------------------------------------------------
+
+/** A proposal token as the browser receives one. The server is stubbed, so the signature is not what is under test. */
+function proposalToken(over = {}) {
+  const payload = {
+    jti: 'f'.repeat(32), tool: 'add_resource', heading: 'Pin a link', asked: 'Please pin that article',
+    exp: Math.floor(Date.now() / 1000) + 300,
+    args: { mentorshipId: MID, title: 'A useful article', url: 'https://example.test/a?x=1&y=2', note: 'Read section two' },
+    fields: [
+      { label: 'Title', value: 'A useful article', arg: 'title' },
+      { label: 'Link', value: 'https://example.test/a?x=1&y=2', arg: 'url' },
+      { label: 'Note', value: 'Read section two', arg: 'note' }
+    ],
+    ...over
+  };
+  return `h.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.s`;
+}
+
+const proposed = (over) => ({ status: 200, body: { status: 'proposal', proposal: proposalToken(over), modelCalls: 2 } });
+
+async function withProposal(options = {}, over) {
+  const t = await open({ mode: 'agent', agent: proposed(over), ...options });
+  await send(t, 'Please pin that article');
+  const card = t.panel.getByRole('region', { name: 'Proposed change' });
+  await card.waitFor();
+  return { ...t, card };
+}
+const approveButton = (card) => card.getByRole('button', { name: 'Approve' });
+const dismissButton = (card) => card.getByRole('button', { name: 'Dismiss' });
+
+test('the dialog shows the exact action and every value, as plain text', async () => {
+  const t = await withProposal();
+  const words = await t.card.innerText();
+  assert.match(words, /Pin a link/);
+  assert.match(words, /You asked:\s*Please pin that article/);
+  for (const [label, value] of [['Title', 'A useful article'], ['Link', 'https://example.test/a?x=1&y=2'], ['Note', 'Read section two']]) {
+    assert.ok(words.includes(label), label);
+    assert.ok(words.includes(value), value);
+  }
+  assert.equal(await t.card.locator('a').count(), 0, 'a link is shown as text, never as a link');
+  assert.equal(t.seen.claims.length + t.seen.writes.length, 0, 'nothing has run');
+  await t.close();
+});
+
+test('an empty value is said to be empty, not left blank', async () => {
+  const fields = [{ label: 'Title', value: 'x', arg: 'title' }, { label: 'Note', value: '', arg: 'note' }];
+  const t = await withProposal({}, { fields });
+  assert.match(await t.card.innerText(), /Note\s*None/);
+  await t.close();
+});
+
+test('approving claims, then runs exactly the signed request, once, then closes', async () => {
+  const t = await withProposal();
+  await approveButton(t.card).click();
+  await t.card.getByText('Done. The link has been pinned.').waitFor();
+  assert.equal(t.seen.claims.length, 1);
+  assert.deepEqual(t.seen.writes, [{
+    method: 'POST',
+    path: `/api/mentorships/${MID}/resources`,
+    body: { title: 'A useful article', url: 'https://example.test/a?x=1&y=2', note: 'Read section two' }
+  }]);
+  assert.deepEqual(t.seen.closes.map((c) => c.decision), ['approved']);
+  await t.close();
+});
+
+test('a goal with several milestones: each is shown, and the request carries them', async () => {
+  const args = { mentorshipId: MID, title: 'Interview ready', description: 'By March', milestones: ['Arrays', 'Trees'] };
+  const t = await withProposal({}, {
+    tool: 'set_goal',
+    heading: 'Set a goal for Rohan Kapoor',
+    args,
+    fields: [
+      { label: 'Title', value: 'Interview ready', arg: 'title' },
+      { label: 'Description', value: 'By March', arg: 'description' },
+      { label: 'Milestones', value: '1. Arrays\n2. Trees', arg: 'milestones' }
+    ]
+  });
+  const words = await t.card.innerText();
+  assert.match(words, /1\. Arrays\s+2\. Trees/);
+  await approveButton(t.card).click();
+  await t.card.getByText('Done. The goal has been set.').waitFor();
+  assert.deepEqual(t.seen.writes, [{
+    method: 'POST', path: `/api/mentorships/${MID}/goals`, body: { title: 'Interview ready', description: 'By March', milestones: ['Arrays', 'Trees'] }
+  }]);
+  await t.close();
+});
+
+test('a milestone is changed by PATCH to its own route', async () => {
+  const goalId = 'a'.repeat(24);
+  const milestoneId = 'b'.repeat(24);
+  const t = await withProposal({}, {
+    tool: 'toggle_milestone',
+    heading: 'Update a milestone',
+    args: { goalId, milestoneId, done: true },
+    fields: [{ label: 'Change', value: 'Not done → Done', arg: 'done' }]
+  });
+  await approveButton(t.card).click();
+  await t.card.getByText('Done. The milestone has been updated.').waitFor();
+  assert.deepEqual(t.seen.writes, [{ method: 'PATCH', path: `/api/goals/${goalId}/milestones/${milestoneId}`, body: { done: true } }]);
+  await t.close();
+});
+
+test('a successful response is not shown either', async () => {
+  const t = await withProposal({ real: { status: 200, body: { message: '<b>route text</b>', title: 'route title' } } });
+  await approveButton(t.card).click();
+  await t.card.getByText('Done. The link has been pinned.').waitFor();
+  const words = await t.card.innerText();
+  assert.ok(!words.includes('route text') && !words.includes('route title'));
+  await t.close();
+});
+
+test('dismissing runs nothing', async () => {
+  const t = await withProposal();
+  await dismissButton(t.card).click();
+  await t.card.getByText('Dismissed. Nothing was done.').waitFor();
+  assert.equal(t.seen.claims.length, 0);
+  assert.deepEqual(t.seen.writes, []);
+  assert.deepEqual(t.seen.closes.map((c) => c.decision), ['dismissed']);
+  assert.equal(await approveButton(t.card).count(), 0, 'and it cannot be approved afterwards');
+  await t.close();
+});
+
+test('a double click makes one request', async () => {
+  const t = await withProposal({ real: { status: 200, delay: 300 } });
+  await approveButton(t.card).dblclick();
+  await t.card.getByText('Done. The link has been pinned.').waitFor();
+  assert.equal(t.seen.claims.length, 1);
+  assert.equal(t.seen.writes.length, 1);
+  await t.close();
+});
+
+test('two clicks in one frame make one request', async () => {
+  const t = await withProposal({ real: { status: 200, delay: 300 } });
+  await t.card.evaluate((el) => {
+    const button = [...el.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Approve');
+    button.click();
+    button.click();
+  });
+  await t.card.getByText('Done. The link has been pinned.').waitFor();
+  assert.equal(t.seen.claims.length, 1);
+  assert.equal(t.seen.writes.length, 1);
+  await t.close();
+});
+
+test('Approve is disabled after one click, with progress in our own words', async () => {
+  const t = await withProposal({ real: { status: 200, delay: 800 } });
+  await approveButton(t.card).click();
+  await t.card.getByText('Working on it…').waitFor();
+  assert.equal(await approveButton(t.card).isDisabled(), true);
+  assert.equal(await dismissButton(t.card).count(), 0);
+  await t.card.getByText('Done. The link has been pinned.').waitFor();
+  await t.close();
+});
+
+test('values are inert: markup in a proposal is shown as text and never runs', async () => {
+  const evil = '<img src=x onerror="window.__pwned=1"><script>window.__pwned=1</script>';
+  const t = await withProposal({}, {
+    heading: `Pin ${evil}`,
+    asked: evil,
+    fields: [
+      { label: 'Title', value: evil, arg: 'title' },
+      { label: evil, value: 'javascript:window.__pwned=1', arg: 'url' }
+    ]
+  });
+  const words = await t.card.innerText();
+  assert.ok(words.includes('<img src=x onerror='));
+  assert.equal(await t.card.locator('img, script, a').count(), 0);
+  await t.page.waitForTimeout(100);
+  assert.equal(await t.page.evaluate(() => window.__pwned), undefined);
+  await t.close();
+});
+
+test('an expired proposal cannot be approved', async () => {
+  const t = await withProposal({}, { exp: Math.floor(Date.now() / 1000) - 5 });
+  await t.card.getByText('That proposal has expired').waitFor();
+  assert.equal(await approveButton(t.card).count(), 0);
+  assert.equal(t.seen.claims.length, 0);
+  await t.close();
+});
+
+test('a proposal left open until it expires can no longer be approved', async () => {
+  const t = await withProposal({}, { exp: Math.floor(Date.now() / 1000) + 8 });
+  await approveButton(t.card).waitFor();
+  await t.card.getByText('That proposal has expired').waitFor({ timeout: 15000 });
+  assert.equal(await approveButton(t.card).count(), 0);
+  assert.equal(t.seen.claims.length + t.seen.writes.length, 0);
+  await t.close();
+});
+
+test('a refused claim runs nothing and says so in our words', async (s) => {
+  for (const [status, body, sentence] of [
+    [410, { error: '<b>server text</b>' }, 'That proposal has expired'],
+    [409, { reason: 'used', error: '<b>server text</b>' }, 'already been used'],
+    [409, { reason: 'changed', error: '<b>server text</b>' }, 'has changed since it was proposed'],
+    [403, { error: '<b>server text</b>' }, "You can't do that here"]
+  ]) {
+    await s.test(`${status} ${body.reason ?? ''}`, async () => {
+      const t = await withProposal({ claim: { status, body } });
+      await approveButton(t.card).click();
+      await t.card.getByText(sentence, { exact: false }).waitFor();
+      assert.deepEqual(t.seen.writes, []);
+      assert.ok(!(await t.card.innerText()).includes('server text'));
+      await t.close();
+    });
+  }
+});
+
+test('the real route refusing is said in our words', async () => {
+  const t = await withProposal({ real: { status: 400, body: { error: '<i>route text</i>' } } });
+  await approveButton(t.card).click();
+  await t.card.getByText("That wasn't done.", { exact: false }).waitFor();
+  assert.ok(!(await t.card.innerText()).includes('route text'));
+  await t.close();
+});
+
+test('a lost answer is not retried, and says it cannot tell', async () => {
+  const t = await withProposal({ real: { abort: true } });
+  await approveButton(t.card).click();
+  await t.card.getByText("I can't tell whether that went through", { exact: false }).waitFor();
+  assert.equal(t.seen.writes.length, 1);
+  await t.close();
+});
+
+test('a tool with no mapping never reaches the server', async () => {
+  const t = await withProposal({}, { tool: 'delete_resource', args: { resourceId: 'a'.repeat(24) } });
+  await approveButton(t.card).click();
+  await t.card.getByText("That couldn't be started", { exact: false }).waitFor();
+  assert.equal(t.seen.claims.length + t.seen.writes.length, 0);
+  await t.close();
+});
+
+test('a malformed proposal shows no dialog', async () => {
+  const t = await open({ mode: 'agent', agent: { status: 200, body: { status: 'proposal', proposal: 'not-a-token' } } });
+  await send(t, 'Do it');
+  await t.panel.getByText("That couldn't be started", { exact: false }).waitFor();
+  assert.equal(await t.panel.getByRole('region', { name: 'Proposed change' }).count(), 0);
+  await t.close();
+});
+
+test('a done change shows on the page without a reload', async () => {
+  const t = await withProposal();
+  const before = t.seen.goalReads;
+  await approveButton(t.card).click();
+  await t.card.getByText('Done. The link has been pinned.').waitFor();
+  await t.page.waitForFunction(() => true);
+  for (let i = 0; i < 40 && t.seen.goalReads === before; i++) await t.page.waitForTimeout(50);
+  assert.ok(t.seen.goalReads > before);
+  await t.close();
+});
+
+test('a dismissed or refused change does not reload anything', async () => {
+  const t = await withProposal({ real: { status: 400 } });
+  const before = t.seen.goalReads;
+  await approveButton(t.card).click();
+  await t.card.getByText("That wasn't done.", { exact: false }).waitFor();
+  await t.page.waitForTimeout(150);
+  assert.equal(t.seen.goalReads, before);
+  await t.close();
+});
+
+test('a declined turn is one of our sentences, whatever the body says', async (s) => {
+  for (const [reason, sentence] of [
+    ['cannot_do', "I can't do that for you from here."],
+    ['ask_date', 'When should that be?'],
+    ['your_proposal', 'You proposed that time'],
+    ['made_up_reason', "The assistant couldn't answer that."]
+  ]) {
+    await s.test(reason, async () => {
+      const t = await open({ mode: 'agent', agent: { status: 200, body: { status: 'declined', reason, message: '<b>from the body</b>' } } });
+      await send(t, 'Do it');
+      await t.panel.getByText(sentence, { exact: false }).waitFor();
+      assert.ok(!(await t.panel.innerText()).includes('from the body'));
+      await t.close();
+    });
+  }
+});
+
+test('a very long link is shown whole and wraps inside the card at phone width', async () => {
+  const url = `https://example.test/${'a'.repeat(1900)}`;
+  const t = await withProposal({}, { fields: [{ label: 'Link', value: url, arg: 'url' }] });
+  await t.page.setViewportSize({ width: 400, height: 800 });
+  assert.ok((await t.card.innerText()).includes(url), 'not cut');
+  const box = await t.card.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth, right: el.getBoundingClientRect().right }));
+  assert.ok(box.scroll <= box.client, `${box.scroll} fits in ${box.client}`);
+  assert.ok(box.right <= 400, `its right edge is at ${box.right}`);
+  await approveButton(t.card).waitFor();
   await t.close();
 });

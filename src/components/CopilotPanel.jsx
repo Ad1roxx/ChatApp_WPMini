@@ -23,6 +23,11 @@
  * agent, which may also look records up and cites them as `[T1]`. The agent is off
  * unless the server's COPILOT_AGENT setting is on and the agent may run on its
  * database; until the server says `agent`, the panel asks as before.
+ *
+ * ## The assistant proposes; you approve
+ *
+ * An agent turn can end in a proposed change. ProposalDialog shows it in full, and
+ * only an Approve click there makes anything run, through the page's own sign-in.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -32,6 +37,7 @@ import Button from './Button';
 import Card from './Card';
 import { Field, Textarea } from './Field';
 import FilePreview from './FilePreview';
+import ProposalDialog from './ProposalDialog';
 import { InlineLoader } from './Loading';
 import { useToast } from './Toast';
 import { previewKind } from '../lib/attachments';
@@ -61,7 +67,7 @@ const NOTE = {
     "Sees this mentorship's material, and your own work and sessions. Answers can be incomplete, so check the cited source."
 };
 
-export default function CopilotPanel({ mentorshipId, status }) {
+export default function CopilotPanel({ mentorshipId, status, onChanged }) {
   const { authFetch } = useAuth();
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState([]);
@@ -160,6 +166,7 @@ export default function CopilotPanel({ mentorshipId, status }) {
               mentorshipId={mentorshipId}
               disabled={pending}
               onRetry={() => ask(turn.question)}
+              onChanged={onChanged}
             />
           ))}
         </ol>
@@ -189,7 +196,7 @@ export default function CopilotPanel({ mentorshipId, status }) {
   );
 }
 
-function Turn({ turn, mentorshipId, disabled, onRetry }) {
+function Turn({ turn, mentorshipId, disabled, onRetry, onChanged }) {
   return (
     <li className={styles.turn}>
       <p className={styles.question}>
@@ -204,6 +211,8 @@ function Turn({ turn, mentorshipId, disabled, onRetry }) {
       {turn.state === 'answered' && (
         <Answer answer={turn.answer} citations={turn.citations} notes={turn.notes} mentorshipId={mentorshipId} />
       )}
+      {turn.state === 'proposal' && <ProposalDialog token={turn.proposal} onDone={onChanged} />}
+      {turn.state === 'declined' && <p className={styles.abstained}>{turn.message}</p>}
       {turn.state === 'abstained' && <p className={styles.abstained}>{turn.message}</p>}
       {turn.state === 'refused' && <p className={styles.refusal}>{turn.message}</p>}
       {['limited', 'unavailable', 'failed', 'stopped'].includes(turn.state) && (

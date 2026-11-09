@@ -7988,9 +7988,23 @@ S5 Step 0 was accepted on 2026-11-10 with three decisions by the human. A resume
 
 **Refusals are reasons, not sentences.** Both sides answer with one of a fixed set, and the panel will hold the wording. `agent-v4` replies `CANNOT_DO`, `ASK_DATE`, `ASK_WHICH` or `ASK_DETAILS` as a whole reply, and the code does the rest, so nothing the model writes reaches a person without a verified citation.
 
-**Tests.** 73 in `test_agent_writes.py` and 66 in `agent-writes.test.js`, the last of which runs each tool from a model's call, through the browser's own mapping, to the real route, and checks what was stored. 43 mutations, all caught. One first survived because past dates were refused twice; the earlier check was redundant and is gone, and the one that also runs at the claim now has a test for each tool with a date.
+**Tests.** 73 in `test_agent_writes.py` and 67 in `agent-writes.test.js`, the last of which runs each tool from a model's call, through the browser's own mapping, to the real route, and checks what was stored. 42 mutations, all caught. One first survived because past dates were refused twice; the earlier check was redundant and is gone, and the one that also runs at the claim now has a test for each tool with a date.
 
 **Review.** Codex's per-step review raised two P1s. That `agent-v4` isn't the default is deliberate, since it serves only if Step 7's rule passes. That a milestone could change position between approval and running is wrong: the browser sends the stable milestone id, never its number (`src/lib/agentActions.js`). The attack review's only finding was the same default. Of its test gaps, the equal deadline was real and is tested; the real route refusing a proposer is already in `sessions.test.js`; and the recheck is one comparison shared by all seven tools.
+
+---
+
+### Entry 113 — S5 Step 4: the confirmation dialog, and a test that what was approved is what ran
+
+**The dialog** (`src/components/ProposalDialog.jsx`). It shows the signed heading, what the person asked, and every field, all as React strings. A link is its whole text, never a link. An empty value says None rather than being left blank. Approve claims and then runs, once: a ref stops two clicks in one frame, because both would see the state from before either of them, and the server's claim stops anything that gets past that. Approve is disabled while it works, and progress and outcome are our own sentences chosen by status. A proposal that reaches its time while open can no longer be approved. A done change reloads the page's sections, because sockets only tell the other party. Layout and styling are the implementer's, reviewed; the content and execution are mine.
+
+**The panel's sentences.** A turn that didn't propose carries a reason from a fixed list, and the panel holds the sentence. A reason it doesn't know gets the generic failure, and text in the body is never shown.
+
+**Playwright**, on the real panel with the servers stubbed in the browser. 21 new cases, 60 in the file: the exact action and values; approve runs the signed request and nothing else, for three tools; dismiss runs nothing; a double click and two clicks in one frame each make one request; markup in a value stays text and nothing runs; expired, both at arrival and while open; a refused claim and a refused route say so in our words; a lost answer is not retried; a tool with no mapping reaches no server; a very long link is shown whole and fits at 400 px.
+
+**Mutations.** 13 of 13 caught, including removing the double-click guard, rendering a value as markup or a link, wiring dismiss to the write, and an expiry timer that never fires. A mutation run that hit its time limit left a mutant in the dialog: dismiss wired to approve. I found it by comparing with a clean copy before going on, restored it, and changed the runner so it can't be killed partway. Another mutant survived only because my test filter said "expired" and the test is named "expires".
+
+**Review.** Codex's per-step review said the dialog shows the token's contents before the server has verified them. That is the agreed protocol: the token comes from the person's own signed-in response, is rendered as inert text, and is verified at the claim before anything runs. Its attack review said "None" is not the exact value. It is shown for an empty value on purpose. Its test-gap review was right that only one tool's dialog and no successful response body were tested, and both are now covered.
 
 ---
 

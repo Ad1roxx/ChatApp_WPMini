@@ -106,6 +106,19 @@ export default function MentorshipDetailPage() {
   // A citation from another mentorship's assistant leads here as #source-<kind>-<id>.
   useScrollToHash(!loading && !notFound);
 
+  // Something the person approved in the assistant panel has just changed. Sockets tell
+  // the other party; this is what shows it to the one who did it.
+  const [changes, setChanges] = useState(0);
+  const refreshSections = useCallback(async () => {
+    setChanges((n) => n + 1);
+    try {
+      const res = await authFetch(`/api/mentorships/${id}/goals`);
+      if (res.ok) setGoals(await res.json());
+    } catch (err) {
+      console.error('Error refreshing goals:', err.name);
+    }
+  }, [id, authFetch]);
+
   /** Live goal updates — the other party ticking something shows up here. */
   useEffect(() => {
     if (!socket) return;
@@ -310,7 +323,7 @@ export default function MentorshipDetailPage() {
 
       {/* First after the header: it is the quickest way into everything below it. */}
       <Suspense fallback={<Card title="Ask about this mentorship"><InlineLoader label="Loading the assistant" /></Card>}>
-        <CopilotPanel mentorshipId={id} status={mentorship.status} />
+        <CopilotPanel mentorshipId={id} status={mentorship.status} onChanged={refreshSections} />
       </Suspense>
 
       {/* New goal — mentors only, and only while the mentorship is active */}
@@ -449,12 +462,14 @@ export default function MentorshipDetailPage() {
           conceptually: goals are the long game, assignments are the work in
           between, sessions are when you talk about it. */}
       <Assignments
+        key={`assignments-${changes}`}
         mentorshipId={id}
         active={mentorship.status === 'active'}
         isMentor={isMentor}
       />
 
       <Sessions
+        key={`sessions-${changes}`}
         mentorshipId={id}
         active={mentorship.status === 'active'}
         isMentor={isMentor}
@@ -464,6 +479,7 @@ export default function MentorshipDetailPage() {
           the one you are answering. Goals are the work, sessions are the
           commitments, and this is the shelf you put things on. */}
       <Resources
+        key={`resources-${changes}`}
         mentorshipId={id}
         active={mentorship.status === 'active'}
         isMentor={isMentor}
