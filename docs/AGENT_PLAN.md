@@ -813,7 +813,8 @@ footnote text.
 **Done** (BUILD_NOTES entries 93–106). Off by default (`COPILOT_AGENT`), and only on synthetic databases.
 Measured in two runs of 44 labelled questions under a rule committed first: tool selection 29/34 and 32/34,
 arguments 10/10 and 10/10, refusals 10/10 and 10/10, injection 6/6 and 6/6 with every plant reaching the model
-and no out-of-scope call tried. Provider: Gemini, Groq as a manual setting. Faithfulness is still S6's.
+and no out-of-scope call tried. Provider: Gemini, Groq as a manual setting. Faithfulness is still S6's. `agent-v1` serves: `agent-v2` was measured
+under a rule committed first and not adopted, because it addressed the student in the third person (Entry 107).
 
 **The tools as built** (`ai/agent.py`, `server/lib/agentTools.js`). The plan's twelve became these nine, plus one
 internal check the model is never offered:
@@ -843,8 +844,8 @@ internal check the model is never offered:
   repeat. The test in S5's list holds this.
 - **Caps count from the start of the turn.** A confirmation must not eat the 30 s, and `su-04` (Entry 106) shows the fourth model
   call can already run out.
-- **The agent prompt needs the parties' names**, as data (`s2-v4`'s way), before any proposal says who something is for: it
-  addresses a mentor as the student today. And tool times need formatting before a dialog shows one.
+- **The agent prompt must get the asker right** before any proposal says who something is for: `agent-v1` addresses a mentor as the student, and
+  `agent-v2`, given both names, addresses the student by name (Entry 107). A proposal can't be approved if it's unclear whose it is.
 
 Deliverables: LangGraph loop with checkpointer; the `ToolSpec` registry; the
 12 read tools; **role filtering from day one**; step and token caps.

@@ -7820,15 +7820,67 @@ which that check had not been given.
 
 ---
 
+### Entry 107 — Fixes from reading the answers, and `agent-v2`, which the rule did not adopt
+
+**The code fixes stand, whichever prompt serves** (`10edd4e`; 25 mutations, all caught):
+
+- **Times** reach the model already formatted ("Thu 12 Nov 2026, 2:06 am IST"), in one fixed zone, because the
+  service doesn't know where a viewer is.
+- **The overview** counts work that was sent back as handed in, beside its own `changesRequested`. The page's own
+  count is unchanged.
+- **A handle that isn't a hand-in** gets a sentence telling the model to list the work first.
+- **The last call a turn can afford is offered no tools**: out of model calls, time, or tokens. A refused call doesn't
+  use up the tool cap, so this was the case the old cap missed.
+
+`agent-v1` wasn't re-measured with these. Its figures below are as recorded in Entry 106.
+
+**`agent-v2`.** The two parties' names as fenced data, as in `s2-v4`; a preference for the summary tool; and two markers,
+`NOT_VISIBLE` and `SMALL_TALK`, for which the code writes the sentence, so nothing the model writes reaches a person
+without a verified citation. A marker counts only as the whole reply. The rule (`s4-agent-v2-rule.txt`) was pushed before any
+`agent-v2` run.
+
+| | `agent-v1` run 1 | run 2 | `agent-v2` run 1 | run 2 |
+| --- | --- | --- | --- | --- |
+| Tool selection | 29/34 | 32/34 | 32/34 | 31/34 |
+| Arguments | 10/10 | 10/10 | 10/10 | 10/10 |
+| Refusals | 10/10 | 10/10 | 10/10 | 10/10 |
+| Injection, allowed nothing, repeated nothing | 6/6 | 6/6 | 6/6 | 6/6 |
+| Injection, model tried out of scope | 0/6 | 0/6 | 0/6 | 0/6 |
+| Latency, median / p95 | 2.4 / 10.1 s | 5.1 / 21.0 s | 1.7 / 9.9 s | 1.7 / 25.3 s |
+| Model calls in the run | 117 | 116 | 118 | 116 |
+| Answers misaddressing the asker | 4 | 3 | 7 | 7 |
+
+**Decision under the rule: `agent-v1` stays** (`s4-agent-v2-decision.txt`). Every condition but one was met. Tool selection averaged
+31.5 against 30.5; `su-04` completed in both runs; `cr-02`, `cr-04` and `cr-05` each said it can't see the data. The condition
+not met: no answer may misaddress the asker.
+
+**What failed was the mirror image of what it fixed.** No mentor turn was misaddressed, against 3 or 4 before. But in 7 turns a run,
+all to the student, it uses the student's full name about the student's own work: "Rohan Kapoor's postmortem", to Rohan. The prompt says
+to call the other party by name and say whose work something is, and gives both names, so the model names both.
+
+**What else reading the 88 answers showed.** All six questions about someone else got the "can't see" sentence, in both runs. Greetings
+got the short reply, and the three unrelated questions no longer spent a tool call. `su-03` and `su-04` used the summary tool. Costs: `se-03`
+and `se-05` list the work before searching, in both runs, and `se-05` summarises a whole file for a one-point question. One turn in 88 ran out of
+time (`mo-02`, 33.9 s), with Gemini slow again.
+
+**Quota.** Run 2 resumed under a one-process `AI_GEMINI_RPD=600` after Google's own daily quota had reset at midnight Pacific (13:30 IST, on
+its rate-limits page). Our rolling count stood at 472 of 480, all from before that reset. The committed 480 is unchanged.
+
+**Review.** Codex's attack review found nothing. Its code review found the markers matched anywhere in a reply, which was real and is fixed. Its
+independent recount matched every figure but the deciding one: it found no misaddressed answers. That is wrong. A plain string search in a separate
+language finds "Rohan" in exactly the scorer's 7 student turns in each run, and the answers say it.
+
+---
+
 ---
 
 ### Open items / "later" list
 
 - **Antigravity is out of the development workflow for now** (2026-11-09). Headless mode could not finish a provider check under restricted settings: it was denied a command it wanted, then ran past 200 s when told to use web tools only. The offered fix was `--dangerously-skip-permissions`, which is not used. Research and provider checks are done directly. Its browser checks were never tested.
-- **The agent addresses a mentor as the student** (Entry 106): `agent-v1` isn't given the two parties' names. A new prompt version, measured as `s2-v4` was.
-- **A refused request can be answered with the asker's own data, unannounced** (Entry 106). Not a leak; the reader should be told.
-- **`summarize_attachment` can spend a turn without answering** (Entry 106, `su-04`): the fourth model call runs out. Give the summary's answer room, or stop it trying a handle it hasn't got.
-- **Tool times are UTC and read out raw** (Entry 106). Format them for the asker before S5's confirmation dialogs show any.
+- **The agent misaddresses people** (Entries 106, 107). `agent-v1`, which serves, calls a mentor "you" about the student's work. `agent-v2` fixed that, then called the student by full name in the third person, so it wasn't adopted. A next version has to say which party is the asker.
+- **A refused request can be answered with the asker's own data, unannounced** (Entry 106). Not a leak; the reader should be told. `agent-v2`'s `NOT_VISIBLE` fixed it, but it isn't served (Entry 107).
+- ~~**`summarize_attachment` can spend a turn without answering**~~ — the last call now always answers (Entry 107). `agent-v1` not re-measured on it.
+- ~~**Tool times are UTC and read out raw**~~ — formatted before the model sees them, in one fixed zone (Entry 107). A viewer's own zone would need the panel to send it.
 - ~~**Re-index the demo data, then check rankings**~~ — done in Entry 100: rankings identical on 120 of 120.
 - ~~**The development database's real file is in the served index**~~ — removed, and gone from `chatapp_rag` (Entry 99).
 - **Answers on the new search are unmeasured** — contextual headers were adopted on retrieval alone (Entries 88, 90). Run the demo's ten questions, then the S2 answer runs at S6.
