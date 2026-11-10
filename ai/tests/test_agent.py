@@ -126,7 +126,7 @@ def tool_messages(model, step: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 def test_the_role_filter_is_a_pure_function_of_the_role():
     assert "get_assignment_overview" not in [t.name for t in tools_for("student")]
-    assert [t.name for t in tools_for("mentor")] == [t.name for t in TOOLS]
+    assert [t.name for t in tools_for("mentor", "agent-v3")] == [t.name for t in TOOLS]
     assert tools_for("admin") == () and tools_for("") == ()
 
 

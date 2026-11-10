@@ -953,6 +953,30 @@ required 100% of the time.
 Probes: why the agent holds no credentials; why "the agent proposes, the user's
 own session executes" is stronger than a scoped service token.
 
+**Decided at S5 Step 0 (2026-11-10), and built.** Where these differ from the above, these win.
+
+- **The proposal is one signed token,** `AGENT_PROPOSAL_SECRET`, its own key and audience: tool, exact arguments, the dialog's fields, the question asked, user,
+  mentorship, role, five minutes. The browser reads it for both the dialog and the request, and the claim route verifies that same token.
+- **Single use is a Mongo record,** pending to claimed to closed, atomically. Approving claims first, then the browser calls the real route with the person's own
+  token. Nothing is retried after the claim. At the claim the description is rebuilt, and anything different means what was approved is out of date.
+- **A resumed turn ends in code,** no model call and no token (the human). It's told one of two fixed words, and the browser's report never reaches the model and is never kept.
+- **The last allowed model call has tools disabled** in the request itself (the human), so four calls and the 11-call reservation stand.
+- **One proposal per turn, `create_assignment` for this mentorship only, five minutes to approve** (the human).
+- **Today's date, in IST, is trusted context** in `agent-v4`'s prompt, from the service's clock.
+- **The dialog's times come from Express,** and a test compares them with Python's on 1,510 values.
+- **Milestones and sessions refuse on a mentorship that isn't active,** as the other write routes do: a separate app fix.
+- **Prompt Guard was measured and is off** (Entry 115), and turning it on is the human's decision.
+
+Built: Steps 1 to 7, BUILD_NOTES Entries 109 to 116. `agent-v4` serves.
+
+**What S6 should change, from S5:**
+
+- **The write tools' optional text fields should be optional.** The schemas require them, so the model fills them with the title in most cases (12 of 28 proposals). That's a new prompt and schema, measured again.
+- **"Which one?" needs more than a rule in the prompt.** "Mark the milestone as done" guessed in one of two runs.
+- **Proposal quality has no judge yet.** S5's scoring is exact matches on labels, and the reading was by hand: S6's judge can look at the free text.
+- **Faithfulness in read answers is still unmeasured,** with `su-02` waiting (Entry 108).
+- **A proposal can't be chained.** "Set a goal and propose a session" takes two turns, by decision.
+
 ### S6 — Agent and faithfulness evaluation
 
 Deliverables: an agent eval set (question → expected tool, expected args,

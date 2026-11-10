@@ -483,6 +483,7 @@ test('with the agent on, the panel asks the agent route and says it sees your ow
   assert.deepEqual(t.seen.agentAsks[0], { question: QUESTION });
   assert.equal(t.seen.asks.length, 0, 'the S2 route was not asked');
   await t.panel.getByText("Sees this mentorship's material, and your own work and sessions.", { exact: false }).waitFor();
+  await t.panel.getByText('It can propose changes, and nothing happens unless you approve them.', { exact: false }).waitFor();
   await t.close();
 });
 

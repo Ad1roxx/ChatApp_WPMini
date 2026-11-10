@@ -121,8 +121,8 @@ def test_a_handle_that_is_not_a_hand_in_gets_a_sentence_saying_what_to_do():
 # ---------------------------------------------------------------------------
 # agent-v2's prompt
 # ---------------------------------------------------------------------------
-def test_v3_is_what_serves_and_an_unknown_version_is_refused():
-    assert agent.PROMPT_VERSION == "agent-v3"
+def test_v4_is_what_serves_and_an_unknown_version_is_refused():
+    assert agent.PROMPT_VERSION == "agent-v4"
     with pytest.raises(ValueError, match="unknown prompt version"):
         system_prompt("student", "tag", "agent-v9")
 
@@ -152,7 +152,7 @@ def test_a_turn_reports_the_version_it_ran():
     t, _ = turn(ScriptedProvider("NO_ANSWER"), goals(), **V2)
     assert run_turn(t)["promptVersion"] == "agent-v2"
     t, _ = turn(ScriptedProvider("NO_ANSWER"), goals())
-    assert run_turn(t)["promptVersion"] == "agent-v3"
+    assert run_turn(t)["promptVersion"] == "agent-v4"
 
 
 def test_not_visible_gives_the_codes_sentence():

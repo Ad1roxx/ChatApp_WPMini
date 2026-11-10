@@ -64,7 +64,7 @@ import styles from './CopilotPanel.module.css';
 const NOTE = {
   ask: "Sees this mentorship's material only. Answers can be incomplete, so check the cited source.",
   agent:
-    "Sees this mentorship's material, and your own work and sessions. Answers can be incomplete, so check the cited source."
+    "Sees this mentorship's material, and your own work and sessions. Answers can be incomplete, so check the cited source. It can propose changes, and nothing happens unless you approve them."
 };
 
 export default function CopilotPanel({ mentorshipId, status, onChanged }) {

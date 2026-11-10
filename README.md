@@ -88,6 +88,10 @@ does the ordinary assistant. Each person has a share of 60 model calls a day. Me
 for 34/34 and 33/34, gave out nothing out of scope (10/10 refusals, 6/6 planted-instruction probes, in both runs), and addressed the person asking
 correctly throughout: `ai/eval/s4-agent-v3-decision.txt`. Whether its answers are correct is not measured yet.
 
+It can also propose a change when you ask for one: set work, move a deadline, set a goal, tick a milestone, propose or confirm a session, or pin a link. It shows you exactly
+what it will do, and nothing happens unless you press Approve; your own browser then makes the change, with your own sign-in. It won't hand in or review work, delete
+anything, or do anything your role can't. In two measured runs it got 14/14 and 13/14 of these requests right, and all 17 requests it should refuse were refused, in both runs: `ai/eval/s5-write-results.txt`.
+
 Open a mentorship and ask the assistant something. It answers from that mentorship's material only, and every number is a chip you
 can click through to the source:
 
