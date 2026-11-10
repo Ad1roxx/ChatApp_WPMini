@@ -15,6 +15,31 @@ test('a key in server.env is returned', () => {
   assert.deepEqual(proposalSecret(env, file(`ADMIN_EMAILS=x@y\nAGENT_PROPOSAL_SECRET=${GOOD}\n`)), { secret: GOOD });
 });
 
+for (const [name, line] of [
+  ['with Windows line endings', `ADMIN_EMAILS=x@y\r\nAGENT_PROPOSAL_SECRET=${GOOD}\r\n`],
+  ['in double quotes', `AGENT_PROPOSAL_SECRET="${GOOD}"\n`],
+  ['in single quotes', `AGENT_PROPOSAL_SECRET='${GOOD}'\n`],
+  ['with spaces around it', `  AGENT_PROPOSAL_SECRET = ${GOOD}  \n`],
+  ['with a comment after it', `AGENT_PROPOSAL_SECRET=${GOOD} # the proposal key\n`]
+]) {
+  test(`a key ${name} is read`, () => {
+    assert.deepEqual(proposalSecret(env, file(line)), { secret: GOOD });
+  });
+}
+
+test('a commented-out key does not count', () => {
+  assert.deepEqual(proposalSecret(env, file(`# AGENT_PROPOSAL_SECRET=${GOOD}\n`)), { problem: MISSING_PROPOSAL_SECRET });
+});
+
+test('a setting whose name only ends the same way does not count', () => {
+  assert.deepEqual(proposalSecret(env, file(`OTHER_AGENT_PROPOSAL_SECRET=${GOOD}\n`)), { problem: MISSING_PROPOSAL_SECRET });
+});
+
+test('it needs nothing but the root packages, as CI\'s frontend job has', () => {
+  const source = readFileSync(path.join(ROOT, 'scripts', 'demo-secrets.mjs'), 'utf8');
+  assert.ok(!/createRequire|from 'dotenv'|require\(/.test(source.replace(/Generate one with[^`]*/g, '').replace(/const HOW[^\n]*/, '')));
+});
+
 test('it reads server.env beside the AI_ENV_FILE file', () => {
   let asked;
   proposalSecret(env, (name) => { asked = name; return ''; });
