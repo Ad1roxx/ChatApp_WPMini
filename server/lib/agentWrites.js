@@ -13,7 +13,7 @@
  *
  * - `build` turns what the AI service sent (a validated model call, handles already
  *   turned into ids) into `args`, the values the browser will send. It is strict: exact
- *   keys (optional text may be left out), exact types, and a value too long is refused rather than cut, because what
+ *   keys, exact types, and a value too long is refused rather than cut, because what
  *   is shown must be what runs. Values are cleaned the way the route cleans them, so
  *   what is shown is what is stored.
  * - `describe` turns `args` into the dialog's heading and fields, reading the records
@@ -47,14 +47,11 @@ const UNSAFE_LINE = /[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u2069
 
 const refuse = (reason) => ({ refuse: reason });
 
-/** Every key in `required`, and nothing that isn't in `required` or `optional`. */
-function isExactly(input, required, optional = []) {
+function isExactly(input, keys) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
-  return required.every((k) => Object.hasOwn(input, k)) && Object.keys(input).every((k) => required.includes(k) || optional.includes(k));
+  const got = Object.keys(input);
+  return got.length === keys.length && keys.every((k) => Object.hasOwn(input, k));
 }
-
-/** An optional text argument: left out means empty, which is what the route stores. */
-const optionalText = (value, max, options) => (value === undefined ? { value: '' } : text(value, max, options));
 
 /** A cleaned text value, or a reason it can't be used. Never shortened. */
 function text(value, max, { required = false, multiline = false } = {}) {
@@ -111,10 +108,10 @@ const WRITE_TOOLS = {
   create_assignment: {
     roles: MENTOR,
     build({ input, mentorship }) {
-      if (!isExactly(input, ['title', 'due_at'], ['instructions'])) return refuse('bad_args');
+      if (!isExactly(input, ['title', 'instructions', 'due_at'])) return refuse('bad_args');
       const title = text(input.title, 200, { required: true });
       if (title.refuse) return title;
-      const instructions = optionalText(input.instructions, 5000, { multiline: true });
+      const instructions = text(input.instructions, 5000, { multiline: true });
       if (instructions.refuse) return instructions;
       const due = isoTime(input.due_at);
       if (due.refuse) return due;
@@ -173,16 +170,15 @@ const WRITE_TOOLS = {
   set_goal: {
     roles: MENTOR,
     build({ input, mentorship }) {
-      if (!isExactly(input, ['title'], ['description', 'milestones'])) return refuse('bad_args');
+      if (!isExactly(input, ['title', 'description', 'milestones'])) return refuse('bad_args');
       const title = text(input.title, 200, { required: true });
       if (title.refuse) return title;
-      const description = optionalText(input.description, 1000, { multiline: true });
+      const description = text(input.description, 1000, { multiline: true });
       if (description.refuse) return description;
-      const given = input.milestones === undefined ? [] : input.milestones;
-      if (!Array.isArray(given)) return refuse('bad_args');
-      if (given.length > 50) return refuse('too_long');
+      if (!Array.isArray(input.milestones)) return refuse('bad_args');
+      if (input.milestones.length > 50) return refuse('too_long');
       const milestones = [];
-      for (const m of given) {
+      for (const m of input.milestones) {
         const one = text(m, 200, { required: true });
         if (one.refuse) return one;
         milestones.push(one.value);
@@ -236,10 +232,10 @@ const WRITE_TOOLS = {
   propose_session: {
     roles: BOTH,
     build({ input, mentorship }) {
-      if (!isExactly(input, ['title', 'scheduled_for', 'duration_minutes'], ['agenda'])) return refuse('bad_args');
+      if (!isExactly(input, ['title', 'agenda', 'scheduled_for', 'duration_minutes'])) return refuse('bad_args');
       const title = text(input.title, 200, { required: true });
       if (title.refuse) return title;
-      const agenda = optionalText(input.agenda, 1000, { multiline: true });
+      const agenda = text(input.agenda, 1000, { multiline: true });
       if (agenda.refuse) return agenda;
       const when = isoTime(input.scheduled_for);
       if (when.refuse) return when;
@@ -293,10 +289,10 @@ const WRITE_TOOLS = {
   add_resource: {
     roles: BOTH,
     build({ input, mentorship }) {
-      if (!isExactly(input, ['title', 'url'], ['note'])) return refuse('bad_args');
+      if (!isExactly(input, ['title', 'url', 'note'])) return refuse('bad_args');
       const title = text(input.title, 200, { required: true });
       if (title.refuse) return title;
-      const note = optionalText(input.note, 500, { multiline: true });
+      const note = text(input.note, 500, { multiline: true });
       if (note.refuse) return note;
       if (typeof input.url !== 'string') return refuse('bad_args');
       if (UNSAFE_LINE.test(input.url.trim())) return refuse('bad_text');

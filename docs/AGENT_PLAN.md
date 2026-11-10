@@ -971,7 +971,7 @@ Built: Steps 1 to 7, BUILD_NOTES Entries 109 to 116. `agent-v4` serves.
 
 **What S6 should change, from S5:**
 
-- **The write tools' optional text fields should be optional.** The schemas require them, so the model fills them with the title in most cases (12 of 28 proposals). That's a new prompt and schema, measured again.
+- **The write tools' optional text fields are still required.** The schemas require them, so the model fills them in 12 of 28 proposals. Making them optional was measured (8 of 28, accuracy 28 of 28), missed the committed bar of at most 6, and was put back (Entry 118).
 - **"Which one?" needs more than a rule in the prompt.** "Mark the milestone as done" guessed in one of two runs.
 - **Proposal quality has no judge yet.** S5's scoring is exact matches on labels, and the reading was by hand: S6's judge can look at the free text.
 - **Faithfulness in read answers is still unmeasured,** with `su-02` waiting (Entry 108).

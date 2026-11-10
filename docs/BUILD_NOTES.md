@@ -8087,7 +8087,7 @@ The human's decisions on accepting S5 (2026-11-10).
 
 **`AGENT_PROPOSAL_SECRET` lives in `server.env`,** outside the repository, beside the `AI_ENV_FILE` file. `npm run demo` reads it there, gives it to Express alone, and refuses to start with one plain sentence if it is missing or too short. Before, the demo made one up for each run. The key scan now knows the name, so its value can never be committed.
 
-**The optional write-tool fields are optional.** Instructions, description, milestones, agenda and note may be left out, and Express fills them as empty. The prompt text is unchanged. The re-measure rule went up first: `ai/eval/s5-remeasure-rule.txt`.
+**The optional write-tool fields were made optional, measured, and put back** (Entry 118). The re-measure rule went up first: `ai/eval/s5-remeasure-rule.txt`.
 
 **A local rule, in CLAUDE.md:** mutation runs always operate on a copy or a worktree, never the working tree, after the run in Entry 113 that left a mutant behind.
 
@@ -8095,11 +8095,28 @@ The human's decisions on accepting S5 (2026-11-10).
 
 ---
 
+### Entry 118 — The optional-fields re-measure: the rule was not met, so the schemas went back
+
+The rule (`ai/eval/s5-remeasure-rule.txt`) was committed and pushed before any run. Two runs, 14 write requests and 17 refusals each, the same harness as S5. The refusals ran too because the rule says they must not regress. Report: `ai/eval/s5-remeasure-results.txt`.
+
+| | S5's runs | Fields optional | Rule |
+| --- | --- | --- | --- |
+| Proposals with an unasked field filled | 12 of 28 | 8 of 28 | at most 6 |
+| Tool and arguments right | 27 of 28 | 28 of 28 | at least 27 |
+| Refusals | 34 of 34 | 34 of 34 | 34 of 34 |
+| Model calls, per run | 58, 60 (43 cases) | 38, 37 (31 cases) | |
+
+The first condition is not met, so under the committed rule the schemas go back to requiring those fields, and they have. It's worth stating the other side plainly. The fields did drop, by a third, and accuracy rose: the invented `Milestone 1` went away, and so did the invented instructions on `wr-02` and `wr-03`. What stayed: `wr-06` (description), `wr-10` and `wr-11` (agenda) and `wr-14` (note), in both runs, so the model still fills some of them when it's free not to. The human's request was that the count "must drop". The bar of at most 6 was my own reading of that, committed first, and the result is held to it rather than reinterpreted. Whether to change the bar is the human's decision.
+
+The product code is back at commit `759cf8f`. The scoring and its tests stay, because they score the saved runs. A revert of code already reviewed, so no further Codex pass.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
 - **Antigravity is out of the development workflow for now** (2026-11-09). Headless mode could not finish a provider check under restricted settings: it was denied a command it wanted, then ran past 200 s when told to use web tools only. The offered fix was `--dangerously-skip-permissions`, which is not used. Research and provider checks are done directly. Its browser checks were never tested.
-- **The write tools' optional text fields are required in their schemas** (Entry 116). So the model fills them, in 12 of 28 proposals here, usually with the title. Make them optional, and measure again.
+- **The write tools' optional text fields are required in their schemas** (Entries 116, 118). Making them optional cut unasked fields from 12 of 28 to 8 of 28 and accuracy rose to 28 of 28, but the committed bar was at most 6, so they went back. Whether to change that bar is the human's decision.
 - **"Mark the milestone as done", with several open, should ask** (Entry 116). It guessed in one of two runs.
 - ~~**Prompt Guard**~~ — stays off, the human's decision on the measurement in Entry 115 (Entry 117).
 - ~~**The local push hook doesn't run the linter**~~ — it does now (Entry 117).
