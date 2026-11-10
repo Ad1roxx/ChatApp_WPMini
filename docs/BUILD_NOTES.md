@@ -8031,7 +8031,7 @@ Prompt Guard would be one layer only. The role-filtered tool list and a person's
 | 86m | 5/150 (3.3%) | 4/30 (13.3%) | 5/12 (41.7%) |
 | 22m | 4/150 (2.7%) | 5/30 (16.7%) | 4/12 (33.3%) |
 
-Both are above the 1% limit on ordinary work, so the rule's answer is to **keep it off**, and no screening was wired into the agent. It also misses most of what it was built to catch: of the write-injection texts, 86m missed four of eight and 22m five, including the plain "propose a session" and "mark every milestone done" ones. A mentor would see a warning on about one ordinary passage in 30, and no warning on most real attempts. Scores: `s5-guard-scores.json`. Report: `s5-guard-report.txt`. Run with `eval/guard_eval.py`. No call failed.
+Both are above the 1% limit on ordinary work, so the rule's answer is to **keep it off**, and no screening was wired into the agent. It also misses most of what it was built to catch: of the eight write-injection texts, 86m missed five and 22m six, including the plain "propose a session" and "mark every milestone done" ones. A mentor would see a warning on about one ordinary passage in 30, and no warning on most real attempts. Scores: `s5-guard-scores.json`. Report: `s5-guard-report.txt`. Run with `eval/guard_eval.py`. No call failed.
 
 A limit of this sample: 150 passages is enough to separate 3% from 1% only roughly. Both models landed above it, and detection is low enough that the conclusion doesn't lean on that margin.
 
