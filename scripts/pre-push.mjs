@@ -1,5 +1,5 @@
 /**
- * The pre-push gate: refuses a push unless every suite and the key scan pass, and no
+ * The pre-push gate: refuses a push unless every suite, the linter and the key scan pass, and no
  * commit being pushed holds a private detail of the app's real records
  * (`scripts/check-private.mjs`, with its terms kept beside the AI_ENV_FILE file).
  *
@@ -14,7 +14,7 @@
  *   right on a laptop and wrong here, so `AI_TESTS_REQUIRE_ATLAS` makes them fail.
  * - **Nothing here spends quota.** The opt-in flag for real provider calls is removed.
  *
- * All four always run, so one failure does not hide another.
+ * All of them always run, so one failure does not hide another.
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -32,6 +32,7 @@ export const SUITES = [
   { name: 'Python tests', command: PYTHON, args: ['-m', 'pytest'], cwd: path.join(ROOT, 'ai') },
   { name: 'Node tests', command: 'npm test', cwd: path.join(ROOT, 'server'), shell: true },
   { name: 'Frontend tests', command: 'npm run test:frontend', cwd: ROOT, shell: true },
+  { name: 'Lint', command: 'npm run lint', cwd: ROOT, shell: true },
   { name: 'Key scan', command: 'npm run check:keys', cwd: ROOT, shell: true },
 ];
 

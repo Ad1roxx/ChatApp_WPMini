@@ -29,6 +29,7 @@ import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { proposalSecret } from './demo-secrets.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const AI = path.join(ROOT, 'ai');
@@ -119,6 +120,8 @@ process.on('SIGBREAK', () => stop(0)); // Windows: Ctrl+Break, and how a script 
 
 async function main() {
   if (!STUDENTS[studentArg]) fail(`Unknown student '${studentArg}'. Use one of: ${Object.keys(STUDENTS).join(', ')}.`);
+  const proposal = proposalSecret();
+  if (proposal.problem) fail(proposal.problem);
   if (!existsSync(PYTHON)) fail(`The Python environment is missing. Create it first: see ai/README.md (${PYTHON}).`);
   mkdirSync(LOGS, { recursive: true });
 
@@ -167,7 +170,6 @@ async function main() {
   // The agent's capability tokens are signed with a key only Express holds,
   // never the service's secret (server/lib/agentToken.js). Fresh for each run.
   const agentSecret = randomBytes(32).toString('hex');
-  const proposalSecret = randomBytes(32).toString('hex');
   console.log('Starting the AI service; loading its models takes a little while…');
   const aiStart = Date.now();
   run('ai', PYTHON, ['-m', 'uvicorn', 'app:app', '--host', '127.0.0.1', '--port', String(AI_PORT)], {
@@ -206,7 +208,7 @@ async function main() {
       AI_SERVICE_URL: `http://127.0.0.1:${AI_PORT}`,
       AI_SERVICE_SECRET: secret,
       AGENT_TOKEN_SECRET: agentSecret,
-      AGENT_PROPOSAL_SECRET: proposalSecret,
+      AGENT_PROPOSAL_SECRET: proposal.secret,
       COPILOT_AGENT: args.includes('--s2') ? 'off' : 'on'
     }
   });

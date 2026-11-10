@@ -34,8 +34,9 @@ test('a suite that cannot start is a failure, not a skip', async () => {
   assert.equal(result.passed, false);
 });
 
-test('the gate runs all three test suites and the key scan', () => {
-  assert.deepEqual(SUITES.map((s) => s.name), ['Python tests', 'Node tests', 'Frontend tests', 'Key scan']);
+test('the gate runs all three test suites, the linter and the key scan', () => {
+  assert.deepEqual(SUITES.map((s) => s.name), ['Python tests', 'Node tests', 'Frontend tests', 'Lint', 'Key scan']);
+  assert.equal(SUITES.find((s) => s.name === 'Lint').command, 'npm run lint');
 });
 
 test('a dirty tree is refused, untracked files included', () => {

@@ -8077,14 +8077,32 @@ Every condition of the rule holds, so `agent-v4` is adopted and now serves. Read
 
 ---
 
+### Entry 117 — After S5: lint in the hook, Prompt Guard stays off, optional fields optional, the proposal key kept outside the repo
+
+The human's decisions on accepting S5 (2026-11-10).
+
+**Prompt Guard stays off** (the human). The reason is the measurement in Entry 115: on 150 ordinary passages it flagged 5 (86m, 3.3%) and 4 (22m, 2.7%), against a limit of 1% committed before measuring, and it detected 5/12 and 4/12 injections. A warning on one ordinary passage in 30, and none on most real attempts, is worse than no warning. Files: `ai/eval/s5-guard-rule.txt`, `s5-guard-report.txt`. The role-filtered tool list and a person's approval remain the protection.
+
+**Lint in the pre-push hook** (`scripts/pre-push.mjs`). S5's lint errors reached CI because the hook ran every suite but not the linter.
+
+**`AGENT_PROPOSAL_SECRET` lives in `server.env`,** outside the repository, beside the `AI_ENV_FILE` file. `npm run demo` reads it there, gives it to Express alone, and refuses to start with one plain sentence if it is missing or too short. Before, the demo made one up for each run. The key scan now knows the name, so its value can never be committed.
+
+**The optional write-tool fields are optional.** Instructions, description, milestones, agenda and note may be left out, and Express fills them as empty. The prompt text is unchanged. The re-measure rule went up first: `ai/eval/s5-remeasure-rule.txt`.
+
+**A local rule, in CLAUDE.md:** mutation runs always operate on a copy or a worktree, never the working tree, after the run in Entry 113 that left a mutant behind.
+
+**Review.** Codex's per-step review found that with `AI_ENV_FILE` unset the demo would look for `server.env` in the current folder. Real; it now refuses without reading anything, and a test holds that.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
 - **Antigravity is out of the development workflow for now** (2026-11-09). Headless mode could not finish a provider check under restricted settings: it was denied a command it wanted, then ran past 200 s when told to use web tools only. The offered fix was `--dangerously-skip-permissions`, which is not used. Research and provider checks are done directly. Its browser checks were never tested.
 - **The write tools' optional text fields are required in their schemas** (Entry 116). So the model fills them, in 12 of 28 proposals here, usually with the title. Make them optional, and measure again.
 - **"Mark the milestone as done", with several open, should ask** (Entry 116). It guessed in one of two runs.
-- **Prompt Guard stays off** (Entry 115). 2.7% to 3.3% of ordinary passages flagged, against a limit of 1%, and most injections missed. Turning it on is the human's decision.
-- **The local push hook doesn't run the linter** (2026-11-10). S5's lint errors reached CI that way.
+- ~~**Prompt Guard**~~ — stays off, the human's decision on the measurement in Entry 115 (Entry 117).
+- ~~**The local push hook doesn't run the linter**~~ — it does now (Entry 117).
 - ~~**When the model calls a tool that doesn't exist, the turn stops**~~ — that was wrong (Entry 111). The model was always told, and what stopped `se-05` was the last allowed call asking for a tool, which now has tools disabled.
 - **`su-02`: a faithfulness case for S6** (Entry 108). "Rohan wrote a design note for your ordering API" claims the API is the mentor's. It's the canteen's. By the human's ruling, not misaddressing.
 - **`agent-v3` has not been evaluated on Groq** (Entry 108). In a two-question panel check it was faster than Gemini but abstained on one question Gemini answered. Groq stays a manual setting.

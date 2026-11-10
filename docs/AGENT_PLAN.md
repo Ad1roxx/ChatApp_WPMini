@@ -965,7 +965,7 @@ own session executes" is stronger than a scoped service token.
 - **Today's date, in IST, is trusted context** in `agent-v4`'s prompt, from the service's clock.
 - **The dialog's times come from Express,** and a test compares them with Python's on 1,510 values.
 - **Milestones and sessions refuse on a mentorship that isn't active,** as the other write routes do: a separate app fix.
-- **Prompt Guard was measured and is off** (Entry 115), and turning it on is the human's decision.
+- **Prompt Guard stays off,** the human's decision (2026-11-10) on the measurement: 2.7% to 3.3% of ordinary passages flagged against a limit of 1%, and 4/12 to 5/12 injections detected (BUILD_NOTES Entries 115, 117).
 
 Built: Steps 1 to 7, BUILD_NOTES Entries 109 to 116. `agent-v4` serves.
 

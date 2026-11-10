@@ -32,7 +32,7 @@ const FIREBASE_FILE = 'src/firebase.js';
 export function secretsIn(text) {
   const keys = {};
   for (const line of text.split(/\r?\n/)) {
-    const match = line.match(/^\s*(GEMINI_API_KEY|GROQ_API_KEY|AI_SERVICE_SECRET|ADMIN_EMAILS)\s*=\s*(.+?)\s*$/);
+    const match = line.match(/^\s*(GEMINI_API_KEY|GROQ_API_KEY|AI_SERVICE_SECRET|AGENT_PROPOSAL_SECRET|ADMIN_EMAILS)\s*=\s*(.+?)\s*$/);
     if (!match) continue;
     const value = match[2].replace(/^["']|["']$/g, '');
     if (value) keys[match[1]] = value;
