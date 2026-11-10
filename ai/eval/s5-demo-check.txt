@@ -1,0 +1,17 @@
+S5 Step 7: the whole path, real services, real model, the demo's invented data. 2026-11-10T12:57:34.226Z
+/api/copilot/mode: {"mode":"agent"}
+links before: approved one present false, dismissed one present false
+
+Asked: Pin this link: https://example.test/e2e-approved-3 titled "E2E approved".
+The dialog: Pin a link | You asked: Pin this link: https://example.test/e2e-approved-3 titled "E2E approved". | Title | E2E approved | Link | https://example.test/e2e-approved-3 | Note | E2E approved | Shared with | Meera Iyer | Nothing happens unless you approve it. Check every detail first. | Approve | Dismiss
+after the proposal, before any click, stored: false
+outcome: Done. The link has been pinned.
+requests: POST /api/mentorships/:id/copilot/agent, POST /api/copilot/proposals/claim, POST /api/mentorships/:id/resources, POST /api/copilot/proposals/close
+stored after approving: true
+
+Asked: Pin this link: https://example.test/e2e-dismissed-3 titled "E2E dismissed".
+The dialog: Pin a link | You asked: Pin this link: https://example.test/e2e-dismissed-3 titled "E2E dismissed". | Title | E2E dismissed | Link | https://example.test/e2e-dismissed-3 | Note | Pin this link: https://example.test/e2e-dismissed-3 titled "E2E dismissed" | Shared with | Meera Iyer | Nothing happens unless you approve it. Check every detail first. | Approve | Dismiss
+outcome: Dismissed. Nothing was done.
+requests: POST /api/mentorships/:id/copilot/agent, POST /api/copilot/proposals/close
+stored after dismissing: false
+page errors: none

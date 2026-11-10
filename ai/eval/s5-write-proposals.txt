@@ -1,0 +1,177 @@
+Every proposal that reached a person, as the dialog would show it. For reading, not scoring.
+
+run 1 wr-01 [mentor] asked: Set Rohan a new assignment called "Write an ADR for the rate limiter", with the instructions "One page, with the alternatives you rejected", due 20 December 2026 at 5 pm.
+  Set work for Rohan Kapoor
+  Title: Write an ADR for the rate limiter
+  Instructions: One page, with the alternatives you rejected
+  Due: Sun 20 Dec 2026, 5:00 pm IST
+  For: Rohan Kapoor
+run 1 wr-02 [mentor] asked: Give Rohan some work titled "Load test report", due on 15 December 2026.
+  Set work for Rohan Kapoor
+  Title: Load test report
+  Instructions: Load test report
+  Due: Tue 15 Dec 2026, 11:59 pm IST
+  For: Rohan Kapoor
+run 1 wr-03 [mentor] asked: Set Rohan work called "Read the Kafka paper", due next Tuesday at 4 pm.
+  Set work for Rohan Kapoor
+  Title: Read the Kafka paper
+  Instructions: Read the Kafka paper
+  Due: Tue 17 Nov 2026, 4:00 pm IST
+  For: Rohan Kapoor
+run 1 wr-04 [mentor] asked: Move the deadline for Prepare for a mock system design interview to 30 December 2026 at 6 pm.
+  Move a deadline
+  Work: Prepare for a mock system design interview
+  Currently due: Fri 13 Nov 2026, 5:07 pm IST
+  New due: Wed 30 Dec 2026, 6:00 pm IST
+  Applies to: The one student this was set for
+run 1 wr-05 [mentor] asked: Give Rohan until 28 December 2026 on his notes about caching trade-offs.
+  Move a deadline
+  Work: Notes on caching trade-offs
+  Currently due: Mon 16 Nov 2026, 2:06 am IST
+  New due: Mon 28 Dec 2026, 11:59 pm IST
+  Applies to: The one student this was set for
+run 1 wr-06 [mentor] asked: Set a goal for Rohan called "System design basics" with two milestones: "Read DDIA chapter 1" and "Design a URL shortener".
+  Set a goal for Rohan Kapoor
+  Title: System design basics
+  Description: System design basics
+  Milestones: 1. Read DDIA chapter 1
+2. Design a URL shortener
+  In: Your mentorship with Rohan Kapoor
+run 1 wr-07 [mentor] asked: Add a goal for Rohan titled "Get comfortable with SQL", described as "Focus on joins and indexes". No milestones yet.
+  Set a goal for Rohan Kapoor
+  Title: Get comfortable with SQL
+  Description: Focus on joins and indexes
+  Milestones: 
+  In: Your mentorship with Rohan Kapoor
+run 1 wr-08 [student] asked: Mark the milestone Design a rate limiter as done.
+  Update a milestone
+  Goal: Be ready for backend interviews by March
+  Milestone: Design a rate limiter
+  Change: Not done → Done
+run 1 wr-09 [mentor] asked: Untick Write a real postmortem on Rohan's goal. It isn't finished after all.
+  Update a milestone
+  Goal: Be ready for backend interviews by March
+  Milestone: Write a real postmortem
+  Change: Done → Not done
+run 1 wr-10 [student] asked: Propose a session with Meera called "Mock interview round two" on 18 December 2026 at 6 pm for 45 minutes.
+  Propose a session with Meera Iyer
+  Title: Mock interview round two
+  Agenda: Mock interview round two
+  When: Fri 18 Dec 2026, 6:00 pm IST
+  Length: 45 minutes
+  With: Meera Iyer, who will need to confirm it
+run 1 wr-11 [mentor] asked: Propose a session with Rohan called "Resume review" tomorrow at 10 am for an hour.
+  Propose a session with Rohan Kapoor
+  Title: Resume review
+  Agenda: Resume review
+  When: Wed 11 Nov 2026, 10:00 am IST
+  Length: 60 minutes
+  With: Rohan Kapoor, who will need to confirm it
+run 1 wr-12 [student] asked: Please confirm the session Meera proposed, Resume walkthrough.
+  Confirm this session
+  Title: Resume walkthrough
+  When: Mon 30 Nov 2026, 5:46 pm IST
+  Length: 30 minutes
+  Proposed by: Meera Iyer
+run 1 wr-13 [student] asked: Pin this link for us: https://example.test/kafka-guide with the title "Kafka guide" and the note "Read before Friday".
+  Pin a link
+  Title: Kafka guide
+  Link: https://example.test/kafka-guide
+  Note: Read before Friday
+  Shared with: Meera Iyer
+run 1 wr-14 [mentor] asked: Pin https://example.test/sql-notes for Rohan, titled "SQL notes".
+  Pin a link
+  Title: SQL notes
+  Link: https://example.test/sql-notes
+  Note: SQL notes
+  Shared with: Rohan Kapoor
+run 1 am-04 [student] asked: Mark the milestone as done.
+  Update a milestone
+  Goal: Be ready for backend interviews by March
+  Milestone: Design a rate limiter
+  Change: Not done → Done
+run 2 wr-01 [mentor] asked: Set Rohan a new assignment called "Write an ADR for the rate limiter", with the instructions "One page, with the alternatives you rejected", due 20 December 2026 at 5 pm.
+  Set work for Rohan Kapoor
+  Title: Write an ADR for the rate limiter
+  Instructions: One page, with the alternatives you rejected
+  Due: Sun 20 Dec 2026, 5:00 pm IST
+  For: Rohan Kapoor
+run 2 wr-02 [mentor] asked: Give Rohan some work titled "Load test report", due on 15 December 2026.
+  Set work for Rohan Kapoor
+  Title: Load test report
+  Instructions: Please prepare and submit your load test report.
+  Due: Tue 15 Dec 2026, 11:59 pm IST
+  For: Rohan Kapoor
+run 2 wr-03 [mentor] asked: Set Rohan work called "Read the Kafka paper", due next Tuesday at 4 pm.
+  Set work for Rohan Kapoor
+  Title: Read the Kafka paper
+  Instructions: Read the Kafka paper
+  Due: Tue 17 Nov 2026, 4:00 pm IST
+  For: Rohan Kapoor
+run 2 wr-04 [mentor] asked: Move the deadline for Prepare for a mock system design interview to 30 December 2026 at 6 pm.
+  Move a deadline
+  Work: Prepare for a mock system design interview
+  Currently due: Fri 13 Nov 2026, 5:07 pm IST
+  New due: Wed 30 Dec 2026, 6:00 pm IST
+  Applies to: The one student this was set for
+run 2 wr-05 [mentor] asked: Give Rohan until 28 December 2026 on his notes about caching trade-offs.
+  Move a deadline
+  Work: Notes on caching trade-offs
+  Currently due: Mon 16 Nov 2026, 2:06 am IST
+  New due: Mon 28 Dec 2026, 11:59 pm IST
+  Applies to: The one student this was set for
+run 2 wr-06 [mentor] asked: Set a goal for Rohan called "System design basics" with two milestones: "Read DDIA chapter 1" and "Design a URL shortener".
+  Set a goal for Rohan Kapoor
+  Title: System design basics
+  Description: System design basics
+  Milestones: 1. Read DDIA chapter 1
+2. Design a URL shortener
+  In: Your mentorship with Rohan Kapoor
+run 2 wr-07 [mentor] asked: Add a goal for Rohan titled "Get comfortable with SQL", described as "Focus on joins and indexes". No milestones yet.
+  Set a goal for Rohan Kapoor
+  Title: Get comfortable with SQL
+  Description: Focus on joins and indexes
+  Milestones: 1. Milestone 1
+  In: Your mentorship with Rohan Kapoor
+run 2 wr-08 [student] asked: Mark the milestone Design a rate limiter as done.
+  Update a milestone
+  Goal: Be ready for backend interviews by March
+  Milestone: Design a rate limiter
+  Change: Not done → Done
+run 2 wr-09 [mentor] asked: Untick Write a real postmortem on Rohan's goal. It isn't finished after all.
+  Update a milestone
+  Goal: Be ready for backend interviews by March
+  Milestone: Write a real postmortem
+  Change: Done → Not done
+run 2 wr-10 [student] asked: Propose a session with Meera called "Mock interview round two" on 18 December 2026 at 6 pm for 45 minutes.
+  Propose a session with Meera Iyer
+  Title: Mock interview round two
+  Agenda: Mock interview round two
+  When: Fri 18 Dec 2026, 6:00 pm IST
+  Length: 45 minutes
+  With: Meera Iyer, who will need to confirm it
+run 2 wr-11 [mentor] asked: Propose a session with Rohan called "Resume review" tomorrow at 10 am for an hour.
+  Propose a session with Rohan Kapoor
+  Title: Resume review
+  Agenda: Resume review
+  When: Wed 11 Nov 2026, 10:00 am IST
+  Length: 60 minutes
+  With: Rohan Kapoor, who will need to confirm it
+run 2 wr-12 [student] asked: Please confirm the session Meera proposed, Resume walkthrough.
+  Confirm this session
+  Title: Resume walkthrough
+  When: Mon 30 Nov 2026, 6:05 pm IST
+  Length: 30 minutes
+  Proposed by: Meera Iyer
+run 2 wr-13 [student] asked: Pin this link for us: https://example.test/kafka-guide with the title "Kafka guide" and the note "Read before Friday".
+  Pin a link
+  Title: Kafka guide
+  Link: https://example.test/kafka-guide
+  Note: Read before Friday
+  Shared with: Meera Iyer
+run 2 wr-14 [mentor] asked: Pin https://example.test/sql-notes for Rohan, titled "SQL notes".
+  Pin a link
+  Title: SQL notes
+  Link: https://example.test/sql-notes
+  Note: Pin https://example.test/sql-notes for Rohan, titled "SQL notes"
+  Shared with: Rohan Kapoor
