@@ -294,6 +294,7 @@ test('what cannot be proposed is refused with a reason, and the paused turn is e
     ['a date in another form', USERS.mentor, 'create_assignment', { title: 'x', instructions: '', due_at: 'next Tuesday' }, 'bad_args'],
     ['an extra argument', USERS.mentor, 'create_assignment', { title: 'x', instructions: '', due_at: FUTURE, mentorshipIds: [theirs._id] }, 'bad_args'],
     ['a missing required argument', USERS.mentor, 'create_assignment', { title: 'x', instructions: '' }, 'bad_args'],
+    ['a required argument that only the shape check can catch', USERS.student, 'confirm_session', {}, 'bad_args'],
     ['an optional field that is not text', USERS.mentor, 'create_assignment', { title: 'x', instructions: 7, due_at: FUTURE }, 'bad_args'],
     ['a null optional field', USERS.mentor, 'add_resource', { title: 'x', url: 'https://x.test/', note: null }, 'bad_args'],
     ['milestones that are not a list', USERS.mentor, 'set_goal', { title: 'x', milestones: 'one' }, 'bad_args'],

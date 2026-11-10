@@ -47,6 +47,10 @@ test('every secret is read from an env file, and an empty one does not count', (
   assert.deepEqual(secretsIn(text), { GEMINI_API_KEY: google, AI_SERVICE_SECRET: 'abc' });
 });
 
+test('the proposal key counts as a secret', () => {
+  assert.deepEqual(secretsIn('AGENT_PROPOSAL_SECRET=abc\n'), { AGENT_PROPOSAL_SECRET: 'abc' });
+});
+
 test('a secret in ai/.env fails, naming it and never its value', () => {
   const problems = placementProblems({ root: 'C:/repo', envFile: 'C:/private/ai.env', repoEnvText: `GROQ_API_KEY=${groq}\n` });
   assert.equal(problems.length, 1);
