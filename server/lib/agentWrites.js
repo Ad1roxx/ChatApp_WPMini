@@ -41,9 +41,9 @@ const MENTOR = Object.freeze(['mentor']);
 const OBJECT_ID = /^[0-9a-f]{24}$/;
 // Control characters, and the ones that reorder or hide text: what is approved must read as it is.
 // eslint-disable-next-line no-control-regex
-const UNSAFE_MULTILINE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f​-‏‪-‮⁠-⁩﻿]/;
+const UNSAFE_MULTILINE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
 // eslint-disable-next-line no-control-regex
-const UNSAFE_LINE = /[\u0000-\u001f\u007f​-‏‪-‮⁠-⁩﻿]/;
+const UNSAFE_LINE = /[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
 
 const refuse = (reason) => ({ refuse: reason });
 

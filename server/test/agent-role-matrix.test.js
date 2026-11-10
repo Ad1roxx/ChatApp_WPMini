@@ -125,7 +125,6 @@ async function newWork(mentorship) {
   })).json();
 }
 
-const MISSING = 'a'.repeat(24);
 /** Valid arguments for `tool` against `mentorship`, with whatever it needs to exist created first. */
 async function argsFor(tool, actor, mentorship) {
   const parties = PARTIES().get(mentorship._id);
