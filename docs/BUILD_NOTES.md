@@ -8022,6 +8022,23 @@ An admin who holds a mentorship gets the mentor's tools there and nothing in any
 
 ---
 
+### Entry 115 — S5 Step 6: Prompt Guard measured, and it stays off
+
+Prompt Guard would be one layer only. The role-filtered tool list and a person's approval are the protection, and a classifier that can be evaded changes nothing about what a tool may do. The threshold, the window, the labels and the 1% limit were committed and pushed first (`ai/eval/s5-guard-rule.txt`, `s5-guard-texts.json`). A first attempt to run was started before that push had succeeded; it was stopped and saved nothing.
+
+| | Ordinary passages flagged | Hard negatives flagged | Injections detected |
+| --- | --- | --- | --- |
+| 86m | 5/150 (3.3%) | 4/30 (13.3%) | 5/12 (41.7%) |
+| 22m | 4/150 (2.7%) | 5/30 (16.7%) | 4/12 (33.3%) |
+
+Both are above the 1% limit on ordinary work, so the rule's answer is to **keep it off**, and no screening was wired into the agent. It also misses most of what it was built to catch: of the write-injection texts, 86m missed four of eight and 22m five, including the plain "propose a session" and "mark every milestone done" ones. A mentor would see a warning on about one ordinary passage in 30, and no warning on most real attempts. Scores: `s5-guard-scores.json`. Report: `s5-guard-report.txt`. Run with `eval/guard_eval.py`. No call failed.
+
+A limit of this sample: 150 passages is enough to separate 3% from 1% only roughly. Both models landed above it, and detection is low enough that the conclusion doesn't lean on that margin.
+
+**Review.** Codex's recount, from the saved scores alone, matched every figure. Its code review of the evaluation scripts found nothing. Its attack review noted the ordinary text comes from a database; those are two databases on the synthetic-only list, which is what the rule specifies, and the script asserts that. Its test-gap review was right that the arithmetic had no tests: `test_guard_eval.py` now holds the windows, the threshold, failed calls, the 1% limit and the choice between models.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
