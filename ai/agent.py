@@ -188,15 +188,16 @@ def _text(max_length: int, *, required: bool = False) -> dict:
     return {"type": "string", "minLength": 1 if required else 0, "maxLength": max_length}
 
 
-def _exact(**properties) -> dict:
-    return {"type": "object", "properties": properties, "required": sorted(properties), "additionalProperties": False}
+def _exact(*optional: str, **properties) -> dict:
+    """A tool's arguments: exactly these keys. Those named in `optional` may be left out, and only those."""
+    return {"type": "object", "properties": properties, "required": sorted(set(properties) - set(optional)), "additionalProperties": False}
 
 
 # Only ever proposals (AGENT_PLAN §3.2). Handles, never ids; nothing about who or where. §4.4 is stricter than the
 # API: no hand-ins, no reviews, nothing deleted or withdrawn, no opt-outs, announcements or groups, no adding a student.
 WRITE_TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec("create_assignment", "Propose setting new work for this student.",
-             _exact(title=_text(200, required=True), instructions=_text(5000), due_at=LOCAL_TIME),
+             _exact("instructions", title=_text(200, required=True), instructions=_text(5000), due_at=LOCAL_TIME),
              ("mentor",), "mentorship", "write"),
     ToolSpec("extend_assignment_deadline",
              "Propose a later due date for work you set. Give the handle of the work or of a hand-in of it.",
@@ -204,7 +205,7 @@ WRITE_TOOLS: tuple[ToolSpec, ...] = (
              ("mentor",), "mentorship", "write",
              targets={"assignment": ("assignmentId", {"assignment": "id", "submission": "assignmentId"})}),
     ToolSpec("set_goal", "Propose a new goal with milestones for this student.",
-             _exact(title=_text(200, required=True), description=_text(1000),
+             _exact("description", "milestones", title=_text(200, required=True), description=_text(1000),
                     milestones={"type": "array", "items": _text(200, required=True), "maxItems": 50}),
              ("mentor",), "mentorship", "write"),
     ToolSpec("toggle_milestone",
@@ -212,13 +213,13 @@ WRITE_TOOLS: tuple[ToolSpec, ...] = (
              _exact(goal=HANDLE, milestone_number={"type": "integer", "minimum": 1, "maximum": 50}, done={"type": "boolean"}),
              BOTH, "mentorship", "write", targets={"goal": ("goalId", {"goal": "id"})}),
     ToolSpec("propose_session", "Propose a session time; the other person confirms it.",
-             _exact(title=_text(200, required=True), agenda=_text(1000), scheduled_for=LOCAL_TIME,
+             _exact("agenda", title=_text(200, required=True), agenda=_text(1000), scheduled_for=LOCAL_TIME,
                     duration_minutes={"type": "integer", "minimum": 5, "maximum": 480}),
              BOTH, "mentorship", "write"),
     ToolSpec("confirm_session", "Propose confirming a session time the other person suggested. Give the session's handle.",
              _exact(session=HANDLE), BOTH, "mentorship", "write", targets={"session": ("sessionId", {"session": "id"})}),
     ToolSpec("add_resource", "Propose pinning a link in this mentorship.",
-             _exact(title=_text(200, required=True), url=_text(2000, required=True), note=_text(500)),
+             _exact("note", title=_text(200, required=True), url=_text(2000, required=True), note=_text(500)),
              BOTH, "mentorship", "write"),
 )
 _BY_NAME = {t.name: t for t in TOOLS + WRITE_TOOLS}

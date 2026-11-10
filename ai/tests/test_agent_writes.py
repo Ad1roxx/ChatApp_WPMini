@@ -122,6 +122,31 @@ def test_a_target_is_always_a_handle():
             assert spec.parameters["properties"][arg] == agent.HANDLE
 
 
+@pytest.mark.parametrize("name,required", [
+    ("create_assignment", ["due_at", "title"]),
+    ("extend_assignment_deadline", ["assignment", "new_due_at"]),
+    ("set_goal", ["title"]),
+    ("toggle_milestone", ["done", "goal", "milestone_number"]),
+    ("propose_session", ["duration_minutes", "scheduled_for", "title"]),
+    ("confirm_session", ["session"]),
+    ("add_resource", ["title", "url"]),
+])
+def test_only_what_a_tool_cannot_do_without_is_required(name, required):
+    assert next(t for t in WRITE_TOOLS if t.name == name).parameters["required"] == required
+
+
+@pytest.mark.parametrize("name,args", [
+    ("create_assignment", {"title": "Essay", "due_at": "2027-01-05T23:59"}),
+    ("set_goal", {"title": "Ready"}),
+    ("propose_session", {"title": "Check-in", "scheduled_for": "2027-01-05T10:00", "duration_minutes": 30}),
+    ("add_resource", {"title": "A link", "url": "https://example.test/"}),
+])
+def test_an_optional_field_may_be_left_out(name, args):
+    t, *_ = make([(name, args)])
+    r = run_turn(t)
+    assert (r["status"], r["args"]) == ("proposal", args)
+
+
 def test_every_write_tool_is_described_as_a_proposal():
     for spec in WRITE_TOOLS:
         assert spec.description.startswith("Propose"), spec.name

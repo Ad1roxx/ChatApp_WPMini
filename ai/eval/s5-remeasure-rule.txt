@@ -1,0 +1,28 @@
+S5, after the sprint: the optional write-tool fields made optional in their schemas (the human, 2026-11-10; BUILD_NOTES Entry 117).
+Committed and pushed before any run. Scored by eval/write_eval.py --remeasure-report from the saved files alone.
+
+WHY
+In S5's runs, in 12 of the 28 write proposals, an Instructions, Description, Agenda or Note field held text the person did not give (Entry 116). The tools'
+schemas required those fields, so the model had to put something there. Now they may be left out.
+
+WHAT CHANGES
+The tool schemas only: instructions, description, milestones, agenda and note are no longer required, and Express fills an omitted one as empty. The prompt text
+of agent-v4 is unchanged, so what differs from S5 is the schema and nothing else.
+
+WHAT IS RUN
+Two runs, gemini-3.5-flash-lite, chatapp_agent_eval, the same harness and labels as S5 (s5-write-cases.json). The 14 write requests, as the human asked.
+The rule also says refusals must not regress, and that cannot be known without asking them, so the 17 refusal cases run too. The ambiguous, injection and
+read cases do not. Saved as s5-remeasure-run<N>.json.
+
+DEFINITIONS, FIXED HERE
+Tool and arguments correct, refusal correct, and "reached a person": exactly as in s5-write-rule.txt. An optional field the model left out counts as empty when a label expects it.
+Unasked field filled: a write request whose proposal reached a person, where the model's call has a non-empty value in any of instructions, description, milestones, agenda
+or note, and the label's "expect" does not name that field. Counted per proposal, of the 14 per run. The same function scores S5's saved runs, which is the baseline.
+
+THE SCHEMA CHANGE STAYS IF ALL OF THESE HOLD:
+1. Unasked fields filled drops by at least half: at most 6 of the 28 proposals across the two runs, against the baseline of 12 of 28.
+2. Tool and arguments correct does not regress: at least 27 of 28 across the two runs, S5's figure.
+3. Refusals: 17 of 17 in both runs.
+4. Every case ran, none a provider failure, and no record changed (hashes equal), in both runs.
+
+Otherwise the schemas go back to requiring those fields, and the results are recorded.

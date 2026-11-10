@@ -214,6 +214,26 @@ test('each tool: what is shown is what is signed is what the route stores', asyn
   });
 });
 
+test('an optional field left out is sent empty, and shown as empty', async (t) => {
+  const cases = [
+    ['create_assignment', { title: 'x', due_at: FUTURE }, { instructions: '' }, 'Instructions'],
+    ['set_goal', { title: 'x' }, { description: '', milestones: [] }, 'Description'],
+    ['propose_session', { title: 'x', scheduled_for: LATER, duration_minutes: 30 }, { agenda: '' }, 'Agenda'],
+    ['add_resource', { title: 'x', url: 'https://x.test/' }, { note: '' }, 'Note']
+  ];
+  for (const [tool, args, expected, label] of cases) {
+    await t.test(tool, async () => {
+      const out = await propose(USERS.mentor, tool, args);
+      assert.equal(out.status, 'proposal');
+      const p = decode(out.proposal);
+      for (const [k, v] of Object.entries(expected)) assert.deepEqual(p.args[k], v);
+      assert.equal(field(p, label), '');
+      assert.equal((await claim(USERS.mentor, out.proposal)).status, 200);
+      assert.ok((await runAsBrowser(USERS.mentor, out.proposal)).ok, 'the real route accepts it');
+    });
+  }
+});
+
 test('every argument the request carries has a field that shows it', async () => {
   const goal = await newGoal();
   const session = await newSession(USERS.mentor);
@@ -273,7 +293,10 @@ test('what cannot be proposed is refused with a reason, and the paused turn is e
     ['a date that does not exist', USERS.mentor, 'create_assignment', { title: 'x', instructions: '', due_at: '2030-02-31T10:00' }, 'bad_args'],
     ['a date in another form', USERS.mentor, 'create_assignment', { title: 'x', instructions: '', due_at: 'next Tuesday' }, 'bad_args'],
     ['an extra argument', USERS.mentor, 'create_assignment', { title: 'x', instructions: '', due_at: FUTURE, mentorshipIds: [theirs._id] }, 'bad_args'],
-    ['a missing argument', USERS.mentor, 'create_assignment', { title: 'x', due_at: FUTURE }, 'bad_args'],
+    ['a missing required argument', USERS.mentor, 'create_assignment', { title: 'x', instructions: '' }, 'bad_args'],
+    ['an optional field that is not text', USERS.mentor, 'create_assignment', { title: 'x', instructions: 7, due_at: FUTURE }, 'bad_args'],
+    ['a null optional field', USERS.mentor, 'add_resource', { title: 'x', url: 'https://x.test/', note: null }, 'bad_args'],
+    ['milestones that are not a list', USERS.mentor, 'set_goal', { title: 'x', milestones: 'one' }, 'bad_args'],
     ['a value that is not text', USERS.mentor, 'create_assignment', { title: 7, instructions: '', due_at: FUTURE }, 'bad_args'],
     ['a title too long, refused rather than cut', USERS.mentor, 'create_assignment', { title: 'x'.repeat(201), instructions: '', due_at: FUTURE }, 'too_long'],
     ['text with a hidden direction change', USERS.mentor, 'add_resource', { title: 'safe‮txt.exe', url: 'https://x.test/', note: '' }, 'bad_text'],

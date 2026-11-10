@@ -64,6 +64,49 @@ def test_a_relative_expectation():
     assert w.write_correct(label, proposal(call={"due": "2026-11-12T10:00"})) == (True, False)
 
 
+def test_an_optional_field_left_out_counts_as_empty_when_a_label_expects_that():
+    label = {"tool": "set_goal", "expect": {"milestones": {"equals": []}}}
+    assert w.write_correct(label, proposal(tool="set_goal", call={"title": "x"})) == (True, True)
+    assert w.write_correct(label, proposal(tool="set_goal", call={"milestones": ["Milestone 1"]})) == (True, False)
+
+
+def test_a_field_that_is_not_optional_left_out_is_still_wrong():
+    label = {"tool": "add_resource", "expect": {"url": {"equals": "https://x"}}}
+    assert w.write_correct(label, proposal(call={})) == (True, False)
+
+
+def test_an_unasked_field_is_one_the_label_does_not_expect():
+    label = {"tool": "add_resource", "expect": {"title": {"contains": ["x"]}}}
+    assert w.unasked_fields(label, proposal(call={"title": "x", "note": "x"})) == ["note"]
+    assert w.unasked_fields({"expect": {"note": {"contains": ["x"]}}}, proposal(call={"note": "x"})) == []
+
+
+def test_an_empty_or_absent_field_is_not_filled():
+    for call in ({"note": ""}, {}, {"milestones": []}, {"instructions": None}):
+        assert w.unasked_fields({}, proposal(call=call)) == []
+
+
+def test_a_proposal_that_did_not_reach_a_person_has_no_unasked_fields():
+    assert w.unasked_fields({}, proposal(refuse="not_found", call={"note": "x"})) == []
+
+
+def scored(unasked=0, correct=14, refusal=17, cases=31, errors=(), unchanged=True):
+    return {"unasked": unasked, "writes": 14, "correct": correct, "refusal": refusal, "refusals": 17, "cases": cases, "errors": list(errors), "unchanged": unchanged}
+
+
+@pytest.mark.parametrize("runs,failing", [
+    ([scored(unasked=4), scored(unasked=3)], "unasked fields at most 6 of 28 (baseline 12)"),
+    ([scored(correct=13), scored(correct=13)], "tool and arguments at least 27 of 28"),
+    ([scored(refusal=16), scored()], "refusals 17 of 17 in both runs"),
+    ([scored(cases=30), scored()], "every case ran, no provider failure, no record changed"),
+    ([scored(errors=["wr-01"]), scored()], "every case ran, no provider failure, no record changed"),
+    ([scored(unchanged=False), scored()], "every case ran, no provider failure, no record changed"),
+])
+def test_each_condition_of_the_remeasure_rule_can_fail(runs, failing):
+    assert all(w.remeasure_rule([], [scored(unasked=3), scored(unasked=3, correct=13)]).values())
+    assert not w.remeasure_rule([], runs)[failing]
+
+
 def test_a_refusal_is_correct_unless_a_proposal_reached_the_person():
     assert w.refusal_correct(declined())
     assert w.refusal_correct(proposal(refuse="not_allowed"))
