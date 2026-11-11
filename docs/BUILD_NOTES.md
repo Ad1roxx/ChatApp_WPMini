@@ -8124,6 +8124,28 @@ Said plainly: 11 against 12 is a drop of one, and the first attempt at the same 
 
 ---
 
+### Entry 120 — S6 Step 0 and the calibration set, labelled twice
+
+Step 0 was accepted on 2026-11-11, with three decisions by the human: altered claims are allowed and reported apart from natural ones, some alterations subtle; su-02 and s2-31 are confirmed in the calibration set, because neither flaw is in the answers now serving; and the optional-fields question got a fresh rule (Entry 119).
+
+**The set** (`ai/eval/s6-calibration-set.json`): 60 claims and 14 answers from saved runs, with the passages they cited. 44 claims as written, 10 altered (a changed number, a swapped person, a dropped qualifier, a changed detail), 6 aimed at the judge. My labels went in first (`a000865`), then the human's, exactly as written and read by a fixed rule (`a44c091`).
+
+**How far the two of us agree:** 10 of the 18 claims both labelled (two had a comment and no label), weighted kappa 0.38; and 4 of 5 answers. The differences are mostly definitions. My labels ask only whether the cited sources say the claim, so a wrong number is unsupported. The human's also weigh whether the answer was complete, and treat a wrong number or scope as partly. That makes condition 4 of the threshold easy to pass, so condition 1, kappa at least 0.70 against my labels, is the real test. The rule stays as committed.
+
+---
+
+### Entry 121 — S6 Step 1: one JSON line per model call and tool call, and nothing a person wrote
+
+`ai/obslog.py`. A line is built from a fixed list of fields. Numbers must be numbers. Every string must look like a name, with no spaces and no `@`, so a sentence or an email can't pass, and a tool name must be one this code defines. Anything else is written as "invalid". The turn id is random, the prompt hash is of the template, and nothing reads a generation's text or error detail.
+
+Model calls are logged from `providers.log_call`, the one place every call already passes. Tool calls are logged as the agent records each step, including a second call in one reply, which now gets a step of its own. Lines go outside the repository, in `AI_LOG_DIR` or a `logs` folder beside the secrets file. A folder inside the repository is refused, and so is a log file that is a link. Files rotate at 5 MB, and 7 are kept. `ai/log_summary.py` summarises one.
+
+**Tests** (`test_obslog.py`, 28). Unique strings are planted in the question, the answer, a source, a record, both names, an email, the token, a key-shaped value and a private-term-shaped value, and none appears in a line. One line per call through the agent and the answer route. Exactly these fields. Rotation, the repository refusal, and the summary's figures. The link test skips on this machine, because Windows here can't make one.
+
+**Review.** Codex's per-step review found nothing. Its attack review found that a log file linked back into the repository would have been written to, which is now refused; that string checks test a value's shape, not its meaning, which is why tool names are now limited to the ones this code defines; and that the field names differ from the brief's words, which is not a finding. Its test-gap review was right about the timestamp, a private term, tool latency and unknown tool names, all now tested. That the file-summary path is tested through `log_call` rather than a whole summary is accepted, because `log_call` is the only way a call is logged.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.

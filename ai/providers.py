@@ -77,6 +77,8 @@ from config import (
 
 log = logging.getLogger("copilot.llm")
 
+import obslog  # noqa: E402  (no imports of ours: it can't be circular)
+
 OK = "ok"
 RATE_LIMITED = "rate_limited"
 TRUNCATED = "truncated"
@@ -149,7 +151,11 @@ class LLMProvider(Protocol):
 
 
 def log_call(generation: Generation, *, prompt_version: str, stripped: int = 0) -> str:
-    """One line per provider call. Counts and codes only: no prompt, no answer."""
+    """One line per provider call. Counts and codes only: no prompt, no answer.
+
+    Also the structured log's one JSON line for this call (obslog.py), metadata only.
+    """
+    obslog.model_call(generation, prompt_version=prompt_version)
     g = generation
     line = (
         f"llm provider={g.provider} model={g.model} prompt={prompt_version} outcome={g.outcome} "

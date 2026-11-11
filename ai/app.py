@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from answer import PROMPT_VERSION, answer
+import obslog
 import config
 from config import APP_DB_NAME, ASK_BUDGET_S, CATCHUP, RERANK, SERVED_K, SERVICE_SECRET, agent_database_problem
 from providers import FAILED, NOT_CONFIGURED, PLAIN, RATE_LIMITED, TRUNCATED, UNAVAILABLE, build_provider
@@ -37,6 +38,8 @@ from sync import SyncWorker
 # without this those lines - the explanation for any answer that came back
 # shorter than expected - would be discarded.
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+# One JSON line per model call and tool call, metadata only, outside the repository (obslog.py).
+obslog.configure()
 for _name in ("store", "sources", "extract", "sync", "copilot.llm", "copilot.answer"):
     logging.getLogger(_name).setLevel(logging.INFO)
 
@@ -252,11 +255,12 @@ def ask(body: AskRequest) -> JSONResponse:
                      "promptVersion": PROMPT_VERSION},
         )
     try:
-        result = answer(
-            store, body.mentorshipId, body.viewerId, body.question, provider,
-            role=body.role, budget_s=ASK_BUDGET_S,
-            parties={"mentor": body.mentorName, "student": body.studentName},
-        )
+        with obslog.turn("/ask"):
+            result = answer(
+                store, body.mentorshipId, body.viewerId, body.question, provider,
+                role=body.role, budget_s=ASK_BUDGET_S,
+                parties={"mentor": body.mentorName, "student": body.studentName},
+            )
     except Exception as error:  # search failed; the provider layer never raises
         log.error("copilot prompt=%s search failed: %s", PROMPT_VERSION, type(error).__name__)
         return JSONResponse(
@@ -333,11 +337,12 @@ def agent_turn(body: AgentRequest) -> JSONResponse:
         log.warning("agent refused: %s", error)
         return JSONResponse(status_code=503, content={"status": "error", "message": AGENT_NOT_CONFIGURED})
 
-    result = agent.run_turn(agent.Turn(
-        mentorship_id=body.mentorshipId, viewer_id=body.viewerId, role=body.role,
-        question=body.question, token=body.token, provider=provider, store=store,
-        parties={"mentor": body.mentorName, "student": body.studentName}, thread_id=body.threadId,
-    ))
+    with obslog.turn("/agent"):
+        result = agent.run_turn(agent.Turn(
+            mentorship_id=body.mentorshipId, viewer_id=body.viewerId, role=body.role,
+            question=body.question, token=body.token, provider=provider, store=store,
+            parties={"mentor": body.mentorName, "student": body.studentName}, thread_id=body.threadId,
+        ))
     status = ASK_STATUS.get(result.get("outcome"), 502) if result["status"] == "error" else 200
     return JSONResponse(status_code=status, content=result)
 

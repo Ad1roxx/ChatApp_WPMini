@@ -75,6 +75,7 @@ from config import (
     SERVED_K,
     SERVICE_SECRET,
 )
+import obslog
 from extract import has_unread
 from providers import FAILED, MIN_CALL_S, PLAIN, Generation, estimate_tokens, log_call
 
@@ -315,6 +316,8 @@ SYSTEM_PROMPT_V4 = SYSTEM_PROMPT_V3 + """
 PROMPTS = {"agent-v1": SYSTEM_PROMPT, "agent-v2": SYSTEM_PROMPT_V2, "agent-v3": SYSTEM_PROMPT_V3, "agent-v4": SYSTEM_PROMPT_V4}
 # The versions that are told the parties' names and may answer with a marker.
 WITH_PARTIES = {"agent-v2", "agent-v3", "agent-v4"}
+obslog.register_prompts(PROMPTS)
+obslog.register_tools([t.name for t in TOOLS + WRITE_TOOLS] + ["check_attachment"])
 # Told which of the parties is asking.
 WITH_ASKER = {"agent-v3", "agent-v4"}
 # agent-v4's replies that are a refusal or a question. The whole reply, and the panel has the sentence for each.
@@ -526,6 +529,8 @@ Give an overview of the file in at most five plain sentences. Use only the summa
 
 # Said whenever extraction counted anything it could not read. General on
 # purpose: the counts are approximate and never quoted (BUILD_NOTES Entry 96).
+obslog.register_prompts({SUMMARY_PROMPT_VERSION: SUMMARY_SECTION_PROMPT + SUMMARY_COMBINE_PROMPT})
+
 UNREAD_NOTE = "Some content, such as tables, images or pages without text, couldn't be read."
 SHORTENED_NOTE = "Long sections were read only in part."
 
@@ -688,7 +693,8 @@ def run_turn(turn: Turn) -> dict:
     offered = tools_for(turn.role, turn.prompt_version)
     handles = Handles()
     express = turn.express or _express_client()
-    steps: list[dict] = []
+    # Each step appended is also one structured log line (obslog.py): a tool call, by name and status.
+    steps = obslog.ToolSteps()
     last: dict = {"generation": None, "stripped": 0}
     # Sentences the code adds to an answer, never the model: what a file summary covered.
     notes: list[str] = []
@@ -744,6 +750,7 @@ def run_turn(turn: Turn) -> dict:
         tool_calls = state.get("tool_calls", 0)
         for i, (call_id, name, args) in enumerate(calls):
             if i > 0:
+                steps.append({"tool": "-", "status": "one_at_a_time"})
                 messages.append({"role": "tool", "call_id": call_id, "name": name, "content": NOT_RUN_ONE_AT_A_TIME})
                 continue
             content, ended = run_one(name, args, tool_calls)

@@ -61,6 +61,7 @@ import secrets
 
 import chunking
 from config import SERVED_K
+import obslog
 from providers import DEFAULT_BUDGET_S, Generation, log_call
 
 log = logging.getLogger("copilot.answer")
@@ -137,6 +138,7 @@ SYSTEM_PROMPT_V4 = SYSTEM_PROMPT_V3.replace(
 ).replace("\n7. Be brief:", "\n8. Be brief:")
 
 PROMPTS = {"s2-v2": SYSTEM_PROMPT_V2, "s2-v3": SYSTEM_PROMPT_V3, "s2-v4": SYSTEM_PROMPT_V4}
+obslog.register_prompts(PROMPTS)
 # Versions that are given the two parties' names.
 NAMES_PARTIES = {"s2-v4"}
 # Versions whose answers are declined when every sentence says only what the
