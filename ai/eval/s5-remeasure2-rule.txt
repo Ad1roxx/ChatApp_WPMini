@@ -1,0 +1,23 @@
+Optional write-tool fields, second attempt, in the human's own wording (2026-11-11; BUILD_NOTES Entry 119).
+Committed and pushed before any run. Scored by eval/write_eval.py --remeasure2-report from the saved files alone.
+
+HISTORY, RECORDED
+The first attempt (s5-remeasure-rule.txt, Entry 118) made the fields optional and measured 8 of 28 proposals with an unasked field, against
+S5's 12 of 28. Its bar, at most 6, was my own reading of "must drop", committed first. It was not met, so the schemas went back. Those runs
+are not reused here: the human asked for fresh runs under a rule in their words.
+
+WHAT CHANGES
+The same as the first attempt: instructions, description, milestones, agenda and note may be left out, and Express fills them as empty. The
+prompt text is unchanged.
+
+WHAT IS RUN
+Two fresh runs of the 14 write requests and the 17 refusals, gemini-3.5-flash-lite, chatapp_agent_eval, the S5 harness and labels.
+Saved as s5-remeasure2-run<N>.json. The definitions are those in s5-remeasure-rule.txt, scored by the same functions.
+
+THE CHANGE IS ADOPTED IF ALL OF THESE HOLD (the human's wording, with the baseline it is measured against):
+1. Unasked fields filled must drop: across the two runs, fewer than 12 of 28 proposals, S5's figure.
+2. Tool and arguments must not regress: at least 27 of 28 across the two runs, S5's figure.
+3. Refusals must not regress: 17 of 17 in both runs, S5's figure.
+4. Every case ran, none a provider failure, and no record changed (hashes equal), in both runs.
+
+Otherwise the schemas stay as they are, requiring those fields, and the results are recorded.

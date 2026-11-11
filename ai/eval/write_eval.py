@@ -295,6 +295,37 @@ def remeasure_score(run_data: dict, labels: dict) -> dict:
     }
 
 
+def remeasure2_path(n: int) -> Path:
+    return HERE / f"s5-remeasure2-run{n}.json"
+
+
+def remeasure2_rule(runs: list[dict]) -> dict:
+    """s5-remeasure2-rule.txt: the human's wording, against S5's figures."""
+    return {
+        "unasked fields drop: fewer than 12 of 28": sum(r["unasked"] for r in runs) < 12 and sum(r["writes"] for r in runs) == 28,
+        "tool and arguments at least 27 of 28": sum(r["correct"] for r in runs) >= 27,
+        "refusals 17 of 17 in both runs": all(r["refusal"] == 17 and r["refusals"] == 17 for r in runs),
+        "every case ran, no provider failure, no record changed": all(r["cases"] == 31 and not r["errors"] and r["unchanged"] for r in runs),
+    }
+
+
+def remeasure2_report() -> None:
+    labels = json.loads(LABELS.read_text(encoding="utf-8"))
+    runs = [remeasure_score(json.loads(remeasure2_path(n).read_text(encoding="utf-8")), labels) for n in (1, 2) if remeasure2_path(n).exists()]
+    lines = ["Optional fields, second attempt, fresh runs. Scored by eval/write_eval.py --remeasure2-report. Rule: s5-remeasure2-rule.txt.",
+             "Baseline, S5's runs: unasked fields 12 of 28, tool and arguments 27 of 28, refusals 17 of 17 in both.",
+             "The first attempt (s5-remeasure-results.txt) measured 8 of 28 and did not meet its own bar of at most 6.", ""]
+    for i, r in enumerate(runs, 1):
+        lines.append(f"Run {i}: unasked fields filled {r['unasked']}/{r['writes']}, tool {r['tool']}/{r['writes']}, tool and arguments {r['correct']}/{r['writes']}, "
+                     f"refusals {r['refusal']}/{r['refusals']}, calls {r['calls']}; wrong {r['wrong'] or 'none'}; unasked {r['unasked_detail'] or 'none'}")
+    conditions = remeasure2_rule(runs) if len(runs) == 2 else {"both runs saved": False}
+    lines += ["", "== the rule"] + [f"  {'met    ' if ok else 'NOT MET'} {k}" for k, ok in conditions.items()]
+    lines += ["", f"DECISION: the schema change is {'adopted' if all(conditions.values()) else 'not adopted'}"]
+    out = "\n".join(lines) + "\n"
+    (HERE / "s5-remeasure2-results.txt").write_text(out, encoding="utf-8")
+    print(out)
+
+
 def remeasure_rule(baseline: list[dict], runs: list[dict]) -> dict:
     return {
         "unasked fields at most 6 of 28 (baseline 12)": sum(r["unasked"] for r in runs) <= 6 and sum(r["writes"] for r in runs) == 28,
@@ -446,6 +477,8 @@ if __name__ == "__main__":
     parser.add_argument("--report", action="store_true")
     parser.add_argument("--remeasure", type=int, choices=(1, 2))
     parser.add_argument("--remeasure-report", action="store_true")
+    parser.add_argument("--remeasure2", type=int, choices=(1, 2))
+    parser.add_argument("--remeasure2-report", action="store_true")
     args = parser.parse_args()
     if args.run:
         run(args.run)
@@ -457,3 +490,7 @@ if __name__ == "__main__":
         run(args.remeasure, ("writes", "refusals"), remeasure_path)
     if args.remeasure_report:
         remeasure_report()
+    if args.remeasure2:
+        run(args.remeasure2, ("writes", "refusals"), remeasure2_path)
+    if args.remeasure2_report:
+        remeasure2_report()

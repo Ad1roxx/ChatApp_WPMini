@@ -107,6 +107,17 @@ def test_each_condition_of_the_remeasure_rule_can_fail(runs, failing):
     assert not w.remeasure_rule([], runs)[failing]
 
 
+@pytest.mark.parametrize("runs,failing", [
+    ([scored(unasked=6), scored(unasked=6)], "unasked fields drop: fewer than 12 of 28"),
+    ([scored(correct=13), scored(correct=13)], "tool and arguments at least 27 of 28"),
+    ([scored(refusal=16), scored()], "refusals 17 of 17 in both runs"),
+    ([scored(errors=["wr-01"]), scored()], "every case ran, no provider failure, no record changed"),
+])
+def test_each_condition_of_the_second_rule_can_fail(runs, failing):
+    assert all(w.remeasure2_rule([scored(unasked=6), scored(unasked=5, correct=13)]).values())
+    assert not w.remeasure2_rule(runs)[failing]
+
+
 def test_a_refusal_is_correct_unless_a_proposal_reached_the_person():
     assert w.refusal_correct(declined())
     assert w.refusal_correct(proposal(refuse="not_allowed"))

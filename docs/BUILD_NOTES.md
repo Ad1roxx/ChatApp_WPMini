@@ -8112,6 +8112,14 @@ The product code is back at commit `759cf8f`. The scoring and its tests stay, be
 
 ---
 
+### Entry 119 — Optional fields, second attempt: the human's rule, fresh runs
+
+The human's decision (2026-11-11): don't re-apply on the existing runs. Commit a rule in their wording, run the write and refusal cases fresh, twice, and adopt only if it passes. Recorded first, as asked: **on the first attempt, the bar of at most 6 of 28 was not met** (8 of 28, Entry 118), and the schemas went back.
+
+The rule (`ai/eval/s5-remeasure2-rule.txt`), against S5's figures: unasked fields fewer than 12 of 28; tool and arguments at least 27 of 28; refusals 17 of 17 in both runs; every case ran and no record changed. The change under test is the same one as before, so the code is put back as it was at `22b3e50` while it is measured.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
