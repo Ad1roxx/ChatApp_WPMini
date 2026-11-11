@@ -233,8 +233,13 @@ def test_a_log_file_that_links_somewhere_is_refused(tmp_path):
 
 def test_a_folder_inside_the_repository_is_refused(tmp_path):
     inside = obslog.REPO_ROOT / "ai" / "logs-test-never-created"
-    assert obslog.configure(inside) is None
-    assert not inside.exists()
+    try:
+        assert obslog.configure(inside) is None
+        assert not inside.exists()
+    finally:
+        if inside.exists():  # only if the refusal failed: leave nothing behind in the repository
+            import shutil
+            shutil.rmtree(inside)
     assert obslog.log_directory({"AI_LOG_DIR": str(inside)}) is None
     assert obslog.log_directory({"AI_LOG_DIR": str(obslog.REPO_ROOT)}) is None
 
