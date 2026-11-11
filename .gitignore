@@ -114,3 +114,4 @@ screenshots/
 .env.local
 # S2 step 6: cached answers, one file per prompt version and model
 ai/eval/.answers-cache/
+ai/eval/.judge-cache/

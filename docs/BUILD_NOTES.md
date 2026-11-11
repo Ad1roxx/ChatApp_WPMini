@@ -8146,6 +8146,20 @@ Model calls are logged from `providers.log_call`, the one place every call alrea
 
 ---
 
+### Entry 122 — S6 Step 2: the judge
+
+`ai/judge.py`. Groq's `openai/gpt-oss-120b` at temperature 0, asked for a strict JSON schema, never Gemini, which writes the answers. One call per answer splits it into atomic claims, each with the exact span of the answer it comes from and a verdict against only the cited sources (supported, partly, unsupported), and lists the question's parts as answered, said not to be found, or missing. Code checks the reply: exactly the schema, at least one claim and one part, and every quoted span really in the answer. A reply that fails is retried once and then recorded as no verdict, never guessed. Question, answer and sources are fenced with a random tag per call and defused, as our own prompts do. Verdicts are cached by judge model, prompt version, the prompt's text, question, answer, sources and a run label.
+
+The definitions in the judge's prompt are the ones my labels used: a wrong number, person, scope or qualifier is unsupported, and a person or reason the sources don't give makes a claim partly.
+
+**One real call first**, on invented text: a valid verdict in one attempt, 805 tokens in and 269 out. It marked a "why" that the answer gives only implicitly as missing, so it may be strict on completeness; calibration will say.
+
+**Tests** (`test_judge.py`, 47 and one opt-in live). Every way a reply can fail the schema or quote a span the answer doesn't contain gives no verdict after exactly one retry. A planted line in a source, the answer or the question can't open or close a fence and stays inside its own, and the system prompt, the number of calls and the verdict read are the same with and without it. The cache key changes with each thing that could change a verdict. The request asks Groq for the schema strictly at temperature 0.
+
+**Review.** Codex's per-step review found nothing. This is not a logging step, so no attack or test-gap review.
+
+---
+
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
