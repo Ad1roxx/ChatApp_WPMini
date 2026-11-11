@@ -8118,13 +8118,17 @@ The human's decision (2026-11-11): don't re-apply on the existing runs. Commit a
 
 The rule (`ai/eval/s5-remeasure2-rule.txt`), against S5's figures: unasked fields fewer than 12 of 28; tool and arguments at least 27 of 28; refusals 17 of 17 in both runs; every case ran and no record changed. The change under test is the same one as before, so the code is put back as it was at `22b3e50` while it is measured.
 
+**Result: adopted** (`ai/eval/s5-remeasure2-results.txt`). Unasked fields **11 of 28** (6 and 5), tool and arguments **28 of 28**, refusals **34 of 34**, every case ran, no record changed. Codex's recount from the saved runs matched every figure.
+
+Said plainly: 11 against 12 is a drop of one, and the first attempt at the same change measured 8. What the two attempts together show is a real but small effect, about 8 to 11 of 28 against 12, with accuracy no worse and slightly better. The fields still filled are the same ones every time (`wr-06` description, `wr-10` and `wr-11` agenda, `wr-14` note, sometimes `wr-02` and `wr-03` instructions), so the model fills them by choice now, not because the schema makes it.
+
 ---
 
 ### Open items / "later" list
 
 - **The milestone checkbox stays enabled on a mentorship that has ended** (Entry 109). The route now refuses it, so a click there can only fail. Disabling it is a one-line page change.
 - **Antigravity is out of the development workflow for now** (2026-11-09). Headless mode could not finish a provider check under restricted settings: it was denied a command it wanted, then ran past 200 s when told to use web tools only. The offered fix was `--dangerously-skip-permissions`, which is not used. Research and provider checks are done directly. Its browser checks were never tested.
-- **The write tools' optional text fields are required in their schemas** (Entries 116, 118). Making them optional cut unasked fields from 12 of 28 to 8 of 28 and accuracy rose to 28 of 28, but the committed bar was at most 6, so they went back. Whether to change that bar is the human's decision.
+- **The model still fills optional fields nobody asked for** (Entries 116, 118, 119). They are optional now, and it fills 8 to 11 of 28 instead of 12. A deterministic check in S6 Step 6 will count them; the prompt would be the next thing to change.
 - **"Mark the milestone as done", with several open, should ask** (Entry 116). It guessed in one of two runs.
 - ~~**Prompt Guard**~~ — stays off, the human's decision on the measurement in Entry 115 (Entry 117).
 - ~~**The local push hook doesn't run the linter**~~ — it does now (Entry 117).

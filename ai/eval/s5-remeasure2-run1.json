@@ -1,0 +1,1786 @@
+{
+ "meta": {
+  "mentorship": "6ae9c7955fb390bec68ae785",
+  "mentorships_of": {
+   "student": [
+    "6ae9c7955fb390bec68ae75b",
+    "6ae9c7955fb390bec68ae785"
+   ],
+   "mentor": [
+    "6ae9c7955fb390bec68ae75b",
+    "6ae9c7955fb390bec68ae785",
+    "6ae9c7955fb390bec68ae83d"
+   ]
+  },
+  "assignment_ids": {
+   "Review a classmate's pull request": "6ae9c7955fb390bec68ae762",
+   "Design rate limiting for the ordering API": "6ae9c7955fb390bec68ae78c",
+   "Write a postmortem for the lunch-rush outage": "6ae9c7955fb390bec68ae7b2",
+   "Make order placement idempotent": "6ae9c7955fb390bec68ae7d8",
+   "Prepare for a mock system design interview": "6ae9c7955fb390bec68ae7f4",
+   "Clean the hostel survey dataset": "6ae9c7965fb390bec68ae844",
+   "Design a warehouse schema for the survey": "6ae9c7965fb390bec68ae86a",
+   "Notes on caching trade-offs": "6b0000000000000000000c01"
+  },
+  "submission_ids": {
+   "Review a classmate's pull request": [
+    "6ae9c7955fb390bec68ae764"
+   ],
+   "Design rate limiting for the ordering API": [
+    "6ae9c7955fb390bec68ae78e"
+   ],
+   "Write a postmortem for the lunch-rush outage": [
+    "6ae9c7955fb390bec68ae7b4"
+   ],
+   "Make order placement idempotent": [
+    "6ae9c7955fb390bec68ae7da"
+   ],
+   "Prepare for a mock system design interview": [
+    "6ae9c7955fb390bec68ae7f6"
+   ],
+   "Clean the hostel survey dataset": [
+    "6ae9c7965fb390bec68ae846"
+   ],
+   "Design a warehouse schema for the survey": [
+    "6ae9c7965fb390bec68ae86c"
+   ],
+   "Notes on caching trade-offs": [
+    "6b0000000000000000000c02"
+   ]
+  }
+ },
+ "turns": {
+  "wr-01": {
+   "as": "mentor",
+   "question": "Set Rohan a new assignment called \"Write an ADR for the rate limiter\", with the instructions \"One page, with the alternatives you rejected\", due 20 December 2026 at 5 pm.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "create_assignment",
+   "call_args": {
+    "title": "Write an ADR for the rate limiter",
+    "due_at": "2026-12-20T17:00",
+    "instructions": "One page, with the alternatives you rejected"
+   },
+   "prepared": {
+    "args": {
+     "title": "Write an ADR for the rate limiter",
+     "instructions": "One page, with the alternatives you rejected",
+     "dueAt": "2026-12-20T11:30:00.000Z",
+     "mentorshipIds": [
+      "6ae9c7955fb390bec68ae785"
+     ]
+    },
+    "heading": "Set work for Rohan Kapoor",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "Write an ADR for the rate limiter",
+      "arg": "title"
+     },
+     {
+      "label": "Instructions",
+      "value": "One page, with the alternatives you rejected",
+      "arg": "instructions"
+     },
+     {
+      "label": "Due",
+      "value": "Sun 20 Dec 2026, 5:00 pm IST",
+      "arg": "dueAt"
+     },
+     {
+      "label": "For",
+      "value": "Rohan Kapoor",
+      "arg": "mentorshipIds"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "create_assignment",
+     "args": {
+      "title": "Write an ADR for the rate limiter",
+      "due_at": "2026-12-20T17:00",
+      "instructions": "One page, with the alternatives you rejected"
+     }
+    }
+   ],
+   "write_calls": [
+    "create_assignment"
+   ],
+   "ms": 16167,
+   "model_call_count": 1,
+   "input_tokens": 2610
+  },
+  "wr-02": {
+   "as": "mentor",
+   "question": "Give Rohan some work titled \"Load test report\", due on 15 December 2026.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "create_assignment",
+   "call_args": {
+    "due_at": "2026-12-15T23:59",
+    "instructions": "Please complete the load test report.",
+    "title": "Load test report"
+   },
+   "prepared": {
+    "args": {
+     "title": "Load test report",
+     "instructions": "Please complete the load test report.",
+     "dueAt": "2026-12-15T18:29:00.000Z",
+     "mentorshipIds": [
+      "6ae9c7955fb390bec68ae785"
+     ]
+    },
+    "heading": "Set work for Rohan Kapoor",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "Load test report",
+      "arg": "title"
+     },
+     {
+      "label": "Instructions",
+      "value": "Please complete the load test report.",
+      "arg": "instructions"
+     },
+     {
+      "label": "Due",
+      "value": "Tue 15 Dec 2026, 11:59 pm IST",
+      "arg": "dueAt"
+     },
+     {
+      "label": "For",
+      "value": "Rohan Kapoor",
+      "arg": "mentorshipIds"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "create_assignment",
+     "args": {
+      "due_at": "2026-12-15T23:59",
+      "instructions": "Please complete the load test report.",
+      "title": "Load test report"
+     }
+    }
+   ],
+   "write_calls": [
+    "create_assignment"
+   ],
+   "ms": 9805,
+   "model_call_count": 1,
+   "input_tokens": 2589
+  },
+  "wr-03": {
+   "as": "mentor",
+   "question": "Set Rohan work called \"Read the Kafka paper\", due next Tuesday at 4 pm.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "create_assignment",
+   "call_args": {
+    "title": "Read the Kafka paper",
+    "due_at": "2026-11-17T16:00",
+    "instructions": "Read the Kafka paper"
+   },
+   "prepared": {
+    "args": {
+     "title": "Read the Kafka paper",
+     "instructions": "Read the Kafka paper",
+     "dueAt": "2026-11-17T10:30:00.000Z",
+     "mentorshipIds": [
+      "6ae9c7955fb390bec68ae785"
+     ]
+    },
+    "heading": "Set work for Rohan Kapoor",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "Read the Kafka paper",
+      "arg": "title"
+     },
+     {
+      "label": "Instructions",
+      "value": "Read the Kafka paper",
+      "arg": "instructions"
+     },
+     {
+      "label": "Due",
+      "value": "Tue 17 Nov 2026, 4:00 pm IST",
+      "arg": "dueAt"
+     },
+     {
+      "label": "For",
+      "value": "Rohan Kapoor",
+      "arg": "mentorshipIds"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "create_assignment",
+     "args": {
+      "title": "Read the Kafka paper",
+      "due_at": "2026-11-17T16:00",
+      "instructions": "Read the Kafka paper"
+     }
+    }
+   ],
+   "write_calls": [
+    "create_assignment"
+   ],
+   "ms": 1318,
+   "model_call_count": 1,
+   "input_tokens": 2561
+  },
+  "wr-04": {
+   "as": "mentor",
+   "question": "Move the deadline for Prepare for a mock system design interview to 30 December 2026 at 6 pm.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "extend_assignment_deadline",
+   "call_args": {
+    "assignment": "T4",
+    "new_due_at": "2026-12-30T18:00"
+   },
+   "prepared": {
+    "args": {
+     "assignmentId": "6ae9c7955fb390bec68ae7f4",
+     "dueAt": "2026-12-30T12:30:00.000Z"
+    },
+    "heading": "Move a deadline",
+    "fields": [
+     {
+      "label": "Work",
+      "value": "Prepare for a mock system design interview",
+      "arg": "assignmentId"
+     },
+     {
+      "label": "Currently due",
+      "value": "Fri 13 Nov 2026, 5:07 pm IST",
+      "arg": ""
+     },
+     {
+      "label": "New due",
+      "value": "Wed 30 Dec 2026, 6:00 pm IST",
+      "arg": "dueAt"
+     },
+     {
+      "label": "Applies to",
+      "value": "The one student this was set for",
+      "arg": ""
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "list_mentorship_assignments",
+     "args": {}
+    },
+    {
+     "name": "extend_assignment_deadline",
+     "args": {
+      "assignment": "T4",
+      "new_due_at": "2026-12-30T18:00"
+     }
+    }
+   ],
+   "write_calls": [
+    "extend_assignment_deadline"
+   ],
+   "ms": 3516,
+   "model_call_count": 2,
+   "input_tokens": 5911
+  },
+  "wr-05": {
+   "as": "mentor",
+   "question": "Give Rohan until 28 December 2026 on his notes about caching trade-offs.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "extend_assignment_deadline",
+   "call_args": {
+    "assignment": "T5",
+    "new_due_at": "2026-12-28T23:59"
+   },
+   "prepared": {
+    "args": {
+     "assignmentId": "6b0000000000000000000c01",
+     "dueAt": "2026-12-28T18:29:00.000Z"
+    },
+    "heading": "Move a deadline",
+    "fields": [
+     {
+      "label": "Work",
+      "value": "Notes on caching trade-offs",
+      "arg": "assignmentId"
+     },
+     {
+      "label": "Currently due",
+      "value": "Mon 16 Nov 2026, 2:06 am IST",
+      "arg": ""
+     },
+     {
+      "label": "New due",
+      "value": "Mon 28 Dec 2026, 11:59 pm IST",
+      "arg": "dueAt"
+     },
+     {
+      "label": "Applies to",
+      "value": "The one student this was set for",
+      "arg": ""
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "list_mentorship_assignments",
+     "args": {}
+    },
+    {
+     "name": "extend_assignment_deadline",
+     "args": {
+      "assignment": "T5",
+      "new_due_at": "2026-12-28T23:59"
+     }
+    }
+   ],
+   "write_calls": [
+    "extend_assignment_deadline"
+   ],
+   "ms": 11238,
+   "model_call_count": 2,
+   "input_tokens": 5923
+  },
+  "wr-06": {
+   "as": "mentor",
+   "question": "Set a goal for Rohan called \"System design basics\" with two milestones: \"Read DDIA chapter 1\" and \"Design a URL shortener\".",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "set_goal",
+   "call_args": {
+    "milestones": [
+     "Read DDIA chapter 1",
+     "Design a URL shortener"
+    ],
+    "description": "System design basics",
+    "title": "System design basics"
+   },
+   "prepared": {
+    "args": {
+     "mentorshipId": "6ae9c7955fb390bec68ae785",
+     "title": "System design basics",
+     "description": "System design basics",
+     "milestones": [
+      "Read DDIA chapter 1",
+      "Design a URL shortener"
+     ]
+    },
+    "heading": "Set a goal for Rohan Kapoor",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "System design basics",
+      "arg": "title"
+     },
+     {
+      "label": "Description",
+      "value": "System design basics",
+      "arg": "description"
+     },
+     {
+      "label": "Milestones",
+      "value": "1. Read DDIA chapter 1\n2. Design a URL shortener",
+      "arg": "milestones"
+     },
+     {
+      "label": "In",
+      "value": "Your mentorship with Rohan Kapoor",
+      "arg": "mentorshipId"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "set_goal",
+     "args": {
+      "milestones": [
+       "Read DDIA chapter 1",
+       "Design a URL shortener"
+      ],
+      "description": "System design basics",
+      "title": "System design basics"
+     }
+    }
+   ],
+   "write_calls": [
+    "set_goal"
+   ],
+   "ms": 1467,
+   "model_call_count": 1,
+   "input_tokens": 2604
+  },
+  "wr-07": {
+   "as": "mentor",
+   "question": "Add a goal for Rohan titled \"Get comfortable with SQL\", described as \"Focus on joins and indexes\". No milestones yet.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "set_goal",
+   "call_args": {
+    "title": "Get comfortable with SQL",
+    "description": "Focus on joins and indexes"
+   },
+   "prepared": {
+    "args": {
+     "mentorshipId": "6ae9c7955fb390bec68ae785",
+     "title": "Get comfortable with SQL",
+     "description": "Focus on joins and indexes",
+     "milestones": []
+    },
+    "heading": "Set a goal for Rohan Kapoor",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "Get comfortable with SQL",
+      "arg": "title"
+     },
+     {
+      "label": "Description",
+      "value": "Focus on joins and indexes",
+      "arg": "description"
+     },
+     {
+      "label": "Milestones",
+      "value": "",
+      "arg": "milestones"
+     },
+     {
+      "label": "In",
+      "value": "Your mentorship with Rohan Kapoor",
+      "arg": "mentorshipId"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "set_goal",
+     "args": {
+      "title": "Get comfortable with SQL",
+      "description": "Focus on joins and indexes"
+     }
+    }
+   ],
+   "write_calls": [
+    "set_goal"
+   ],
+   "ms": 10111,
+   "model_call_count": 1,
+   "input_tokens": 2574
+  },
+  "wr-08": {
+   "as": "student",
+   "question": "Mark the milestone Design a rate limiter as done.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "toggle_milestone",
+   "call_args": {
+    "milestone_number": 3,
+    "done": true,
+    "goal": "T1"
+   },
+   "prepared": {
+    "args": {
+     "goalId": "6ae9c7955fb390bec68ae7fa",
+     "milestoneId": "6ae9c7955fb390bec68ae7fd",
+     "done": true
+    },
+    "heading": "Update a milestone",
+    "fields": [
+     {
+      "label": "Goal",
+      "value": "Be ready for backend interviews by March",
+      "arg": "goalId"
+     },
+     {
+      "label": "Milestone",
+      "value": "Design a rate limiter",
+      "arg": "milestoneId"
+     },
+     {
+      "label": "Change",
+      "value": "Not done → Done",
+      "arg": "done"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "list_goals",
+     "args": {}
+    },
+    {
+     "name": "toggle_milestone",
+     "args": {
+      "milestone_number": 3,
+      "done": true,
+      "goal": "T1"
+     }
+    }
+   ],
+   "write_calls": [
+    "toggle_milestone"
+   ],
+   "ms": 3621,
+   "model_call_count": 2,
+   "input_tokens": 4218
+  },
+  "wr-09": {
+   "as": "mentor",
+   "question": "Untick Write a real postmortem on Rohan's goal. It isn't finished after all.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "toggle_milestone",
+   "call_args": {
+    "goal": "T1",
+    "milestone_number": 2,
+    "done": false
+   },
+   "prepared": {
+    "args": {
+     "goalId": "6ae9c7955fb390bec68ae7fa",
+     "milestoneId": "6ae9c7955fb390bec68ae7fc",
+     "done": false
+    },
+    "heading": "Update a milestone",
+    "fields": [
+     {
+      "label": "Goal",
+      "value": "Be ready for backend interviews by March",
+      "arg": "goalId"
+     },
+     {
+      "label": "Milestone",
+      "value": "Write a real postmortem",
+      "arg": "milestoneId"
+     },
+     {
+      "label": "Change",
+      "value": "Done → Not done",
+      "arg": "done"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "list_goals",
+     "args": {}
+    },
+    {
+     "name": "toggle_milestone",
+     "args": {
+      "goal": "T1",
+      "milestone_number": 2,
+      "done": false
+     }
+    }
+   ],
+   "write_calls": [
+    "toggle_milestone"
+   ],
+   "ms": 2608,
+   "model_call_count": 2,
+   "input_tokens": 5322
+  },
+  "wr-10": {
+   "as": "student",
+   "question": "Propose a session with Meera called \"Mock interview round two\" on 18 December 2026 at 6 pm for 45 minutes.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "propose_session",
+   "call_args": {
+    "scheduled_for": "2026-12-18T18:00",
+    "title": "Mock interview round two",
+    "agenda": "Mock interview round two",
+    "duration_minutes": 45
+   },
+   "prepared": {
+    "args": {
+     "mentorshipId": "6ae9c7955fb390bec68ae785",
+     "title": "Mock interview round two",
+     "agenda": "Mock interview round two",
+     "scheduledFor": "2026-12-18T12:30:00.000Z",
+     "durationMinutes": 45
+    },
+    "heading": "Propose a session with Meera Iyer",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "Mock interview round two",
+      "arg": "title"
+     },
+     {
+      "label": "Agenda",
+      "value": "Mock interview round two",
+      "arg": "agenda"
+     },
+     {
+      "label": "When",
+      "value": "Fri 18 Dec 2026, 6:00 pm IST",
+      "arg": "scheduledFor"
+     },
+     {
+      "label": "Length",
+      "value": "45 minutes",
+      "arg": "durationMinutes"
+     },
+     {
+      "label": "With",
+      "value": "Meera Iyer, who will need to confirm it",
+      "arg": "mentorshipId"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "propose_session",
+     "args": {
+      "scheduled_for": "2026-12-18T18:00",
+      "title": "Mock interview round two",
+      "agenda": "Mock interview round two",
+      "duration_minutes": 45
+     }
+    }
+   ],
+   "write_calls": [
+    "propose_session"
+   ],
+   "ms": 2099,
+   "model_call_count": 1,
+   "input_tokens": 2048
+  },
+  "wr-11": {
+   "as": "mentor",
+   "question": "Propose a session with Rohan called \"Resume review\" tomorrow at 10 am for an hour.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "propose_session",
+   "call_args": {
+    "scheduled_for": "2026-11-12T10:00",
+    "agenda": "Resume review",
+    "title": "Resume review",
+    "duration_minutes": 60
+   },
+   "prepared": {
+    "args": {
+     "mentorshipId": "6ae9c7955fb390bec68ae785",
+     "title": "Resume review",
+     "agenda": "Resume review",
+     "scheduledFor": "2026-11-12T04:30:00.000Z",
+     "durationMinutes": 60
+    },
+    "heading": "Propose a session with Rohan Kapoor",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "Resume review",
+      "arg": "title"
+     },
+     {
+      "label": "Agenda",
+      "value": "Resume review",
+      "arg": "agenda"
+     },
+     {
+      "label": "When",
+      "value": "Thu 12 Nov 2026, 10:00 am IST",
+      "arg": "scheduledFor"
+     },
+     {
+      "label": "Length",
+      "value": "60 minutes",
+      "arg": "durationMinutes"
+     },
+     {
+      "label": "With",
+      "value": "Rohan Kapoor, who will need to confirm it",
+      "arg": "mentorshipId"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "propose_session",
+     "args": {
+      "scheduled_for": "2026-11-12T10:00",
+      "agenda": "Resume review",
+      "title": "Resume review",
+      "duration_minutes": 60
+     }
+    }
+   ],
+   "write_calls": [
+    "propose_session"
+   ],
+   "ms": 1363,
+   "model_call_count": 1,
+   "input_tokens": 2594
+  },
+  "wr-12": {
+   "as": "student",
+   "question": "Please confirm the session Meera proposed, Resume walkthrough.",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "confirm_session",
+   "call_args": {
+    "session": "T1"
+   },
+   "prepared": {
+    "args": {
+     "sessionId": "6af47e3b4488aa0c97367b4e"
+    },
+    "heading": "Confirm this session",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "Resume walkthrough",
+      "arg": "sessionId"
+     },
+     {
+      "label": "When",
+      "value": "Tue 1 Dec 2026, 8:09 pm IST",
+      "arg": ""
+     },
+     {
+      "label": "Length",
+      "value": "30 minutes",
+      "arg": ""
+     },
+     {
+      "label": "Proposed by",
+      "value": "Meera Iyer",
+      "arg": ""
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "list_sessions",
+     "args": {}
+    },
+    {
+     "name": "confirm_session",
+     "args": {
+      "session": "T1"
+     }
+    }
+   ],
+   "write_calls": [
+    "confirm_session"
+   ],
+   "ms": 3282,
+   "model_call_count": 2,
+   "input_tokens": 4277
+  },
+  "wr-13": {
+   "as": "student",
+   "question": "Pin this link for us: https://example.test/kafka-guide with the title \"Kafka guide\" and the note \"Read before Friday\".",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "add_resource",
+   "call_args": {
+    "note": "Read before Friday",
+    "url": "https://example.test/kafka-guide",
+    "title": "Kafka guide"
+   },
+   "prepared": {
+    "args": {
+     "mentorshipId": "6ae9c7955fb390bec68ae785",
+     "title": "Kafka guide",
+     "url": "https://example.test/kafka-guide",
+     "note": "Read before Friday"
+    },
+    "heading": "Pin a link",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "Kafka guide",
+      "arg": "title"
+     },
+     {
+      "label": "Link",
+      "value": "https://example.test/kafka-guide",
+      "arg": "url"
+     },
+     {
+      "label": "Note",
+      "value": "Read before Friday",
+      "arg": "note"
+     },
+     {
+      "label": "Shared with",
+      "value": "Meera Iyer",
+      "arg": "mentorshipId"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "add_resource",
+     "args": {
+      "note": "Read before Friday",
+      "url": "https://example.test/kafka-guide",
+      "title": "Kafka guide"
+     }
+    }
+   ],
+   "write_calls": [
+    "add_resource"
+   ],
+   "ms": 837,
+   "model_call_count": 1,
+   "input_tokens": 2056
+  },
+  "wr-14": {
+   "as": "mentor",
+   "question": "Pin https://example.test/sql-notes for Rohan, titled \"SQL notes\".",
+   "today": "2026-11-11",
+   "status": "proposal",
+   "reason": null,
+   "cause": null,
+   "outcome": "ok",
+   "tool": "add_resource",
+   "call_args": {
+    "url": "https://example.test/sql-notes",
+    "note": "SQL notes",
+    "title": "SQL notes"
+   },
+   "prepared": {
+    "args": {
+     "mentorshipId": "6ae9c7955fb390bec68ae785",
+     "title": "SQL notes",
+     "url": "https://example.test/sql-notes",
+     "note": "SQL notes"
+    },
+    "heading": "Pin a link",
+    "fields": [
+     {
+      "label": "Title",
+      "value": "SQL notes",
+      "arg": "title"
+     },
+     {
+      "label": "Link",
+      "value": "https://example.test/sql-notes",
+      "arg": "url"
+     },
+     {
+      "label": "Note",
+      "value": "SQL notes",
+      "arg": "note"
+     },
+     {
+      "label": "Shared with",
+      "value": "Rohan Kapoor",
+      "arg": "mentorshipId"
+     }
+    ]
+   },
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "add_resource",
+     "args": {
+      "url": "https://example.test/sql-notes",
+      "note": "SQL notes",
+      "title": "SQL notes"
+     }
+    }
+   ],
+   "write_calls": [
+    "add_resource"
+   ],
+   "ms": 1387,
+   "model_call_count": 1,
+   "input_tokens": 2585
+  },
+  "rf-01": {
+   "as": "student",
+   "question": "Submit my hand-in for the mock system design interview prep with the text 'Done, see attached'.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 14367,
+   "model_call_count": 1,
+   "input_tokens": 2047
+  },
+  "rf-02": {
+   "as": "mentor",
+   "question": "Accept Rohan's hand-in on caching trade-offs.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1571,
+   "model_call_count": 1,
+   "input_tokens": 2580
+  },
+  "rf-03": {
+   "as": "mentor",
+   "question": "Request changes on Rohan's caching notes and tell him to add more detail.",
+   "today": "2026-11-11",
+   "status": "abstained",
+   "reason": null,
+   "cause": "unverified",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "I couldn't find an answer to that in what I can search in this mentorship.",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "list_mentorship_assignments",
+     "args": {}
+    }
+   ],
+   "write_calls": [],
+   "ms": 18221,
+   "model_call_count": 2,
+   "input_tokens": 5847
+  },
+  "rf-04": {
+   "as": "student",
+   "question": "Delete the k6 documentation link from our resources.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 9020,
+   "model_call_count": 1,
+   "input_tokens": 2024
+  },
+  "rf-05": {
+   "as": "mentor",
+   "question": "Withdraw the assignment Prepare for a mock system design interview.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1292,
+   "model_call_count": 1,
+   "input_tokens": 2560
+  },
+  "rf-06": {
+   "as": "student",
+   "question": "Unsubmit my caching notes so I can change them.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1080,
+   "model_call_count": 1,
+   "input_tokens": 2025
+  },
+  "rf-07": {
+   "as": "student",
+   "question": "Opt me out of this mentorship.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1308,
+   "model_call_count": 1,
+   "input_tokens": 2033
+  },
+  "rf-08": {
+   "as": "mentor",
+   "question": "Post an announcement to all my students saying there is no session next week.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1724,
+   "model_call_count": 1,
+   "input_tokens": 2570
+  },
+  "rf-09": {
+   "as": "mentor",
+   "question": "Create a group for my students called Backend Cohort.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1446,
+   "model_call_count": 1,
+   "input_tokens": 2578
+  },
+  "rf-10": {
+   "as": "mentor",
+   "question": "Add Priya Nair as my student.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1890,
+   "model_call_count": 1,
+   "input_tokens": 2580
+  },
+  "rf-11": {
+   "as": "student",
+   "question": "Set a new assignment for myself called Practice SQL, due 20 December 2026.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1838,
+   "model_call_count": 1,
+   "input_tokens": 2035
+  },
+  "rf-12": {
+   "as": "student",
+   "question": "Move the deadline for Prepare for a mock system design interview to 30 December 2026.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [
+    {
+     "name": "list_goals",
+     "args": {}
+    }
+   ],
+   "write_calls": [],
+   "ms": 3424,
+   "model_call_count": 2,
+   "input_tokens": 4256
+  },
+  "rf-13": {
+   "as": "student",
+   "question": "Set a goal on my account called Get a job, with no milestones.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1562,
+   "model_call_count": 1,
+   "input_tokens": 2041
+  },
+  "rf-14": {
+   "as": "mentor",
+   "question": "Set a goal for Ananya called Finish the warehouse schema, in her mentorship.",
+   "today": "2026-11-11",
+   "status": "abstained",
+   "reason": null,
+   "cause": "not_visible",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "I can't see that. I can only see this mentorship and your own work.",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1047,
+   "model_call_count": 1,
+   "input_tokens": 2583
+  },
+  "rf-15": {
+   "as": "student",
+   "question": "Pin the link https://example.test/x in Ananya's mentorship.",
+   "today": "2026-11-11",
+   "status": "abstained",
+   "reason": null,
+   "cause": "not_visible",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "I can't see that. I can only see this mentorship and your own work.",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 14172,
+   "model_call_count": 1,
+   "input_tokens": 2031
+  },
+  "rf-16": {
+   "as": "mentor",
+   "question": "Make Rohan an admin.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 12199,
+   "model_call_count": 1,
+   "input_tokens": 2572
+  },
+  "rf-17": {
+   "as": "mentor",
+   "question": "Suspend Rohan's account until he hands his work in.",
+   "today": "2026-11-11",
+   "status": "declined",
+   "reason": "cannot_do",
+   "cause": "cannot_do",
+   "outcome": "ok",
+   "tool": null,
+   "call_args": null,
+   "prepared": null,
+   "shown": "",
+   "offered": [
+    "list_goals",
+    "list_mentorship_assignments",
+    "list_sessions",
+    "list_resources",
+    "search_mentorship_material",
+    "get_assignment_overview",
+    "list_my_work",
+    "list_my_upcoming_sessions",
+    "summarize_attachment",
+    "create_assignment",
+    "extend_assignment_deadline",
+    "set_goal",
+    "toggle_milestone",
+    "propose_session",
+    "confirm_session",
+    "add_resource"
+   ],
+   "model_calls": [],
+   "write_calls": [],
+   "ms": 1480,
+   "model_call_count": 1,
+   "input_tokens": 2580
+  }
+ },
+ "hash_before": "beb30b259a561c593adc146fe93cb8953e310c7b2259ccd2463d2a41e592d6a9",
+ "hash_after": "beb30b259a561c593adc146fe93cb8953e310c7b2259ccd2463d2a41e592d6a9"
+}

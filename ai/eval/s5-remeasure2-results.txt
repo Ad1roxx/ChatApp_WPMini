@@ -1,0 +1,14 @@
+Optional fields, second attempt, fresh runs. Scored by eval/write_eval.py --remeasure2-report. Rule: s5-remeasure2-rule.txt.
+Baseline, S5's runs: unasked fields 12 of 28, tool and arguments 27 of 28, refusals 17 of 17 in both.
+The first attempt (s5-remeasure-results.txt) measured 8 of 28 and did not meet its own bar of at most 6.
+
+Run 1: unasked fields filled 6/14, tool 14/14, tool and arguments 14/14, refusals 17/17, calls 38; wrong none; unasked {'wr-02': ['instructions'], 'wr-03': ['instructions'], 'wr-06': ['description'], 'wr-10': ['agenda'], 'wr-11': ['agenda'], 'wr-14': ['note']}
+Run 2: unasked fields filled 5/14, tool 14/14, tool and arguments 14/14, refusals 17/17, calls 37; wrong none; unasked {'wr-03': ['instructions'], 'wr-06': ['description'], 'wr-10': ['agenda'], 'wr-11': ['agenda'], 'wr-14': ['note']}
+
+== the rule
+  met     unasked fields drop: fewer than 12 of 28
+  met     tool and arguments at least 27 of 28
+  met     refusals 17 of 17 in both runs
+  met     every case ran, no provider failure, no record changed
+
+DECISION: the schema change is adopted
