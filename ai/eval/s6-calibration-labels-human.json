@@ -1,0 +1,131 @@
+{
+ "about": "The human's labels, 2026-11-11, on A01-A20 (c01-c20) and B01-B05 (k01-k05).",
+ "rule": "The label is read from the words as written, by this rule and nothing else: for claims, 'partly' if the text contains it, otherwise 'unsupported' or 'supported' as whole words; for answers, 'silent', 'says so' or 'complete'. Text with none of these has no label, and is left out of the agreement figures, which say how many were left out. Labels were read only after mine were committed (a000865).",
+ "labels": {
+  "c01": {
+   "item": "A01",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "c02": {
+   "item": "A02",
+   "as_written": "If the claim is what your reply is to the question then its too short.",
+   "label": null
+  },
+  "c03": {
+   "item": "A03",
+   "as_written": "Partly, that is not all the design proposes",
+   "label": "partly"
+  },
+  "c04": {
+   "item": "A04",
+   "as_written": "Why is the model still using names instead of \"your mentor\"?",
+   "label": null
+  },
+  "c05": {
+   "item": "A05",
+   "as_written": "partly, that isn't exactly what the question asked but it is somewhat relevant",
+   "label": "partly"
+  },
+  "c06": {
+   "item": "A06",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "c07": {
+   "item": "A07",
+   "as_written": "wtf is that a prompt injection in the source? but the claim is unsupported as the source states it has been reviewed and accepted",
+   "label": "unsupported"
+  },
+  "c08": {
+   "item": "A08",
+   "as_written": "supported",
+   "label": "supported"
+  },
+  "c09": {
+   "item": "A09",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "c10": {
+   "item": "A10",
+   "as_written": "Partly supported, the user asked for milestones finished and the reply was only one of them",
+   "label": "partly"
+  },
+  "c11": {
+   "item": "A11",
+   "as_written": "Partly, expand upon the summary given to inform the user what the learning log is about",
+   "label": "partly"
+  },
+  "c12": {
+   "item": "A12",
+   "as_written": "Partly, the claim doesn't describe what the problem is, only what the mentor suggested the fix is.",
+   "label": "partly"
+  },
+  "c13": {
+   "item": "A13",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "c14": {
+   "item": "A14",
+   "as_written": "Partly, p95 value in the claim is wrong .",
+   "label": "partly"
+  },
+  "c15": {
+   "item": "A15",
+   "as_written": "Partly, source mentions that both editing and deleting do that as well",
+   "label": "partly"
+  },
+  "c16": {
+   "item": "A16",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "c17": {
+   "item": "A17",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "c18": {
+   "item": "A18",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "c19": {
+   "item": "A19",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "c20": {
+   "item": "A20",
+   "as_written": "Supported",
+   "label": "supported"
+  },
+  "k01": {
+   "item": "B01",
+   "as_written": "complete",
+   "label": "complete"
+  },
+  "k02": {
+   "item": "B02",
+   "as_written": "partial, says so",
+   "label": "partial_says_so"
+  },
+  "k03": {
+   "item": "B03",
+   "as_written": "complete",
+   "label": "complete"
+  },
+  "k04": {
+   "item": "B04",
+   "as_written": "complete",
+   "label": "complete"
+  },
+  "k05": {
+   "item": "B05",
+   "as_written": "complete",
+   "label": "complete"
+  }
+ }
+}
