@@ -23,10 +23,19 @@ import Badge from './Badge';
 import Button from './Button';
 import { Field, Input, Textarea } from './Field';
 import { useToast } from './Toast';
-import { CloseIcon, DownloadIcon, PaperclipIcon } from './Icons';
 import useNow, { relative } from '../lib/useNow';
 import FilePreview from './FilePreview';
-import { ACCEPT, MAX_FILE_BYTES, MAX_FILES, formatBytes, previewKind } from '../lib/attachments';
+import FileList from './FileList';
+import AssignmentFiles from './AssignmentFiles';
+import {
+  ACCEPT,
+  MAX_FILE_BYTES,
+  MAX_FILES,
+  formatBytes,
+  pickProblem,
+  previewKind,
+  saveBlob
+} from '../lib/attachments';
 import styles from './SubmissionRow.module.css';
 
 /** What each logged event is called, in the history. */
@@ -73,55 +82,6 @@ const fmtDue = (d) =>
 /** An absolute timestamp, for the history — "when" needs to survive a screenshot. */
 const fmtStamp = (d) =>
   `${d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-
-/**
- * The files on a hand-in.
- *
- * The name opens what can be opened — an image, a PDF, anything textual — and
- * downloads the rest, so a click never does nothing and never surprises.
- * Download is its own button beside it, because a file you can preview is
- * still a file you may want to keep. `onRemove` adds the third, which only
- * the student gets and only while the work can still change.
- */
-function FileList({ files, onOpen, onDownload, onRemove, busy }) {
-  return (
-    <ul className={styles.files}>
-      {files.map((f) => (
-        <li key={f.fileId} className={styles.file}>
-          <PaperclipIcon size={14} className={styles.fileIcon} />
-          <button
-            type="button"
-            className={styles.fileName}
-            onClick={() => onOpen(f)}
-            title={previewKind(f.name) ? `Open ${f.name}` : `Download ${f.name}`}
-          >
-            {f.name}
-          </button>
-          <span className={styles.fileSize}>{formatBytes(f.size)}</span>
-          <button
-            type="button"
-            className={styles.fileAction}
-            onClick={() => onDownload(f)}
-            aria-label={`Download ${f.name}`}
-          >
-            <DownloadIcon size={14} />
-          </button>
-          {onRemove && (
-            <button
-              type="button"
-              className={styles.fileRemove}
-              onClick={() => onRemove(f)}
-              disabled={busy}
-              aria-label={`Remove ${f.name}`}
-            >
-              <CloseIcon size={14} />
-            </button>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export default function SubmissionRow({
   submission,
@@ -216,14 +176,9 @@ export default function SubmissionRow({
   const attach = async (picked) => {
     if (picked.length === 0) return;
 
-    if (files.length + picked.length > MAX_FILES) {
-      toast.error(`Up to ${MAX_FILES} files per hand-in`);
-      return;
-    }
-
-    const tooBig = picked.find((f) => f.size > MAX_FILE_BYTES);
-    if (tooBig) {
-      toast.error(`${tooBig.name} is over ${formatBytes(MAX_FILE_BYTES)}`);
+    const problem = pickProblem(files.length, picked, 'hand-in');
+    if (problem) {
+      toast.error(problem);
       return;
     }
 
@@ -276,15 +231,7 @@ export default function SubmissionRow({
         return;
       }
 
-      const href = URL.createObjectURL(await res.blob());
-      const a = document.createElement('a');
-      a.href = href;
-      a.download = f.name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Freed a minute later, long after the browser has taken the bytes.
-      setTimeout(() => URL.revokeObjectURL(href), 60000);
+      saveBlob(await res.blob(), f.name);
     } catch (err) {
       console.error('Error downloading file:', err);
       toast.error('Could not reach the server');
@@ -328,6 +275,13 @@ export default function SubmissionRow({
           {assignment.instructions && (
             <p className={styles.instructions}>{assignment.instructions}</p>
           )}
+
+          {/* The brief's own files, read-only here for both sides. A mentor
+              changes them from the Assignments page. */}
+          <AssignmentFiles
+            assignmentId={assignment._id}
+            initial={assignment.attachments || []}
+          />
         </>
       )}
 

@@ -31,6 +31,9 @@ import { PageLoader, InlineLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
 import { ClipboardIcon } from '../components/Icons';
 import SubmissionRow from '../components/SubmissionRow';
+import AssignmentFiles from '../components/AssignmentFiles';
+import PendingFiles from '../components/PendingFiles';
+import { uploadBriefFiles } from '../lib/attachments';
 import { canMentor } from '../lib/roles';
 import useNow, { relative } from '../lib/useNow';
 import styles from './AssignmentsPage.module.css';
@@ -70,6 +73,7 @@ export default function AssignmentsPage() {
   const [instructions, setInstructions] = useState('');
   const [due, setDue] = useState(defaultDue);
   const [picked, setPicked] = useState(new Set());
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [saving, setSaving] = useState(false);
 
   // The one assignment expanded into its per-student view, and its data
@@ -235,14 +239,24 @@ export default function AssignmentsPage() {
       });
 
       if (res.ok) {
+        const created = await res.json();
+        const toSend = pendingFiles;
         const count = picked.size;
         setTitle('');
         setInstructions('');
         setDue(defaultDue());
         setPicked(new Set());
         setGroupNote('');
+        setPendingFiles([]);
         setFormOpen(false);
         toast.success(`Set for ${count} student${count === 1 ? '' : 's'}`);
+
+        // The assignment exists whatever happens to its files. A refused file
+        // is reported by name; it can be added again from the list below.
+        if (toSend.length > 0) {
+          const { errors } = await uploadBriefFiles(authFetch, created._id, toSend);
+          errors.forEach((message) => toast.error(message));
+        }
         refresh();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -405,6 +419,8 @@ export default function AssignmentsPage() {
               </div>
             </fieldset>
 
+            <PendingFiles files={pendingFiles} onChange={setPendingFiles} disabled={saving} />
+
             <div className={styles.formActions}>
               <Button
                 type="submit"
@@ -506,6 +522,13 @@ export default function AssignmentsPage() {
                               {detail.instructions && (
                                 <p className={styles.instructions}>{detail.instructions}</p>
                               )}
+                              {/* Editing the brief's files happens only here, where
+                                  every recipient is visible, as with Withdraw. */}
+                              <AssignmentFiles
+                                assignmentId={a._id}
+                                initial={detail.attachments || []}
+                                canEdit
+                              />
                               <ul className={styles.list}>
                                 {detail.submissions.map((sub) => (
                                   <SubmissionRow

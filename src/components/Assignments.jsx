@@ -24,6 +24,8 @@ import { InlineLoader } from './Loading';
 import { useToast } from './Toast';
 import { ClipboardIcon } from './Icons';
 import SubmissionRow from './SubmissionRow';
+import PendingFiles from './PendingFiles';
+import { uploadBriefFiles } from '../lib/attachments';
 import useNow from '../lib/useNow';
 import styles from './Assignments.module.css';
 
@@ -54,6 +56,7 @@ export default function Assignments({ mentorshipId, active, isMentor }) {
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
   const [due, setDue] = useState(defaultDue);
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [saving, setSaving] = useState(false);
 
   // Bumped to force a reload from an event handler, which keeps every
@@ -112,11 +115,23 @@ export default function Assignments({ mentorshipId, active, isMentor }) {
       });
 
       if (res.ok) {
+        const created = await res.json();
+        const toSend = pendingFiles;
+
         setTitle('');
         setInstructions('');
         setDue(defaultDue());
+        setPendingFiles([]);
         setFormOpen(false);
         toast.success('Assignment set');
+
+        // The assignment exists whatever happens to its files. A refused file
+        // is reported by name and can be added again from the Assignments page;
+        // nothing here undoes the assignment.
+        if (toSend.length > 0) {
+          const { errors } = await uploadBriefFiles(authFetch, created._id, toSend);
+          errors.forEach((message) => toast.error(message));
+        }
         setVersion((v) => v + 1);
       } else {
         const err = await res.json().catch(() => ({}));
@@ -215,6 +230,8 @@ export default function Assignments({ mentorshipId, active, isMentor }) {
                 rows={4}
               />
             </Field>
+
+            <PendingFiles files={pendingFiles} onChange={setPendingFiles} disabled={saving} />
 
             <div className={styles.formActions}>
               <Button

@@ -59,3 +59,75 @@ export function formatBytes(n) {
   if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
   return `${Number((n / (1024 * 1024)).toFixed(1))} MB`;
 }
+
+/**
+ * Why a chosen set of files should not be sent, or null when it is fine.
+ *
+ * Only the two limits the picker can know before asking: how many there will
+ * be, and how big each one is. Whether a TYPE is allowed is left to the server
+ * (the picker's `accept` already steers), and so is anything else it reports.
+ * `noun` completes "Up to 5 files per ___".
+ */
+export function pickProblem(existingCount, picked, noun) {
+  if (picked.length === 0) return null;
+
+  if (existingCount + picked.length > MAX_FILES) {
+    return `Up to ${MAX_FILES} files per ${noun}`;
+  }
+
+  const tooBig = picked.find((f) => f.size > MAX_FILE_BYTES);
+  if (tooBig) return `${tooBig.name} is over ${formatBytes(MAX_FILE_BYTES)}`;
+
+  return null;
+}
+
+/** Hand a blob to the browser as a download. */
+export function saveBlob(blob, name) {
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Freed a minute later, long after the browser has taken the bytes.
+  setTimeout(() => URL.revokeObjectURL(href), 60000);
+}
+
+/**
+ * Upload files to an assignment's brief, one at a time, and say what went wrong
+ * for each one that did not go. A refusal does not stop the rest: the server
+ * judges every file on its own (type, size, the limit of five), and the person
+ * should hear about all of them at once rather than fix and retry one by one.
+ *
+ * `authFetch` is the signed-in fetch. Resolves to `{ attachments, errors }`:
+ * the brief's files as the server last reported them (null if none went up),
+ * and one `"name: reason"` line per refusal.
+ */
+export async function uploadBriefFiles(authFetch, assignmentId, files) {
+  let attachments = null;
+  const errors = [];
+
+  for (const file of files) {
+    try {
+      const form = new FormData();
+      form.append('file', file);
+
+      const res = await authFetch(`/api/assignments/${assignmentId}/files`, {
+        method: 'POST',
+        body: form
+      });
+
+      if (res.ok) {
+        attachments = (await res.json()).attachments;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        errors.push(`${file.name}: ${err.error || 'could not be attached'}`);
+      }
+    } catch {
+      errors.push(`${file.name}: could not reach the server`);
+    }
+  }
+
+  return { attachments, errors };
+}
