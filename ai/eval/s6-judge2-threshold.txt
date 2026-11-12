@@ -39,3 +39,9 @@ THE DECISION
 REASON HARDER IS OFF, ON BOTH. Each model has 200K tokens a day on Groq. The first calibration used about 174K for two runs of 74 items at "low", about
 1.2K a call; this set is 62 items, about 150K for two runs. A higher effort adds reasoning tokens to every call and would not fit two runs in one day's
 quota for either model, so both run at "low" (qwen's "none" was not chosen, so both models get the same small amount of reasoning).
+
+AMENDED 2026-11-13, by the human, before any judge saw the set (no s6-judge2-*-run*.json existed). Condition 4 is dropped for this set.
+The human's labels were committed as written (99f62df) and agreed with mine on 8 of 24 items, claims weighted kappa -0.03, so condition 4
+would have passed any judge with a kappa above -0.13 and tested nothing. The human chose to calibrate against my labels alone. A model is now
+trusted if conditions 1, 2, 3, 5, 6 and 7 all hold for it; numbers and bars are unchanged. The human's labels stay committed and appear in the
+report for the record only. THE DECISION is unchanged.

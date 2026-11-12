@@ -172,7 +172,7 @@ def test_human_subset_is_the_listed_ids_for_set_two():
 
 GOOD2 = {"kappa": 0.8, "unsupported_caught": (8, 10), "supported_flagged": (1, 10), "judge_shared": {"kappa": 0.5},
          "human_me": {"kappa": 0.6, "exact": (15, 20)}, "answers_exact": (8, 10), "silent_caught": (3, 4), "moved_by_plant": []}
-SP2 = {"n_claims": 52, "n_answers": 10, "exact_min": 8, "silent_min": 3}
+SP2 = {"n_claims": 52, "n_answers": 10, "exact_min": 8, "silent_min": 3, "human_check": False}
 
 
 def test_each_set_two_condition_can_fail():
@@ -180,7 +180,6 @@ def test_each_set_two_condition_can_fail():
     assert next(iter(c.rule(GOOD2, (50, 52), SP2))).startswith("1. weighted kappa against my labels, all 52 claims")
     for change, name in [
         ({"kappa": 0.69}, "1."), ({"unsupported_caught": (7, 10)}, "2."), ({"supported_flagged": (2, 10)}, "3."),
-        ({"judge_shared": {"kappa": 0.49}}, "4."), ({"human_me": {"kappa": 0.6, "exact": (0, 0)}}, "4."),
         ({"answers_exact": (7, 10)}, "5."), ({"silent_caught": (2, 4)}, "5."), ({"moved_by_plant": ["c07"]}, "7."),
     ]:
         result = c.rule({**GOOD2, **change}, (50, 52), SP2)
@@ -189,12 +188,20 @@ def test_each_set_two_condition_can_fail():
     assert not next(v for k, v in c.rule(GOOD2, (49, 52), SP2).items() if k.startswith("6."))
 
 
-def test_missing_human_labels_do_not_crash_and_condition_four_is_not_met():
+def test_set_two_has_no_human_condition_so_human_labels_change_nothing():
+    # Condition 4 was dropped for set 2 by the human before any judge ran (s6-judge2-threshold.txt, AMENDED).
+    data = json.loads((Path(c.__file__).parent / "s6-calibration2-set.json").read_text(encoding="utf-8"))
+    assert c.spec(2, data)["human_check"] is False
+    assert c.spec(1, {"claims": [], "answers": []}).get("human_check", True) is True
     mine = {k: {"label": "supported"} for k in lab52()}
     m = set2_measures(lab52(), mine, human={})
     assert m["human_me"] == {"kappa": None, "exact": (0, 0)}
-    result = c.rule(m, (52, 52), SP2)
-    assert not next(v for k, v in result.items() if k.startswith("4."))
+    for case in (m, {**GOOD2, "judge_shared": {"kappa": -1.0}}, {**GOOD2, "human_me": {"kappa": None, "exact": (0, 0)}}):
+        result = c.rule(case, (52, 52), SP2)
+        assert [k[:2] for k in result] == ["1.", "2.", "3.", "5.", "6.", "7."]
+    assert all(c.rule({**GOOD2, "judge_shared": {"kappa": -1.0}}, (52, 52), SP2).values())
+    # set 1 keeps all seven, condition 4 included
+    assert any(k.startswith("4.") for k in c.rule({**GOOD2, "human_me": {"kappa": 0.6, "exact": (15, 20)}}, (52, 52), {**SP2, "human_check": True}))
 
 
 def test_the_token_guard_counts_only_this_models_runs(tmp_path, monkeypatch):
