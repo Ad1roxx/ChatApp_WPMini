@@ -8192,6 +8192,24 @@ The human's decision: calibrate judge-v2 on both `openai/gpt-oss-120b` and `qwen
 
 **Review.** Codex's one finding (qwen might reject `low`) misquoted the rule, which says qwen's `none` was not chosen; Groq's page lists `low`, and the real call above confirmed it. No change.
 
+### Entry 126 — S8 prerequisite, step 1: files on an assignment's brief
+
+A mentor can now attach files to the brief itself, not only students to their hand-ins. `POST /api/assignments/:id/files`, `GET …/files`, `GET …/files/:fileId`, `DELETE …/files/:fileId`.
+
+**The same code as hand-in files.** The attachment schema is now one file (`server/models/attachment.js`), used by both models. Uploads go through the same `receiveFile` (10 MB, one file per request) and `fileStore.checkFile` (the same allow-list), with the same five-file limit. Both kinds of download are served by one function, `sendStoredFile`: a download, never a page, with the type chosen at upload, `nosniff` and a sandbox. Withdrawing an assignment now deletes the brief's files as well as the hand-ins'.
+
+**Who.** Upload and remove: only the mentor who set it, through `loadOwnAssignment`, the check every assignment write already uses. List and download: that mentor and the students it was set for, through `loadAssignmentFiles` in `lib/reads.js`. "Set for" is what a student's own reads already mean: they have a hand-in for this assignment. A student added later can open the files from then on. Nobody else can: not another student of the same mentor, not another mentor of the same student, not someone signed out. A file is found only through its own brief.
+
+**The index.** Upload and removal each send `syncSource('assignment', id)`. The retrieval side already indexed an assignment's `attachments` with the brief's viewers (`sources.with_attachments`), so nothing changed there. A new sync test attaches two files to a brief set for two mentorships: all four parties find both, nobody finds them through a mentorship they aren't in, and a removed file is physically gone from the index and from search while the other stays.
+
+**Later, not built (D5).** A "this file is the rubric" flag, mentor-only by default. The place is marked: a field on the brief's attachments, a filter in `reads.assignmentFilesFor` (which the list and download routes already go through), and the same filter on the brief a student's hand-in carries.
+
+**Tests.** `assignment-files.test.js` (22): every operation for every role plus a signed-out caller, the limits, cross-brief ids, a late-added student, withdrawal. `indexsync.test.js`: upload and removal send the assignment, and a refused upload or removal sends nothing. `test_sync.py`: the search test above.
+
+**Mutation checks**, in the worktree: 18 mutants on the checks, limits, headers and notices. 17 were caught first. "Any student with any hand-in can read" survived, because the test's outsider student had no hand-ins at all; they now have other work from the same mentor, and all 18 are caught.
+
+**Review.** Codex's per-step review found nothing. Its attack review raised two leaks, through the mentorship's work list and through the index; neither is real, because an assignment's recipients are always the setting mentor's own mentorships (`resolveRecipients` refuses any other), so both paths only ever reach that mentor and that student. Its test-gap review named three gaps, each already covered (in `test_sync.py` and in the shared allow-list's own tests) or not a property.
+
 ---
 
 ### Open items / "later" list
