@@ -215,6 +215,78 @@ def test_a_brief_file_is_searchable_by_everyone_it_was_set_for_and_a_deleted_one
         assert "old-brief.pdf" not in hits and "rubric-notes.pdf" in hits
 
 
+def mark_rubric(app_db, corpus, file_id, *, shared: bool, is_rubric: bool = True):
+    """What PATCH /api/assignments/:id/files/:fileId writes."""
+    app_db.assignments.update_one(
+        {"_id": corpus.assignment, "attachments.fileId": file_id},
+        {"$set": {"attachments.$.rubric": {"isRubric": is_rubric, "shared": shared, "changedAt": tick()},
+                  "updatedAt": tick()}},
+    )
+
+
+def agent_found(store, viewer, role, mentorship=Corpus.M1) -> str:
+    """What the search tool of `viewer`'s agent hands the model: the same search, through the agent."""
+    from agent import Turn, run_turn
+    from providers import ScriptedProvider
+    from test_agent import Express, tool_messages
+
+    model = ScriptedProvider([("search_mentorship_material", {"query": QUERY})], "NO_ANSWER")
+    run_turn(Turn(mentorship_id=mentorship, viewer_id=viewer, role=role, question=QUERY,
+                  token="header.payload.signature-of-this-turn", provider=model, store=store,
+                  express=Express().client()))
+    return tool_messages(model, 1)[0]["content"]
+
+
+def test_property_9_a_students_search_and_agent_cannot_retrieve_an_unshared_rubric(world):
+    """S8 Step 1, AGENT_PLAN §4.3 property 9, D5. A rubric is the setting mentor's
+    alone until shared, at the vector-search level: never in a student's search
+    or their agent's; in both once shared; gone again once unshared, at once,
+    before the sync has rewritten anything."""
+    store, records, corpus, app_db = world
+    app_db.assignments.update_one({"_id": corpus.assignment}, {"$set": {"mentor": ObjectId(Corpus.PRIYA)}})
+    run(store, records)
+    rubric = attach_to_brief(corpus, app_db, *report("marking-scheme.pdf"))
+    mark_rubric(app_db, corpus, rubric, shared=False)
+    sync.sync_source(store, records, "assignment", str(corpus.assignment))
+    settle(store)
+
+    def student_finds() -> bool:
+        return "marking-scheme.pdf" in titles(found(store, Corpus.ADITYA))
+
+    # Retrievable at all: the mentor who set it finds it, by search and through their agent.
+    assert "marking-scheme.pdf" in titles(found(store, Corpus.PRIYA))
+    assert "marking-scheme.pdf" in agent_found(store, Corpus.PRIYA, "mentor")
+    # Unshared: not the student, not their agent, not the other mentorship's parties.
+    assert not student_finds()
+    assert "marking-scheme.pdf" not in agent_found(store, Corpus.ADITYA, "student")
+    for party in (Corpus.ZARA, Corpus.KARAN):
+        assert "marking-scheme.pdf" not in titles(found(store, party, mentorship=Corpus.M2))
+    # Enforced in the index itself, not only after it.
+    assert {tuple(c["viewers"]) for c in store.chunks.find({"attachmentId": str(rubric), "mentorshipId": Corpus.M1})} == {(Corpus.PRIYA,)}
+
+    # Shared: the student and their agent find it.
+    mark_rubric(app_db, corpus, rubric, shared=True)
+    sync.sync_source(store, records, "assignment", str(corpus.assignment))
+    settle(store)
+    assert student_finds()
+    assert "marking-scheme.pdf" in agent_found(store, Corpus.ADITYA, "student")
+
+    # Unshared again: hidden at once by the read-time check, before any sync...
+    mark_rubric(app_db, corpus, rubric, shared=False)
+    assert not student_finds()
+    assert "marking-scheme.pdf" not in agent_found(store, Corpus.ADITYA, "student")
+    # ...and after it, the index's own viewers are the mentor's alone again.
+    sync.sync_source(store, records, "assignment", str(corpus.assignment))
+    settle(store)
+    assert not student_finds()
+    assert {tuple(c["viewers"]) for c in store.chunks.find({"attachmentId": str(rubric), "mentorshipId": Corpus.M1})} == {(Corpus.PRIYA,)}
+    # Unmarked, it is an ordinary brief file again.
+    mark_rubric(app_db, corpus, rubric, shared=False, is_rubric=False)
+    sync.sync_source(store, records, "assignment", str(corpus.assignment))
+    settle(store)
+    assert student_finds()
+
+
 def test_deleting_an_assignment_removes_its_brief_hand_ins_and_files(world):
     """Only the assignment's own event: it alone must be enough."""
     store, records, corpus, app_db = world

@@ -106,3 +106,41 @@ test('uploadBriefFiles: a network failure is reported per file, never thrown', a
   assert.equal(out.attachments, null);
   assert.deepEqual(out.errors, ['a.txt: could not reach the server']);
 });
+
+import { rubricActions, rubricBadge } from '../../src/lib/attachments.js';
+
+test('rubricBadge: no rubric field, or isRubric false, shows nothing', () => {
+  assert.equal(rubricBadge({ name: 'a.pdf' }), null);
+  assert.equal(rubricBadge(null), null);
+  assert.equal(rubricBadge({ rubric: { isRubric: false, shared: false } }), null);
+});
+
+test('rubricBadge: unshared and shared rubric text', () => {
+  assert.equal(rubricBadge({ rubric: { isRubric: true, shared: false } }), 'Rubric · mentor only');
+  assert.equal(
+    rubricBadge({ rubric: { isRubric: true, shared: true } }),
+    'Rubric · shared with students'
+  );
+});
+
+test('rubricActions: no buttons when the viewer cannot edit', () => {
+  const f = { rubric: { isRubric: true, shared: true } };
+  assert.deepEqual(rubricActions(f, false), { rubric: null, share: null });
+});
+
+test('rubricActions: an ordinary file offers only Mark as rubric', () => {
+  const a = rubricActions({ name: 'a.pdf' }, true);
+  assert.deepEqual(a.rubric, { label: 'Mark as rubric', body: { rubric: true } });
+  assert.equal(a.share, null);
+});
+
+test('rubricActions: an unshared rubric offers Unmark and Share', () => {
+  const a = rubricActions({ rubric: { isRubric: true, shared: false } }, true);
+  assert.deepEqual(a.rubric, { label: 'Unmark rubric', body: { rubric: false } });
+  assert.deepEqual(a.share, { label: 'Share with students', body: { shared: true } });
+});
+
+test('rubricActions: a shared rubric offers Stop sharing', () => {
+  const a = rubricActions({ rubric: { isRubric: true, shared: true } }, true);
+  assert.deepEqual(a.share, { label: 'Stop sharing', body: { shared: false } });
+});

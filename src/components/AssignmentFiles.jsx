@@ -9,10 +9,10 @@
  * same two the hand-in uses (count and size), and any other refusal is the
  * server's own words in a toast.
  *
- * LATER, not built (D5): a per-file "this file is the rubric" flag. It would
- * appear here as a mentor-only toggle beside each file in the `canEdit` list,
- * and the server would hide flagged files from students in
- * `reads.assignmentFilesFor`. Mentor-only is the default.
+ * The mentor can mark one file as the rubric. It is mentor-only until they
+ * share it. The server enforces who sees it (`reads.assignmentFilesFor`, and
+ * the search index); here a badge says which state it is in, and the buttons
+ * only appear when `canEdit`.
  *
  * Refresh: the server announces `assignment-changed` (with the id) to the
  * mentor and every student whenever a brief or its files change, and this list
@@ -34,6 +34,8 @@ import {
   formatBytes,
   pickProblem,
   previewKind,
+  rubricActions,
+  rubricBadge,
   saveBlob,
   uploadBriefFiles
 } from '../lib/attachments';
@@ -47,6 +49,7 @@ export default function AssignmentFiles({ assignmentId, initial = [], canEdit = 
   // null until a refetch (or an upload/removal) has told us better than `initial`.
   const [fetched, setFetched] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [rowBusy, setRowBusy] = useState(null); // fileId with a rubric request in flight
   const [previewing, setPreviewing] = useState(null);
 
   const files = fetched ?? initial;
@@ -110,6 +113,54 @@ export default function AssignmentFiles({ assignmentId, initial = [], canEdit = 
     }
   };
 
+  const patchRubric = async (f, body) => {
+    setRowBusy(f.fileId);
+    try {
+      const res = await authFetch(`${base}/${f.fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        setFetched((await res.json()).attachments);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Could not change that file');
+      }
+    } catch (err) {
+      console.error('Error changing assignment file:', err);
+      toast.error('Could not reach the server');
+    } finally {
+      setRowBusy(null);
+    }
+  };
+
+  const rubricExtra = (f) => {
+    const badge = rubricBadge(f);
+    const { rubric, share } = rubricActions(f, canEdit);
+    if (!badge && !rubric) return null;
+    const disabled = busy || rowBusy === f.fileId;
+    return (
+      <span className={styles.rubric}>
+        {badge && <span className={styles.badge}>{badge}</span>}
+        {[rubric, share].map(
+          (action) =>
+            action && (
+              <button
+                key={action.label}
+                type="button"
+                className={styles.rubricButton}
+                disabled={disabled}
+                onClick={() => patchRubric(f, action.body)}
+              >
+                {action.label}
+              </button>
+            )
+        )}
+      </span>
+    );
+  };
+
   // Download through authFetch: the route needs the sign-in token, which a
   // plain link cannot send (see SubmissionRow).
   const download = async (f) => {
@@ -141,6 +192,7 @@ export default function AssignmentFiles({ assignmentId, initial = [], canEdit = 
           onOpen={open}
           onDownload={download}
           onRemove={canEdit ? detach : undefined}
+          renderExtra={rubricExtra}
           busy={busy}
         />
       ) : (

@@ -272,10 +272,11 @@ def resource_entry(r: dict, mentorship: dict | None) -> dict | None:
 def record_parent(source_type: str, record: dict, mentorship: dict | None, assignment=None):
     """The parent context any record type lends its attachments.
 
-    Today only hand-ins carry files. Briefs and resources are walked anyway,
-    with their own audience, so the day either gains uploads its files are
-    indexed with that record's viewers rather than whatever the next person
-    assumes.
+    Hand-ins and briefs carry files (a brief's since the S8 prerequisite).
+    Resources are walked anyway, with their own audience, so the day they gain
+    uploads their files are indexed with that record's viewers rather than
+    whatever the next person assumes. A brief's rubric narrows its audience
+    further, per file, in `attachment_entries`.
     """
     if source_type == "submission":
         return submission_parent(record, assignment, mentorship)
@@ -298,14 +299,48 @@ def record_parent(source_type: str, record: dict, mentorship: dict | None, assig
     }
 
 
+def _rubric_audience(record: dict, attachment: dict, parent: dict) -> dict:
+    """D5: a brief's file flagged as the rubric is the setting mentor's alone
+    until they share it. The one exception to "a file has its parent's
+    viewers", because a brief is shown to the student and a marking scheme
+    must not be (AGENT_PLAN §4.3, property 9).
+
+    Only the mentor who set the assignment, and only if they are a party to
+    this mentorship; anything else (no `mentor` on the record) is nobody, so a
+    malformed record hides the file rather than showing it. Shared, it has the
+    brief's viewers like any other brief file. Returns the fields to override.
+    """
+    rubric = attachment.get("rubric") or {}
+    if parent["parent_type"] != "assignment" or not rubric.get("isRubric") or rubric.get("shared"):
+        return {}
+    setter = _ids(record["mentor"]) if record.get("mentor") is not None else None
+    return {"viewers": [v for v in parent["viewers"] if v == setter], "visibility": "mentor"}
+
+
+def _attachment_version(attachment: dict):
+    """Its upload time, or the last time its rubric flag or sharing changed if
+    later: either changes who may see it, so either must make the chunks stale
+    and the sync re-index them with the new viewers."""
+    uploaded = attachment.get("uploadedAt")
+    changed = (attachment.get("rubric") or {}).get("changedAt")
+    if changed is None:
+        return uploaded
+    return changed if uploaded is None or changed > uploaded else uploaded
+
+
 def attachment_entries(record: dict, parent: dict | None) -> list[dict]:
     """Every extractable file on `record`, as index entries without their text.
 
     No bytes are read here, so the read-time check can call it per search. The
-    version of an attachment is its upload time: a GridFS file is written once
-    and never changed, so the only thing that can make its chunks stale is the
-    file leaving the record, or the record leaving the index - both of which
-    this function's answer already reflects.
+    version of an attachment is its upload time, or the last change to its
+    rubric flag (`_attachment_version`): a GridFS file is written once and
+    never changed, so otherwise the only thing that can make its chunks stale
+    is the file leaving the record, or the record leaving the index - both of
+    which this function's answer already reflects.
+
+    A rubric on a brief has its own, narrower audience (`_rubric_audience`),
+    and because this same function answers the read-time check, unsharing one
+    hides it at once, before the sync has rewritten its chunks.
 
     The parent's title is carried but not versioned. It comes from the
     assignment, and versioning these chunks by it would mean re-extracting
@@ -341,13 +376,14 @@ def attachment_entries(record: dict, parent: dict | None) -> list[dict]:
         entries.append(
             {
                 **parent,
+                **_rubric_audience(record, attachment, parent),
                 "source_type": "attachment",
                 "source_id": _ids(attachment["fileId"]),
                 "attachment_id": _ids(attachment["fileId"]),
                 "file_id": attachment["fileId"],
                 "content_type": attachment["contentType"],
                 "title": name,
-                "version": attachment.get("uploadedAt"),
+                "version": _attachment_version(attachment),
             }
         )
     return entries

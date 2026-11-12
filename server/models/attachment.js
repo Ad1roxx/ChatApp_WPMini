@@ -14,7 +14,22 @@ const attachmentSchema = new mongoose.Schema(
     // Decided by the server from the extension — never the type the upload
     // claimed to be.
     contentType: { type: String, required: true },
-    uploadedAt: { type: Date, required: true }
+    uploadedAt: { type: Date, required: true },
+    // D5, on a brief's files only (no hand-in route sets it). Mentor-only
+    // unless shared; `changedAt` moves the index version, so the sync rewrites
+    // its viewers (ai/sources.py, _rubric_audience). PATCH
+    // /api/assignments/:id/files/:fileId is the only writer.
+    rubric: {
+      type: new mongoose.Schema(
+        {
+          isRubric: { type: Boolean, required: true },
+          shared: { type: Boolean, required: true },
+          changedAt: { type: Date, required: true }
+        },
+        { _id: false }
+      ),
+      default: undefined
+    }
   },
   { _id: false }
 );

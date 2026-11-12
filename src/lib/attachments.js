@@ -131,3 +131,36 @@ export async function uploadBriefFiles(authFetch, assignmentId, files) {
 
   return { attachments, errors };
 }
+
+/**
+ * The rubric badge for a brief file, or null when it is not the rubric.
+ * Read-only: shown to anyone who is given the file (the server decides who
+ * receives an unshared rubric, so a student only ever sees "shared").
+ */
+export function rubricBadge(file) {
+  const r = file?.rubric;
+  if (!r?.isRubric) return null;
+  return r.shared ? 'Rubric · shared with students' : 'Rubric · mentor only';
+}
+
+/**
+ * The rubric buttons to draw on a brief file for the mentor who set it:
+ * `{ rubric, share }`, each a `{ label, body }` (body is the PATCH payload),
+ * or null when not offered. Nobody else gets any buttons. Sharing is only
+ * offered on the file that is the rubric.
+ */
+export function rubricActions(file, canEdit) {
+  if (!canEdit) return { rubric: null, share: null };
+  const isRubric = Boolean(file?.rubric?.isRubric);
+  const shared = Boolean(file?.rubric?.shared);
+  return {
+    rubric: isRubric
+      ? { label: 'Unmark rubric', body: { rubric: false } }
+      : { label: 'Mark as rubric', body: { rubric: true } },
+    share: isRubric
+      ? shared
+        ? { label: 'Stop sharing', body: { shared: false } }
+        : { label: 'Share with students', body: { shared: true } }
+      : null
+  };
+}

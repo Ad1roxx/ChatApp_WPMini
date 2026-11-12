@@ -8256,6 +8256,20 @@ S8 builds in parallel with S6 and never uses Groq; its live runs wait until S6's
 
 Two things found in Step 0 reading, fixed in Step 1: an attachment's index version is its upload time only, so flagging or sharing a rubric would not re-index it; and a student's own work list returns the brief with every attachment through `populate('assignment')`, bypassing `assignmentFilesFor`, so the D5 hook was not yet the one place it was described as in Entry 126.
 
+### Entry 131 — S8 Step 1: the rubric flag and who sees it
+
+**The flag.** A brief's file can carry `rubric: { isRubric, shared, changedAt }` (`server/models/attachment.js`). `PATCH /api/assignments/:id/files/:fileId` with `{ rubric?, shared? }` is the only writer, behind `loadOwnAssignment`, so only the mentor who set the assignment can mark, unmark, share or unshare. One rubric per assignment (a second is refused with 409, naming the first); unmarking also unshares; only the rubric can be shared; anything but booleans is 400. Each change stamps `changedAt`, syncs the brief and tells its viewers.
+
+**Who sees it, in the app.** `reads.assignmentFilesFor` is now the one rule: every file to the mentor who set it, every file but an unshared rubric to anyone else. The list and download routes went through it already; now so does every copy of the brief that rides on a hand-in, because `serialiseSubmission` filters the populated brief by who the reply is for (no viewer, no private rubric). That covers the student's own work, the mentorship's work list (and the agent's tools that read it), and the reply of each hand-in route. The agent's tools never carry a brief's files, so for the agent the only path to a rubric is search.
+
+**Who sees it, in search (property 9).** `attachment_entries` in `ai/sources.py` narrows an unshared rubric's viewers to the setting mentor (`_rubric_audience`; no mentor on the record means nobody), and its version is the later of upload and the last flag change (`_attachment_version`), so a change re-indexes it. The read-time check rebuilds entries with the same function, so unsharing hides a rubric from a student's search at once, before the sync rewrites its chunks.
+
+**UI** (implementer). The mentor's brief file list has "Mark as rubric" / "Unmark rubric" and "Share with students" / "Stop sharing", and a badge, "Rubric · mentor only" or "Rubric · shared with students"; anyone else sees no buttons. Lint clean, 211 frontend tests, build succeeds. Not run in a browser.
+
+**Tests.** `rubric.test.js` (28): who may mark, unmark, share and unshare; the bodies accepted; one rubric; an unshared rubric absent from the student's file list, download (404), own work, mentorship work list and the reply of each hand-in route, and present for the setting mentor; shared, present everywhere; unshared again, gone everywhere. `indexsync.test.js`: marking, sharing, unsharing and unmarking each send the assignment; a student's mark, a malformed one and a second rubric send nothing. `test_rubric_audience.py` (7): the audience and version rules. `test_sync.py`: property 9 against the real index, the student's search and the student's agent, unshared, shared, unshared again (before and after the sync) and unmarked. MUTATIONS_PLACEHOLDER
+
+**Review.** Codex's attack review found no way round the rule. Its test-gap review named three gaps, all real and now tested: outsiders unmarking or unsharing, the mentor's own assignment view, and the sync on unmark and on a refused second rubric. Its per-step review said the assignment overview hides the rubric from its own mentor; not so (those hand-ins don't carry the brief, so the filter never runs there), but the overview now passes the mentor anyway.
+
 ---
 
 ### Open items / "later" list

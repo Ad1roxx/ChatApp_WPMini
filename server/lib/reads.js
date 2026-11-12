@@ -108,17 +108,27 @@ async function canReadAssignmentFiles(assignment, user) {
   return Boolean(await Submission.exists({ assignment: assignment._id, student: user._id }));
 }
 
+/** A rubric its mentor has not shared (D5). */
+function isPrivateRubric(file) {
+  return Boolean(file.rubric && file.rubric.isRubric && !file.rubric.shared);
+}
+
 /**
- * The brief's files this user is shown. Every one, today.
+ * The brief's files this user is shown: every one to the mentor who set it,
+ * and to anyone else every one but an unshared rubric (D5, AGENT_PLAN §4.3
+ * property 9). No user, no private rubric.
  *
- * LATER (D5): the place a "this file is the rubric" flag filters, so a rubric
- * stays mentor-only by default. Not built. The list and download routes go
- * through here; when the flag lands, the student's copy of the brief (the
- * assignment populated into their hand-in, serialiseSubmission) must be
- * filtered here too.
+ * The one place this is decided. The list and download routes go through it
+ * (loadAssignmentFiles), and so does every copy of the brief that rides on a
+ * hand-in (serialiseSubmission): the student's work list, the mentorship's
+ * work list, the agent's tools that read them, and each hand-in route's reply.
+ * The index applies the same rule to search (ai/sources.py, _rubric_audience).
  */
-function assignmentFilesFor(assignment, user) { // eslint-disable-line no-unused-vars
-  return assignment.attachments || [];
+function assignmentFilesFor(assignment, user) {
+  const files = assignment.attachments || [];
+  const setter = assignment.mentor && (assignment.mentor._id || assignment.mentor);
+  if (user && setter && String(setter) === String(user._id)) return files;
+  return files.filter((f) => !isPrivateRubric(f));
 }
 
 /** Load an assignment whose files this user may read, or say why not. */
@@ -164,11 +174,19 @@ function lateFor(sub, dueAt) {
  *
  * `assignment` is passed explicitly when the submission was loaded without it
  * populated — inside the mentor's per-assignment view, where it is the page.
+ *
+ * `viewer` is who the reply is for. A populated brief carries its files, so
+ * they go through assignmentFilesFor: without a viewer, nobody is the setting
+ * mentor and an unshared rubric is left out.
  */
-function serialiseSubmission(sub, assignment) {
+function serialiseSubmission(sub, assignment, viewer) {
   const s = sub.toObject ? sub.toObject() : sub;
   const a = assignment || s.assignment;
-  return { ...s, late: a ? lateFor(s, a.dueAt) : false };
+  const out = { ...s, late: a ? lateFor(s, a.dueAt) : false };
+  if (s.assignment && typeof s.assignment === 'object' && Array.isArray(s.assignment.attachments)) {
+    out.assignment = { ...s.assignment, attachments: assignmentFilesFor(s.assignment, viewer) };
+  }
+  return out;
 }
 
 /**
@@ -260,7 +278,7 @@ async function mentorshipWorkFor(mentorshipId, user) {
 
   const data = subs
     .filter((s) => s.assignment)
-    .map((s) => serialiseSubmission(s))
+    .map((s) => serialiseSubmission(s, undefined, user))
     .sort((a, b) => new Date(a.assignment.dueAt) - new Date(b.assignment.dueAt));
   return { ...access, data };
 }
@@ -287,7 +305,7 @@ async function assignmentOverviewFor(assignmentId, user) {
     data: {
       ...own.assignment.toObject(),
       summary: summarise(subs, own.assignment.dueAt),
-      submissions: subs.map((s) => serialiseSubmission(s, own.assignment))
+      submissions: subs.map((s) => serialiseSubmission(s, own.assignment, user))
     }
   };
 }
@@ -333,7 +351,7 @@ async function myWorkFor(user) {
       mine: mine
         // A hand-in whose assignment has gone is an orphan, not work.
         .filter((s) => s.assignment)
-        .map((s) => serialiseSubmission(s))
+        .map((s) => serialiseSubmission(s, undefined, user))
         .sort((a, b) => new Date(a.assignment.dueAt) - new Date(b.assignment.dueAt))
     }
   };
@@ -407,6 +425,7 @@ module.exports = {
   SESSION_POPULATE,
   lateFor,
   serialiseSubmission,
+  isPrivateRubric,
   summarise,
   goalsFor,
   sessionsFor,

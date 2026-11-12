@@ -2996,7 +2996,7 @@ app.put('/api/submissions/:id', requireAuth, async (req, res) => {
       );
     }
 
-    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
+    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id), undefined, req.authUser));
   } catch (err) {
     console.error('Error handing in:', err);
     res.status(500).json({ error: 'Server error' });
@@ -3051,7 +3051,7 @@ app.post('/api/submissions/:id/unsubmit', requireAuth, async (req, res) => {
       submission.student
     ]);
 
-    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
+    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id), undefined, req.authUser));
   } catch (err) {
     console.error('Error unsubmitting:', err);
     res.status(500).json({ error: 'Server error' });
@@ -3121,7 +3121,7 @@ app.patch('/api/submissions/:id', requireAuth, async (req, res) => {
         : `${req.authUser.displayName} asked for changes: ${submission.assignment.title}`
     );
 
-    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
+    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id), undefined, req.authUser));
   } catch (err) {
     console.error('Error reviewing hand-in:', err);
     res.status(500).json({ error: 'Server error' });
@@ -3483,7 +3483,7 @@ app.post(
 
       res
         .status(201)
-        .json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
+        .json(serialiseSubmission(await loadSubmissionForResponse(submission._id), undefined, req.authUser));
     } catch (err) {
       console.error('Error attaching file:', err);
       if (unrecorded) await fileStore.removeFile(unrecorded).catch(() => {});
@@ -3572,7 +3572,7 @@ app.delete('/api/submissions/:id/files/:fileId', requireAuth, async (req, res) =
       submission.student
     ]);
 
-    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
+    res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id), undefined, req.authUser));
   } catch (err) {
     console.error('Error removing file:', err);
     res.status(500).json({ error: 'Server error' });
@@ -3733,6 +3733,71 @@ app.delete('/api/assignments/:id/files/:fileId', requireAuth, async (req, res) =
     res.json({ attachments: assignment.attachments });
   } catch (err) {
     console.error('Error removing an assignment file:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * PATCH /api/assignments/:id/files/:fileId — the mentor who set it marks a
+ * file as the rubric, or not, and shares it with the students, or not (D5).
+ *
+ * Body: `{ rubric?: boolean, shared?: boolean }`, at least one. One rubric per
+ * assignment: flagging a second while one is flagged is refused (409).
+ * Unflagging also unshares; sharing needs the flag. Every change stamps
+ * `changedAt`, which the index reads as a new version, and syncs the brief so
+ * the file's chunks are rewritten with the new viewers. Unsharing takes effect
+ * in search at once regardless: the read-time check rebuilds the audience from
+ * this record.
+ */
+app.patch('/api/assignments/:id/files/:fileId', requireAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const unknown = Object.keys(body).filter((k) => k !== 'rubric' && k !== 'shared');
+    const given = ['rubric', 'shared'].filter((k) => k in body);
+    if (unknown.length || !given.length || given.some((k) => typeof body[k] !== 'boolean')) {
+      return res.status(400).json({ error: 'Send rubric and/or shared, each true or false' });
+    }
+
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+    const { assignment } = own;
+    const file = assignment.attachments.find((f) => String(f.fileId) === String(req.params.fileId));
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const was = file.rubric || { isRubric: false, shared: false };
+    const isRubric = 'rubric' in body ? body.rubric : was.isRubric;
+    let shared = 'shared' in body ? body.shared : was.shared;
+    if (!isRubric) {
+      if (body.shared === true) {
+        return res.status(400).json({ error: 'Only the rubric can be shared this way' });
+      }
+      shared = false;
+    }
+    if (isRubric && !was.isRubric) {
+      const other = assignment.attachments.find(
+        (f) => f !== file && f.rubric && f.rubric.isRubric
+      );
+      if (other) {
+        return res.status(409).json({ error: `${other.name} is already the rubric. Unmark it first.` });
+      }
+    }
+    if (isRubric === was.isRubric && shared === was.shared) {
+      return res.json({ attachments: assignment.attachments });
+    }
+
+    file.rubric = { isRubric, shared, changedAt: new Date() };
+    assignment.markModified('attachments');
+    await assignment.save();
+    syncSource('assignment', assignment._id);
+    await announceBrief(assignment);
+
+    res.json({ attachments: assignment.attachments });
+  } catch (err) {
+    console.error('Error changing a brief file\'s rubric flag:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

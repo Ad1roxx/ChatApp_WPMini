@@ -194,6 +194,16 @@ test('every route tells the index which record changed', async (t) => {
     expectBrief(notices);
   });
 
+  await t.test('marking a brief file as the rubric, and sharing it, each send the assignment', async () => {
+    for (const body of [{ rubric: true }, { shared: true }, { shared: false }, { rubric: false }, { rubric: true }]) {
+      const { res, notices } = await noticesFrom(() =>
+        api(`/api/assignments/${assignment._id}/files/${briefFileId}`, { as: USERS.mentor, method: 'PATCH', body })
+      );
+      assert.equal(res.status, 200, JSON.stringify(body));
+      expectBrief(notices);
+    }
+  });
+
   await t.test('removing a file from the brief sends the assignment', async () => {
     const { res, notices } = await noticesFrom(() =>
       api(`/api/assignments/${assignment._id}/files/${briefFileId}`, { as: USERS.mentor, method: 'DELETE' })
@@ -349,6 +359,10 @@ test('nothing is sent when the write fails or is refused', async (t) => {
       uploadToBrief(USERS.student, work._id, 'x.pdf', '%PDF-1.4 x', 'application/pdf'), 403],
     ['another mentor removing a file from the brief (403)', () =>
       api(`/api/assignments/${work._id}/files/0000000000000000000000ff`, { as: USERS.admin, method: 'DELETE' }), 403],
+    ['a student marking a brief file as the rubric (403)', () =>
+      api(`/api/assignments/${work._id}/files/0000000000000000000000ff`, { as: USERS.student, method: 'PATCH', body: { rubric: true } }), 403],
+    ['a malformed rubric mark (400)', () =>
+      api(`/api/assignments/${work._id}/files/0000000000000000000000ff`, { as: USERS.mentor, method: 'PATCH', body: { rubric: 'yes' } }), 400],
     ['a missing assignment (404)', () =>
       api('/api/assignments/0000000000000000000000ff', { as: USERS.mentor, method: 'DELETE' }), 404]
   ];
@@ -360,6 +374,18 @@ test('nothing is sent when the write fails or is refused', async (t) => {
       assert.deepEqual(notices, []);
     });
   }
+
+  await t.test('a second rubric on one assignment (409)', async () => {
+    const upload = (name) => uploadToBrief(USERS.mentor, work._id, name, '%PDF-1.4 x', 'application/pdf')
+      .then((r) => r.json()).then((body) => body.attachments.find((f) => f.name === name));
+    const first = await upload('first.pdf');
+    const second = await upload('second.pdf');
+    const flag = (f) => api(`/api/assignments/${work._id}/files/${f.fileId}`, { as: USERS.mentor, method: 'PATCH', body: { rubric: true } });
+    assert.equal((await flag(first)).status, 200);
+    const { res, notices } = await noticesFrom(() => flag(second), 1);
+    assert.equal(res.status, 409);
+    assert.deepEqual(notices, []);
+  });
 
   await t.test('an opt-out request, which leaves the mentorship active', async () => {
     const { res, notices } = await noticesFrom(() =>
