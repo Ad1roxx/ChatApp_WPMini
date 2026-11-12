@@ -1,0 +1,914 @@
+{
+ "c01": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "The weekly booking count is a public count of how many bookings a practitioner has this week.",
+    "quote": "it is a public count of how many bookings a practitioner has this week",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Nobody acts on that number, which is a reason it can be read from a secondary.",
+    "quote": "nobody acts on that number",
+    "verdict": "supported"
+   },
+   {
+    "claim": "A lag of seconds is invisible, which is a reason it can be read from a secondary.",
+    "quote": "a lag of seconds is invisible",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The fact that it is a public count of how many bookings a practitioner has this week is a reason it can be read from a secondary.",
+    "quote": "because it is a public count of how many bookings a practitioner has this week, nobody acts on that number, and a lag of seconds is invisible",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the weekly booking count can be read from a secondary",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 885,
+  "tokens_out": 981
+ },
+ "c02": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "You must use an in-process cache rather than Redis.",
+    "quote": "You must use an in-process cache rather than Redis.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What to build for the caching assignment",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 910,
+  "tokens_out": 416
+ },
+ "c03": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "Before the fix, fifty simultaneous booking requests for the same slot were made.",
+    "quote": "Before the fix, fifty simultaneous booking requests for the same slot",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The requests produced three bookings on most runs.",
+    "quote": "produced three bookings on most runs",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The requests never produced fewer than two bookings.",
+    "quote": "and never fewer than two",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many bookings were created before the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 889,
+  "tokens_out": 385
+ },
+ "c04": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "Skip and limit is wrong because while bookings are being created, a new booking shifts every later one down by a place.",
+    "quote": "Skip and limit is wrong because while bookings are being created, a new booking shifts every later one down by a place.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why skip and limit is wrong (not just slow)",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 927,
+  "tokens_out": 506
+ },
+ "c05": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c06": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The report query on created date alone did not improve.",
+    "quote": "The report query on created date alone did not improve",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The compound index begins with status.",
+    "quote": "because the compound index begins with status",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query did not improve at all",
+    "status": "answered"
+   },
+   {
+    "part": "Why not",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 914,
+  "tokens_out": 337
+ },
+ "c07": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "Before the fix, fifty simultaneous booking requests for the same slot produced three bookings on most runs.",
+    "quote": "Before the fix, fifty simultaneous booking requests for the same slot produced three bookings on most runs.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many bookings fifty simultaneous requests created before the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 903,
+  "tokens_out": 307
+ },
+ "c08": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The report concluded that two of the three queries improved.",
+    "quote": "The report concluded that two of the three queries improved",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The compound index on status and created date is the one to keep.",
+    "quote": "the compound index on status and created date is the one to keep",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the report concluded should be kept",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 918,
+  "tokens_out": 380
+ },
+ "c09": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The sources do not provide a complete definition of what an N+1 query is beyond a worked example.",
+    "quote": "The sources do not cover a complete definition of what an N+1 query is beyond this worked example.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is an N+1 query?",
+    "status": "said_not_found"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 942,
+  "tokens_out": 401
+ },
+ "c10": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "You should run every query with EXPLAIN before the index is added.",
+    "quote": "You should run every query with EXPLAIN both before and after the index is added",
+    "verdict": "supported"
+   },
+   {
+    "claim": "You should run every query with EXPLAIN after the index is added.",
+    "quote": "You should run every query with EXPLAIN both before and after the index is added",
+    "verdict": "supported"
+   },
+   {
+    "claim": "You should record the plan in full.",
+    "quote": "record the plan in full",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Should I run EXPLAIN before adding an index?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1083,
+  "tokens_out": 613
+ },
+ "c11": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The user told their mentor to check something",
+    "quote": "You told your mentor to check",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The thing to check is that the load generator was not running out of CPU",
+    "quote": "that the load generator was not running out of CPU",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What Priya wants the user to check before trusting load test numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 885,
+  "tokens_out": 872
+ },
+ "c12": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "Priya is the one who wants the check done.",
+    "quote": "Priya wants you to check",
+    "verdict": "partly"
+   },
+   {
+    "claim": "The check is that the load generator was not running out of CPU.",
+    "quote": "check that the load generator was not running out of CPU",
+    "verdict": "supported"
+   },
+   {
+    "claim": "This check should be done before trusting any of the load test numbers.",
+    "quote": "before you trust any of your load test numbers",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What Priya wants checked before trusting load test numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 882,
+  "tokens_out": 750
+ },
+ "c13": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The user suggested caching the promise rather than the value.",
+    "quote": "You suggested caching the promise rather than the value",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The mentor agreed the user should try it before the next session.",
+    "quote": "your mentor agreed you should try it before your next session",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor told the user to try about caching the promise",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 957,
+  "tokens_out": 694
+ },
+ "c14": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "If a 301 were used, browsers would remember it.",
+    "quote": "If a 301 were used instead, browsers would remember it",
+    "verdict": "supported"
+   },
+   {
+    "claim": "After the first visit, the clicks would never arrive at the service.",
+    "quote": "after the first visit the clicks would never arrive at the service",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why 302 instead of 301",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1147,
+  "tokens_out": 688
+ },
+ "c15": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The user has finished every milestone on their backend interviews goal.",
+    "quote": "You have finished every milestone on your backend interviews goal.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Progress on backend interviews goal",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 879,
+  "tokens_out": 399
+ },
+ "c16": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The sources do not cover what happens if the coordinator fails or runs out of blocks.",
+    "quote": "The sources do not cover what happens if the coordinator fails or runs out of blocks.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How short codes are generated without checking the database first",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1125,
+  "tokens_out": 575
+ },
+ "c17": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "An N+1 query issue occurs when an application issues one query for a main resource such as posts",
+    "quote": "An N+1 query issue occurs when an application issues one query for a main resource (such as posts)",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Then an additional query is issued per item for a related resource such as its author",
+    "quote": "and then an additional query per item for a related resource (such as its author)",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is an N+1 query",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1016,
+  "tokens_out": 782
+ },
+ "c18": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor approved the load test numbers as final.",
+    "quote": "Your mentor approved your load test numbers as final.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Whether the mentor approved the load test numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 863,
+  "tokens_out": 385
+ },
+ "c19": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "Adding an item clears the list for that user only",
+    "quote": "Adding an item clears the list for that user only",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason it clears only for that user is that the cache is in-process",
+    "quote": "because the cache is in-process",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What happens to the cache when an item is added",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 926,
+  "tokens_out": 581
+ },
+ "c20": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "An index on (a, b) helps a query on a.",
+    "quote": "an index on (a, b) helps a query on a",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An index on (a, b) helps a query on a with b.",
+    "quote": "and on a with b",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An index on (a, b) does not help a query on b alone.",
+    "quote": "but not on b alone",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How compound indexes work",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1035,
+  "tokens_out": 511
+ },
+ "c21": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor's name is Priya.",
+    "quote": "Your mentor, Priya",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The mentor said the single $lookup is the right fix.",
+    "quote": "said the single $lookup is the right fix",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor said about the N+1 hand-in",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 919,
+  "tokens_out": 459
+ },
+ "c22": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "When a cursor is reused with a different filter, the API returns a 400 response.",
+    "quote": "the API returns a 400 response",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The 400 response states that the cursor does not match the filter.",
+    "quote": "stating that the cursor does not match the filter",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What error the API returns when a cursor is reused with a different filter",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 918,
+  "tokens_out": 409
+ },
+ "c23": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "A compound index only helps when the query's fields are a prefix of it, in that order.",
+    "quote": "A compound index only helps when the query's fields are a prefix of it, in that order.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How compound indexes work",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 998,
+  "tokens_out": 533
+ },
+ "c24": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "You added an in-process LRU cache",
+    "quote": "You added an in-process LRU cache",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The TTL was ninety seconds",
+    "quote": "with a ninety second TTL",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What was built for the caching hand-in",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 921,
+  "tokens_out": 247
+ },
+ "c25": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor cares more about the timings than about the reasoning.",
+    "quote": "Your mentor cares more about the timings than about the reasoning.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor cares about most",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 929,
+  "tokens_out": 316
+ },
+ "c26": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The event took place in a mock interview.",
+    "quote": "In the mock interview",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Priya went straight into the database schema without saying how many reads there were for each write.",
+    "quote": "Priya went straight into the database schema without saying how many reads there were for each write",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What went wrong in the mock system design interview",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1224,
+  "tokens_out": 838
+ },
+ "c27": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "A request that reuses a cursor with a different filter gets a 409 response.",
+    "quote": "A request that reuses a cursor with a different filter gets a 409 response.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What error the API returns when a cursor is reused with a different filter",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 938,
+  "tokens_out": 385
+ },
+ "c28": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "You should use the URL shortener walkthrough from the system design primer",
+    "quote": "You should use the URL shortener walkthrough from the system design primer",
+    "verdict": "supported"
+   },
+   {
+    "claim": "You should use it after the mock interview",
+    "quote": "after the mock interview",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason to use it after the mock interview is so you can compare it with your own notes",
+    "quote": "so you can compare it with your own notes",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "When to use the system design primer",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 878,
+  "tokens_out": 978
+ },
+ "c29": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The decision to use documents for the orders service would flip if the service itself started needing questions across items.",
+    "quote": "You would switch the orders service away from documents if the service itself started needing questions across items",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Stock reservation is an example of a question across items, where every order line has to be checked against what is left.",
+    "quote": "such as stock reservation where every order line has to be checked against what is left",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What would make the switch away from documents",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1184,
+  "tokens_out": 391
+ },
+ "c30": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The practice API crashed in the first week.",
+    "quote": "Your practice API crashed in the first week",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An async route handler threw an error.",
+    "quote": "an async route handler threw an error",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Nobody caught the rejected promise.",
+    "quote": "nobody caught the rejected promise",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The process died with an unhandled rejection.",
+    "quote": "the process died with an unhandled rejection",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the practice API crashed in the first week",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1222,
+  "tokens_out": 421
+ },
+ "c31": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "Recording the event id first does not help solve the problem.",
+    "quote": "Recording the event id first does not help",
+    "verdict": "supported"
+   },
+   {
+    "claim": "A crash after recording the event id would result in the customer being charged twice.",
+    "quote": "because a crash after recording would charge the customer twice",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why recording the event id first doesn't work",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 931,
+  "tokens_out": 600
+ },
+ "c32": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor spotted the thundering herd problem in the caching hand-in.",
+    "quote": "Your mentor spotted the thundering herd problem in your caching hand-in.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Who spotted the thundering herd problem",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 912,
+  "tokens_out": 379
+ },
+ "c33": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "For each query, you need to write down the plan before, the index you added, and the plan after.",
+    "quote": "For each query, you need to write down the plan before, the index you added, and the plan after.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What to do for the indexing exercise",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 939,
+  "tokens_out": 611
+ },
+ "c34": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The mentor told the user to try caching the promise rather than the value.",
+    "quote": "Your mentor told you to try caching the promise rather than the value",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The mentor said to try this before the next session.",
+    "quote": "before your next session",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The purpose is so that the second caller waits on the first.",
+    "quote": "so that the second caller waits on the first",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor told the user to try about caching the promise",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 950,
+  "tokens_out": 376
+ },
+ "c35": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "A query did not improve",
+    "quote": "It did not improve",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The compound index begins with author",
+    "quote": "the compound index begins with author",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The prefix rule means a query on the second field cannot use the index",
+    "quote": "the prefix rule means a query on the second field cannot use it",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query did not improve at all",
+    "status": "missing"
+   },
+   {
+    "part": "Why not",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 909,
+  "tokens_out": 796
+ },
+ "c36": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "Renaming a product keeps its old name on old orders.",
+    "quote": "Renaming a product keeps its old name on old orders",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason it is acceptable is that an order is a record of what was bought.",
+    "quote": "because an order is a record of what was bought",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason it is acceptable is that a receipt should not change after the fact.",
+    "quote": "and a receipt should not change after the fact",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why it is acceptable that renaming a product leaves old orders unchanged",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1157,
+  "tokens_out": 500
+ },
+ "c37": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The report query on created date alone improved the most.",
+    "quote": "The report query on created date alone improved the most.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query improved the most",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 927,
+  "tokens_out": 383
+ }
+}
