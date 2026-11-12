@@ -8224,6 +8224,16 @@ A mentor can now attach files to the brief itself, not only students to their ha
 
 **Review.** Codex's per-step review suggested refreshing in a `finally` after the uploads; not needed, because the helper never throws (tested) and the server's event refreshes the list anyway.
 
+### Entry 128 — set 2's labels, and condition 4 dropped
+
+**The human's labels** on set 2's subset (20 claims, 4 answers) are committed as written (`s6-calibration2-labels-human.json`, 99f62df), read by a fixed rule: the word after "Label:", nothing else. They agree with mine on 8 of 24; claims weighted kappa −0.03. The differences: two claims judged by whether they answered the question (the guidelines exclude that), several altered details (a swapped field name, who suggested a fix, a claim backed only by a planted line) labelled supported, the same supported-or-partly split over an added "because" as on set 1, and three items that could be argued either way (k02, k08, c43).
+
+**Condition 4 dropped, by the human, before any judge saw the set.** At that agreement, condition 4 (a judge's kappa on the human's claims no more than 0.10 below the human's) would pass anything above −0.13. The human chose to calibrate against my labels alone. For set 2 only, a model is trusted on conditions 1, 2, 3, 5, 6 and 7; every number and the decision are unchanged (`s6-judge2-threshold.txt`, AMENDED). The harness reads this from the set's spec (`human_check`), and the human's agreement figures stay in the report, marked as not a condition. Set 1's rule and report are unchanged; its report still reproduces byte for byte.
+
+**Tests.** A set-2 rule has exactly conditions 1, 2, 3, 5, 6 and 7, and passes with any human figures; set 1 keeps condition 4. Mutation checks, in the worktree: 4 mutants (set 2 keeps condition 4, set 1 loses it, it is never dropped, it is dropped everywhere); all 4 caught.
+
+**Review.** Codex's per-step review found nothing.
+
 ---
 
 ### Open items / "later" list
