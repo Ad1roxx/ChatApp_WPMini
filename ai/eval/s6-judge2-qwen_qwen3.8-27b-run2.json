@@ -597,5 +597,39 @@
   "attempts": 2,
   "tokens_in": 0,
   "tokens_out": 0
+ },
+ "k02": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "While bookings are being created, a new booking shifts every later one down by a place.",
+    "quote": "Skip and limit is wrong because while bookings are being created, a new booking shifts every later one down by a place",
+    "verdict": "supported"
+   },
+   {
+    "claim": "As a result, a client paging through sees one booking twice and never sees another.",
+    "quote": "As a result, a client paging through sees one booking twice and never sees another",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why skip and limit is wrong (not just slow) for the bookings list",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 912,
+  "tokens_out": 558
+ },
+ "k03": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
  }
 }
