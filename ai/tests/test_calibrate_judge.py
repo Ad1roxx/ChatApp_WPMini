@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -208,3 +209,15 @@ def test_the_token_guard_counts_only_this_models_runs(tmp_path, monkeypatch):
     assert c.tokens_spent(2, GPT, skip=1) == 0  # the run being resumed is not counted twice
     # set 1's file is a different set: set 2 runs do not count towards it
     assert c.tokens_spent(1, GPT) == 0
+
+
+def test_decide_rounds_kappa_to_two_decimals_before_comparing():
+    # 0.8049 and 0.8012 are both 0.80: the tie-break, not the raw kappa, decides.
+    assert c.decide({GPT: pm(kappa=0.8049, caught=8), QWEN: pm(kappa=0.8012, caught=9)}) == QWEN
+
+
+def test_set_two_reads_its_own_completeness_bar_from_the_spec():
+    data = json.loads((Path(c.__file__).parent / "s6-calibration2-set.json").read_text(encoding="utf-8"))
+    sp = c.spec(2, data)
+    assert (sp["n_claims"], sp["n_answers"], sp["exact_min"], sp["silent_min"]) == (52, 10, 8, 3)
+    assert all(c.rule({**GOOD2, "answers_exact": (8, 10)}, (50, 52), sp).values())
