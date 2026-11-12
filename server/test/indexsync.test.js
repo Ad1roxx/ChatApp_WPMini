@@ -95,6 +95,16 @@ function upload(as, subId, name, content, type) {
   });
 }
 
+function uploadToBrief(as, assignmentId, name, content, type) {
+  const form = new FormData();
+  form.append('file', new Blob([content], { type }), name);
+  return fetch(`${BASE}/api/assignments/${assignmentId}/files`, {
+    method: 'POST',
+    headers: { 'X-Dev-User-Id': as._id },
+    body: form
+  });
+}
+
 let mine; // mentor -> student
 let theirs; // admin -> student2
 let assignment;
@@ -169,6 +179,27 @@ test('every route tells the index which record changed', async (t) => {
     );
     assert.equal(res.status, 200);
     expectHandIn(notices);
+  });
+
+  const expectBrief = (notices) =>
+    assert.deepEqual(notices, [{ sourceType: 'assignment', sourceId: String(assignment._id) }]);
+
+  let briefFileId;
+  await t.test('attaching a file to the brief sends the assignment', async () => {
+    const { res, notices } = await noticesFrom(() =>
+      uploadToBrief(USERS.mentor, assignment._id, 'brief.pdf', '%PDF-1.4 brief', 'application/pdf')
+    );
+    assert.equal(res.status, 201);
+    briefFileId = (await res.json()).attachments.at(-1).fileId;
+    expectBrief(notices);
+  });
+
+  await t.test('removing a file from the brief sends the assignment', async () => {
+    const { res, notices } = await noticesFrom(() =>
+      api(`/api/assignments/${assignment._id}/files/${briefFileId}`, { as: USERS.mentor, method: 'DELETE' })
+    );
+    assert.equal(res.status, 200);
+    expectBrief(notices);
   });
 
   await t.test('handing in sends the hand-in', async () => {
@@ -314,6 +345,10 @@ test('nothing is sent when the write fails or is refused', async (t) => {
       }), 403],
     ['a student ending an active mentorship (403)', () =>
       api(`/api/mentorships/${mine._id}`, { as: USERS.student, method: 'PATCH', body: { action: 'end' } }), 403],
+    ['a student attaching a file to the brief (403)', () =>
+      uploadToBrief(USERS.student, work._id, 'x.pdf', '%PDF-1.4 x', 'application/pdf'), 403],
+    ['another mentor removing a file from the brief (403)', () =>
+      api(`/api/assignments/${work._id}/files/0000000000000000000000ff`, { as: USERS.admin, method: 'DELETE' }), 403],
     ['a missing assignment (404)', () =>
       api('/api/assignments/0000000000000000000000ff', { as: USERS.mentor, method: 'DELETE' }), 404]
   ];

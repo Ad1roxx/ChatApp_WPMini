@@ -35,6 +35,7 @@
  */
 
 const mongoose = require('mongoose');
+const attachmentSchema = require('./attachment');
 
 const assignmentSchema = new mongoose.Schema(
   {
@@ -84,7 +85,19 @@ const assignmentSchema = new mongoose.Schema(
     dueAt: {
       type: Date,
       required: true
-    }
+    },
+
+    /**
+     * Files the mentor attaches to the brief: the same shape, limits and
+     * download rules as a hand-in's files. Uploaded and removed only by the
+     * mentor who set it; listed and downloaded by that mentor and the students
+     * it was set for (reads.canReadAssignmentFiles).
+     *
+     * LATER (D5), not built: a per-file `rubric` flag, mentor-only by default.
+     * When it lands, it is a field here, a filter in reads.assignmentFilesFor,
+     * and the same filter on the brief a student's hand-in carries.
+     */
+    attachments: { type: [attachmentSchema], default: [] }
   },
   { timestamps: true }
 );

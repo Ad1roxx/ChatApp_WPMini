@@ -174,6 +174,47 @@ def test_after_a_mentorship_ends_nothing_from_it_is_returned(world):
     assert store.chunks.count_documents({"mentorshipId": Corpus.M2}) > 0, "M2 was collateral"
 
 
+def attach_to_brief(corpus, app_db, data, name, content_type):
+    """What POST /api/assignments/:id/files does: bytes, then the record on the brief."""
+    file_id = corpus.put_file(data, name)
+    app_db.assignments.update_one(
+        {"_id": corpus.assignment},
+        {"$push": {"attachments": {"fileId": file_id, "name": name, "size": len(data),
+                                   "contentType": content_type, "uploadedAt": tick()}},
+         "$set": {"updatedAt": tick()}},
+    )
+    return file_id
+
+
+def test_a_brief_file_is_searchable_by_everyone_it_was_set_for_and_a_deleted_one_disappears(world):
+    """S8 prerequisite: an assignment's own files, indexed with the brief's viewers, and gone once removed."""
+    store, records, corpus, app_db = world
+    run(store, records)
+    kept = attach_to_brief(corpus, app_db, *report("rubric-notes.pdf"))
+    removed = attach_to_brief(corpus, app_db, *report("old-brief.pdf"))
+    sync.sync_source(store, records, "assignment", str(corpus.assignment))
+    settle(store)
+    # The brief was set for both mentorships: each one's two parties find both files there.
+    for mentorship, parties in ((Corpus.M1, (Corpus.ADITYA, Corpus.PRIYA)), (Corpus.M2, (Corpus.ZARA, Corpus.KARAN))):
+        for party in parties:
+            assert {"rubric-notes.pdf", "old-brief.pdf"} <= titles(found(store, party, mentorship=mentorship))
+    # Nobody finds them through a mentorship they are not in.
+    assert found(store, Corpus.ZARA, mentorship=Corpus.M1) == []
+
+    # What DELETE /api/assignments/:id/files/:fileId does: record, then bytes, then the assignment's sync.
+    app_db.assignments.update_one({"_id": corpus.assignment},
+                                  {"$pull": {"attachments": {"fileId": removed}}, "$set": {"updatedAt": tick()}})
+    gridfs.GridFSBucket(app_db, bucket_name="attachments").delete(removed)
+    sync.sync_source(store, records, "assignment", str(corpus.assignment))
+
+    assert store.chunks.count_documents({"attachmentId": str(removed)}) == 0
+    assert store.chunks.count_documents({"attachmentId": str(kept)}) > 0
+    settle(store)
+    for mentorship, party in ((Corpus.M1, Corpus.ADITYA), (Corpus.M2, Corpus.ZARA)):
+        hits = titles(found(store, party, mentorship=mentorship))
+        assert "old-brief.pdf" not in hits and "rubric-notes.pdf" in hits
+
+
 def test_deleting_an_assignment_removes_its_brief_hand_ins_and_files(world):
     """Only the assignment's own event: it alone must be enough."""
     store, records, corpus, app_db = world

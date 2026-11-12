@@ -67,6 +67,7 @@ const {
   loadOwnAssignment,
   loadSubmission,
   canReadSubmissionFile,
+  loadAssignmentFiles,
   SESSION_POPULATE,
   serialiseSubmission,
   summarise,
@@ -3273,7 +3274,10 @@ app.delete('/api/assignments/:id', requireAuth, async (req, res) => {
 
     // Records first, then bytes: if this fails halfway, the worst case is an
     // orphaned file nobody can reach, never a hand-in pointing at nothing.
-    const fileIds = subs.flatMap((s) => s.attachments.map((f) => f.fileId));
+    const fileIds = [
+      ...assignment.attachments.map((f) => f.fileId),
+      ...subs.flatMap((s) => s.attachments.map((f) => f.fileId))
+    ];
     await Promise.all(fileIds.map((id) => fileStore.removeFile(id)));
 
     announceAssignment(
@@ -3326,6 +3330,39 @@ function contentDisposition(name) {
     (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
   );
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
+/**
+ * Serve one stored file so that it can never run as part of this app,
+ * whatever is in it, or answer 404 when there is no such file:
+ *
+ * - `Content-Disposition: attachment` — the browser saves it, never shows it
+ * - a Content-Type the server chose from the extension at upload time
+ * - `nosniff`, so the browser does not second-guess that type
+ * - a CSP sandbox, in case anyone opens the URL directly anyway
+ *
+ * Shared by hand-in files and assignment files.
+ */
+async function sendStoredFile(res, attachment) {
+  const file = attachment && (await fileStore.findFile(attachment.fileId));
+  if (!file) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  res.setHeader('Content-Type', attachment.contentType);
+  res.setHeader('Content-Length', String(file.length));
+  res.setHeader('Content-Disposition', contentDisposition(attachment.name));
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+  res.setHeader('Cache-Control', 'private, no-store');
+
+  fileStore
+    .openFile(attachment.fileId)
+    .on('error', (err) => {
+      console.error('Error streaming file:', err);
+      res.destroy(err);
+    })
+    .pipe(res);
 }
 
 /**
@@ -3462,12 +3499,7 @@ app.post(
  * assignment — the same two people who can read the hand-in. The file is
  * found THROUGH the hand-in, so an id from anywhere else finds nothing.
  *
- * Served so that it can never run as part of this app, whatever is in it:
- *
- * - `Content-Disposition: attachment` — the browser saves it, never shows it
- * - a Content-Type the server chose from the extension at upload time
- * - `nosniff`, so the browser does not second-guess that type
- * - a CSP sandbox, in case anyone opens the URL directly anyway
+ * Served by `sendStoredFile`, so it can never run as part of this app.
  */
 app.get('/api/submissions/:id/files/:fileId', requireAuth, async (req, res) => {
   try {
@@ -3486,25 +3518,7 @@ app.get('/api/submissions/:id/files/:fileId', requireAuth, async (req, res) => {
     const attachment = submission.attachments.find(
       (f) => String(f.fileId) === String(req.params.fileId)
     );
-    const file = attachment && (await fileStore.findFile(attachment.fileId));
-    if (!file) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-
-    res.setHeader('Content-Type', attachment.contentType);
-    res.setHeader('Content-Length', String(file.length));
-    res.setHeader('Content-Disposition', contentDisposition(attachment.name));
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
-    res.setHeader('Cache-Control', 'private, no-store');
-
-    fileStore
-      .openFile(attachment.fileId)
-      .on('error', (err) => {
-        console.error('Error streaming file:', err);
-        res.destroy(err);
-      })
-      .pipe(res);
+    await sendStoredFile(res, attachment);
   } catch (err) {
     console.error('Error downloading file:', err);
     res.status(500).json({ error: 'Server error' });
@@ -3561,6 +3575,164 @@ app.delete('/api/submissions/:id/files/:fileId', requireAuth, async (req, res) =
     res.json(serialiseSubmission(await loadSubmissionForResponse(submission._id)));
   } catch (err) {
     console.error('Error removing file:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
+// ASSIGNMENT FILES: the brief's own attachments
+// ============================================
+
+/**
+ * The same files as a hand-in's, attached to the brief instead: the same
+ * allow-list, 10 MB cap and five-file limit, received by the same
+ * `receiveFile` and served by the same `sendStoredFile`.
+ *
+ * Who: ONLY the mentor who set the assignment uploads or removes
+ * (`loadOwnAssignment`, the check every other assignment write uses). That
+ * mentor and the students it was set for list and download
+ * (`loadAssignmentFiles` in lib/reads.js). Nobody else — not another mentor
+ * of the same student, not a student it was not set for.
+ *
+ * Each change tells the index (`syncSource('assignment', …)`), which re-reads
+ * the brief's files with the brief's own viewers.
+ */
+
+/** Checked BEFORE the upload is read, like `canAttach`. */
+async function canAttachToAssignment(req, res, next) {
+  try {
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+    if (own.assignment.attachments.length >= fileStore.MAX_FILES_PER_SUBMISSION) {
+      return res.status(400).json({
+        error: `Up to ${fileStore.MAX_FILES_PER_SUBMISSION} files per assignment`
+      });
+    }
+    req.assignment = own.assignment;
+    next();
+  } catch (err) {
+    console.error('Error checking assignment upload:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+/** Everyone the brief is shown to, told it changed. */
+async function announceBrief(assignment) {
+  const subs = await Submission.find({ assignment: assignment._id }).select('student');
+  announceAssignment(assignment._id, assignment.mentor, subs.map((s) => s.student));
+}
+
+/** POST /api/assignments/:id/files — the mentor who set it attaches one file. */
+app.post(
+  '/api/assignments/:id/files',
+  requireAuth,
+  canAttachToAssignment,
+  receiveFile,
+  async (req, res) => {
+    let unrecorded = null;
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Choose a file to attach' });
+      }
+      if (req.file.size === 0) {
+        return res.status(400).json({ error: 'That file is empty' });
+      }
+      const checked = fileStore.checkFile(req.file.originalname);
+      if (checked.error) {
+        return res.status(400).json({ error: checked.error });
+      }
+
+      const { assignment } = req;
+      const fileId = await fileStore.saveFile(req.file.buffer, {
+        name: checked.name,
+        contentType: checked.contentType,
+        metadata: { assignment: assignment._id, uploadedBy: req.authUser._id }
+      });
+      unrecorded = fileId;
+
+      assignment.attachments.push({
+        fileId,
+        name: checked.name,
+        size: req.file.size,
+        contentType: checked.contentType,
+        uploadedAt: new Date()
+      });
+      await assignment.save();
+      unrecorded = null;
+      syncSource('assignment', assignment._id);
+      await announceBrief(assignment);
+
+      res.status(201).json({ attachments: assignment.attachments });
+    } catch (err) {
+      console.error('Error attaching a file to an assignment:', err);
+      if (unrecorded) await fileStore.removeFile(unrecorded).catch(() => {});
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+/** GET /api/assignments/:id/files — the brief's files, for those who may see them. */
+app.get('/api/assignments/:id/files', requireAuth, async (req, res) => {
+  try {
+    const read = await loadAssignmentFiles(req.params.id, req.authUser);
+    if (read.error) {
+      return res.status(read.status).json({ error: read.error });
+    }
+    res.json({ attachments: read.files });
+  } catch (err) {
+    console.error('Error listing assignment files:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/assignments/:id/files/:fileId — download one. Found THROUGH the
+ * brief, among the files this user is shown, so an id from anywhere else
+ * finds nothing.
+ */
+app.get('/api/assignments/:id/files/:fileId', requireAuth, async (req, res) => {
+  try {
+    const read = await loadAssignmentFiles(req.params.id, req.authUser);
+    if (read.error) {
+      return res.status(read.status).json({ error: read.error });
+    }
+    const attachment = read.files.find((f) => String(f.fileId) === String(req.params.fileId));
+    await sendStoredFile(res, attachment);
+  } catch (err) {
+    console.error('Error downloading an assignment file:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * DELETE /api/assignments/:id/files/:fileId — the mentor who set it removes
+ * one. Record first, bytes second, as for hand-ins.
+ */
+app.delete('/api/assignments/:id/files/:fileId', requireAuth, async (req, res) => {
+  try {
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+    const { assignment } = own;
+    const index = assignment.attachments.findIndex(
+      (f) => String(f.fileId) === String(req.params.fileId)
+    );
+    if (index === -1) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const [removed] = assignment.attachments.splice(index, 1);
+    await assignment.save();
+    await fileStore.removeFile(removed.fileId);
+    syncSource('assignment', assignment._id);
+    await announceBrief(assignment);
+
+    res.json({ attachments: assignment.attachments });
+  } catch (err) {
+    console.error('Error removing an assignment file:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

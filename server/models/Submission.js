@@ -93,22 +93,8 @@ const eventSchema = new mongoose.Schema(
   { _id: false }
 );
 
-/**
- * One file handed in with the work. `fileId` is the GridFS id, and also the
- * id the download route is addressed by.
- */
-const attachmentSchema = new mongoose.Schema(
-  {
-    fileId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    name: { type: String, required: true, maxlength: 200 },
-    size: { type: Number, required: true, min: 0 },
-    // Decided by the server from the extension — never the type the upload
-    // claimed to be.
-    contentType: { type: String, required: true },
-    uploadedAt: { type: Date, required: true }
-  },
-  { _id: false }
-);
+/** One file handed in with the work: the same shape as a brief's files. */
+const attachmentSchema = require('./attachment');
 
 const submissionSchema = new mongoose.Schema(
   {

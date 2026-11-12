@@ -95,6 +95,47 @@ function canReadSubmissionFile(submission, user) {
   return me === String(submission.student) || me === String(submission.assignment.mentor);
 }
 
+/**
+ * Whether this user may list and open the files on an assignment's brief: the
+ * mentor who set it, and the students it was set for. "Set for" is what the
+ * student's own reads already use: a hand-in of theirs for this assignment
+ * exists (myWorkFor reads `Submission.find({ student })`), so the files are
+ * visible exactly where the brief is. Anybody else, another mentor of the
+ * same student included, may not.
+ */
+async function canReadAssignmentFiles(assignment, user) {
+  if (String(assignment.mentor) === String(user._id)) return true;
+  return Boolean(await Submission.exists({ assignment: assignment._id, student: user._id }));
+}
+
+/**
+ * The brief's files this user is shown. Every one, today.
+ *
+ * LATER (D5): the place a "this file is the rubric" flag filters, so a rubric
+ * stays mentor-only by default. Not built. The list and download routes go
+ * through here; when the flag lands, the student's copy of the brief (the
+ * assignment populated into their hand-in, serialiseSubmission) must be
+ * filtered here too.
+ */
+function assignmentFilesFor(assignment, user) { // eslint-disable-line no-unused-vars
+  return assignment.attachments || [];
+}
+
+/** Load an assignment whose files this user may read, or say why not. */
+async function loadAssignmentFiles(id, user) {
+  if (!mongoose.isValidObjectId(id)) {
+    return { error: 'Assignment not found', status: 404 };
+  }
+  const assignment = await Assignment.findById(id);
+  if (!assignment) {
+    return { error: 'Assignment not found', status: 404 };
+  }
+  if (!(await canReadAssignmentFiles(assignment, user))) {
+    return { error: 'Only the mentor who set this and its students can open its files', status: 403 };
+  }
+  return { assignment, files: assignmentFilesFor(assignment, user) };
+}
+
 // ---------------------------------------------------------------------------
 // Shaping helpers the reads share
 // ---------------------------------------------------------------------------
@@ -360,6 +401,9 @@ module.exports = {
   loadOwnAssignment,
   loadSubmission,
   canReadSubmissionFile,
+  canReadAssignmentFiles,
+  assignmentFilesFor,
+  loadAssignmentFiles,
   SESSION_POPULATE,
   lateFor,
   serialiseSubmission,
