@@ -34,6 +34,7 @@ class Fake:
 
     def generate(self, system, user, **kw):
         self.prompts.append((system, user))
+        self.budgets = getattr(self, "budgets", []) + [kw.get("budget_s")]
         r = self.replies.pop(0)
         if isinstance(r, Generation):
             return r
@@ -95,6 +96,11 @@ def test_a_bad_reply_twice_is_no_verdict_never_a_guess(tmp_path, name, reply):
 def test_a_bad_reply_then_a_good_one_is_the_good_one(tmp_path, name, reply):
     v, _ = run(reply, GOOD, tmp=tmp_path)
     assert v.no_verdict is None and v.attempts == 2 and v.worst == "partly"
+
+
+def test_each_call_may_wait_out_the_per_minute_limit(tmp_path):
+    _, fake = run(GOOD, tmp=tmp_path)
+    assert fake.budgets == [judge.JUDGE_BUDGET_S] and judge.JUDGE_BUDGET_S >= 120
 
 
 def test_never_more_than_one_retry(tmp_path):

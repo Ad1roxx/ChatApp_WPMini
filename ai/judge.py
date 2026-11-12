@@ -42,6 +42,9 @@ from providers import GroqProvider
 JUDGE_MODEL = "openai/gpt-oss-120b"
 JUDGE_PROMPT_VERSION = "judge-v1"
 JUDGE_MAX_OUTPUT_TOKENS = 1500
+# Long enough to wait out Groq's per-minute token window: a call reserves about 2,500 of 8,000 a minute.
+# At the default 20 s, calls gave up instead of waiting (s6-judge-calibration-attempt1.txt).
+JUDGE_BUDGET_S = 180.0
 VERDICTS = ("supported", "partly", "unsupported")
 PARTS = ("answered", "said_not_found", "missing")
 COMPLETENESS = ("complete", "partial_says_so", "silent_partial")
@@ -177,7 +180,7 @@ def judge_answer(question: str, answer: str, sources: list[dict], provider, *, r
     why = None
     for _ in range(2):
         tag = secrets.token_hex(6)
-        g = provider.generate(SYSTEM_PROMPT.format(tag=tag), build_prompt(question, answer, sources, tag))
+        g = provider.generate(SYSTEM_PROMPT.format(tag=tag), build_prompt(question, answer, sources, tag), budget_s=JUDGE_BUDGET_S)
         verdict.attempts += 1
         verdict.tokens_in += g.input_tokens or 0
         verdict.tokens_out += g.output_tokens or 0

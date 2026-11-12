@@ -146,9 +146,18 @@ def run(n: int) -> None:
     spent = sum(v["tokens_in"] + v["tokens_out"] for m in (1, 2) if run_path(m).exists() and m != n
                 for v in json.loads(run_path(m).read_text(encoding="utf-8")).values())
     items = [("claim", c) for c in data["claims"]] + [("answer", a) for a in data["answers"]]
-    for kind, item in items:
-        if item["id"] in state and state[item["id"]].get("label") is not None:
-            continue
+    # Up to three passes: a call the provider refused is asked again; a reply the judge got wrong is not.
+    for _ in range(3):
+        todo = [(kind, item) for kind, item in items
+                if item["id"] not in state or (state[item["id"]].get("no_verdict") or "").startswith("provider")]
+        if not todo or spent > DAY_TOKENS:
+            break
+        spent = judge_items(todo, state, provider, path, n, spent)
+    print(f"run {n}: {sum(1 for v in state.values() if v['label'] is not None)} of {len(items)} with a verdict; tokens {spent}")
+
+
+def judge_items(todo, state, provider, path, n, spent):
+    for kind, item in todo:
         if spent > DAY_TOKENS:
             print("stopping before the day's tokens run out; run again to resume")
             break
@@ -159,7 +168,7 @@ def run(n: int) -> None:
                              "no_verdict": v.no_verdict, "attempts": v.attempts, "tokens_in": v.tokens_in, "tokens_out": v.tokens_out}
         path.write_text(json.dumps(state, indent=1, ensure_ascii=False), encoding="utf-8")
         print(f"{item['id']}: {state[item['id']]['label']} ({v.attempts} attempt{'s' if v.attempts > 1 else ''})", flush=True)
-    print(f"run {n}: {len(state)} of {len(items)} saved; tokens this pass {spent}")
+    return spent
 
 
 def fmt(f) -> str:
