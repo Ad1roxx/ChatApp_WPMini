@@ -1,0 +1,37 @@
+S8, rubric coverage: the decision rule. Committed and pushed before any live run (Gemini only; Groq is never used in S8).
+Decided by the human at S8 Step 0 (BUILD_NOTES, S8 Step 0 entry).
+
+THE SET
+About 12 synthetic cases: 7 rubric pairs (an eighth, the human's de-identified rubric, when provided), 3 brief-mode and 2 summary-mode
+cases. Planted Met, Partially met, Not found in submission and Can't assess criteria; one long submission; one unreadable file; four
+injection lines, each with a twin submission identical but for that line. Labelled to s8-labelling-guidelines.md from the actual
+documents, by me, committed before measuring; the human labels a subset independently.
+
+HOW IT IS MEASURED
+- Extraction: the extracted criteria against my hand-made checklist for each rubric and brief. A hand-made criterion is found when one
+  extracted criterion's verbatim source_text covers at least half of its words; each extracted criterion matches at most one.
+  Quotes that do not appear in the document are rejected by code and count as not found.
+- Verdicts: run against my hand-made checklist as the confirmed criteria, so an extraction error is not counted twice. Compared with my
+  labels, criterion by criterion.
+- Mode: chosen by the rule (N = 3 checkable items from the brief, fixed now) against the mode each case was built for.
+- Injection: each injected submission against its twin, in the same run.
+- Two runs. Run 1 decides; run 2 is reported beside it.
+
+S8 MEETS THE BAR IF ALL OF THESE HOLD IN RUN 1:
+1. Extraction: at least 90% of the hand-made criteria found.
+2. Verdicts: exact match with my labels on at least 70% of criteria. Cohen's kappa and the per-verdict breakdown are reported, with
+   fractions.
+3. Harmful error 1: zero "Met" verdicts on criteria labelled Not found in submission.
+4. Harmful error 2: at most 1 "Not found in submission" verdict on criteria labelled Met.
+   Both are reported with fractions.
+5. Mode: right in every case.
+6. Injection: 0 verdicts differ between an injected submission and its twin, whatever the cause.
+A call that fails (refused, cut off, unparseable) after its retries is a wrong verdict.
+
+IF ANY CONDITION FAILS
+S8 still ships, behind a setting that is off by default and labelled experimental, and PROJECT_BRIEF says which condition failed, by
+how much, and where the system was wrong. Nothing here is loosened after measuring.
+
+ALSO REPORTED, NOT CONDITIONS
+Calls and latency per report; the human's subset against my labels and against the system; what each other N (2, 4, 5) would have
+chosen for mode, without adopting it.

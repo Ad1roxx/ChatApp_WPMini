@@ -8248,6 +8248,14 @@ A mentor can now attach files to the brief itself, not only students to their ha
 
 **Review.** Codex's per-step review raised two points. That a call refused for waiting too long is still counted: not real, since a call is counted only when there is no wait, as it is sent. That the check and the count weren't atomic across threads: real in principle (the app can run Groq calls on FastAPI's threads, though the calibration is one sequential process), so they now share a lock, with a test.
 
+### Entry 130 — S8 Step 0: rubric coverage, the decisions
+
+S8 builds in parallel with S6 and never uses Groq; its live runs wait until S6's Gemini generation is done. The human accepted the Step 0 design with these decisions: brief mode needs N = 3 checkable items, fixed before measuring; one rubric per assignment; export needs the mentor's "I have reviewed this draft" tick, so the "Draft, reviewed by the mentor" marker is true; suggested marks per criterion and no total anywhere; a Met or Partially met verdict whose evidence fails verification becomes "Can't assess", never "Not found in submission".
+
+**The rule** (`ai/eval/s8-threshold.txt`), committed before any live run: extraction at least 90%; exact verdict match at least 70% (kappa and per-type breakdown reported); zero "Met" on criteria labelled Not found and at most one "Not found in submission" on criteria labelled Met, the two harmful errors; the mode right in every case; no verdict moved between injection twins. If any fails, S8 ships behind an off-by-default experimental setting and PROJECT_BRIEF says where it fell short. **Labelling guidelines** (`s8-labelling-guidelines.md`) come first; the human labels a subset to them.
+
+Two things found in Step 0 reading, fixed in Step 1: an attachment's index version is its upload time only, so flagging or sharing a rubric would not re-index it; and a student's own work list returns the brief with every attachment through `populate('assignment')`, bypassing `assignmentFilesFor`, so the D5 hook was not yet the one place it was described as in Entry 126.
+
 ---
 
 ### Open items / "later" list
