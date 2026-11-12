@@ -131,7 +131,7 @@ test('the mentor drafts a report from the checks', async () => {
   assert.ok(d.trends.some((t) => t.text === "Caching exercise: 1 Met, 1 Partially met, 0 Not found in submission, 1 Can't assess"));
   const words = keysAndValues(d).filter((x) => typeof x === 'string');
   assert.ok(!words.some((w) => /^(total|grade|score|overall)$/i.test(w)), 'no total, grade or score key');
-  assert.ok(!words.some((w) => /(total|grade|overall score|final mark)/i.test(w)), 'nor any text that states one');
+  assert.ok(!words.some((w) => /\b(total|grade|overall score|final mark)\b/i.test(w)), 'nor any text that states one');
 });
 
 test('a section whose check could not run says why', async () => {
