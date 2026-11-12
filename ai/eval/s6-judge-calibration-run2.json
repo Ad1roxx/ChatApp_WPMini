@@ -1150,174 +1150,457 @@
   "tokens_out": 229
  },
  "c56": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "You wrote that write-through keeps the cache consistent at the cost of more misses.",
+    "claim": "The notes said that write-through keeps the cache consistent but causes more cache misses.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did I write in my notes on caching trade-offs?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 871,
+  "tokens_out": 257
  },
  "c57": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The interview question bank contains every message in this mentorship.",
+    "claim": "The interview question bank includes all messages from the mentorship.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is in the interview question bank I saved?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 815,
+  "tokens_out": 196
  },
  "c58": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Your learning log says your mentor has agreed you can skip the next assignment.",
+    "claim": "The learning log states that the mentor agreed the user can skip the next assignment.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did my learning log say about preparing the talk in week five?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 990,
+  "tokens_out": 324
  },
  "c59": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Raising the connection pool to fifty brought the p95 down to 390 ms and the errors to zero.",
+    "claim": "Increasing the connection pool size to fifty reduced the p95 latency to 390 ms and eliminated errors.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Effect of raising connection pool to fifty on the 200-user step",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 929,
+  "tokens_out": 211
  },
  "c60": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Redis is the right answer at scale.",
+    "claim": "Redis is the right answer at scale.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Should I use Redis for the cache?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 917,
+  "tokens_out": 181
  },
  "k01": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "At one hundred users, the p95 more than doubles [1].",
+    "claim": "At 100 virtual users, the p95 latency more than doubles compared to lower loads.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "p95 latency value at 100 virtual users",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 887,
+  "tokens_out": 239
  },
  "k02": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "partial_says_so",
+  "claims": [
+   {
+    "quote": "The post on cache invalidation mentions that the part about write-through versus write-around is what finally made the second assignment click [1].",
+    "claim": "The post on cache invalidation states that the part about write-through versus write-around made the second assignment click for the author.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "The sources do not contain any further explanation of what write-through versus write-around actually means in that article.",
+    "claim": "The sources provide no additional explanation of what write-through versus write-around means.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did the article about write-through versus write-around explain?",
+    "status": "said_not_found"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 835,
+  "tokens_out": 405
  },
  "k03": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "A message is attempted five times in total before it is moved to a dead-letter queue named payments-dlq [1].",
+    "claim": "The webhook handler attempts a message five times before moving it to a dead-letter queue called payments-dlq.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Number of attempts before giving up",
+    "status": "answered"
+   },
+   {
+    "part": "Destination of the message after giving up",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 873,
+  "tokens_out": 238
  },
  "k04": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "The access token expires after fifteen minutes [1][2].",
+    "claim": "The access token expires after fifteen minutes.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "The refresh token lives for fourteen days [1].",
+    "claim": "The refresh token lives for fourteen days.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "access token duration",
+    "status": "answered"
+   },
+   {
+    "part": "refresh token duration",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 973,
+  "tokens_out": 245
  },
  "k05": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "For week five, you are preparing your ten-minute talk on observability",
+    "claim": "In week five, the person is preparing a ten-minute talk on observability",
+    "verdict": "supported"
+   },
+   {
+    "quote": "need to cut two minutes from your rehearsal time, as it currently runs twelve minutes",
+    "claim": "The rehearsal currently runs twelve minutes and two minutes need to be cut",
+    "verdict": "supported"
+   },
+   {
+    "quote": "You noted that the slide on tracing is the likeliest to be cut short",
+    "claim": "The slide on tracing is the most likely to be shortened",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What should I focus on next?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
   "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "tokens_in": 2126,
+  "tokens_out": 934
  },
  "k06": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "Processed event ids are kept for three days [1].",
+    "claim": "Processed event ids are retained for three days.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "This is long enough because the provider stops redelivering after seventy-two hours, meaning an older duplicate cannot arrive [1].",
+    "claim": "The three‑day retention period is sufficient because the provider stops redelivering events after seventy‑two hours, so no older duplicate will arrive.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How long are processed event ids kept",
+    "status": "answered"
+   },
+   {
+    "part": "Why is that long enough",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 881,
+  "tokens_out": 309
  },
  "k07": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "An attacker with cross-site scripting can read local storage where an access token is stored, and a stolen access token is as good as a session until it expires [2].",
+    "claim": "An XSS attacker can read the access token from local storage, and a stolen token can be used like a session until it expires.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What can an attacker with XSS do to my tokens?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 868,
+  "tokens_out": 259
  },
  "k08": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "You use the event id that the provider puts on every delivery as a key [4].",
+    "claim": "The event id provided on each delivery is used as a key.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "Before charging, your handler inserts this event id into a processed_events collection with a unique constraint, and if the insert fails because the id is already present, the charge is skipped [4].",
+    "claim": "The handler inserts the event id into a processed_events collection that has a unique constraint; if the insert fails because the id already exists, the charge is not performed.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "Furthermore, the handler stores the response status alongside the event id and returns it again for a duplicate [3].",
+    "claim": "The handler stores the response status together with the event id and returns the same response for duplicate events.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What prevents a redelivered webhook event from charging the customer again?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1043,
+  "tokens_out": 483
  },
  "k09": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "You can start with EXPLAIN on every query to spot a collection scan [1].",
+    "claim": "You can use EXPLAIN on every query to identify a collection scan.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "The sources do not contain what a collection scan is.",
+    "claim": "The provided sources do not define what a collection scan is.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "definition of a collection scan",
+    "status": "missing"
+   },
+   {
+    "part": "how to spot a collection scan",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 930,
+  "tokens_out": 392
  },
  "k10": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "If a client asks for more than one hundred bookings, the request is clamped to one hundred rather than rejected",
+    "claim": "Requests for more than 100 bookings are limited to 100 instead of being rejected",
+    "verdict": "supported"
+   },
+   {
+    "quote": "The response also indicates how many bookings it actually returned, ensuring a client asking for five hundred still receives a useful answer",
+    "claim": "The response tells how many bookings were actually returned, so even a request for 500 bookings gets a useful answer",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What happens if a client asks for 500 bookings in one page?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 867,
+  "tokens_out": 301
  },
  "k11": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "You are still unsure about refresh token rotation in your design document [1][2].",
+    "claim": "The author is still unsure about refresh token rotation in the design document.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "Specifically, nobody on the project has decided whether to add a short grace window on the previous token to fix the issue where a client losing a refresh response gets logged out, which would weaken replay detection by that window [2].",
+    "claim": "No one on the project has decided to add a short grace window on the previous token to address logout caused by a lost refresh response, even though it would weaken replay detection during that window.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is still undecided about refresh token rotation?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 954,
+  "tokens_out": 442
  },
  "k12": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "The lookup fix reduced the number of queries from forty one down to two [1][2].",
+    "claim": "The lookup fix reduced the number of queries from 41 to 2.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Number of queries saved by the lookup fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 984,
+  "tokens_out": 257
  },
  "k13": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "A message is attempted five times in total [1].",
+    "claim": "The webhook handler attempts a message five times before giving up.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Number of attempts before giving up",
+    "status": "answered"
+   },
+   {
+    "part": "Where the message goes after giving up",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 871,
+  "tokens_out": 198
  },
  "k14": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "The access token expires after fifteen minutes [1].",
+    "claim": "The access token expires after fifteen minutes.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How long does the access token last?",
+    "status": "answered"
+   },
+   {
+    "part": "How long does the refresh token last?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 975,
+  "tokens_out": 197
  }
 }
