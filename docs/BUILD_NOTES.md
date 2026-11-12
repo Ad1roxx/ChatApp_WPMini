@@ -8186,6 +8186,12 @@ The human's decision: calibrate judge-v2 on both `openai/gpt-oss-120b` and `qwen
 
 **The rule** (`s6-judge2-threshold.txt`): the same seven conditions, completeness scaled to at least 8 of 10, applied to each model separately. Committed with the set and labels before any judge sees the set.
 
+**The harness** (`calibrate_judge.py --set 2 --model … --run n`, `--set 2 --report`) reads the human subset and the planted lines' directions from the set, counts each model's tokens against its own quota, and applies the decision in one pure function. Set 1's report still reproduces as committed. Before any run, one real qwen call on invented text: a valid verdict at `low` with the strict schema, 864 tokens in and 301 out.
+
+**Mutation checks**, in the worktree: 13 mutants on judge-v2 and the harness. The first run caught 8. The five that survived showed real gaps: a v2 line could be reworded, the pinned effort could be dropped (the environment test could not see it), kappa rounding and set 2's completeness bar were untested. Tests were added for each; all 13 are now caught.
+
+**Review.** Codex's one finding (qwen might reject `low`) misquoted the rule, which says qwen's `none` was not chosen; Groq's page lists `low`, and the real call above confirmed it. No change.
+
 ---
 
 ### Open items / "later" list
