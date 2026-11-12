@@ -380,3 +380,18 @@ def chunk_sections(
             )
 
     return chunks
+
+
+def file_sections(chunks: list[dict]) -> list[dict]:
+    """A file's chunks, in order, grouped back into its sections.
+
+    Chunks of one section overlap a little; the overlap is kept rather than
+    guessed at, because a summary is not hurt by a repeated sentence. Used by
+    the Copilot's file summary (agent.py) and S8's criteria extraction (criteria.py).
+    """
+    sections: dict[int, dict] = {}
+    for c in sorted(chunks, key=lambda c: c.get("chunkIndex", 0)):
+        index = c.get("sectionIndex") or 0
+        entry = sections.setdefault(index, {"index": index, "heading": c.get("heading") or "", "parts": []})
+        entry["parts"].append(c.get("content", ""))
+    return [{**v, "text": "\n".join(v["parts"])} for _, v in sorted(sections.items())]

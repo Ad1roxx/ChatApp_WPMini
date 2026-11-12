@@ -46,6 +46,8 @@ const Feedback = require('./models/Feedback');
 const Resource = require('./models/Resource');
 const Assignment = require('./models/Assignment');
 const Submission = require('./models/Submission');
+const CriteriaSet = require('./models/CriteriaSet');
+const criteriaRules = require('./lib/criteria');
 const fileStore = require('./lib/fileStore');
 // Tells the retrieval service which record changed - after the write, never
 // awaited, never able to fail the request. See lib/indexSync.js.
@@ -3264,6 +3266,7 @@ app.delete('/api/assignments/:id', requireAuth, async (req, res) => {
     }
 
     await Submission.deleteMany({ assignment: assignment._id });
+    await CriteriaSet.deleteMany({ assignment: assignment._id });
     await assignment.deleteOne();
 
     // The brief and every hand-in, each by name. The assignment's own sync
@@ -3798,6 +3801,184 @@ app.patch('/api/assignments/:id/files/:fileId', requireAuth, async (req, res) =>
     res.json({ attachments: assignment.attachments });
   } catch (err) {
     console.error('Error changing a brief file\'s rubric flag:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
+// RUBRIC COVERAGE (S8): criteria, proposed then confirmed
+// ============================================
+
+/**
+ * How long Express waits for the AI service to extract a rubric's criteria:
+ * one Gemini call per window of the document, paced under the provider's limit.
+ */
+const COVERAGE_EXTRACT_TIMEOUT_MS = Number(process.env.COVERAGE_EXTRACT_TIMEOUT_MS) || 180000;
+
+/** One criteria set as the mentor's screen wants it. */
+function criteriaSetView(set) {
+  const s = set.toObject ? set.toObject() : set;
+  return {
+    id: String(s._id),
+    source: s.source,
+    extracted: s.extracted,
+    versions: s.versions,
+    latest: s.versions.length ? s.versions[s.versions.length - 1] : null
+  };
+}
+
+/**
+ * POST /api/assignments/:id/criteria/extract — the mentor who set the
+ * assignment asks for its rubric's criteria to be proposed (S8 Step 2).
+ *
+ * Only that mentor (loadOwnAssignment). The rubric is read in the AI service
+ * as that mentor, in one of their own active mentorships the work was set
+ * for, through the index's gated read; Express names the file, and the
+ * service can read nothing that mentor could not find. Extracting again
+ * replaces the proposal and never touches a confirmed version.
+ */
+app.post('/api/assignments/:id/criteria/extract', requireAuth, async (req, res) => {
+  try {
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+    const { assignment } = own;
+    const rubric = assignment.attachments.find((f) => f.rubric && f.rubric.isRubric);
+    if (!rubric) {
+      return res.status(400).json({ error: 'Mark one of the brief\'s files as the rubric first' });
+    }
+    if (!AI_SERVICE_URL || !AI_SERVICE_SECRET) {
+      return res.status(503).json({ error: 'Rubric checks are not configured on this server' });
+    }
+    const mentorship = await Mentorship.findOne({
+      _id: { $in: assignment.mentorships },
+      mentor: req.authUser._id,
+      status: 'active'
+    }).select('_id');
+    if (!mentorship) {
+      return res.status(409).json({ error: 'This work is not set in any active mentorship of yours' });
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), COVERAGE_EXTRACT_TIMEOUT_MS);
+    let upstream;
+    let body;
+    try {
+      upstream = await fetch(`${AI_SERVICE_URL}/criteria/extract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-AI-Secret': AI_SERVICE_SECRET },
+        body: JSON.stringify({
+          mentorshipId: String(mentorship._id),
+          // From the verified identity, never the request body.
+          viewerId: String(req.authUser._id),
+          fileId: String(rubric.fileId)
+        }),
+        signal: controller.signal
+      });
+      body = await upstream.json().catch(() => null);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (upstream.status === 404) {
+      return res.status(409).json({
+        error: 'No text could be read from the rubric yet. Try again in a minute; a scan with no text layer cannot be read.'
+      });
+    }
+    if (!upstream.ok || !body || !Array.isArray(body.criteria)) {
+      if ([429, 502, 503].includes(upstream.status) && typeof body?.message === 'string') {
+        return res.status(upstream.status).json({ error: body.message });
+      }
+      console.error('Criteria extraction answered', upstream.status);
+      return res.status(502).json({ error: 'The rubric could not be read' });
+    }
+
+    // Each extraction's ids are its own (`x<stamp>-c1`), so a screen still
+    // holding an earlier extraction cannot confirm `c1` against a different
+    // quote: an id from a replaced extraction is simply not in the checklist.
+    const stamp = `x${Date.now().toString(36)}`;
+    const proposed = body.criteria.map((c) => ({ ...c, id: `${stamp}-${c.id}` }));
+
+    const set = await CriteriaSet.findOneAndUpdate(
+      { assignment: assignment._id, 'source.kind': 'rubric', 'source.fileId': rubric.fileId },
+      {
+        $setOnInsert: { assignment: assignment._id, mentor: req.authUser._id },
+        $set: {
+          'source.kind': 'rubric',
+          'source.fileId': rubric.fileId,
+          'source.fileName': rubric.name,
+          extracted: {
+            at: new Date(),
+            promptVersion: String(body.promptVersion || ''),
+            criteria: proposed,
+            rejected: body.rejected || [],
+            notRead: body.notRead || []
+          }
+        }
+      },
+      { new: true, upsert: true, runValidators: true }
+    );
+    res.json(criteriaSetView(set));
+  } catch (err) {
+    console.error('Error extracting criteria:', err.name === 'AbortError' ? 'timed out' : err);
+    res.status(502).json({ error: 'The rubric could not be read' });
+  }
+});
+
+/** GET /api/assignments/:id/criteria — the mentor who set it: every checklist, proposed and confirmed. */
+app.get('/api/assignments/:id/criteria', requireAuth, async (req, res) => {
+  try {
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+    const sets = await CriteriaSet.find({ assignment: own.assignment._id }).sort({ createdAt: 1 });
+    res.json({ sets: sets.map(criteriaSetView) });
+  } catch (err) {
+    console.error('Error listing criteria:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/assignments/:id/criteria/:setId/confirm — the mentor confirms a
+ * checklist: edited, merged, deleted or added to. Appends version n+1 and
+ * changes nothing else (D6); see lib/criteria.js for what is taken from the
+ * client and what is not. The append is conditional on version n+1 not
+ * existing yet, so two confirmations at once cannot both become n+1.
+ */
+app.post('/api/assignments/:id/criteria/:setId/confirm', requireAuth, async (req, res) => {
+  try {
+    const own = await loadOwnAssignment(req.params.id, req.authUser);
+    if (own.error) {
+      return res.status(own.status).json({ error: own.error });
+    }
+    if (!mongoose.isValidObjectId(req.params.setId)) {
+      return res.status(404).json({ error: 'Checklist not found' });
+    }
+    const set = await CriteriaSet.findOne({ _id: req.params.setId, assignment: own.assignment._id });
+    if (!set) {
+      return res.status(404).json({ error: 'Checklist not found' });
+    }
+    const built = criteriaRules.nextVersion(set, (req.body || {}).criteria);
+    if (built.error) {
+      return res.status(400).json({ error: built.error });
+    }
+
+    const n = set.versions.length + 1;
+    const version = { n, confirmedAt: new Date(), by: req.authUser._id, criteria: built.criteria };
+    const done = await CriteriaSet.updateOne(
+      { _id: set._id, [`versions.${n - 1}`]: { $exists: false } },
+      { $push: { versions: version } },
+      { runValidators: true }
+    );
+    if (done.modifiedCount !== 1) {
+      return res.status(409).json({ error: 'This checklist was confirmed in the meantime. Reload and try again.' });
+    }
+    res.status(201).json(criteriaSetView(await CriteriaSet.findById(set._id)));
+  } catch (err) {
+    console.error('Error confirming criteria:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

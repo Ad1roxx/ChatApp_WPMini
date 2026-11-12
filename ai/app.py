@@ -374,3 +374,52 @@ def agent_resume(body: ResumeRequest) -> JSONResponse:
     if agent is None:
         return JSONResponse(status_code=503, content={"status": "error", "message": AGENT_NOT_CONFIGURED})
     return JSONResponse(content=agent.resume_turn(body.threadId, body.decision))
+
+
+# ---------------------------------------------------------------------------
+# Rubric coverage (S8)
+# ---------------------------------------------------------------------------
+# Gemini, whatever AI_LLM_PROVIDER says: S8 never spends S6's Groq quota.
+import criteria  # noqa: E402
+from chunking import file_sections  # noqa: E402
+
+coverage_llm = criteria.coverage_provider()
+COVERAGE_NOT_CONFIGURED = "Rubric checks are not configured on this server."
+
+
+class CriteriaRequest(BaseModel):
+    """Extract the criteria of one rubric file, read as the mentor who set it.
+
+    Express sends this only after its own check that `viewerId` set the
+    assignment the file is on and that the file is its rubric. The file is read
+    through the index's two gates (mentorship and viewer in the query, then the
+    read-time check), as the Copilot's file summary is, so this route can read
+    nothing that viewer could not find. Extra fields are refused.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    mentorshipId: str = Field(pattern=_OBJECT_ID)
+    viewerId: str = Field(pattern=_OBJECT_ID)
+    fileId: str = Field(pattern=_OBJECT_ID)
+
+
+@app.post("/criteria/extract", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def extract_criteria(body: CriteriaRequest) -> JSONResponse:
+    """200 with the proposed criteria (none assessed, none confirmed); 404 when
+    the viewer can read no text of that file; 503 off the synthetic databases
+    (the same rule as the agent: student work is not sent to a provider from
+    any other database); the provider's status if no part could be read."""
+    log = logging.getLogger("copilot.criteria")
+    problem = database_problem()
+    if problem:
+        log.warning("criteria refused: %s", problem)
+        return JSONResponse(status_code=503, content={"status": "error", "message": COVERAGE_NOT_CONFIGURED})
+    chunks = store.file_chunks(body.mentorshipId, body.viewerId, body.fileId)
+    if not chunks:
+        return JSONResponse(status_code=404, content={"status": "unreadable",
+                                                      "message": "No text could be read from that file yet."})
+    with obslog.turn("/criteria/extract"):
+        result = criteria.extract(file_sections(chunks), coverage_llm)
+    if not result["criteria"] and result["notRead"] and not result["rejected"]:
+        return JSONResponse(status_code=502, content={"status": "error", "message": PLAIN[FAILED], **result})
+    return JSONResponse(content={"status": "ok", **result})

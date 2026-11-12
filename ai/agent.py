@@ -76,6 +76,7 @@ from config import (
     SERVICE_SECRET,
 )
 import obslog
+from chunking import file_sections
 from extract import has_unread
 from providers import FAILED, MIN_CALL_S, PLAIN, Generation, estimate_tokens, log_call
 
@@ -545,20 +546,6 @@ def coverage(covered: int, total: int, name: str) -> str:
     """'I covered sections 1–N of M in <file>.' The file name is the person's text, shown as text."""
     span = f"sections 1–{covered}" if covered > 1 else "section 1"
     return f"I covered {span} of {total} in {name}."
-
-
-def file_sections(chunks: list[dict]) -> list[dict]:
-    """A file's chunks, in order, grouped back into its sections.
-
-    Chunks of one section overlap a little; the overlap is kept rather than
-    guessed at, because a summary is not hurt by a repeated sentence.
-    """
-    sections: dict[int, dict] = {}
-    for c in sorted(chunks, key=lambda c: c.get("chunkIndex", 0)):
-        index = c.get("sectionIndex") or 0
-        entry = sections.setdefault(index, {"index": index, "heading": c.get("heading") or "", "parts": []})
-        entry["parts"].append(c.get("content", ""))
-    return [{**v, "text": "\n".join(v["parts"])} for _, v in sorted(sections.items())]
 
 
 @dataclass

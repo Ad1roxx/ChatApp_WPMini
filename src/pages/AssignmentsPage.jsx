@@ -32,6 +32,7 @@ import { useToast } from '../components/Toast';
 import { ClipboardIcon } from '../components/Icons';
 import SubmissionRow from '../components/SubmissionRow';
 import AssignmentFiles from '../components/AssignmentFiles';
+import CriteriaPanel from '../components/CriteriaPanel';
 import PendingFiles from '../components/PendingFiles';
 import { uploadBriefFiles } from '../lib/attachments';
 import { canMentor } from '../lib/roles';
@@ -529,6 +530,7 @@ export default function AssignmentsPage() {
                                 initial={detail.attachments || []}
                                 canEdit
                               />
+                              <CriteriaPanel assignmentId={a._id} />
                               <ul className={styles.list}>
                                 {detail.submissions.map((sub) => (
                                   <SubmissionRow
