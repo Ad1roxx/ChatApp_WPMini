@@ -104,6 +104,20 @@ test('only the mentor who set the assignment can check a hand-in', async (t) => 
   await t.test('and the AI service was never asked', () => assert.deepEqual(received, []));
 });
 
+test('the mentorship’s mentor who did not set the assignment cannot check it either', async () => {
+  // Never true through the routes (an assignment is only set in its setter's own mentorships), so made
+  // directly in the database: the setter check is its own guard, not only the mentorship's.
+  const { db, mongoose } = require('./helpers/harness');
+  const { a, sub, set } = await scene('Not the setter');
+  await db().collection('assignments').updateOne(
+    { _id: new mongoose.Types.ObjectId(String(a._id)) },
+    { $set: { mentor: new mongoose.Types.ObjectId(USERS.admin._id) } }
+  );
+  received = [];
+  assert.equal((await check(USERS.mentor, sub, set.id)).status, 403);
+  assert.deepEqual(received, []);
+});
+
 test('nothing is assessed until the checklist is confirmed', async () => {
   const { sub, set } = await scene('Unconfirmed', { confirmed: false });
   received = [];
