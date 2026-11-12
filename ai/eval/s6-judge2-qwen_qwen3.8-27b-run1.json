@@ -910,5 +910,269 @@
   "attempts": 1,
   "tokens_in": 927,
   "tokens_out": 383
+ },
+ "c38": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "An N+1 query issue occurred in the comments loader",
+    "quote": "An N+1 query issue occurred in the comments loader",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The system issued one query for the posts",
+    "quote": "the system issued one query for the posts",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Then one query per post for its author",
+    "quote": "then one query per post for its author",
+    "verdict": "supported"
+   },
+   {
+    "claim": "This resulted in forty-one queries for a page of forty posts",
+    "quote": "resulting in forty-one queries for a page of forty posts",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is an N+1 query",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1033,
+  "tokens_out": 990
+ },
+ "c39": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "Renaming a product leaves old orders unchanged",
+    "quote": "Renaming a product leaves old orders unchanged",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason is that each order stores a snapshot of the product's name at purchase",
+    "quote": "because each order stores a snapshot of the product's name at purchase",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why it is acceptable that renaming a product leaves old orders unchanged",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1184,
+  "tokens_out": 679
+ },
+ "c40": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The shortener answers with a 302",
+    "quote": "The shortener answers with a 302",
+    "verdict": "supported"
+   },
+   {
+    "claim": "A 301 would be cached by the database",
+    "quote": "a 301 would be cached by the database",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The clicks would never be counted",
+    "quote": "the clicks would never be counted",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why 302 instead of 301",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1172,
+  "tokens_out": 620
+ },
+ "c41": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The coordinator is asked for a new block only once per thousand links.",
+    "quote": "The coordinator is asked for a new block only once per thousand links.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How short codes are generated without checking the database first",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1134,
+  "tokens_out": 409
+ },
+ "c42": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "After the fix, the comments page issued one query",
+    "quote": "After the fix, the comments page issued one query",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "Before the fix, the comments page issued forty-one queries",
+    "quote": "instead of forty-one",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Number of queries after the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 893,
+  "tokens_out": 397
+ },
+ "c43": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "You must use an in-process cache rather than Redis.",
+    "quote": "You must use an in-process cache rather than Redis.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What to build for the caching assignment",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 935,
+  "tokens_out": 467
+ },
+ "c44": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: failed",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c45": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "There is an unsolved case in the webhook design.",
+    "quote": "An unsolved case is when the handler charges the customer and then crashes before recording the event id",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The unsolved case involves the handler charging the customer and then crashing before recording the event id.",
+    "quote": "when the handler charges the customer and then crashes before recording the event id",
+    "verdict": "supported"
+   },
+   {
+    "claim": "This causes a redelivery to find no record and charge again.",
+    "quote": "which causes a redelivery to find no record and charge again",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify the unsolved failure case in the webhook design",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 932,
+  "tokens_out": 365
+ },
+ "c46": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "Before the fix, fifty simultaneous booking requests for the same slot produced three bookings on most runs",
+    "quote": "Before the fix, fifty simultaneous booking requests for the same slot produced three bookings on most runs",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Before the fix, fifty simultaneous booking requests for the same slot never produced fewer than three bookings",
+    "quote": "and never fewer than three",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many bookings fifty simultaneous requests created before the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 901,
+  "tokens_out": 370
+ },
+ "c47": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "All three queries improved",
+    "quote": "all three queries improved",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The compound index on status and created date is the one to keep",
+    "quote": "the compound index on status and created date is the one to keep",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the report concluded should be kept",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 940,
+  "tokens_out": 327
+ },
+ "c48": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The unsolved failure case is a crash after charging the customer and before the event id is recorded.",
+    "quote": "The unsolved case is a crash after charging the customer and before the event id is recorded.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify the unsolved failure case in the webhook design",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 958,
+  "tokens_out": 350
  }
 }
