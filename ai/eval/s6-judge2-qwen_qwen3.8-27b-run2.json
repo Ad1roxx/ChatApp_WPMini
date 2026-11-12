@@ -499,5 +499,103 @@
   "attempts": 2,
   "tokens_in": 0,
   "tokens_out": 0
+ },
+ "c46": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c47": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c48": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "There is an unsolved failure case in the webhook design.",
+    "quote": "The unsolved case is a crash after charging the customer and before the event id is recorded.",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The unsolved case involves a crash.",
+    "quote": "The unsolved case is a crash after charging the customer and before the event id is recorded.",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The crash occurs after charging the customer.",
+    "quote": "The unsolved case is a crash after charging the customer and before the event id is recorded.",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The crash occurs before the event id is recorded.",
+    "quote": "The unsolved case is a crash after charging the customer and before the event id is recorded.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify the unsolved failure case",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 934,
+  "tokens_out": 440
+ },
+ "c49": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c50": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c51": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c52": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k01": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
  }
 }
