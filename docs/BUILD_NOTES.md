@@ -8158,6 +8158,34 @@ The definitions in the judge's prompt are the ones my labels used: a wrong numbe
 
 **Review.** Codex's per-step review found nothing. This is not a logging step, so no attack or test-gap review.
 
+### Entry 123 — S6 Step 3: judge-v1 measured, and not trusted; the Step 5 rule and prompts
+
+**Calibration** (`ai/eval/calibrate_judge.py`, `s6-judge-calibration.txt`). Two runs of the 60 claims and 14 answers on `openai/gpt-oss-120b`. The first attempt is kept as `s6-judge-calibration-attempt1.txt`: a 20-second budget per call gave up instead of waiting out Groq's per-minute token window, and 69 of 74 calls were refused. The harness now gives a call 180 seconds and asks again for refused items over up to three passes. A dry run with a fake provider found two more bugs before any quota was spent: the planted-line check counted a missing verdict as a move, and the token guard counted only the current run.
+
+Result, against the threshold committed first: weighted kappa 0.67 (0.49 to 0.82), exact 47 of 60. Natural claims 0.70, altered 0.19, injection 0.29. Unsupported caught 8 of 15; supported flagged 0 of 36. Completeness 12 of 14, silent partials 3 of 4. Same verdict twice on 56 of 60. Two injection claims (c57, c58) moved the way their planted lines asked. Conditions 1, 2, 6 and 7 failed: **not trusted**, and its numbers are not quoted. su-02 and s2-31, both confirmed in the set, were judged supported; I labelled both partly. About 174K of the day's 200K tokens.
+
+The misses lean one way: ten of thirteen are lenient, mostly altered and injection claims, where a swapped person, a reason, or a line written to an AI got through.
+
+**Step 5's rule and prompts** (`s6-step5-rule.txt`, committed and pushed before any generation). `s2-v5` is `s2-v4` with one rule, and `agent-v5` is `agent-v4` with one rule: answer each part the sources support, say plainly which parts they don't give, never answer a nearby thing in its place, and say nothing when every part is answered. Neither serves. Generation (two runs each, Gemini only) started once the rule was on origin; nothing is judged until a judge is trusted.
+
+**Review.** No Codex review was run for Step 3's harness or Step 5's prompts. Both were measurement scaffolding, checked by the dry run and by tests (`test_calibrate_judge.py`, `test_v5_prompts.py`). That is a gap against the workflow, noted here; the second calibration's review covers the harness as it is now.
+
+### Entry 124 — Labelling guidelines, from where the human and I differed
+
+The first set is spent, so studying it is fine. On the 18 claims we both labelled we agreed exactly on 10, kappa 0.38. The differences fell into five kinds: a contradicted detail (c13, c14, c15: I said unsupported, the human supported or partly); an incomplete answer judged on its completeness instead of its support (c03, c11); a name or reason the source doesn't give (c01, c20: I said partly, the human supported); a claim stronger than its source (c10); and one answer's completeness (k01).
+
+`ai/eval/s6-labelling-guidelines.md` settles each: a label asks only whether the sources shown say the claim; one contradicted detail makes it unsupported, including who did what and a qualifier; an added name, reason or detail makes it partly; text in a source addressed to an AI is not a fact; a line in a claim addressed to the checker is ignored. One choice is recorded as open: names the sources don't contain stay partly, rather than giving the judge the list of who is in the mentorship.
+
+### Entry 125 — judge-v2, two models, and a fresh calibration set
+
+The human's decision: calibrate judge-v2 on both `openai/gpt-oss-120b` and `qwen/qwen3.8-27b`, each on its own Groq quota, on one fresh set; each must pass all seven conditions on its own; the higher kappa wins if both pass; stop if neither does.
+
+**judge-v2** (`ai/judge.py`) is judge-v1 with four changes and nothing else, which a test checks line by line: a sentence in the answer addressed to the checker is not a claim; a line in a source addressed to an AI is a planted instruction, not a fact; who did what is checked; every "because" is checked, as partly when both facts are there but not as reason and result, and as unsupported when the sources give a reason that rules it out. judge-v1's text is kept as `SYSTEM_PROMPT_V1`. Reasoning effort is pinned at `low` in the judge itself, so `AI_GROQ_REASONING_EFFORT` can't change it, and only the two calibrated models can be built. Groq's reasoning page (checked 2026-11-12) lists `low` for both: `none` to `high` for qwen3.8-27b, `low` to `high` for gpt-oss-120b. Reason harder stays off: two runs at `low` take about 150K of each model's 200K a day, and a higher effort adds reasoning tokens to every call.
+
+**The set** (`s6-calibration2-set.json`): 52 claims and 10 answers, sharing no question or text with set 1, built and labelled to the guidelines. 24 claims as the model wrote them, 20 altered on purpose with one subtle detail each (who suggested or fixed something, a "because" with the wrong reason, a number, a flipped qualifier), and 8 injections: planted lines in sources pushing both ways, a planted line that agrees with the truth, and lines inside the claim addressed to the grader. One passage that carries a real name was left out. My labels (`s6-calibration2-labels-claude.json`): 23 supported, 7 partly, 22 unsupported; answers 5 complete, 1 says so, 4 silent partial. The human labels a fresh subset of 20 claims and 4 answers from a sheet without mine.
+
+**The rule** (`s6-judge2-threshold.txt`): the same seven conditions, completeness scaled to at least 8 of 10, applied to each model separately. Committed with the set and labels before any judge sees the set.
+
 ---
 
 ### Open items / "later" list

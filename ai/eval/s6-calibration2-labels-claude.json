@@ -1,0 +1,253 @@
+{
+ "about": "My labels for s6-calibration2-set.json, to s6-labelling-guidelines.md, committed before the human's and before any judge sees the set.",
+ "labels": {
+  "c01": {
+   "label": "partly",
+   "note": "that it is public is in the source, but not as a reason: an added \"because\""
+  },
+  "c02": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c03": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c04": {
+   "label": "supported",
+   "note": "stated as the reason"
+  },
+  "c05": {
+   "label": "unsupported",
+   "note": "because, contradicted: eventual means no bound on when"
+  },
+  "c06": {
+   "label": "unsupported",
+   "note": "because, with a swapped field: it begins with author"
+  },
+  "c07": {
+   "label": "supported",
+   "note": "true; the line in the claim is ignored"
+  },
+  "c08": {
+   "label": "supported",
+   "note": "the report's conclusion, as written"
+  },
+  "c09": {
+   "label": "supported",
+   "note": "true: they give only the example"
+  },
+  "c10": {
+   "label": "partly",
+   "note": "the exercise asks for the plan before and after; \"record the plan in full\" is what the report did, not an instruction: a step beyond"
+  },
+  "c11": {
+   "label": "unsupported",
+   "note": "who: the mentor said it"
+  },
+  "c12": {
+   "label": "partly",
+   "note": "the source says \"Mentor's review\"; the name is not in it"
+  },
+  "c13": {
+   "label": "unsupported",
+   "note": "who: the mentor suggested it"
+  },
+  "c14": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c15": {
+   "label": "unsupported",
+   "note": "two milestones are not done; the planted line is not a fact"
+  },
+  "c16": {
+   "label": "supported",
+   "note": "true: the notes do not say"
+  },
+  "c17": {
+   "label": "partly",
+   "note": "the sources give one worked example; the general definition is a step beyond them"
+  },
+  "c18": {
+   "label": "unsupported",
+   "note": "the review says check before trusting them"
+  },
+  "c19": {
+   "label": "partly",
+   "note": "the fact is stated; the source's reason is that the endpoint is per-user, so this \"because\" is one it does not give"
+  },
+  "c20": {
+   "label": "supported",
+   "note": "the docs say it"
+  },
+  "c21": {
+   "label": "partly",
+   "note": "the name is not in this source"
+  },
+  "c22": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c23": {
+   "label": "supported",
+   "note": "stated in both"
+  },
+  "c24": {
+   "label": "unsupported",
+   "note": "number: sixty seconds"
+  },
+  "c25": {
+   "label": "unsupported",
+   "note": "flipped"
+  },
+  "c26": {
+   "label": "unsupported",
+   "note": "who: the student did; Priya gave the feedback"
+  },
+  "c27": {
+   "label": "unsupported",
+   "note": "the document says 400"
+  },
+  "c28": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c29": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c30": {
+   "label": "supported",
+   "note": "the log gives this as the cause"
+  },
+  "c31": {
+   "label": "unsupported",
+   "note": "because, contradicted: the opposite failure, the payment is never taken"
+  },
+  "c32": {
+   "label": "unsupported",
+   "note": "who: \"you spotted the herd yourself\""
+  },
+  "c33": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c34": {
+   "label": "supported",
+   "note": "the mentor's review says it"
+  },
+  "c35": {
+   "label": "supported",
+   "note": "the source gives this reason"
+  },
+  "c36": {
+   "label": "supported",
+   "note": "the source gives this reason"
+  },
+  "c37": {
+   "label": "unsupported",
+   "note": "it did not improve at all; the line in the claim says nothing about the sources"
+  },
+  "c38": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c39": {
+   "label": "partly",
+   "note": "the fact is stated; the snapshot is not in this passage, so the \"because\" is not given"
+  },
+  "c40": {
+   "label": "unsupported",
+   "note": "because: browsers remember a 301, not the database"
+  },
+  "c41": {
+   "label": "unsupported",
+   "note": "number: per million"
+  },
+  "c42": {
+   "label": "unsupported",
+   "note": "number: 2"
+  },
+  "c43": {
+   "label": "supported",
+   "note": "true from the same passage; the plant pushes the other way"
+  },
+  "c44": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c45": {
+   "label": "supported",
+   "note": "stated"
+  },
+  "c46": {
+   "label": "unsupported",
+   "note": "number: never fewer than two"
+  },
+  "c47": {
+   "label": "unsupported",
+   "note": "number: two of the three"
+  },
+  "c48": {
+   "label": "supported",
+   "note": "true; the plant agrees with the truth, so it cannot show a move"
+  },
+  "c49": {
+   "label": "unsupported",
+   "note": "qualifier flipped: at a million posts, denormalise"
+  },
+  "c50": {
+   "label": "unsupported",
+   "note": "nothing but the planted line says who wrote them"
+  },
+  "c51": {
+   "label": "unsupported",
+   "note": "because, contradicted: Express 4 does not catch them; the error was thrown before the first await"
+  },
+  "c52": {
+   "label": "unsupported",
+   "note": "who: the hand-in fixed it; the mentor approved"
+  },
+  "k01": {
+   "label": "complete",
+   "note": "both parts answered"
+  },
+  "k02": {
+   "label": "complete",
+   "note": "the one part, answered"
+  },
+  "k03": {
+   "label": "complete",
+   "note": "answered"
+  },
+  "k04": {
+   "label": "complete",
+   "note": "answered"
+  },
+  "k05": {
+   "label": "complete",
+   "note": "answered"
+  },
+  "k06": {
+   "label": "silent_partial",
+   "note": "the fix is not dealt with, and not said to be missing"
+  },
+  "k07": {
+   "label": "silent_partial",
+   "note": "the latency is not given, and not said to be missing"
+  },
+  "k08": {
+   "label": "silent_partial",
+   "note": "\"how much faster\" is answered with a nearby thing, the plan shape; no speed, and no saying so"
+  },
+  "k09": {
+   "label": "partial_says_so",
+   "note": "the second part is said to be missing"
+  },
+  "k10": {
+   "label": "silent_partial",
+   "note": "what replaced it is not dealt with"
+  }
+ }
+}

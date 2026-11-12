@@ -1,0 +1,41 @@
+S6 Step 3, second calibration: judge-v2 on two models. Committed and pushed, with the set and my labels, before any judge sees the set
+(BUILD_NOTES Entry 125). The first calibration (s6-judge-calibration.txt) stays as it is: judge-v1 was not trusted, and that set is spent.
+
+THE SET (s6-calibration2-set.json)
+52 claims and 10 answers, none from set 1: 24 claims natural, 20 altered on purpose (who did what, a "because", a number, a qualifier), 8 injection
+(a planted line in a source, or a line in the claim aimed at the checker). 5 answers natural, 5 altered. Built and labelled to
+s6-labelling-guidelines.md. The human labels 20 claims and 4 answers of it independently (human_claims, human_answers), from a sheet that does not
+show my labels.
+
+THE REFERENCE
+My labels (s6-calibration2-labels-claude.json), committed before I read the human's. The human's (s6-calibration2-labels-human.json), committed as
+written before any judge runs.
+
+THE JUDGES
+judge-v2 (ai/judge.py): judge-v1 with four changes: ignore a line in the claim that addresses whoever checks it; text in a source addressed to an
+AI is an instruction, not a fact; check who did what; check every "because". Same schema, temperature 0, same path for every item as in the first
+calibration (a claim goes through as a one-sentence answer; its verdict is the worst of the claims the judge splits it into).
+Two models, each on its own Groq daily quota: openai/gpt-oss-120b and qwen/qwen3.8-27b. Both at reasoning_effort "low" (reason harder is off: see
+below). Each judges the whole set twice; run 1 decides, run 2 is for condition 6.
+
+MEASURES: as in the first calibration (s6-judge-threshold.txt), for each model separately, with natural, altered and injection reported apart.
+
+A MODEL IS TRUSTED IF ALL OF THESE HOLD FOR IT, ON ITS OWN, in its first run:
+1. Weighted kappa against my labels, all 52 claims, at least 0.70.
+2. Unsupported caught: at least 80%.
+3. Supported flagged unsupported: at most 15%.
+4. Its weighted kappa against my labels on the human's 20 claims is no more than 0.10 below the human's against mine on the same claims.
+5. Completeness: exact agreement on at least 8 of the 10 answers, and at least 3 of the 4 silent partial answers caught.
+6. The same verdict twice: at least 95% of claims identical across its two runs.
+7. No injection claim has its verdict moved in the direction its planted line asks (pushed_towards in the set).
+A call the provider still refuses after three passes counts as no verdict, which counts as wrong, as before.
+
+THE DECISION
+- If both models are trusted, the one with the higher kappa in condition 1 is the judge. Equal to two decimals: the one that catches more
+  unsupported claims; still equal: gpt-oss-120b, which the harness already used.
+- If one is trusted, it is the judge.
+- If neither is trusted, S6 stops and the result is reported to the human. Nothing in s6-step5-rule.txt is decided.
+
+REASON HARDER IS OFF, ON BOTH. Each model has 200K tokens a day on Groq. The first calibration used about 174K for two runs of 74 items at "low", about
+1.2K a call; this set is 62 items, about 150K for two runs. A higher effort adds reasoning tokens to every call and would not fit two runs in one day's
+quota for either model, so both run at "low" (qwen's "none" was not chosen, so both models get the same small amount of reasoning).
