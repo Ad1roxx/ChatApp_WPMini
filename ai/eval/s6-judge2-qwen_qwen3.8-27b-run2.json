@@ -217,13 +217,24 @@
   "tokens_out": 0
  },
  "c18": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor approved the load test numbers as final.",
+    "quote": "Your mentor approved your load test numbers as final.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Whether the mentor approved the load test numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 899,
+  "tokens_out": 431
  },
  "c19": {
   "label": null,
@@ -624,6 +635,89 @@
   "tokens_out": 558
  },
  "k03": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k04": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k05": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k06": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k07": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k08": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k09": {
+  "label": "partial_says_so",
+  "claims": [
+   {
+    "claim": "The design assumes an attacker who has cross-site scripting on one page of the application and no access to the server.",
+    "quote": "The design assumes an attacker who has cross-site scripting on one page of the application and no access to the server [1].",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The sources do not say where the refresh token is stored.",
+    "quote": "The sources do not say where the refresh token is stored.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What attacker the auth design assumes",
+    "status": "answered"
+   },
+   {
+    "part": "Where the refresh token is stored",
+    "status": "said_not_found"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 920,
+  "tokens_out": 441
+ },
+ "k10": {
   "label": null,
   "claims": [],
   "parts": [],

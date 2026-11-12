@@ -1,0 +1,318 @@
+{
+ "c01": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The weekly booking count can be read from a secondary because it is a public count of how many bookings a practitioner has this week, nobody acts on that number, and a lag of seconds is invisible.",
+    "claim": "The weekly booking count can be read from a secondary because it is a public count, no one acts on it, and a few‑second lag is invisible.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why can the weekly booking count be read from a secondary?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1032,
+  "tokens_out": 281
+ },
+ "c02": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You must use an in-process cache rather than Redis.",
+    "claim": "The assignment requires using an in-process cache instead of Redis.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What do I have to build for the caching assignment?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1033,
+  "tokens_out": 204
+ },
+ "c03": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Before the fix, fifty simultaneous booking requests for the same slot produced three bookings on most runs, and never fewer than two.",
+    "claim": "Fifty simultaneous booking requests before the fix produced three bookings on most runs and never fewer than two.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Number of bookings created by fifty simultaneous requests before the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1013,
+  "tokens_out": 196
+ },
+ "c04": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Skip and limit is wrong because while bookings are being created, a new booking shifts every later one down by a place.",
+    "claim": "Skip and limit is incorrect because when new bookings are created, each new booking shifts later bookings down by one position.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Reason why skip and limit is wrong (not just slow)",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1038,
+  "tokens_out": 208
+ },
+ "c05": {
+  "label": "partly",
+  "claims": [
+   {
+    "quote": "The weekly booking count can be read from a secondary because secondaries are always within a few seconds of the primary.",
+    "claim": "The weekly booking count can be read from a secondary because secondaries are always within a few seconds of the primary.",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why can the weekly booking count be read from a secondary?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1027,
+  "tokens_out": 335
+ },
+ "c06": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "The report query on created date alone did not improve",
+    "claim": "The report query on created date alone did not improve at all",
+    "verdict": "supported"
+   },
+   {
+    "quote": "because the compound index begins with status",
+    "claim": "The reason it did not improve is that the compound index begins with status",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query did not improve at all",
+    "status": "answered"
+   },
+   {
+    "part": "Why not",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1073,
+  "tokens_out": 388
+ },
+ "c07": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Before the fix, fifty simultaneous booking requests for the same slot produced three bookings on most runs.",
+    "claim": "Fifty simultaneous booking requests before the fix produced three bookings on most runs.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Number of bookings created by fifty simultaneous requests before the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1003,
+  "tokens_out": 197
+ },
+ "c08": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "two of the three queries improved",
+    "claim": "The report concluded that two of the three queries improved.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "the compound index on status and created date is the one to keep",
+    "claim": "The report concluded that the compound index on status and created date should be kept.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did the report conclude should be kept?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1041,
+  "tokens_out": 276
+ },
+ "c09": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The sources do not cover a complete definition of what an N+1 query is beyond this worked example.",
+    "claim": "The provided sources lack a full definition of an N+1 query, offering only a worked example.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Definition of N+1 query",
+    "status": "said_not_found"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1111,
+  "tokens_out": 256
+ },
+ "c10": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You should run every query with EXPLAIN both before and after the index is added, and record the plan in full.",
+    "claim": "Every query should be run with EXPLAIN before the index is added.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "You should run every query with EXPLAIN both before and after the index is added, and record the plan in full.",
+    "claim": "Every query should be run with EXPLAIN after the index is added.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "You should run every query with EXPLAIN both before and after the index is added, and record the plan in full.",
+    "claim": "The execution plan should be recorded in full.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Should I run EXPLAIN before adding an index?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1189,
+  "tokens_out": 400
+ },
+ "c11": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You told your mentor to check that the load generator was not running out of CPU.",
+    "claim": "The mentor was told to verify that the load generator was not running out of CPU before trusting the load test numbers.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What does Priya want me to check before trusting my load test numbers?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1020,
+  "tokens_out": 219
+ },
+ "c12": {
+  "label": "partly",
+  "claims": [
+   {
+    "quote": "Priya wants you to check that the load generator was not running out of CPU before you trust any of your load test numbers.",
+    "claim": "Priya wants you to verify that the load generator is not running out of CPU before trusting the load test numbers.",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What Priya wants checked before trusting load test numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 993,
+  "tokens_out": 283
+ },
+ "c13": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "You suggested caching the promise rather than the value",
+    "claim": "The speaker suggested caching the promise instead of the value",
+    "verdict": "unsupported"
+   },
+   {
+    "quote": "your mentor agreed you should try it before your next session",
+    "claim": "The mentor agreed that the speaker should try caching the promise before the next session",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "mentor's suggestion about caching the promise",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1045,
+  "tokens_out": 455
+ },
+ "c14": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c15": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c16": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ }
+}
