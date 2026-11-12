@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -544,6 +545,84 @@ def test_groq_will_it_fit_counts_the_whole_output_cap():
     assert budget.wait_s(need) > 0
     budget.update(httpx.Headers(groq_headers(tokens=need)))
     assert budget.wait_s(need) == 0
+
+
+def big_groq(server: Server, clock: Clock) -> GroqProvider:
+    """A cap of 3,000: two calls fit Groq's 8,000 a minute, a third does not."""
+    return GroqProvider(KEY, "qwen/qwen3.8-27b", transport=server.transport, clock=clock, sleep=clock.sleep, max_output_tokens=3000)
+
+
+def test_groq_paces_to_its_own_count_of_the_minute_even_when_the_headers_say_there_is_room():
+    plenty = groq_headers(tokens=8000)
+    server, clock = Server(*(groq_ok(headers=plenty) for _ in range(3))), Clock()
+    provider = big_groq(server, clock)
+    assert provider.generate(SYSTEM, USER).ok and provider.generate(SYSTEM, USER).ok
+    assert clock.slept == []
+
+    assert provider.generate(SYSTEM, USER, budget_s=180).ok
+    assert clock.slept == [pytest.approx(60.0)], "the third waits until the first is a minute old"
+    assert len(server.requests) == 3
+
+
+def test_groq_calls_a_minute_old_no_longer_count():
+    server, clock = Server(*(groq_ok(headers=groq_headers(tokens=8000)) for _ in range(3))), Clock()
+    provider = big_groq(server, clock)
+    provider.generate(SYSTEM, USER)
+    provider.generate(SYSTEM, USER)
+    clock.now += 60.0
+    assert provider.generate(SYSTEM, USER).ok
+    assert clock.slept == []
+
+
+def test_groq_refuses_without_calling_when_the_minute_cannot_clear_in_time():
+    server, clock = Server(*(groq_ok(headers=groq_headers(tokens=8000)) for _ in range(2))), Clock()
+    provider = big_groq(server, clock)
+    provider.generate(SYSTEM, USER)
+    provider.generate(SYSTEM, USER)
+    result = provider.generate(SYSTEM, USER, budget_s=30)
+    assert result.outcome == RATE_LIMITED and result.detail == "budget"
+    assert len(server.requests) == 2
+
+
+def test_the_minute_waits_only_for_as_many_old_calls_as_it_must():
+    clock = Clock()
+    budget = HeaderBudget(clock=clock)
+    budget.update(httpx.Headers(groq_headers(tokens=8000)))
+    for gap, need in ((0, 3000), (10, 2000), (10, 2000)):
+        clock.now += gap
+        assert budget.claim(need) == 0
+    # 7,000 sent in the last 20 s; 2,500 more needs only the first (3,000) to fall out, 40 s from now.
+    assert budget.claim(2500) == pytest.approx(40.0)
+    assert budget.claim(1000) == 0
+    assert budget.claim(9000) == 0, "a call larger than the whole limit is not held back by this count"
+
+
+def test_calls_on_several_threads_never_count_past_the_minute():
+    import threading
+    clock = Clock()
+    budget = HeaderBudget(clock=clock)
+    budget.update(httpx.Headers(groq_headers(tokens=8000)))
+    start, granted = threading.Barrier(8), []
+    real = budget.wait_s
+
+    def slow_wait(need):  # widen the gap between checking and counting
+        w = real(need)
+        time.sleep(0.01)
+        return w
+
+    budget.wait_s = slow_wait
+
+    def worker():
+        start.wait()
+        if budget.claim(3000) == 0:
+            granted.append(1)
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(granted) == 2 and len(budget.sent) == 2
 
 
 @pytest.mark.parametrize("text, seconds", [

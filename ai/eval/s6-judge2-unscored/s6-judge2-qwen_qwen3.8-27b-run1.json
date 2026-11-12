@@ -1,0 +1,1420 @@
+{
+ "c01": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "The weekly booking count is a public count of how many bookings a practitioner has this week.",
+    "quote": "it is a public count of how many bookings a practitioner has this week",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Nobody acts on that number.",
+    "quote": "nobody acts on that number",
+    "verdict": "supported"
+   },
+   {
+    "claim": "A lag of seconds is invisible.",
+    "quote": "a lag of seconds is invisible",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason it can be read from a secondary is that it is a public count, nobody acts on it, and a lag of seconds is invisible (three reasons).",
+    "quote": "because it is a public count of how many bookings a practitioner has this week, nobody acts on that number, and a lag of seconds is invisible",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the weekly booking count can be read from a secondary",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 930,
+  "tokens_out": 1147
+ },
+ "c02": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "You must use an in-process cache rather than Redis.",
+    "quote": "You must use an in-process cache rather than Redis.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What to build for the caching assignment",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 931,
+  "tokens_out": 421
+ },
+ "c03": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "Before the fix, fifty simultaneous booking requests for the same slot were made.",
+    "quote": "Before the fix, fifty simultaneous booking requests for the same slot",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The requests produced three bookings on most runs.",
+    "quote": "produced three bookings on most runs",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The requests never produced fewer than two bookings.",
+    "quote": "and never fewer than two",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many bookings were created before the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 910,
+  "tokens_out": 385
+ },
+ "c04": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "Skip and limit is wrong because while bookings are being created, a new booking shifts every later one down by a place.",
+    "quote": "Skip and limit is wrong because while bookings are being created, a new booking shifts every later one down by a place.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why skip and limit is wrong (not just slow)",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 924,
+  "tokens_out": 483
+ },
+ "c05": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "The weekly booking count can be read from a secondary",
+    "quote": "The weekly booking count can be read from a secondary",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Secondaries are always within a few seconds of the primary",
+    "quote": "secondaries are always within a few seconds of the primary",
+    "verdict": "partly"
+   },
+   {
+    "claim": "The reason the weekly booking count can be read from a secondary is that secondaries are always within a few seconds of the primary",
+    "quote": "because secondaries are always within a few seconds of the primary",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the weekly booking count can be read from a secondary",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 901,
+  "tokens_out": 1153
+ },
+ "c06": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The report query on created date alone did not improve.",
+    "quote": "The report query on created date alone did not improve",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The compound index begins with status.",
+    "quote": "because the compound index begins with status",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query did not improve at all",
+    "status": "answered"
+   },
+   {
+    "part": "Why not",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 959,
+  "tokens_out": 334
+ },
+ "c07": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c08": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The report concluded that two of the three queries improved.",
+    "quote": "The report concluded that two of the three queries improved",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The compound index on status and created date is the one to keep.",
+    "quote": "the compound index on status and created date is the one to keep",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the report concluded should be kept",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 915,
+  "tokens_out": 352
+ },
+ "c09": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The sources do not provide a complete definition of what an N+1 query is beyond a worked example.",
+    "quote": "The sources do not cover a complete definition of what an N+1 query is beyond this worked example.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is an N+1 query?",
+    "status": "said_not_found"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1035,
+  "tokens_out": 518
+ },
+ "c10": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "You should run every query with EXPLAIN before the index is added.",
+    "quote": "You should run every query with EXPLAIN both before and after the index is added",
+    "verdict": "supported"
+   },
+   {
+    "claim": "You should run every query with EXPLAIN after the index is added.",
+    "quote": "You should run every query with EXPLAIN both before and after the index is added",
+    "verdict": "supported"
+   },
+   {
+    "claim": "You should record the plan in full.",
+    "quote": "record the plan in full",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Should I run EXPLAIN before adding an index?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1092,
+  "tokens_out": 607
+ },
+ "c11": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c12": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "Priya is the one who wants the check done",
+    "quote": "Priya wants you to check",
+    "verdict": "partly"
+   },
+   {
+    "claim": "The thing to check is whether the load generator was running out of CPU",
+    "quote": "check that the load generator was not running out of CPU",
+    "verdict": "supported"
+   },
+   {
+    "claim": "This check should be done before trusting the load test numbers",
+    "quote": "before you trust any of your load test numbers",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What Priya wants checked before trusting load test numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 879,
+  "tokens_out": 889
+ },
+ "c13": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c14": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c15": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c16": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The sources do not cover what happens if the coordinator fails or runs out of blocks.",
+    "quote": "The sources do not cover what happens if the coordinator fails or runs out of blocks.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How short codes are generated without checking the database first",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1134,
+  "tokens_out": 574
+ },
+ "c17": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "An N+1 query issue occurs when an application issues one query for a main resource (such as posts).",
+    "quote": "An N+1 query issue occurs when an application issues one query for a main resource (such as posts)",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Then an additional query is issued per item for a related resource (such as its author).",
+    "quote": "and then an additional query per item for a related resource (such as its author)",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is an N+1 query?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1039,
+  "tokens_out": 659
+ },
+ "c18": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c19": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c20": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "An index on (a, b) helps a query on a",
+    "quote": "an index on (a, b) helps a query on a",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An index on (a, b) helps a query on a with b",
+    "quote": "and on a with b",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An index on (a, b) does not help a query on b alone",
+    "quote": "but not on b alone",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How compound indexes work",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1058,
+  "tokens_out": 536
+ },
+ "c21": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor's name is Priya.",
+    "quote": "Your mentor, Priya",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The mentor said the single $lookup is the right fix.",
+    "quote": "said the single $lookup is the right fix",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor said about the N+1 hand-in",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 916,
+  "tokens_out": 470
+ },
+ "c22": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "When a cursor is reused with a different filter, the API returns a 400 response",
+    "quote": "the API returns a 400 response",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The 400 response states that the cursor does not match the filter",
+    "quote": "stating that the cursor does not match the filter",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What error the API returns when a cursor is reused with a different filter",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 963,
+  "tokens_out": 378
+ },
+ "c23": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "A compound index only helps when the query's fields are a prefix of it, in that order.",
+    "quote": "A compound index only helps when the query's fields are a prefix of it, in that order.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How compound indexes work",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1049,
+  "tokens_out": 503
+ },
+ "c24": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "You added an in-process LRU cache",
+    "quote": "You added an in-process LRU cache",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The TTL was ninety seconds",
+    "quote": "with a ninety second TTL",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What was built for the caching hand-in",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 930,
+  "tokens_out": 284
+ },
+ "c25": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor cares more about the timings than about the reasoning.",
+    "quote": "Your mentor cares more about the timings than about the reasoning.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor cares about most in the indexing exercise",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 950,
+  "tokens_out": 302
+ },
+ "c26": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "There was a mock interview.",
+    "quote": "In the mock interview",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Priya went straight into the database schema.",
+    "quote": "Priya went straight into the database schema",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The person who went into the schema did not say how many reads there were for each write.",
+    "quote": "without saying how many reads there were for each write",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What went wrong in the mock system design interview",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1221,
+  "tokens_out": 697
+ },
+ "c27": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c28": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "You should use the URL shortener walkthrough from the system design primer",
+    "quote": "You should use the URL shortener walkthrough from the system design primer",
+    "verdict": "supported"
+   },
+   {
+    "claim": "You should use it after the mock interview",
+    "quote": "after the mock interview",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason is so you can compare it with your own notes",
+    "quote": "so you can compare it with your own notes",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "When to use the system design primer",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 851,
+  "tokens_out": 700
+ },
+ "c29": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The decision to use documents for the orders service would flip if the service itself started needing questions across items.",
+    "quote": "You would switch the orders service away from documents if the service itself started needing questions across items",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Stock reservation is an example of such a cross-item need, where every order line has to be checked against what is left.",
+    "quote": "such as stock reservation where every order line has to be checked against what is left",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What would make the switch away from documents",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1181,
+  "tokens_out": 391
+ },
+ "c30": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The practice API crashed in the first week.",
+    "quote": "Your practice API crashed in the first week",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An async route handler threw an error.",
+    "quote": "an async route handler threw an error",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Nobody caught the rejected promise.",
+    "quote": "nobody caught the rejected promise",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The process died with an unhandled rejection.",
+    "quote": "the process died with an unhandled rejection",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the practice API crashed in the first week",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1231,
+  "tokens_out": 437
+ },
+ "c31": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "Recording the event id first does not help solve the problem.",
+    "quote": "Recording the event id first does not help",
+    "verdict": "partly"
+   },
+   {
+    "claim": "A crash after recording the event id would result in the customer being charged twice.",
+    "quote": "because a crash after recording would charge the customer twice",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why recording the event id first doesn't work",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 964,
+  "tokens_out": 756
+ },
+ "c32": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor spotted the thundering herd problem in the student's caching hand-in.",
+    "quote": "Your mentor spotted the thundering herd problem in your caching hand-in.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Who spotted the thundering herd problem",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 909,
+  "tokens_out": 330
+ },
+ "c33": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "For each query, you need to write down the plan before, the index you added, and the plan after.",
+    "quote": "For each query, you need to write down the plan before, the index you added, and the plan after.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What to do for the indexing exercise",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 960,
+  "tokens_out": 443
+ },
+ "c34": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c35": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "The query did not improve at all.",
+    "quote": "It did not improve",
+    "verdict": "partly"
+   },
+   {
+    "claim": "The compound index begins with author.",
+    "quote": "the compound index begins with author",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The prefix rule means a query on the second field cannot use the index.",
+    "quote": "the prefix rule means a query on the second field cannot use it",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query did not improve at all",
+    "status": "missing"
+   },
+   {
+    "part": "Why not",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 942,
+  "tokens_out": 534
+ },
+ "c36": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "Renaming a product keeps its old name on old orders",
+    "quote": "Renaming a product keeps its old name on old orders",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An order is a record of what was bought",
+    "quote": "because an order is a record of what was bought",
+    "verdict": "supported"
+   },
+   {
+    "claim": "A receipt should not change after the fact",
+    "quote": "and a receipt should not change after the fact",
+    "verdict": "supported"
+   },
+   {
+    "claim": "These are the reasons why it is acceptable that renaming a product leaves old orders unchanged",
+    "quote": "because an order is a record of what was bought, and a receipt should not change after the fact",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why it is acceptable that renaming a product leaves old orders unchanged",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1166,
+  "tokens_out": 491
+ },
+ "c37": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The report query on created date alone improved the most.",
+    "quote": "The report query on created date alone improved the most.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query improved the most",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 960,
+  "tokens_out": 425
+ },
+ "c38": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "An N+1 query issue occurred in the comments loader",
+    "quote": "An N+1 query issue occurred in the comments loader",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The system issued one query for the posts",
+    "quote": "the system issued one query for the posts",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Then one query per post for its author",
+    "quote": "then one query per post for its author",
+    "verdict": "supported"
+   },
+   {
+    "claim": "This resulted in forty-one queries for a page of forty posts",
+    "quote": "resulting in forty-one queries for a page of forty posts",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is an N+1 query?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1056,
+  "tokens_out": 697
+ },
+ "c39": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c40": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The shortener answers with a 302",
+    "quote": "The shortener answers with a 302",
+    "verdict": "supported"
+   },
+   {
+    "claim": "A 301 would be cached by the database",
+    "quote": "a 301 would be cached by the database",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The clicks would never be counted",
+    "quote": "the clicks would never be counted",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the shortener uses 302 instead of 301",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1157,
+  "tokens_out": 1130
+ },
+ "c41": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The coordinator is asked for a new block only once per thousand links.",
+    "quote": "The coordinator is asked for a new block only once per thousand links.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How short codes are generated without checking the database first",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1143,
+  "tokens_out": 429
+ },
+ "c42": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "After the fix, the comments page issued one query",
+    "quote": "After the fix, the comments page issued one query",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "Before the fix, the comments page issued forty-one queries",
+    "quote": "instead of forty-one",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many queries after the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 926,
+  "tokens_out": 395
+ },
+ "c43": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c44": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The authentication design assumes an attacker",
+    "quote": "The authentication design assumes an attacker",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The attacker has cross-site scripting on one page of the application",
+    "quote": "who has cross-site scripting on one page of the application",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The attacker has no access to the server",
+    "quote": "and no access to the server",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What attacker the authentication design is written against",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 920,
+  "tokens_out": 349
+ },
+ "c45": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "There is an unsolved failure case in the webhook design.",
+    "quote": "An unsolved case is when the handler charges the customer and then crashes before recording the event id",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The unsolved case involves the handler charging the customer and then crashing before recording the event id.",
+    "quote": "when the handler charges the customer and then crashes before recording the event id",
+    "verdict": "supported"
+   },
+   {
+    "claim": "This causes a redelivery to find no record and charge again.",
+    "quote": "which causes a redelivery to find no record and charge again",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify the unsolved failure case",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 929,
+  "tokens_out": 619
+ },
+ "c46": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c47": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c48": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The unsolved failure case is a crash after charging the customer and before the event id is recorded.",
+    "quote": "The unsolved case is a crash after charging the customer and before the event id is recorded.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify the unsolved failure case in the webhook design",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 955,
+  "tokens_out": 367
+ },
+ "c49": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c50": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor wrote the URL shortener mock interview notes.",
+    "quote": "Your mentor wrote the URL shortener mock interview notes.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Who wrote the URL shortener interview notes",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1156,
+  "tokens_out": 369
+ },
+ "c51": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The crash did not happen in development.",
+    "quote": "The crash did not happen in development",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason the crash did not happen in development is that Express 4 catches errors from async handlers there.",
+    "quote": "because Express 4 catches errors from async handlers there",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the crash did not happen in development",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1227,
+  "tokens_out": 462
+ },
+ "c52": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor fixed the N+1 problem.",
+    "quote": "Your mentor fixed the N+1",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The fix used a single $lookup.",
+    "quote": "with a single $lookup",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The fix reduced queries from 41 to 2.",
+    "quote": "bringing 41 queries down to 2",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How the N+1 in the comments loader was fixed",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 946,
+  "tokens_out": 530
+ },
+ "k01": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "The report query on created date alone did not improve at all.",
+    "quote": "The report query on created date alone did not improve at all",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The compound index begins with author.",
+    "quote": "the compound index begins with author",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The prefix rule means a query on the second field cannot use the compound index.",
+    "quote": "the prefix rule means a query on the second field cannot use it",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query did not improve at all",
+    "status": "answered"
+   },
+   {
+    "part": "Why not",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 959,
+  "tokens_out": 321
+ },
+ "k02": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "While bookings are being created, a new booking shifts every later one down by a place.",
+    "quote": "while bookings are being created, a new booking shifts every later one down by a place",
+    "verdict": "supported"
+   },
+   {
+    "claim": "As a result, a client paging through sees one booking twice and never sees another.",
+    "quote": "a client paging through sees one booking twice and never sees another",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why skip and limit is wrong (not just slow) for the bookings list",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 957,
+  "tokens_out": 536
+ },
+ "k03": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "Each server takes a block of one million IDs from a coordinator.",
+    "quote": "Each server takes a block of one million IDs from a coordinator",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The IDs are handed out in order.",
+    "quote": "hands them out in order",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The IDs are encoded in base 62.",
+    "quote": "encoded in base 62",
+    "verdict": "supported"
+   },
+   {
+    "claim": "No two servers can produce the same code.",
+    "quote": "no two servers can produce the same code",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Nothing needs to be checked against the database before a link is created because no two servers can produce the same code.",
+    "quote": "Because no two servers can produce the same code, nothing needs to be checked against the database before a link is created",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How short codes are generated without checking the database first",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1159,
+  "tokens_out": 681
+ },
+ "k04": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "The mentor told the user to try caching the promise rather than the value.",
+    "quote": "Your mentor told you to try caching the promise rather than the value",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The mentor said to try this before the next session.",
+    "quote": "before your next session",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The purpose is so that the second caller waits on the first.",
+    "quote": "so that the second caller waits on the first",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor told the user to try about caching the promise",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 985,
+  "tokens_out": 385
+ },
+ "k05": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "The URL shortener answers with a 302 redirect",
+    "quote": "The URL shortener answers with a 302 redirect",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason for using 302 is so that every click reaches the service and can be counted",
+    "quote": "so that every click reaches the service and can be counted",
+    "verdict": "supported"
+   },
+   {
+    "claim": "If a 301 were used, browsers would remember it",
+    "quote": "If a 301 were used instead, browsers would remember it",
+    "verdict": "supported"
+   },
+   {
+    "claim": "After the first visit with a 301, the clicks would never arrive at the service",
+    "quote": "after the first visit the clicks would never arrive at the service",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why 302 instead of 301",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1196,
+  "tokens_out": 573
+ },
+ "k06": {
+  "label": "silent_partial",
+  "claims": [
+   {
+    "claim": "Fifty simultaneous booking requests for the same slot were fired in the test.",
+    "quote": "fifty simultaneous booking requests for the same slot",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Before the fix, the test produced three bookings on most runs.",
+    "quote": "produced three bookings on most runs",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Before the fix, the test never produced fewer than two bookings.",
+    "quote": "never fewer than two",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the race test found before the fix",
+    "status": "answered"
+   },
+   {
+    "part": "What the fix was",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 904,
+  "tokens_out": 397
+ },
+ "k07": {
+  "label": "silent_partial",
+  "claims": [
+   {
+    "claim": "Before trusting load test numbers, check that the load generator was not running out of CPU.",
+    "quote": "Before you trust any of your load test numbers, check that the load generator was not running out of CPU",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Watch the load generator's own usage during the next run.",
+    "quote": "watch its usage during the next run",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What p95 latency did the load test report",
+    "status": "missing"
+   },
+   {
+    "part": "What should I check before trusting it",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 915,
+  "tokens_out": 526
+ },
+ "k08": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k09": {
+  "label": "partial_says_so",
+  "claims": [
+   {
+    "claim": "The design assumes an attacker who has cross-site scripting on one page of the application and no access to the server.",
+    "quote": "The design assumes an attacker who has cross-site scripting on one page of the application and no access to the server [1].",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The sources do not state where the refresh token is stored.",
+    "quote": "The sources do not say where the refresh token is stored.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What attacker the auth design assumes",
+    "status": "answered"
+   },
+   {
+    "part": "Where the refresh token is stored",
+    "status": "said_not_found"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 929,
+  "tokens_out": 470
+ },
+ "k10": {
+  "label": "silent_partial",
+  "claims": [
+   {
+    "claim": "It gets slower the deeper a client pages, because the database still walks past every skipped booking",
+    "quote": "It gets slower the deeper a client pages, because the database still walks past every skipped booking [1]",
+    "verdict": "supported"
+   },
+   {
+    "claim": "It is wrong while bookings are being created, because a new booking shifts every later one down by a place",
+    "quote": "It is also wrong while bookings are being created, because a new booking shifts every later one down by a place [1]",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What are the two problems with skip and limit",
+    "status": "answered"
+   },
+   {
+    "part": "What replaced it",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 946,
+  "tokens_out": 494
+ }
+}

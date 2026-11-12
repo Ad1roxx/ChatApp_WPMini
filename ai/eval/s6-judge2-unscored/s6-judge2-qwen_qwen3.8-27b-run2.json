@@ -1,0 +1,46 @@
+{
+ "c01": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "The weekly booking count is a public count of how many bookings a practitioner has this week.",
+    "quote": "it is a public count of how many bookings a practitioner has this week",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Nobody acts on that number, which is a reason it can be read from a secondary.",
+    "quote": "nobody acts on that number",
+    "verdict": "supported"
+   },
+   {
+    "claim": "A lag of seconds is invisible, which is a reason it can be read from a secondary.",
+    "quote": "a lag of seconds is invisible",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The fact that it is a public count is itself a reason it can be read from a secondary.",
+    "quote": "because it is a public count of how many bookings a practitioner has this week, nobody acts on that number, and a lag of seconds is invisible",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the weekly booking count can be read from a secondary",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 906,
+  "tokens_out": 953
+ },
+ "c02": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ }
+}

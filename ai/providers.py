@@ -372,12 +372,19 @@ class HeaderBudget:
     call is always attempted.
     """
 
+    # Our own count of the minute, beside the headers' snapshot: what each call
+    # this process sent reserved, kept for one minute.
+    WINDOW_S = 60.0
+
     def __init__(self, clock: Callable[[], float] = time.time):
         self.clock = clock
         self.tokens: int | None = None
         self.tokens_reset_at = 0.0
         self.requests: int | None = None
         self.requests_reset_at = 0.0
+        self.limit: int | None = None
+        self.sent: list[tuple[float, int]] = []
+        self._lock = threading.Lock()  # one check-and-count at a time, for calls on several threads
 
     def update(self, headers: httpx.Headers) -> None:
         now = self.clock()
@@ -389,6 +396,9 @@ class HeaderBudget:
                 return None
 
         tokens, requests = number("x-ratelimit-remaining-tokens"), number("x-ratelimit-remaining-requests")
+        limit = number("x-ratelimit-limit-tokens")
+        if limit is not None:
+            self.limit = limit
         if tokens is not None:
             self.tokens = tokens
             self.tokens_reset_at = now + (parse_duration(headers.get("x-ratelimit-reset-tokens")) or 60.0)
@@ -403,7 +413,32 @@ class HeaderBudget:
             waits.append(self.requests_reset_at - now)
         if self.tokens is not None and self.tokens < need_tokens and now < self.tokens_reset_at:
             waits.append(self.tokens_reset_at - now)
+        waits.append(self._window_wait(now, need_tokens))
         return max(waits)
+
+    def _window_wait(self, now: float, need_tokens: int) -> float:
+        """How long until the calls sent in the last minute, with this one, fit
+        the minute's limit. The headers alone let calls through that Groq then
+        refused (S6 set 2, BUILD_NOTES Entry 129), so the two are checked
+        together. A call larger than the whole limit is not held back here."""
+        if self.limit is None or need_tokens > self.limit:
+            return 0.0
+        self.sent = [(t, n) for t, n in self.sent if now - t < self.WINDOW_S]
+        used, wait = sum(n for _, n in self.sent), 0.0
+        for t, n in self.sent:  # oldest first: wait for just enough of them to fall out
+            if used + need_tokens <= self.limit:
+                break
+            used -= n
+            wait = t + self.WINDOW_S - now
+        return wait
+
+    def claim(self, need_tokens: int) -> float:
+        """`wait_s`, and when there is no wait, the call is counted as sent."""
+        with self._lock:
+            wait = self.wait_s(need_tokens)
+            if wait <= 0:
+                self.sent.append((self.clock(), need_tokens))
+            return wait
 
 
 def estimate_tokens(text: str) -> int:
@@ -732,7 +767,7 @@ class GroqProvider(_HttpProvider):
         return estimate_tokens(system) + estimate_tokens(user) + GROQ_TEMPLATE_TOKENS + self.max_output_tokens
 
     def _claim(self, system: str, user: str) -> float:
-        return self.budget.wait_s(self.need_tokens(system, user))
+        return self.budget.claim(self.need_tokens(system, user))
 
     def _received(self, response: httpx.Response) -> None:
         self.budget.update(response.headers)
@@ -812,7 +847,7 @@ class GroqProvider(_HttpProvider):
 
     def _claim_turn(self, system: str, messages: list[dict], tools: list[dict]) -> float:
         prompt = json.dumps(self._messages(system, messages)) + json.dumps(tools)
-        return self.budget.wait_s(estimate_tokens(prompt) + GROQ_TEMPLATE_TOKENS + self.max_output_tokens)
+        return self.budget.claim(estimate_tokens(prompt) + GROQ_TEMPLATE_TOKENS + self.max_output_tokens)
 
 
 class Unconfigured:

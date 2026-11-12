@@ -171,6 +171,16 @@ def test_groq_converse_waits_for_its_token_bucket_like_generate():
     assert len(server.requests) == 1, "refused before sending"
 
 
+def test_groq_converse_counts_the_minute_like_generate():
+    server, clock = Server(*(groq_call(headers=groq_headers(8000)) for _ in range(2))), Clock()
+    provider = GroqProvider(KEY, "openai/gpt-oss-120b", transport=server.transport, clock=clock, sleep=clock.sleep, max_output_tokens=3000)
+    provider.converse(SYSTEM, QUESTION, TOOLS)
+    provider.converse(SYSTEM, QUESTION, TOOLS)
+    g = provider.converse(SYSTEM, QUESTION, TOOLS, budget_s=8)
+    assert g.outcome == RATE_LIMITED and g.detail == "budget"
+    assert len(server.requests) == 2, "the third is held back by the minute's own count"
+
+
 def test_an_empty_reply_is_a_failure_not_an_answer():
     server, clock = Server(httpx.Response(200, json={
         "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": ""}}]})), Clock()

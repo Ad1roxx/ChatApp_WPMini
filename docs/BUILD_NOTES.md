@@ -8234,6 +8234,20 @@ A mentor can now attach files to the brief itself, not only students to their ha
 
 **Review.** Codex's per-step review found nothing.
 
+### Entry 129 — judge-v2's fifth change, Groq pacing, and a fresh start for set 2
+
+**What happened.** qwen run 1 on set 2 ended with 47 of 62 verdicts. The other 15 were all refused by Groq's per-minute token limit, still refused after three passes; none was a bad reply. qwen spends about 1,500 tokens a call, so a minute's 8,000 holds few calls, and the pacing trusted only the last response's headers, which let calls through that Groq then refused.
+
+**The human's decision, before any verdict was compared with any label:** don't score that run and don't amend "three passes". Instead, two fixes, then all four runs fresh. qwen run 1 and the one run 2 verdict are kept unscored in `ai/eval/s6-judge2-unscored/` (with a README), which the harness doesn't read. The threshold stays exactly as committed.
+
+**The fifth change to judge-v2.** judge-v1's "partly" also covered "the sources say something narrower or weaker". The guidelines make a claim stronger than its source unsupported, so the phrase is dropped; "partly" is now part of it in the sources, or an added person, name or reason. The prompt keeps the name judge-v2, and its cache key hashes the prompt's text, so nothing judged under the old text is reused.
+
+**Pacing.** Groq's budget (`HeaderBudget`) now keeps its own count as well as the headers: what each call it sent reserved (prompt estimate plus the whole output cap), for one minute. Before a call it waits until that count, with this call, fits the minute's limit from `x-ratelimit-limit-tokens`, waiting for only as many old calls as it must. The check and the count happen under one lock, so calls on several threads can't both take the last room. Both `generate` and `converse` count. A call that cannot fit within its time budget is refused before sending, as before. At qwen's size that is about two calls a minute, so a run takes about half an hour.
+
+**Tests.** A third large call waits until the first is a minute old even when the headers say there is room; calls a minute old no longer count; a wait that doesn't fit is refused without a call; the wait is for just enough old calls; a call larger than the limit isn't held back; eight threads claiming at once get exactly two calls; `converse` counts too; judge-v2 drops the phrase and otherwise is v1 plus the four lines, word for word. All 1,042 Python tests passed before the lock was added. MUTATIONS_PLACEHOLDER
+
+**Review.** Codex's per-step review raised two points. That a call refused for waiting too long is still counted: not real, since a call is counted only when there is no wait, as it is sent. That the check and the count weren't atomic across threads: real in principle (the app can run Groq calls on FastAPI's threads, though the calibration is one sequential process), so they now share a lock, with a test.
+
 ---
 
 ### Open items / "later" list
