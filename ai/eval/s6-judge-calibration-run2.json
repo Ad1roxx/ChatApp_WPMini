@@ -518,274 +518,636 @@
   "tokens_out": 273
  },
  "c26": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "This was the only query where the index changed the plan shape rather than merely the cost.",
+    "claim": "The member lookup query was the only query where the index changed the plan shape rather than just the cost.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did the indexing report find about the member lookup query?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 866,
+  "tokens_out": 191
  },
  "c27": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Nobody on the project has decided whether to add a short grace window on the previous token.",
+    "claim": "The project has not yet decided to add a short grace window on the previous token for refresh token rotation.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is still undecided about refresh token rotation?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 924,
+  "tokens_out": 232
  },
  "c28": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Processed event ids are kept for three days, which is long enough because the provider stops redelivering after seventy-two hours.",
+    "claim": "Processed event ids are retained for three days, and this duration is sufficient because the provider stops redelivering after seventy‑two hours.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "duration of keeping processed event ids",
+    "status": "answered"
+   },
+   {
+    "part": "reason why that duration is sufficient",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 882,
+  "tokens_out": 290
  },
  "c29": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Each retry waits a randomised amount of time between zero and the wait value.",
+    "claim": "Each retry waits a randomised amount of time between zero and the wait value.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why does each retry wait a random amount of time?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 865,
+  "tokens_out": 230
  },
  "c30": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The real bottleneck in your load test was the database connection pool.",
+    "claim": "The bottleneck in the load test was the database connection pool.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify the real bottleneck in the load test",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 912,
+  "tokens_out": 187
  },
  "c31": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "None of the failures in the load test were server errors.",
+    "claim": "The failures in the load test were not server errors.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Were the failed requests in the load test server errors?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 830,
+  "tokens_out": 185
  },
  "c32": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "A lock held in one process's memory means nothing to the other, so the race would have been just as likely in production.",
+    "claim": "A mutex (lock) that exists only in one process's memory does not affect another process, so the race condition would still occur in production.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Reason why a mutex didn't fix the double booking",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 900,
+  "tokens_out": 204
  },
  "c33": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The slot claim goes to the primary with majority write concern and is never served from a secondary.",
+    "claim": "The slot claim is handled by the primary using majority write concern and is never served from a secondary.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Explain how the fix guarantees only one booking wins a slot",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 865,
+  "tokens_out": 220
  },
  "c34": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Every other request finds no free slot and receives a 409 Conflict saying the slot was just taken.",
+    "claim": "All requests except the one that successfully claims the slot will not find a free slot and will get a 409 Conflict response indicating the slot was taken.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Explain how the fix ensures only one booking can win a slot",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 869,
+  "tokens_out": 227
  },
  "c35": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "For the reading list, a sixty-second TTL is used because a stale list is visible and harmless.",
+    "claim": "The caching exercise uses a 60‑second TTL for the reading list, stating that a stale list is visible and harmless.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Explanation of what the caching exercise says about stale reads",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 880,
+  "tokens_out": 208
  },
  "c36": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "In week five you felt more nervous about speaking than about the content.",
+    "claim": "In week five the author was more nervous about speaking than about the content of the talk.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did my learning log say about preparing the talk in week five?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1025,
+  "tokens_out": 203
  },
  "c37": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The interview question bank contains practice questions you collected.",
+    "claim": "The interview question bank contains practice questions that the user collected.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is in the interview question bank I saved?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 810,
+  "tokens_out": 159
  },
  "c38": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "partly",
+  "claims": [
+   {
+    "quote": "Your mentor shared the book Use The Index, Luke.",
+    "claim": "The mentor shared the book titled \"Use The Index, Luke\".",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify the book the mentor shared about indexing",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 794,
+  "tokens_out": 198
  },
  "c39": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You wrote that write-through keeps the cache consistent at the cost of slower writes.",
+    "claim": "The notes state that write-through keeps the cache consistent but results in slower writes.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did I write in my notes on caching trade-offs?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 847,
+  "tokens_out": 181
  },
  "c40": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Meera Iyer has shared five resources with you.",
+    "claim": "The mentor's name is Meera Iyer.",
+    "verdict": "unsupported"
+   },
+   {
+    "quote": "Meera Iyer has shared five resources with you.",
+    "claim": "The mentor has shared five resources.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "List the resources the mentor shared",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1181,
+  "tokens_out": 301
  },
  "c41": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "designing a rate limiter",
+    "claim": "The milestone 'Design a rate limiter' is still to do.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "passing a mock system design interview",
+    "claim": "The milestone 'Pass a mock system design interview' is still to do.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "explaining consensus at a whiteboard",
+    "claim": "The milestone 'Explain consensus at a whiteboard' is still to do.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify which milestones on the goal are still to do",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 866,
+  "tokens_out": 260
  },
  "c42": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The server stores the idempotency key for 24 hours.",
+    "claim": "The server remembers an idempotency key for 24 hours.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Duration the server remembers an idempotency key",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 906,
+  "tokens_out": 166
  },
  "c43": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The outage was caused by database connection exhaustion during slow payment provider responses.",
+    "claim": "The outage was caused by database connection exhaustion during slow payment provider responses.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Provide a summary of the postmortem document",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 954,
+  "tokens_out": 208
  },
  "c44": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The document concludes with action items for operational improvements.",
+    "claim": "The postmortem document ends with action items that aim to improve operations.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Provide a summary of the postmortem document",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 938,
+  "tokens_out": 270
  },
  "c45": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The agenda for your next session is a mock interview of 45 minutes.",
+    "claim": "The agenda for the next session is a mock interview lasting 45 minutes.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is on the agenda for my next session?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 870,
+  "tokens_out": 189
  },
  "c46": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You should read chapter 7 before the double-booking assignment.",
+    "claim": "Read chapter 7 before the double-booking assignment.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "which chapters",
+    "status": "answered"
+   },
+   {
+    "part": "when",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 818,
+  "tokens_out": 360
  },
  "c47": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You are still unsure about refresh token rotation.",
+    "claim": "The answer states that the speaker is still unsure about refresh token rotation.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is still undecided about refresh token rotation?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 915,
+  "tokens_out": 298
  },
  "c48": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Processed event ids are kept for seven days.",
+    "claim": "Processed event ids are retained for a period of seven days.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How long are processed event ids kept",
+    "status": "answered"
+   },
+   {
+    "part": "why is that long enough",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 902,
+  "tokens_out": 223
  },
  "c49": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Each retry waits 200 ms longer than the last.",
+    "claim": "Each retry waits 200 ms longer than the previous retry.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why does each retry wait a random amount of time?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 848,
+  "tokens_out": 244
  },
  "c50": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "The member lookup was one of several queries where the index changed the plan shape rather than merely the cost.",
+    "claim": "The member lookup query was among multiple queries for which the index altered the plan shape instead of just affecting cost.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did the indexing report find about the member lookup query?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 881,
+  "tokens_out": 266
  },
  "c51": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You suggested caching the promise rather than the value",
+    "claim": "The user suggested caching the promise instead of the value",
+    "verdict": "supported"
+   },
+   {
+    "quote": "and your mentor agreed",
+    "claim": "The mentor agreed with the suggestion",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Explain the thundering herd problem the user ran into",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 894,
+  "tokens_out": 291
  },
  "c52": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "A stolen access token is as good as a session.",
+    "claim": "A stolen access token can be used like a session token.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What can an attacker with XSS do to my tokens?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 857,
+  "tokens_out": 194
  },
  "c53": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "partly",
+  "claims": [
+   {
+    "quote": "Every failure was the service giving up after its two-second timeout.",
+    "claim": "All failed requests were caused by the service giving up after a two‑second timeout.",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Whether the failed requests were server errors",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 831,
+  "tokens_out": 286
  },
  "c54": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "The server stores the idempotency key for 48 hours.",
+    "claim": "The server stores the idempotency key for 48 hours.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How long does the server remember an idempotency key?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 918,
+  "tokens_out": 190
  },
  "c55": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Run three was discarded because the replica set lost its primary.",
+    "claim": "Run three was discarded because the replica set lost its primary.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is in the appendix of my webhook retries report?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 866,
+  "tokens_out": 229
  },
  "c56": {
   "label": null,
