@@ -127,6 +127,9 @@ test('a student it was set for lists and downloads, and sees the files on the br
 test('nobody else can do anything with them', async (t) => {
   const a = await setWork('Only for the first student');
   const file = await attached(a);
+  // The second student has other work from the same mentor, so "has a hand-in
+  // somewhere" is not mistaken for "it was set for them".
+  await setWork('Only for the second student', [m2._id]);
 
   const outsiders = [
     ['a student of the same mentor it was not set for', USERS.student2],
