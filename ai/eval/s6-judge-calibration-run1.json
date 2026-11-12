@@ -1352,40 +1352,113 @@
   "tokens_out": 247
  },
  "k05": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "For week five, you are preparing your ten-minute talk on observability and need to cut two minutes from your rehearsal time, as it currently runs twelve minutes [3].",
+    "claim": "You are preparing a ten‑minute observability talk for week five and need to cut two minutes because the rehearsal currently runs twelve minutes.",
+    "verdict": "partly"
+   },
+   {
+    "quote": "You noted that the slide on tracing is the likeliest to be cut short [3].",
+    "claim": "The slide on tracing is the most likely to be shortened.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What should I focus on next?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1033,
+  "tokens_out": 446
  },
  "k06": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "Processed event ids are kept for three days [1].",
+    "claim": "Processed event ids are retained for three days.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "This is long enough because the provider stops redelivering after seventy-two hours, meaning an older duplicate cannot arrive [1].",
+    "claim": "The three‑day retention is sufficient because the provider stops redelivering events after seventy‑two hours, so no older duplicate will be received.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How long are processed event ids kept?",
+    "status": "answered"
+   },
+   {
+    "part": "Why is that long enough?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 893,
+  "tokens_out": 300
  },
  "k07": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "An attacker with cross-site scripting can read local storage where an access token is stored",
+    "claim": "An attacker using XSS can read the local storage that contains an access token.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "a stolen access token is as good as a session until it expires",
+    "claim": "A stolen access token can be used like a session token until it expires.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What can an attacker with XSS do to my tokens?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 880,
+  "tokens_out": 291
  },
  "k08": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "You use the event id that the provider puts on every delivery as a key [4].",
+    "claim": "The event id provided on each delivery is used as a key.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "Before charging, your handler inserts this event id into a processed_events collection with a unique constraint, and if the insert fails because the id is already present, the charge is skipped [4].",
+    "claim": "The handler inserts the event id into a collection with a unique constraint; if insertion fails because the id already exists, the charge is not performed.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "Furthermore, the handler stores the response status alongside the event id and returns it again for a duplicate [3].",
+    "claim": "The handler stores the response status with the event id and returns the same status for duplicate events.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What prevents a redelivered webhook event from charging the customer again?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1043,
+  "tokens_out": 445
  },
  "k09": {
   "label": null,
