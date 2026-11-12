@@ -206,5 +206,190 @@
   "attempts": 2,
   "tokens_in": 0,
   "tokens_out": 0
+ },
+ "c17": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c18": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c19": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c20": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "An index on (a, b) helps a query on a",
+    "quote": "an index on (a, b) helps a query on a",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An index on (a, b) helps a query on a with b",
+    "quote": "and on a with b",
+    "verdict": "supported"
+   },
+   {
+    "claim": "An index on (a, b) does not help a query on b alone",
+    "quote": "but not on b alone",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How compound indexes work",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1049,
+  "tokens_out": 473
+ },
+ "c21": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c22": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c23": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c24": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c25": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c26": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c27": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "A request that reuses a cursor with a different filter gets a 409 response.",
+    "quote": "A request that reuses a cursor with a different filter gets a 409 response.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What error the API returns when a cursor is reused with a different filter",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 962,
+  "tokens_out": 401
+ },
+ "c28": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c29": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c30": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c31": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c32": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c33": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
  }
 }
