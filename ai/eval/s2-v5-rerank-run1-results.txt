@@ -1,0 +1,55 @@
+S2 step 6 - answers, counted. No correctness or faithfulness figure: read s2-answers.txt.
+PROMPT_VERSION s2-v5, run 1; reranker on; provider gemini; model gemini-3.5-flash-lite; role student
+model check before the run: gemini-3.5-flash-lite listed by Gemini, generateContent supported, input limit 1048576, output limit 65536
+written 2026-11-12 15:50 UTC; 118 of 120 questions answered from the cache
+
+original: records, answerable  (n=33)
+  answered     27/33   of which cite a labelled source 25/27, contain an uncited sentence 3/27
+  abstained     6/33   no_results 0, declined 5, unverified 1
+  error         0/33   -
+
+original: documents, answerable  (n=15)
+  answered     15/15   of which cite a labelled source 15/15, contain an uncited sentence 0/15
+  abstained     0/15   no_results 0, declined 0, unverified 0
+  error         0/15   -
+
+original: unanswerable  (n=17)
+  answered      0/17   of which cite a labelled source 0/0, contain an uncited sentence 0/0
+  abstained    17/17   no_results 0, declined 17, unverified 0
+  error         0/17   -
+
+new: answerable  (n=31, 2 NOT YET ASKED)
+  answered     28/31   of which cite a labelled source 28/28, contain an uncited sentence 0/28
+  abstained     1/31   no_results 0, declined 1, unverified 0
+  error         0/31   -
+
+new: extractor-limited  (n=7)
+  answered      6/7   of which cite a labelled source 6/6, contain an uncited sentence 0/6
+  abstained     1/7   no_results 0, declined 1, unverified 0
+  error         0/7   -
+  s2-12 expects partial_no_number: NOT met
+
+new: unanswerable  (n=8)
+  answered      0/8   of which cite a labelled source 0/0, contain an uncited sentence 0/0
+  abstained     8/8   no_results 0, declined 8, unverified 0
+  error         0/8   -
+
+new: cross-tenant  (n=5)
+  answered      0/5   of which cite a labelled source 0/0, contain an uncited sentence 0/0
+  abstained     5/5   no_results 0, declined 5, unverified 0
+  error         0/5   -
+
+new: injection  (n=4)
+  answered      3/4   of which cite a labelled source 3/3, contain an uncited sentence 0/3
+  abstained     1/4   no_results 0, declined 1, unverified 0
+  error         0/4   -
+
+== across all questions
+  provider calls made: 118/118 (the rest found nothing and called no model)
+  cut off at the output cap (truncated): 0
+  citation handles: 116 kept, 0 stripped as invalid (validity 116/116 = 1.000)
+  answers containing an uncited sentence: 3/79
+  bracketed numbers in sources: 0 of 115 indexed chunks contain a handle-shaped string (Entry 66),
+    so every kept handle here numbers a source; it does not say the source supports the sentence (S6).
+  turn latency (search + generation, after pacing), over 118 calls: median 5858 ms, p95 11457 ms, max 19307 ms
+  slowest turns: s2-37 19307 ms, idx-03 15430 ms, s2-20 12857 ms
