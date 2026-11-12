@@ -537,3 +537,107 @@ def summarise_submission(body: SummaryRequest) -> JSONResponse:
     with obslog.turn("/coverage/summary"):
         result = coverage.summarise(body.text, files, coverage_llm)
     return JSONResponse(content={"status": "ok", **result})
+
+
+# ---------------------------------------------------------------------------
+# Coverage report export (S8 Step 5)
+# ---------------------------------------------------------------------------
+from fastapi.responses import Response  # noqa: E402
+
+import report_export  # noqa: E402
+
+_S = Field(default="", max_length=20000)
+
+
+class _Strict(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class EvidenceOut(_Strict):
+    quote: str = _S
+    where: str = Field(default="", max_length=500)
+
+
+class CriterionOut(_Strict):
+    id: str = Field(max_length=100)
+    criterion: str = _S
+    label: Literal["Met", "Partially met", "Not found in submission", "Can't assess"]
+    present: str = _S
+    absent: str = _S
+    reason: str = _S
+    evidence: list[EvidenceOut] = Field(default_factory=list, max_length=50)
+    suggestedMarks: str = Field(default="", max_length=100)
+    note: str = _S
+
+
+class PointOut(_Strict):
+    id: str = Field(max_length=100)
+    point: str = _S
+    evidence: EvidenceOut = Field(default_factory=EvidenceOut)
+
+
+class TextItem(_Strict):
+    id: str = Field(max_length=100)
+    text: str = _S
+    evidence: list[EvidenceOut] = Field(default_factory=list, max_length=50)
+
+
+class WhereItem(_Strict):
+    id: str = Field(max_length=100)
+    where: str = Field(default="", max_length=500)
+    why: str = _S
+
+
+class NotAssessedItem(_Strict):
+    id: str = Field(max_length=100)
+    where: str = Field(default="", max_length=500)
+    reason: str = _S
+
+
+class SectionOut(_Strict):
+    id: str = Field(max_length=100)
+    assignment: str = _S
+    mode: str = Field(default="", max_length=20)
+    modeLabel: str = _S
+    checklist: str = _S
+    status: str = _S
+    brief: str = _S
+    submitted: str = _S
+    files: list[str] = Field(default_factory=list, max_length=20)
+    history: list[str] = Field(default_factory=list, max_length=200)
+    criteria: list[CriterionOut] = Field(default_factory=list, max_length=60)
+    points: list[PointOut] = Field(default_factory=list, max_length=200)
+    strengths: list[TextItem] = Field(default_factory=list, max_length=100)
+    gaps: list[TextItem] = Field(default_factory=list, max_length=100)
+    lookClosely: list[WhereItem] = Field(default_factory=list, max_length=100)
+    notAssessed: list[NotAssessedItem] = Field(default_factory=list, max_length=100)
+
+
+class HeaderOut(_Strict):
+    student: str = Field(default="", max_length=300)
+    mentor: str = Field(default="", max_length=300)
+    mentorship: str = Field(default="", max_length=500)
+    period: str = Field(default="", max_length=200)
+    assignments: list[str] = Field(default_factory=list, max_length=50)
+
+
+class DraftOut(_Strict):
+    title: str = Field(default="Coverage report", max_length=500)
+    header: HeaderOut = Field(default_factory=HeaderOut)
+    sections: list[SectionOut] = Field(default_factory=list, max_length=50)
+    trends: list[TextItem] = Field(default_factory=list, max_length=100)
+    mentorNotes: str = _S
+
+
+class ExportRequest(_Strict):
+    """Render the mentor's edited draft, as stored by Express. Nothing is read or
+    called: the file is made from this draft alone (report_export.plan)."""
+
+    draft: DraftOut
+    format: Literal["docx", "pdf"]
+
+
+@app.post("/reports/export", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def export_report(body: ExportRequest) -> Response:
+    data, content_type = report_export.export(body.draft.model_dump(), body.format)
+    return Response(content=data, media_type=content_type)

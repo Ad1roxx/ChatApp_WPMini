@@ -1,0 +1,24 @@
+.form, .block, .editor, .section { display: flex; flex-direction: column; gap: var(--space-3); }
+.block { margin-top: var(--space-3); }
+.editor { margin-top: var(--space-5); gap: var(--space-4); }
+.section { border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
+.sectionTitle { margin: 0; font-size: var(--text-md); }
+.blockTitle { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.banner { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: var(--text-sm); }
+.hint { margin: 0; font-size: var(--text-xs); color: var(--color-text-subtle); }
+.fact { margin: 0; font-size: var(--text-sm); }
+.factLabel { color: var(--color-text-subtle); }
+.fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.check { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
+.labelled { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-sm); }
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.item { display: flex; gap: var(--space-2); align-items: flex-start; }
+.itemFields { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); }
+.listRow { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); font-size: var(--text-sm); }
+.table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.table th, .table td { text-align: left; vertical-align: top; padding: var(--space-2); border-top: 1px solid var(--color-border); }
+.details { display: flex; flex-direction: column; gap: var(--space-1); }
+.evidence { list-style: none; margin: var(--space-1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.quote { margin: 0; padding-left: var(--space-2); border-left: 2px solid var(--color-border); white-space: pre-wrap; }
+.where { font-size: var(--text-xs); color: var(--color-text-subtle); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }

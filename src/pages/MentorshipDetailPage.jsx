@@ -31,6 +31,7 @@ import Progress from '../components/Progress';
 import Assignments from '../components/Assignments';
 import Sessions from '../components/Sessions';
 import Resources from '../components/Resources';
+import CoverageReports from '../components/CoverageReports';
 import EmptyState from '../components/EmptyState';
 import { InlineLoader, PageLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
@@ -467,6 +468,9 @@ export default function MentorshipDetailPage() {
         active={mentorship.status === 'active'}
         isMentor={isMentor}
       />
+
+      {/* Mentor only. A student never gets the component, so never its requests. */}
+      {isMentor && <CoverageReports mentorshipId={id} />}
 
       <Sessions
         key={`sessions-${changes}`}
