@@ -1461,13 +1461,33 @@
   "tokens_out": 445
  },
  "k09": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "partial_says_so",
+  "claims": [
+   {
+    "quote": "You can start with EXPLAIN on every query to spot a collection scan [1].",
+    "claim": "You can use EXPLAIN on every query to identify a collection scan.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "The sources do not contain what a collection scan is.",
+    "claim": "The provided sources do not define what a collection scan is.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "definition of a collection scan",
+    "status": "said_not_found"
+   },
+   {
+    "part": "how to spot a collection scan",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 918,
+  "tokens_out": 479
  },
  "k10": {
   "label": null,
