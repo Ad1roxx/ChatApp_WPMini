@@ -159,6 +159,19 @@ test('nobody but the mentor can draft, list, read, edit, review or export', asyn
   });
 });
 
+test("a report is its own mentor's, even inside a mentorship they lead", async () => {
+  // Never true through the routes, so made directly: a report whose recorded mentor is someone
+  // else stays theirs, whoever now leads the mentorship. Each of the two checks holds on its own.
+  const { db, mongoose } = require('./helpers/harness');
+  const other = await draftReport(USERS.mentor, { assignmentIds: [a1._id] }).then((r) => r.json());
+  await db().collection('coveragereports').updateOne(
+    { _id: new mongoose.Types.ObjectId(other.id) },
+    { $set: { mentor: new mongoose.Types.ObjectId(USERS.admin._id) } }
+  );
+  assert.equal((await getReport(USERS.mentor, other.id)).status, 404);
+  assert.equal((await exportIt(USERS.mentor, other.id, 'pdf')).status, 404);
+});
+
 test('edits keep facts and evidence, and clear the review tick', async () => {
   await review(USERS.mentor, report.id, true);
   const edited = structuredClone(report.draft);
