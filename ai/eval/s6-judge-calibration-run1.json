@@ -1490,48 +1490,121 @@
   "tokens_out": 479
  },
  "k10": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "If a client asks for more than one hundred bookings, the request is clamped to one hundred rather than rejected [1].",
+    "claim": "Requests for more than 100 bookings are limited to 100 instead of being rejected.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "The response also indicates how many bookings it actually returned, ensuring a client asking for five hundred still receives a useful answer [1].",
+    "claim": "The response tells how many bookings were actually returned, so a request for 500 still gets a useful answer.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What happens if a client asks for 500 bookings in one page?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 903,
+  "tokens_out": 299
  },
  "k11": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "You are still unsure about refresh token rotation in your design document [1][2].",
+    "claim": "The author is still unsure about refresh token rotation in the design document.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "Specifically, nobody on the project has decided whether to add a short grace window on the previous token to fix the issue where a client losing a refresh response gets logged out, which would weaken replay detection by that window [2].",
+    "claim": "No one on the project has decided to add a short grace window on the previous token to address the problem of a client losing a refresh response and being logged out, which would weaken replay detection during that window.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is still undecided about refresh token rotation?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 968,
+  "tokens_out": 432
  },
  "k12": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "complete",
+  "claims": [
+   {
+    "quote": "The lookup fix reduced the number of queries from forty one down to two [1][2].",
+    "claim": "The lookup fix reduced the number of queries from 41 to 2.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many queries did the lookup fix save?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 956,
+  "tokens_out": 260
  },
  "k13": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "A message is attempted five times in total [1].",
+    "claim": "A message is attempted five times in total.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Number of attempts before giving up",
+    "status": "answered"
+   },
+   {
+    "part": "Where the message goes after giving up",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 835,
+  "tokens_out": 184
  },
  "k14": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "The access token expires after fifteen minutes [1].",
+    "claim": "The access token expires after fifteen minutes.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "access token duration",
+    "status": "answered"
+   },
+   {
+    "part": "refresh token duration",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 989,
+  "tokens_out": 229
  }
 }

@@ -20,220 +20,502 @@
   "tokens_out": 289
  },
  "c02": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Rohan wrote a design note for your ordering API.",
+    "claim": "Rohan authored a design note concerning the ordering API.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Provide a summary of the rate-limiter-design.pdf document",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 960,
+  "tokens_out": 278
  },
  "c03": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Signed-in users receive a twenty-token bucket refilled every three seconds.",
+    "claim": "Signed-in users receive a twenty-token bucket that is refilled every three seconds.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Summarise Rohan's rate-limiter-design.pdf",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 987,
+  "tokens_out": 212
  },
  "c04": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "partly",
+  "claims": [
+   {
+    "quote": "Priya cares about both timings and reasoning.",
+    "claim": "The mentor named Priya cares about both timings and reasoning.",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "mentor care about timings",
+    "status": "answered"
+   },
+   {
+    "part": "mentor care about reasoning",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 940,
+  "tokens_out": 231
  },
  "c05": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "partly",
+  "claims": [
+   {
+    "quote": "For your ten-minute talk on observability, Priya noted that the most common mistake is running long.",
+    "claim": "Priya said that the most common mistake for the ten‑minute observability talk is running long.",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Whether the mentor cares about timings or about reasoning",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 866,
+  "tokens_out": 246
  },
  "c06": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Denormalising the author's display name would be better when the scale reaches a million posts.",
+    "claim": "Denormalising the author's display name is preferable when there are about a million posts.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "When would denormalising the author name be better than a lookup?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 974,
+  "tokens_out": 197
  },
  "c07": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Your hand-in notes that there is no review recorded in the source material.",
+    "claim": "The hand-in indicates that there is no review recorded for the pagination design.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Has my pagination design been reviewed yet?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 822,
+  "tokens_out": 224
  },
  "c08": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Run three was discarded because the queue was not emptied between runs.",
+    "claim": "Run three was discarded because the queue was not emptied between runs.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What is in the appendix of my webhook retries report?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 891,
+  "tokens_out": 226
  },
  "c09": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You need to cut two minutes from your rehearsal time.",
+    "claim": "The user should reduce their rehearsal time by two minutes.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What should I focus on next?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1063,
+  "tokens_out": 168
  },
  "c10": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You have completed preparing your observability talk, in week five.",
+    "claim": "The user has finished preparing the observability talk during week five.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "List of milestones already finished",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 993,
+  "tokens_out": 279
  },
  "c11": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You are working towards completing a weekly learning log.",
+    "claim": "The user is working towards completing a weekly learning log.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify the overall goal the user is working towards",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 809,
+  "tokens_out": 159
  },
  "c12": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Priya Nair suggested that you cache the promise rather than the value, so that the second caller waits on the first.",
+    "claim": "Priya Nair suggested caching the promise instead of the value.",
+    "verdict": "unsupported"
+   },
+   {
+    "quote": "Priya Nair suggested that you cache the promise rather than the value, so that the second caller waits on the first.",
+    "claim": "Caching the promise rather than the value makes the second caller wait on the first.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Explain the thundering herd problem the user ran into",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 916,
+  "tokens_out": 382
  },
  "c13": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Late work loses five marks for each day it is late.",
+    "claim": "Late work loses five marks for each day it is late.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many marks does late work lose?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 855,
+  "tokens_out": 172
  },
  "c14": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Raising the connection pool to fifty brought the p95 down to 290 ms and the errors to zero.",
+    "claim": "Increasing the connection pool to fifty reduced the p95 latency to 290 ms and eliminated errors.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Effect of raising connection pool to fifty on the 200-user step",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 937,
+  "tokens_out": 203
  },
  "c15": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "partly",
+  "claims": [
+   {
+    "quote": "Adding an item clears the cached list for every user of the endpoint.",
+    "claim": "When an item is added, the cached list is cleared for every user of the endpoint.",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Explain cache invalidation when an item is added",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 877,
+  "tokens_out": 234
  },
  "c16": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The error budget is a little over three hours in 28 days.",
+    "claim": "The error budget for the bookings SLO is a little over three hours in a 28‑day period.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "error budget in the bookings SLO",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 835,
+  "tokens_out": 195
  },
  "c17": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "At one hundred users, the p95 more than doubles.",
+    "claim": "At 100 virtual users, the p95 latency more than doubles compared to lower load.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "p95 latency value at 100 virtual users",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 909,
+  "tokens_out": 231
  },
  "c18": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The sources do not contain any further explanation of what write-through versus write-around actually means in that article.",
+    "claim": "The sources lack any further explanation of what write-through versus write-around means in the article.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Explain what the article said about write-through versus write-around",
+    "status": "said_not_found"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 832,
+  "tokens_out": 261
  },
  "c19": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You wrote that a short time to live keeps data fresh at the cost of more misses.",
+    "claim": "The notes said that a short time to live keeps data fresh at the cost of more misses.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What did I write in my notes on caching trade-offs?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 885,
+  "tokens_out": 207
  },
  "c20": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "partly",
+  "claims": [
+   {
+    "quote": "Meera has reviewed your rate limiter design and requested changes.",
+    "claim": "Meera reviewed the user's rate limiter design and asked for changes.",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Has Meera reviewed my rate limiter design yet?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 938,
+  "tokens_out": 246
  },
  "c21": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Redis is the wrong answer for learning what a cache actually does.",
+    "claim": "Redis is not suitable for learning what a cache actually does.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Should I use Redis for the cache?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 867,
+  "tokens_out": 195
  },
  "c22": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Your mentor wants the invalidation rule written down first because a cache you cannot explain the invalidation of is a bug you have not met yet.",
+    "claim": "The mentor wants the invalidation rule written first because a cache whose invalidation cannot be explained is a bug that has not yet been encountered.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Reason why mentor wants the invalidation rule written down first",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1015,
+  "tokens_out": 271
  },
  "c23": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You should store the refresh token in an httpOnly cookie with SameSite set to strict.",
+    "claim": "Refresh tokens should be stored in an httpOnly cookie.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "You should store the refresh token in an httpOnly cookie with SameSite set to strict.",
+    "claim": "The httpOnly cookie storing the refresh token should have SameSite set to strict.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Where should the refresh token be stored?",
+    "status": "answered"
+   },
+   {
+    "part": "Why should it be stored there?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1073,
+  "tokens_out": 333
  },
  "c24": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "An attacker with cross-site scripting on the page can read local storage, which makes local storage unsafe for tokens.",
+    "claim": "An attacker with XSS can read local storage, making local storage unsafe for storing tokens.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Where should the refresh token be stored and why?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1157,
+  "tokens_out": 237
  },
  "c25": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "The lookup fix reduced the number of queries from forty one down to two.",
+    "claim": "The lookup fix reduced the number of queries from 41 to 2.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many queries did the lookup fix save?",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 966,
+  "tokens_out": 273
  },
  "c26": {
   "label": null,
