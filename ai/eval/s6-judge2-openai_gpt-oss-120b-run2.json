@@ -314,5 +314,52 @@
   "attempts": 2,
   "tokens_in": 0,
   "tokens_out": 0
+ },
+ "c17": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c18": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Your mentor approved your load test numbers as final.",
+    "claim": "The mentor approved the load test numbers as final.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Whether the mentor approved the load test numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 974,
+  "tokens_out": 258
+ },
+ "c19": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c20": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
  }
 }
