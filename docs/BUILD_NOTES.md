@@ -8210,6 +8210,20 @@ A mentor can now attach files to the brief itself, not only students to their ha
 
 **Review.** Codex's per-step review found nothing. Its attack review raised two leaks, through the mentorship's work list and through the index; neither is real, because an assignment's recipients are always the setting mentor's own mentorships (`resolveRecipients` refuses any other), so both paths only ever reach that mentor and that student. Its test-gap review named three gaps, each already covered (in `test_sync.py` and in the shared allow-list's own tests) or not a property.
 
+### Entry 127 — S8 prerequisite, step 2: the brief's files on screen
+
+**Mentor.** Both "Set an assignment" forms take files. They wait in the form, can be removed before sending, and are uploaded to the new assignment once it exists; a refused file is named in a toast and the assignment stays. On the Assignments page, the expanded assignment lists the brief's files with add, remove, preview and download. Inside one student's mentorship page the brief's files are read-only, for the same reason Withdraw is not there: one brief can go to several students.
+
+**Student.** The brief of their own work lists its files, opened in the existing `FilePreview` or downloaded. No upload or remove controls; the server refuses those anyway.
+
+**Shared, not copied.** The hand-in's file list became `FileList`, and its count-and-size check and blob download moved into `lib/attachments.js` (`pickProblem`, `saveBlob`), used by both. Hand-in behaviour is unchanged. The lists refetch on the same `assignment-changed` event the brief does.
+
+**The rubric flag (D5)** is marked in `AssignmentFiles.jsx`, beside the server's place for it. Not built.
+
+**Tests.** `attachments-lib.test.mjs` (8): the picker's limits at their boundaries, and the upload helper posting each file in order, reporting the server's own refusal per file, carrying on after one, and never throwing. Lint clean (one existing warning elsewhere), build succeeds, 205 frontend tests pass. Not run in a browser.
+
+**Review.** Codex's per-step review suggested refreshing in a `finally` after the uploads; not needed, because the helper never throws (tested) and the server's event refreshes the list anyway.
+
 ---
 
 ### Open items / "later" list
