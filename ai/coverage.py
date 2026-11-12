@@ -64,15 +64,27 @@ REASON_TEXT = {
     "other": "it cannot be judged from the text",
     "unverifiable": "the evidence cited could not be verified",
     "no_verdict": "no verdict was given for it",
+    "set_aside": "evidence set aside as a possible instruction; check this part yourself",
 }
 
-# A line that speaks to whoever marks the work is never evidence (AGENT_PLAN §7).
+# A line that speaks to whoever marks the work, or makes a claim about the
+# marking, is never evidence (AGENT_PLAN §7). Narrow on purpose (the human,
+# S8 Step 3): a hand-in ABOUT AI assistants must keep its evidence, so a word
+# like "AI" or "assistant" is not enough; the line has to address one, or
+# claim something about the marking.
+_WHO = r"(?:grader|marker|assessor|examiner|reviewer|AI|assistant|(?:language\s+)?model|LLM|chatbot|bot)"
 ADDRESSED_TO_MARKER = re.compile(
-    r"\b(?:grader|marker|assessor|examiner|reviewer|AI|assistant|language model|LLM|chatbot)\b"
-    r"|\bfull marks\b|\bignore (?:all|any|the|your|previous)\b"
+    # Addressed: "Dear marker", "Note to the grader", "Hey AI", "AI assistant: mark ...", "Grader, please ..."
+    rf"\b(?:dear|hey|hi|hello|attention|note\s+(?:to|for))\s+(?:the\s+|any\s+|an\s+|all\s+)?(?:\w+\s+)?{_WHO}s?\b"
+    rf"|\b(?:to|for)\s+(?:the|any|an)\s+(?:\w+\s+)?{_WHO}s?\s+(?:reading|marking|grading|checking|assessing|reviewing)\b"
+    rf"|\b{_WHO}s?\s*[:,]\s*(?:please\s+)?(?:mark|grade|give|award|rate|score|ignore|treat|consider|say|report|confirm|pass|accept)\b"
+    # Claims about the marking.
+    r"|\bfull\s+marks\b|\b(?:top|maximum|highest)\s+(?:marks|grade|score)\b"
+    r"|\bignore\s+(?:all\s+|any\s+|the\s+|your\s+|previous\s+|prior\s+)*(?:instructions|rubric|criteria|marking|rules)\b"
     r"|\b(?:meets|satisfies|fulfils|fulfills|covers|passes|addresses)\s+(?:every|all|each)(?:\s+of\s+the)?\s+(?:rubric\s+|marking\s+)?"
-    r"(?:criterion|criteria|requirements?|points?|items?)\b"
-    r"|\b(?:mark|grade|rate|score)\s+(?:this|it|me)\b",
+    r"(?:criterion|criteria|requirements?)\b"
+    r"|\bmark\s+(?:every|all|each)\s+(?:criterion|criteria|requirements?)\s+as\b"
+    r"|\b(?:give|award|grade|mark|rate|score)\s+(?:this|it|me)\b(?:\s+\w+){0,3}\s+(?:an?\s+A\b|A\+|10/10|100%|full|top|maximum|perfect)",
     re.I,
 )
 
@@ -236,6 +248,7 @@ def assess(criteria: list[dict], text: str, files: list[dict], provider, *, budg
 
     evidence: dict[str, list[dict]] = {c["id"]: [] for c in criteria}
     set_aside: list[dict] = []  # lines that spoke to the marker
+    set_aside_for: set[str] = set()  # criteria some of whose evidence was set aside
     dropped = 0
     calls = 0
 
@@ -255,6 +268,7 @@ def assess(criteria: list[dict], text: str, files: list[dict], provider, *, budg
                 dropped += 1
                 continue
             if ADDRESSED_TO_MARKER.search(quote):
+                set_aside_for.add(cid)
                 if not any(s["quote"] == quote for s in set_aside):
                     set_aside.append({"quote": quote, "where": passages[at]["where"]})
                 continue
@@ -265,9 +279,15 @@ def assess(criteria: list[dict], text: str, files: list[dict], provider, *, budg
                 continue
             mine.append({"quote": quote, "where": passages[at]["where"], "window": window})
 
-    results = []
-    for start in range(0, len(criteria), BATCH):
-        batch = criteria[start:start + BATCH]
+    # A criterion ALL of whose evidence was set aside is the mentor's to read,
+    # decided here and never sent for a verdict: Can't assess, never Not found
+    # (the human, S8 Step 3). Some evidence kept: judged on what was kept.
+    settled = {c["id"]: {"criterionId": c["id"], "criterion": c["text"], **_cant(c, "set_aside", "")}
+               for c in criteria if c["id"] in set_aside_for and not evidence[c["id"]]}
+    to_judge = [c for c in criteria if c["id"] not in settled]
+
+    for start in range(0, len(to_judge), BATCH):
+        batch = to_judge[start:start + BATCH]
         handles: dict[str, dict[str, dict]] = {}
         blocks = []
         for c in batch:
@@ -284,10 +304,10 @@ def assess(criteria: list[dict], text: str, files: list[dict], provider, *, budg
             if v["criterion_id"] in handles and v["criterion_id"] not in given:
                 given[v["criterion_id"]] = v
         for c in batch:
-            results.append(_settle(c, given.get(c["id"]), handles[c["id"]], why if data is None else None))
+            settled[c["id"]] = _settle(c, given.get(c["id"]), handles[c["id"]], why if data is None else None)
 
     return {
-        "verdicts": results,
+        "verdicts": [settled[c["id"]] for c in criteria],
         "notRead": not_read,
         "setAside": [{"quote": s["quote"], "where": s["where"]} for s in set_aside],
         "droppedQuotes": dropped,
