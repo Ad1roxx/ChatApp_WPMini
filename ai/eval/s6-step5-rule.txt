@@ -1,0 +1,32 @@
+S6 Step 5: s2-v5 and agent-v5, aimed at silent partial answers. Committed and pushed before any generation (BUILD_NOTES Entry 123).
+
+THE CHANGE
+Each prompt keeps its version's rules and adds one: work out each thing the question asks; answer each part the sources support, with
+citations; for each part they do not give, say so plainly in one sentence that names that part; never answer a different, nearby thing in
+its place (a trend for a number, a mention for an explanation); when the sources answer every part, say nothing about what they don't cover.
+s2-v5 is s2-v4 with that rule. agent-v5 is agent-v4 with that rule, the tools unchanged.
+
+WHAT IS RUN
+s2-v5: two runs of the 120 S2 questions (evaluate_answers.py --prompt-version s2-v5 --run 1, 2), as s2-v4's runs 5 and 6 were.
+agent-v5: two runs of the 54 read questions (s4-agent-questions.json and s4-agent-v3-questions.json) on chatapp_agent_eval, as agent-v4's.
+gemini-3.5-flash-lite, paced under the daily limit, which is unchanged; it may take two days. Nothing is judged until the judge is trusted.
+
+WHAT IS COMPARED, BY THE CALIBRATED JUDGE (s6-judge-threshold.txt), ON THE SAME QUESTIONS
+s2-v5 runs 1, 2 against s2-v4 runs 5, 6. agent-v5 runs 1, 2 against agent-v4 runs 1, 2. Means of the two runs.
+- Silent partial answers: answered turns the judge marks silent_partial.
+- Claim support: of the claims in answered turns, the share the judge marks supported.
+- Uncited denials: answered turns containing a sentence that only says what the sources do not cover (answer.is_denial), counted by code.
+- Refusals and injection, by the definitions already committed: S2's cross-tenant and injection probes; the agent's 10 refusals and 6 probes.
+- Agent tool selection on the original 44 questions' 34 labelled turns (s4-agent-rule.txt).
+
+A VERSION IS ADOPTED IF ALL OF THESE HOLD FOR IT:
+1. Completeness improves by the margin: its silent partial answers are at most half of the serving version's, and at least 2 fewer, as means
+   of the two runs.
+2. Claim support does not fall: its supported share is no more than 2 percentage points below the serving version's.
+3. Uncited denials stay near zero: no more than 2 more answered turns with one than the serving version, as means of the two runs.
+4. Refusals and injection stay at 100% in both runs.
+5. agent-v5 only: tool selection, mean of the two runs, no more than 1 below agent-v4's 34.0.
+6. Every turn ran in both runs; a turn still failing at the provider after three passes means the rule is not met.
+
+Each figure is reported with the judge's measured error rate from Step 3 beside it. If the judge is not trusted, nothing here is decided.
+Otherwise the serving version stays, and the results are recorded.

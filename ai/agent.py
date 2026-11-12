@@ -122,7 +122,7 @@ BOTH = ("mentor", "student")
 NO_ARGS = {"type": "object", "properties": {}, "additionalProperties": False}
 HANDLE = {"type": "string", "pattern": r"^T[1-9][0-9]{0,2}$"}
 # The prompts that know about proposals. Only these are offered a write tool.
-WITH_WRITES = {"agent-v4"}
+WITH_WRITES = {"agent-v4", "agent-v5"}
 
 
 @dataclass(frozen=True)
@@ -313,13 +313,19 @@ SYSTEM_PROMPT_V4 = SYSTEM_PROMPT_V3 + """
 17. If a change needs a date or time you were not given, reply with exactly ASK_DATE. If you cannot tell which item is meant, reply with exactly ASK_WHICH. If it needs something else you were not given, such as a title, reply with exactly ASK_DETAILS.
 18. Propose at most one change. If asked for several, propose only the first."""
 
-PROMPTS = {"agent-v1": SYSTEM_PROMPT, "agent-v2": SYSTEM_PROMPT_V2, "agent-v3": SYSTEM_PROMPT_V3, "agent-v4": SYSTEM_PROMPT_V4}
+# agent-v5 (S6 Step 5, BUILD_NOTES Entry 123): agent-v4 with one more rule, aimed at answers that leave part of a question
+# out without saying so. Measured under s6-step5-rule.txt before it can serve.
+SYSTEM_PROMPT_V5 = SYSTEM_PROMPT_V4 + """
+19. Work out each thing the question asks. Answer each part the results support, with citations. For each part they do not give, say so plainly in one sentence that names that part. Never answer a different, nearby thing in its place: a trend is not the number that was asked for, and a mention is not an explanation. When the results answer every part, say nothing about what they do not cover."""
+
+PROMPTS = {"agent-v1": SYSTEM_PROMPT, "agent-v2": SYSTEM_PROMPT_V2, "agent-v3": SYSTEM_PROMPT_V3, "agent-v4": SYSTEM_PROMPT_V4,
+           "agent-v5": SYSTEM_PROMPT_V5}
 # The versions that are told the parties' names and may answer with a marker.
-WITH_PARTIES = {"agent-v2", "agent-v3", "agent-v4"}
+WITH_PARTIES = {"agent-v2", "agent-v3", "agent-v4", "agent-v5"}
 obslog.register_prompts(PROMPTS)
 obslog.register_tools([t.name for t in TOOLS + WRITE_TOOLS] + ["check_attachment"])
 # Told which of the parties is asking.
-WITH_ASKER = {"agent-v3", "agent-v4"}
+WITH_ASKER = {"agent-v3", "agent-v4", "agent-v5"}
 # agent-v4's replies that are a refusal or a question. The whole reply, and the panel has the sentence for each.
 DECLINE_MARKERS = {"CANNOT_DO": "cannot_do", "ASK_DATE": "ask_date", "ASK_WHICH": "ask_which", "ASK_DETAILS": "ask_details"}
 NOT_VISIBLE_MARKER = "NOT_VISIBLE"

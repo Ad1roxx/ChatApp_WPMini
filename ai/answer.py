@@ -137,13 +137,21 @@ SYSTEM_PROMPT_V4 = SYSTEM_PROMPT_V3.replace(
     "\n7. Every source belongs to this mentorship.",
 ).replace("\n7. Be brief:", "\n8. Be brief:")
 
-PROMPTS = {"s2-v2": SYSTEM_PROMPT_V2, "s2-v3": SYSTEM_PROMPT_V3, "s2-v4": SYSTEM_PROMPT_V4}
+# s2-v5 (S6 Step 5, BUILD_NOTES Entry 123): s2-v4 with one more rule, aimed at answers that leave part of a
+# question out without saying so (s2-12, cache-07). Measured under s6-step5-rule.txt before it can serve.
+SYSTEM_PROMPT_V5 = SYSTEM_PROMPT_V4.replace(
+    "\n8. Be brief:",
+    "\n8. Work out each thing the question asks. Answer each part the sources support, with citations. For each part they do not give, say so plainly in one sentence that names that part. Never answer a different, nearby thing in its place: a trend is not the number that was asked for, and a mention is not an explanation. When the sources answer every part, say nothing about what they do not cover."
+    "\n9. Be brief:",
+)
+
+PROMPTS = {"s2-v2": SYSTEM_PROMPT_V2, "s2-v3": SYSTEM_PROMPT_V3, "s2-v4": SYSTEM_PROMPT_V4, "s2-v5": SYSTEM_PROMPT_V5}
 obslog.register_prompts(PROMPTS)
 # Versions that are given the two parties' names.
-NAMES_PARTIES = {"s2-v4"}
+NAMES_PARTIES = {"s2-v4", "s2-v5"}
 # Versions whose answers are declined when every sentence says only what the
 # sources do not cover.
-DECLINE_DENIAL_ONLY = {"s2-v3", "s2-v4"}
+DECLINE_DENIAL_ONLY = {"s2-v3", "s2-v4", "s2-v5"}
 
 _DEFUSE = str.maketrans({"<": "‹", ">": "›"})
 _HANDLES = re.compile(r"\[\s*(?:sources?\s*)?(\d+(?:\s*,\s*\d+)*)\s*\]", re.IGNORECASE)
