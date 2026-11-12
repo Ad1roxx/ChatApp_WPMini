@@ -1278,13 +1278,34 @@
   "tokens_out": 469
  },
  "c52": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: failed",
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor fixed the N+1 problem",
+    "quote": "Your mentor fixed the N+1",
+    "verdict": "unsupported"
+   },
+   {
+    "claim": "The fix used a single $lookup",
+    "quote": "with a single $lookup",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The fix reduced queries from 41 to 2",
+    "quote": "bringing 41 queries down to 2",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How the N+1 in the comments loader was fixed",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
   "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "tokens_in": 913,
+  "tokens_out": 708
  },
  "k01": {
   "label": "complete",

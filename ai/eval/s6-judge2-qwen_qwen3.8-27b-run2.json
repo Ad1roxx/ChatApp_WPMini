@@ -1,0 +1,183 @@
+{
+ "c01": {
+  "label": "partly",
+  "claims": [
+   {
+    "claim": "The weekly booking count is a public count of how many bookings a practitioner has this week.",
+    "quote": "it is a public count of how many bookings a practitioner has this week",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Nobody acts on that number.",
+    "quote": "nobody acts on that number",
+    "verdict": "supported"
+   },
+   {
+    "claim": "A lag of seconds is invisible.",
+    "quote": "a lag of seconds is invisible",
+    "verdict": "supported"
+   },
+   {
+    "claim": "These three facts together are the reason the weekly booking count can be read from a secondary.",
+    "quote": "The weekly booking count can be read from a secondary because it is a public count of how many bookings a practitioner has this week, nobody acts on that number, and a lag of seconds is invisible.",
+    "verdict": "partly"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the weekly booking count can be read from a secondary",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 909,
+  "tokens_out": 1200
+ },
+ "c02": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "You must use an in-process cache rather than Redis.",
+    "quote": "You must use an in-process cache rather than Redis.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What to build for the caching assignment",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 922,
+  "tokens_out": 618
+ },
+ "c03": {
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "Before the fix, fifty simultaneous booking requests for the same slot produced three bookings on most runs",
+    "quote": "Before the fix, fifty simultaneous booking requests for the same slot produced three bookings on most runs",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Before the fix, fifty simultaneous booking requests for the same slot never produced fewer than two bookings",
+    "quote": "and never fewer than two",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How many bookings fifty simultaneous requests created before the fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 889,
+  "tokens_out": 347
+ },
+ "c04": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c05": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c06": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c07": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c08": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c09": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c10": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c11": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The user told their mentor to check that the load generator was not running out of CPU.",
+    "quote": "You told your mentor to check that the load generator was not running out of CPU.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What Priya wants the user to check before trusting load test numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 861,
+  "tokens_out": 805
+ },
+ "c12": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c13": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ }
+}
