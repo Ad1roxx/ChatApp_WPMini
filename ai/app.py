@@ -484,3 +484,56 @@ def assess_submission(body: AssessRequest) -> JSONResponse:
     with obslog.turn("/coverage/assess"):
         result = coverage.assess([c.model_dump() for c in body.criteria], body.text, files, coverage_llm)
     return JSONResponse(content={"status": "ok", **result})
+
+
+class BriefRequest(BaseModel):
+    """Extract a checklist from an assignment's brief (S8 Step 4, brief mode).
+
+    Express sends the brief's own text after checking the viewer set the
+    assignment. Nothing is read from the index. Extra fields are refused.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=20000)
+
+
+@app.post("/criteria/extract-brief", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def extract_brief_criteria(body: BriefRequest) -> JSONResponse:
+    """As /criteria/extract, from the brief's text: the count of checkable
+    items it finds is what chooses between brief mode and summary mode."""
+    log = logging.getLogger("copilot.criteria")
+    problem = database_problem()
+    if problem:
+        log.warning("brief criteria refused: %s", problem)
+        return JSONResponse(status_code=503, content={"status": "error", "message": COVERAGE_NOT_CONFIGURED})
+    with obslog.turn("/criteria/extract-brief"):
+        result = criteria.extract([{"text": body.text}], coverage_llm)
+    if not result["criteria"] and result["notRead"] and not result["rejected"]:
+        return JSONResponse(status_code=502, content={"status": "error", "message": PLAIN[FAILED], **result})
+    return JSONResponse(content={"status": "ok", **result})
+
+
+class SummaryRequest(BaseModel):
+    """Summarise one hand-in, as the mentor who set the work (summary mode). The
+    same scope and reads as /coverage/assess, without criteria."""
+
+    model_config = ConfigDict(extra="forbid")
+    mentorshipId: str = Field(pattern=_OBJECT_ID)
+    viewerId: str = Field(pattern=_OBJECT_ID)
+    submissionId: str = Field(pattern=_OBJECT_ID)
+    text: str = Field(default="", max_length=5000)
+    files: list[FileIn] = Field(default_factory=list, max_length=5)
+
+
+@app.post("/coverage/summary", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def summarise_submission(body: SummaryRequest) -> JSONResponse:
+    """200 with a cited, point-by-point summary: no verdicts, no marks."""
+    log = logging.getLogger("copilot.coverage")
+    problem = database_problem()
+    if problem:
+        log.warning("summary refused: %s", problem)
+        return JSONResponse(status_code=503, content={"status": "error", "message": COVERAGE_NOT_CONFIGURED})
+    files = submission_files(body.mentorshipId, body.viewerId, body.submissionId, body.files)
+    with obslog.turn("/coverage/summary"):
+        result = coverage.summarise(body.text, files, coverage_llm)
+    return JSONResponse(content={"status": "ok", **result})

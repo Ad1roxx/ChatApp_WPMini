@@ -150,3 +150,31 @@ def test_assess_refuses_a_malformed_request(wire, change):
     client, store, llm = wire(VERDICT)
     assert assess_post(client, {**ASSESS, **change}).status_code == 422
     assert store.reads == [] and llm.calls == []
+
+
+# ---------------------------------------------------------------------------
+# POST /criteria/extract-brief and /coverage/summary (S8 Step 4)
+# ---------------------------------------------------------------------------
+def test_brief_extraction_reads_only_the_text_express_sent(wire):
+    client, store, llm = wire(json.dumps({"criteria": [{"source_text": "Write the rule.", "marks": None}]}))
+    res = client.post("/criteria/extract-brief", json={"text": "Caching\n\nWrite the rule. Explain staleness."},
+                      headers={"X-AI-Secret": SECRET})
+    assert res.status_code == 200 and [c["sourceText"] for c in res.json()["criteria"]] == ["Write the rule."]
+    assert store.reads == [] and "Write the rule. Explain staleness." in llm.calls[0][1]
+
+
+@pytest.mark.parametrize("path, body", [("/criteria/extract-brief", {"text": "x"}),
+                                        ("/coverage/summary", {k: v for k, v in ASSESS.items() if k != "criteria"})])
+def test_the_step_4_routes_are_refused_off_the_synthetic_databases(wire, path, body):
+    client, store, llm = wire("{}", app_db="chatapp")
+    assert client.post(path, json=body, headers={"X-AI-Secret": SECRET}).status_code == 503
+    assert store.reads == [] and llm.calls == []
+
+
+def test_a_summary_request_cannot_carry_criteria_and_reads_only_this_hand_in(wire):
+    client, store, llm = wire(json.dumps({"points": []}), chunks=MIXED)
+    body = {k: v for k, v in ASSESS.items() if k != "criteria"}
+    assert client.post("/coverage/summary", json=ASSESS, headers={"X-AI-Secret": SECRET}).status_code == 422
+    res = client.post("/coverage/summary", json=body, headers={"X-AI-Secret": SECRET})
+    assert res.status_code == 200 and res.json()["points"] == []
+    assert "Own work." in llm.calls[0][1] and "Someone else's." not in llm.calls[0][1]

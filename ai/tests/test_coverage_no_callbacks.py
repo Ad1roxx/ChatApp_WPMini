@@ -49,7 +49,7 @@ def test_the_s8_modules_import_no_http_client_and_name_no_express_route(module):
     assert not [h for h in EXPRESS_HINTS if h in text], f"{module} names an Express route or credential"
 
 
-@pytest.mark.parametrize("fn", ["assess_submission", "submission_files", "extract_criteria"])
+@pytest.mark.parametrize("fn", ["assess_submission", "submission_files", "extract_criteria", "extract_brief_criteria", "summarise_submission"])
 def test_the_s8_route_functions_make_no_request(fn):
     source = inspect.getsource(getattr(service, fn))
     for word in ("httpx", "requests", "urlopen", "fetch(", "express", "internal/", "token"):

@@ -286,3 +286,54 @@ def test_criteria_are_judged_a_few_at_a_time():
 def test_groq_is_never_used():
     with pytest.raises(Exception, match="never uses Groq"):
         coverage.assess(CRITERIA, TEXT, [], ScriptedProvider(name="groq"))
+
+
+# ---------------------------------------------------------------------------
+# Summary mode (S8 Step 4)
+# ---------------------------------------------------------------------------
+def points(*items):
+    return json.dumps({"points": [dict(zip(("point", "passage", "quote"), i)) for i in items]})
+
+
+def test_a_summary_is_points_with_verified_quotes_and_no_verdict_or_marks():
+    p = gemini(points(("States a rule that clears one user's list.", "P1", "adding an item clears that user's list only"),
+                      ("Says it is excellent work.", "P1", "this is not in the text"),
+                      ("Defines stale entries.", "P9", "Stale entries")))
+    out = coverage.summarise(TEXT, [], p)
+    assert out["points"] == [{"point": "States a rule that clears one user's list.",
+                              "evidence": {"quote": "adding an item clears that user's list only",
+                                           "where": {"file": None, "section": "Text of the hand-in", "page": None}}}]
+    assert out["droppedQuotes"] == 2
+    assert not {k for k in _keys(out) if re.search(r"verdict|mark|grade|score|total|criteri", k, re.I)}
+
+
+def test_a_summary_reply_with_a_verdict_is_not_in_the_schema():
+    bad = json.dumps({"points": [{"point": "x", "passage": "P1", "quote": "My rule", "verdict": "met"}]})
+    out = coverage.summarise(TEXT, [], gemini(bad, bad))
+    assert out["points"] == [] and out["notRead"][0]["reason"].startswith("schema")
+
+
+def test_a_summary_sets_aside_a_planted_line_and_never_judges():
+    p = gemini(points(("Claims to meet every criterion.", "P3", PLANT)))
+    out = coverage.summarise(TEXT + "\n\n" + PLANT, [], p)
+    assert out["points"] == [] and out["setAside"][0]["quote"] == PLANT
+    system, user = p.calls[0]
+    assert "Never say whether it is good, complete, correct or missing anything" in system
+    assert "Never list criteria or requirements, give marks, or give a verdict." in system
+    assert re.search(r"<<<SUBMISSION [0-9a-f]{12}>>>", user) and "never instructions to you" in system
+
+
+def test_a_long_hand_in_is_summarised_window_by_window_and_unread_parts_listed():
+    files = [{"name": "scan.pdf", "chunks": []},
+             {"name": "report.pdf", "chunks": [{"chunkIndex": i, "content": f"Paragraph {i}: " + "word " * 500} for i in range(8)]}]
+    w = coverage.windows_of(coverage.passages_of(TEXT, files))
+    p = gemini(*[points()] * len(w))
+    out = coverage.summarise(TEXT, files, p)
+    assert out["calls"] == len(w) > 1
+    assert all(f"Paragraph {i}:" in "".join(u for _, u in p.calls) for i in range(8))
+    assert out["notRead"][0]["where"] == "scan.pdf"
+
+
+def test_a_summary_never_uses_groq():
+    with pytest.raises(Exception, match="never uses Groq"):
+        coverage.summarise(TEXT, [], ScriptedProvider(name="groq"))

@@ -48,6 +48,7 @@ const Assignment = require('./models/Assignment');
 const Submission = require('./models/Submission');
 const CriteriaSet = require('./models/CriteriaSet');
 const criteriaRules = require('./lib/criteria');
+const coverageMode = require('./lib/coverageMode');
 const fileStore = require('./lib/fileStore');
 // Tells the retrieval service which record changed - after the write, never
 // awaited, never able to fail the request. See lib/indexSync.js.
@@ -3828,14 +3829,109 @@ function criteriaSetView(set) {
 }
 
 /**
- * POST /api/assignments/:id/criteria/extract — the mentor who set the
- * assignment asks for its rubric's criteria to be proposed (S8 Step 2).
+ * Propose a checklist for an assignment: from its rubric file, or (S8 Step 4,
+ * brief mode) from the brief's own text. The caller has already checked that
+ * `user` set the assignment. Returns `{ set }` or `{ status, error }`.
  *
- * Only that mentor (loadOwnAssignment). The rubric is read in the AI service
- * as that mentor, in one of their own active mentorships the work was set
- * for, through the index's gated read; Express names the file, and the
- * service can read nothing that mentor could not find. Extracting again
- * replaces the proposal and never touches a confirmed version.
+ * The rubric is read in the AI service as that mentor, in one of their own
+ * active mentorships the work was set for, through the index's gated read;
+ * Express names the file. The brief's text is sent by Express, which holds
+ * it. Extracting again replaces the proposal and never touches a confirmed
+ * version.
+ */
+async function extractChecklist(assignment, user, kind) {
+  let request;
+  let file = null;
+  if (kind === 'rubric') {
+    file = assignment.attachments.find((f) => f.rubric && f.rubric.isRubric);
+    if (!file) return { status: 400, error: 'Mark one of the brief\'s files as the rubric first' };
+  }
+  if (!AI_SERVICE_URL || !AI_SERVICE_SECRET) {
+    return { status: 503, error: 'Rubric checks are not configured on this server' };
+  }
+  if (kind === 'rubric') {
+    const mentorship = await Mentorship.findOne({
+      _id: { $in: assignment.mentorships },
+      mentor: user._id,
+      status: 'active'
+    }).select('_id');
+    if (!mentorship) return { status: 409, error: 'This work is not set in any active mentorship of yours' };
+    request = {
+      path: '/criteria/extract',
+      // From the verified identity, never the request body.
+      body: { mentorshipId: String(mentorship._id), viewerId: String(user._id), fileId: String(file.fileId) }
+    };
+  } else {
+    const text = [assignment.title, assignment.instructions].filter(Boolean).join('\n\n');
+    request = { path: '/criteria/extract-brief', body: { text } };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), COVERAGE_EXTRACT_TIMEOUT_MS);
+  let upstream;
+  let body;
+  try {
+    upstream = await fetch(`${AI_SERVICE_URL}${request.path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-AI-Secret': AI_SERVICE_SECRET },
+      body: JSON.stringify(request.body),
+      signal: controller.signal
+    });
+    body = await upstream.json().catch(() => null);
+  } catch (err) {
+    console.error('Error extracting criteria:', err.name === 'AbortError' ? 'timed out' : err);
+    return { status: 502, error: `The ${kind} could not be read` };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (upstream.status === 404) {
+    return {
+      status: 409,
+      error: 'No text could be read from the rubric yet. Try again in a minute; a scan with no text layer cannot be read.'
+    };
+  }
+  if (!upstream.ok || !body || !Array.isArray(body.criteria)) {
+    if ([429, 502, 503].includes(upstream.status) && typeof body?.message === 'string') {
+      return { status: upstream.status, error: body.message };
+    }
+    console.error('Criteria extraction answered', upstream.status);
+    return { status: 502, error: `The ${kind} could not be read` };
+  }
+
+  // Each extraction's ids are its own (`x<stamp>-c1`), so a screen still
+  // holding an earlier extraction cannot confirm `c1` against a different
+  // quote: an id from a replaced extraction is simply not in the checklist.
+  const stamp = `x${Date.now().toString(36)}`;
+  const proposed = body.criteria.map((c) => ({ ...c, id: `${stamp}-${c.id}` }));
+  const fileId = file ? file.fileId : null;
+
+  const set = await CriteriaSet.findOneAndUpdate(
+    { assignment: assignment._id, 'source.kind': kind, 'source.fileId': fileId },
+    {
+      $setOnInsert: { assignment: assignment._id, mentor: user._id },
+      $set: {
+        'source.kind': kind,
+        'source.fileId': fileId,
+        'source.fileName': file ? file.name : '',
+        extracted: {
+          at: new Date(),
+          promptVersion: String(body.promptVersion || ''),
+          criteria: proposed,
+          rejected: body.rejected || [],
+          notRead: body.notRead || []
+        }
+      }
+    },
+    { new: true, upsert: true, runValidators: true }
+  );
+  return { set };
+}
+
+/**
+ * POST /api/assignments/:id/criteria/extract — the mentor who set the
+ * assignment asks for a checklist to be proposed. Body `{ source }`:
+ * `'rubric'` (the default) or `'brief'`. Only that mentor (loadOwnAssignment).
  */
 app.post('/api/assignments/:id/criteria/extract', requireAuth, async (req, res) => {
   try {
@@ -3843,86 +3939,18 @@ app.post('/api/assignments/:id/criteria/extract', requireAuth, async (req, res) 
     if (own.error) {
       return res.status(own.status).json({ error: own.error });
     }
-    const { assignment } = own;
-    const rubric = assignment.attachments.find((f) => f.rubric && f.rubric.isRubric);
-    if (!rubric) {
-      return res.status(400).json({ error: 'Mark one of the brief\'s files as the rubric first' });
+    const source = (req.body || {}).source || 'rubric';
+    if (source !== 'rubric' && source !== 'brief') {
+      return res.status(400).json({ error: 'Read criteria from the rubric or the brief' });
     }
-    if (!AI_SERVICE_URL || !AI_SERVICE_SECRET) {
-      return res.status(503).json({ error: 'Rubric checks are not configured on this server' });
+    const done = await extractChecklist(own.assignment, req.authUser, source);
+    if (done.error) {
+      return res.status(done.status).json({ error: done.error });
     }
-    const mentorship = await Mentorship.findOne({
-      _id: { $in: assignment.mentorships },
-      mentor: req.authUser._id,
-      status: 'active'
-    }).select('_id');
-    if (!mentorship) {
-      return res.status(409).json({ error: 'This work is not set in any active mentorship of yours' });
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), COVERAGE_EXTRACT_TIMEOUT_MS);
-    let upstream;
-    let body;
-    try {
-      upstream = await fetch(`${AI_SERVICE_URL}/criteria/extract`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-AI-Secret': AI_SERVICE_SECRET },
-        body: JSON.stringify({
-          mentorshipId: String(mentorship._id),
-          // From the verified identity, never the request body.
-          viewerId: String(req.authUser._id),
-          fileId: String(rubric.fileId)
-        }),
-        signal: controller.signal
-      });
-      body = await upstream.json().catch(() => null);
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (upstream.status === 404) {
-      return res.status(409).json({
-        error: 'No text could be read from the rubric yet. Try again in a minute; a scan with no text layer cannot be read.'
-      });
-    }
-    if (!upstream.ok || !body || !Array.isArray(body.criteria)) {
-      if ([429, 502, 503].includes(upstream.status) && typeof body?.message === 'string') {
-        return res.status(upstream.status).json({ error: body.message });
-      }
-      console.error('Criteria extraction answered', upstream.status);
-      return res.status(502).json({ error: 'The rubric could not be read' });
-    }
-
-    // Each extraction's ids are its own (`x<stamp>-c1`), so a screen still
-    // holding an earlier extraction cannot confirm `c1` against a different
-    // quote: an id from a replaced extraction is simply not in the checklist.
-    const stamp = `x${Date.now().toString(36)}`;
-    const proposed = body.criteria.map((c) => ({ ...c, id: `${stamp}-${c.id}` }));
-
-    const set = await CriteriaSet.findOneAndUpdate(
-      { assignment: assignment._id, 'source.kind': 'rubric', 'source.fileId': rubric.fileId },
-      {
-        $setOnInsert: { assignment: assignment._id, mentor: req.authUser._id },
-        $set: {
-          'source.kind': 'rubric',
-          'source.fileId': rubric.fileId,
-          'source.fileName': rubric.name,
-          extracted: {
-            at: new Date(),
-            promptVersion: String(body.promptVersion || ''),
-            criteria: proposed,
-            rejected: body.rejected || [],
-            notRead: body.notRead || []
-          }
-        }
-      },
-      { new: true, upsert: true, runValidators: true }
-    );
-    res.json(criteriaSetView(set));
+    res.json(criteriaSetView(done.set));
   } catch (err) {
-    console.error('Error extracting criteria:', err.name === 'AbortError' ? 'timed out' : err);
-    res.status(502).json({ error: 'The rubric could not be read' });
+    console.error('Error extracting criteria:', err);
+    res.status(502).json({ error: 'The checklist could not be read' });
   }
 });
 
@@ -3992,6 +4020,7 @@ const VERDICT_FIELDS = [
   'criterionId', 'criterion', 'verdict', 'label', 'present', 'absent', 'reason', 'reasonText',
   'evidence', 'strippedCitations', 'suggestedMarks', 'maxMarks', 'suggestion'
 ];
+const SUMMARY_FIELDS = ['points', 'notRead', 'setAside', 'droppedQuotes', 'calls', 'promptVersion'];
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => k in (obj || {})).map((k) => [k, obj[k]]));
 
 /**
@@ -4025,18 +4054,6 @@ app.post('/api/submissions/:id/coverage', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'This hand-in is not in an active mentorship of yours' });
     }
 
-    const setId = (req.body || {}).setId;
-    if (!mongoose.isValidObjectId(setId)) {
-      return res.status(404).json({ error: 'Checklist not found' });
-    }
-    const set = await CriteriaSet.findOne({ _id: setId, assignment: submission.assignment._id });
-    if (!set) {
-      return res.status(404).json({ error: 'Checklist not found' });
-    }
-    const latest = set.latest();
-    if (!latest) {
-      return res.status(409).json({ error: 'Confirm the checklist first: nothing is assessed until you do' });
-    }
     if (!submission.text && submission.attachments.length === 0) {
       return res.status(400).json({ error: 'There is nothing in this hand-in to check yet' });
     }
@@ -4044,23 +4061,79 @@ app.post('/api/submissions/:id/coverage', requireAuth, async (req, res) => {
       return res.status(503).json({ error: 'Rubric checks are not configured on this server' });
     }
 
+    // Which checklist, or none: a named checklist decides the mode itself;
+    // otherwise the mentor's choice, or the rule (lib/coverageMode.js, N = 3).
+    const { setId, mode: override } = req.body || {};
+    const assignment = submission.assignment;
+    const rubricFile = assignment.attachments.find((f) => f.rubric && f.rubric.isRubric);
+    let set = null;
+    let mode;
+    if (setId !== undefined) {
+      if (!mongoose.isValidObjectId(setId)) {
+        return res.status(404).json({ error: 'Checklist not found' });
+      }
+      set = await CriteriaSet.findOne({ _id: setId, assignment: assignment._id });
+      if (!set) {
+        return res.status(404).json({ error: 'Checklist not found' });
+      }
+      mode = { mode: set.source.kind, chosenBy: 'mentor', label: coverageMode.LABELS[set.source.kind] };
+    } else {
+      let brief = await CriteriaSet.findOne({ assignment: assignment._id, 'source.kind': 'brief' });
+      const briefCount = () => (brief ? brief.extracted.criteria.length : null);
+      mode = coverageMode.chooseMode({ rubricMarked: Boolean(rubricFile), briefCount: briefCount(), override });
+      if (mode.needsBrief) {
+        // The rule needs the brief's checklist to count: read it now, once.
+        const done = await extractChecklist(assignment, req.authUser, 'brief');
+        if (done.error) {
+          return res.status(done.status).json({ error: done.error });
+        }
+        brief = done.set;
+        mode = coverageMode.chooseMode({ rubricMarked: false, briefCount: briefCount(), override });
+      }
+      if (mode.error) {
+        return res.status(400).json({ error: mode.error });
+      }
+      if (mode.mode === 'rubric') {
+        set = await CriteriaSet.findOne({ assignment: assignment._id, 'source.kind': 'rubric', 'source.fileId': rubricFile.fileId });
+      } else if (mode.mode === 'brief') {
+        set = brief;
+      }
+    }
+
+    const latest = set ? set.latest() : null;
+    if (mode.mode !== 'summary' && !latest) {
+      return res.status(409).json({
+        error: 'Confirm the checklist first: nothing is assessed until you do',
+        mode: mode.mode,
+        setId: set ? String(set._id) : null
+      });
+    }
+    // When a rubric now exists and this check is not against it, the mentor can regenerate in rubric mode.
+    const rubricSet = rubricFile
+      ? await CriteriaSet.findOne({ assignment: assignment._id, 'source.kind': 'rubric', 'source.fileId': rubricFile.fileId })
+      : null;
+    const rubricReady = Boolean(rubricSet && rubricSet.latest()) && mode.mode !== 'rubric';
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), COVERAGE_ASSESS_TIMEOUT_MS);
     let upstream;
     let body;
     try {
-      upstream = await fetch(`${AI_SERVICE_URL}/coverage/assess`, {
+      const scope = {
+        mentorshipId: String(mentorship._id),
+        viewerId: String(req.authUser._id),
+        submissionId: String(submission._id),
+        // The hand-in's own text box: never `review.note`, which is the mentor's.
+        text: submission.text || '',
+        files: submission.attachments.map((f) => ({ fileId: String(f.fileId), name: f.name }))
+      };
+      const summary = mode.mode === 'summary';
+      upstream = await fetch(`${AI_SERVICE_URL}${summary ? '/coverage/summary' : '/coverage/assess'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-AI-Secret': AI_SERVICE_SECRET },
-        body: JSON.stringify({
-          mentorshipId: String(mentorship._id),
-          viewerId: String(req.authUser._id),
-          submissionId: String(submission._id),
-          // The hand-in's own text box: never `review.note`, which is the mentor's.
-          text: submission.text || '',
-          files: submission.attachments.map((f) => ({ fileId: String(f.fileId), name: f.name })),
-          criteria: latest.criteria.map((c) => ({ id: c.id, text: c.text, marks: c.marks }))
-        }),
+        body: JSON.stringify(
+          summary ? scope : { ...scope, criteria: latest.criteria.map((c) => ({ id: c.id, text: c.text, marks: c.marks })) }
+        ),
         signal: controller.signal
       });
       body = await upstream.json().catch(() => null);
@@ -4068,7 +4141,8 @@ app.post('/api/submissions/:id/coverage', requireAuth, async (req, res) => {
       clearTimeout(timer);
     }
 
-    if (!upstream.ok || !body || !Array.isArray(body.verdicts)) {
+    const expected = mode.mode === 'summary' ? 'points' : 'verdicts';
+    if (!upstream.ok || !body || !Array.isArray(body[expected])) {
       if ([429, 502, 503].includes(upstream.status) && typeof body?.message === 'string') {
         return res.status(upstream.status).json({ error: body.message });
       }
@@ -4076,13 +4150,26 @@ app.post('/api/submissions/:id/coverage', requireAuth, async (req, res) => {
       return res.status(502).json({ error: 'The hand-in could not be checked' });
     }
 
+    const head = {
+      submissionId: String(submission._id),
+      mode: mode.mode,
+      modeLabel: mode.label,
+      modeChosenBy: mode.chosenBy,
+      rubricAvailable: rubricReady,
+      draft: true
+    };
+    if (mode.mode === 'summary') {
+      // No verdicts, no marks, no checklist: only these fields reach the mentor.
+      const result = pick(body, SUMMARY_FIELDS);
+      result.points = body.points.map((p) => pick(p, ['point', 'evidence']));
+      return res.json({ ...result, ...head, checklist: null });
+    }
     const result = pick(body, ASSESSMENT_FIELDS);
     result.verdicts = body.verdicts.map((v) => pick(v, VERDICT_FIELDS));
     res.json({
       ...result,
-      submissionId: String(submission._id),
-      checklist: { setId: String(set._id), version: latest.n, source: set.source },
-      draft: true
+      ...head,
+      checklist: { setId: String(set._id), version: latest.n, source: set.source }
     });
   } catch (err) {
     if (err.name === 'AbortError') {

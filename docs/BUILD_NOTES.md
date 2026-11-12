@@ -8300,6 +8300,20 @@ This rule can make an injected hand-in differ from its twin (Can't assess where 
 
 **Review.** Codex's per-step review: a timeout fell through to the generic 502; now a 504 with its own sentence and test. Attack review: nothing real. Test-gap review: an ended mentorship and an upstream score were untested, both now tested; normalised quotes passing is the Step 2 design, not a gap.
 
+### Entry 134 — S8 Step 4: rubric, brief and summary mode
+
+**The rule** (`server/lib/coverageMode.js`, pure). A brief file marked as the rubric means rubric mode. Otherwise the brief's own extracted checklist decides: N = 3 or more checkable items, brief mode; fewer, summary mode (N fixed at Step 0; the count is of what extraction kept, not of verbs). The mentor can choose instead, within what exists: rubric mode needs a rubric, brief mode a checklist read from the brief; anything else is refused with a 400 before anything runs. The mode and who chose it are stated in every result.
+
+**Brief mode.** `POST /api/assignments/:id/criteria/extract` takes `{ source: 'brief' }`; Express sends the brief's own title and instructions to `POST /criteria/extract-brief`, which runs the same extraction and quote checks as a rubric (nothing read from the index). When the rule needs the count and the brief has never been read, the check reads it once, then decides. A brief checklist is confirmed like a rubric's before anything is assessed (409 otherwise, naming the mode and the checklist), and the result says "Assessed against the assignment brief; no rubric was provided". Extraction was refactored into one `extractChecklist` for both sources.
+
+**Summary mode** (`coverage.summarise`, `POST /coverage/summary`). The same scope and reads as an assessment, without criteria: point by point, window by window, each point with a quote verified in its passage; planted lines set aside; unread parts listed. Its schema has no field for a verdict, marks or criteria, the prompt says never to judge, list criteria or give marks, and Express passes on `points` (each only `point` and `evidence`) and the named fields, so a verdict or marks sent from upstream never reach the mentor (tested by a stub that sends both).
+
+**Regeneration.** A result in another mode says `rubricAvailable` once the rubric has a confirmed checklist, and the next check by the rule is in rubric mode (a rubric marked but not yet confirmed gives the 409, not a silent fallback). The report screen in Step 5 offers the button.
+
+**Tests.** `coverage-modes.test.js` (7): the rule at its boundaries (2 and 3 items, none read, overrides); rubric mode never reads the brief; brief mode reads the brief once, waits for confirmation, then assesses with its label; summary mode with no verdict, marks, grade, score or total anywhere and no criteria sent; overrides within what exists; a rubric added later taking over. `test_coverage.py` (+5): summary points verified, invented or misplaced quotes dropped, a reply with a verdict refused by the schema, planted lines set aside, the prompt, long hand-ins and unread parts, Groq refused. `test_criteria_route.py` (+4): brief extraction reads only the sent text; both new routes refused off the synthetic databases; a summary request cannot carry criteria and reads only this hand-in. The no-callbacks guard covers the two new routes. MUTATIONS_PLACEHOLDER
+
+**Review.** Codex's per-step review raised two points, neither real: an empty brief extraction does reach summary mode (0 is below N, and summary needs no confirmed version; a test runs that path), and an unavailable override is refused with a 400 before any checklist logic (three assertions).
+
 ---
 
 ### Open items / "later" list
