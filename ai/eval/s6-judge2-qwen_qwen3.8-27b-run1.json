@@ -105,13 +105,29 @@
   "tokens_out": 506
  },
  "c05": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The weekly booking count can be read from a secondary.",
+    "quote": "The weekly booking count can be read from a secondary",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason it can be read from a secondary is that secondaries are always within a few seconds of the primary.",
+    "quote": "because secondaries are always within a few seconds of the primary",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the weekly booking count can be read from a secondary",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
   "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "tokens_in": 892,
+  "tokens_out": 986
  },
  "c06": {
   "label": "unsupported",
@@ -1067,13 +1083,29 @@
   "tokens_out": 467
  },
  "c44": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: failed",
-  "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "label": "supported",
+  "claims": [
+   {
+    "claim": "The authentication design assumes an attacker who has cross-site scripting on one page of the application",
+    "quote": "The authentication design assumes an attacker who has cross-site scripting on one page of the application",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The attacker has no access to the server",
+    "quote": "and no access to the server",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What attacker the authentication design is written against",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 911,
+  "tokens_out": 307
  },
  "c45": {
   "label": "supported",
@@ -1174,5 +1206,392 @@
   "attempts": 1,
   "tokens_in": 958,
   "tokens_out": 350
+ },
+ "c49": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor said the $lookup is the right fix.",
+    "quote": "Your mentor said the $lookup is the right fix",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The mentor said the $lookup stays fine at any size, even at a million posts.",
+    "quote": "stays fine at any size, even at a million posts",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor said about the $lookup fix",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 912,
+  "tokens_out": 361
+ },
+ "c50": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The mentor wrote the URL shortener mock interview notes.",
+    "quote": "Your mentor wrote the URL shortener mock interview notes.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Who wrote the URL shortener interview notes",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1147,
+  "tokens_out": 353
+ },
+ "c51": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "claim": "The crash did not happen in development.",
+    "quote": "The crash did not happen in development",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason the crash did not happen in development is that Express 4 catches errors from async handlers there.",
+    "quote": "because Express 4 catches errors from async handlers there",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the crash did not happen in development",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1230,
+  "tokens_out": 469
+ },
+ "c52": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: failed",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k01": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "The report query on created date alone did not improve at all.",
+    "quote": "The report query on created date alone did not improve at all",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The compound index begins with author.",
+    "quote": "the compound index begins with author",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The prefix rule means a query on the second field cannot use the compound index.",
+    "quote": "the prefix rule means a query on the second field cannot use it",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Which query did not improve at all",
+    "status": "answered"
+   },
+   {
+    "part": "Why not",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 962,
+  "tokens_out": 321
+ },
+ "k02": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "While bookings are being created, a new booking shifts every later one down by a place, making skip and limit wrong.",
+    "quote": "Skip and limit is wrong because while bookings are being created, a new booking shifts every later one down by a place",
+    "verdict": "supported"
+   },
+   {
+    "claim": "As a result, a client paging through sees one booking twice and never sees another.",
+    "quote": "As a result, a client paging through sees one booking twice and never sees another",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why skip and limit is wrong (not just slow) for the bookings list",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 948,
+  "tokens_out": 471
+ },
+ "k03": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "Each server takes a block of one million IDs from a coordinator and hands them out in order, encoded in base 62.",
+    "quote": "Each server takes a block of one million IDs from a coordinator and hands them out in order, encoded in base 62",
+    "verdict": "supported"
+   },
+   {
+    "claim": "No two servers can produce the same code.",
+    "quote": "Because no two servers can produce the same code",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Nothing needs to be checked against the database before a link is created because no two servers can produce the same code.",
+    "quote": "nothing needs to be checked against the database before a link is created",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How short codes are generated",
+    "status": "answered"
+   },
+   {
+    "part": "Why no database check is needed first",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1126,
+  "tokens_out": 503
+ },
+ "k04": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "The mentor told the user to try caching the promise rather than the value.",
+    "quote": "Your mentor told you to try caching the promise rather than the value",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The mentor said to try this before the next session.",
+    "quote": "before your next session",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason is so that the second caller waits on the first.",
+    "quote": "so that the second caller waits on the first",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the mentor told the user to try about caching the promise",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 976,
+  "tokens_out": 380
+ },
+ "k05": {
+  "label": "complete",
+  "claims": [
+   {
+    "claim": "The URL shortener answers with a 302 redirect",
+    "quote": "The URL shortener answers with a 302 redirect",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The reason for using 302 is so that every click reaches the service and can be counted",
+    "quote": "so that every click reaches the service and can be counted",
+    "verdict": "supported"
+   },
+   {
+    "claim": "If a 301 were used, browsers would remember it",
+    "quote": "If a 301 were used instead, browsers would remember it",
+    "verdict": "supported"
+   },
+   {
+    "claim": "After the first visit with a 301, the clicks would never arrive at the service",
+    "quote": "after the first visit the clicks would never arrive at the service",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why 302 rather than 301",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1199,
+  "tokens_out": 562
+ },
+ "k06": {
+  "label": "silent_partial",
+  "claims": [
+   {
+    "claim": "The test fired fifty simultaneous booking requests for the same slot.",
+    "quote": "fifty simultaneous booking requests for the same slot",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Before the fix, the test produced three bookings on most runs.",
+    "quote": "produced three bookings on most runs",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Before the fix, the test never produced fewer than two bookings.",
+    "quote": "never fewer than two",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What the race test found before the fix",
+    "status": "answered"
+   },
+   {
+    "part": "What the fix was",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 919,
+  "tokens_out": 424
+ },
+ "k07": {
+  "label": "silent_partial",
+  "claims": [
+   {
+    "claim": "Before trusting load test numbers, check that the load generator was not running out of CPU.",
+    "quote": "Before you trust any of your load test numbers, check that the load generator was not running out of CPU",
+    "verdict": "supported"
+   },
+   {
+    "claim": "Watch the load generator's usage during the next run.",
+    "quote": "watch its usage during the next run",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What p95 latency did the load test report",
+    "status": "missing"
+   },
+   {
+    "part": "What to check before trusting the numbers",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 882,
+  "tokens_out": 526
+ },
+ "k08": {
+  "label": "silent_partial",
+  "claims": [
+   {
+    "claim": "The report query on created date did not improve because the compound index begins with author and the prefix rule means a query on the second field cannot use it.",
+    "quote": "The report query on created date did not improve because the compound index begins with author, and the prefix rule means a query on the second field cannot use it",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The member lookup is the only query where the index changed the plan shape.",
+    "quote": "The member lookup is the only query where the index changed the plan shape",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Why the report query did not improve",
+    "status": "answered"
+   },
+   {
+    "part": "How much faster the member lookup got",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 988,
+  "tokens_out": 471
+ },
+ "k09": {
+  "label": "partial_says_so",
+  "claims": [
+   {
+    "claim": "The design assumes an attacker who has cross-site scripting on one page of the application and no access to the server.",
+    "quote": "The design assumes an attacker who has cross-site scripting on one page of the application and no access to the server [1].",
+    "verdict": "supported"
+   },
+   {
+    "claim": "The sources do not say where the refresh token is stored.",
+    "quote": "The sources do not say where the refresh token is stored.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What attacker the auth design assumes",
+    "status": "answered"
+   },
+   {
+    "part": "Where the refresh token is stored",
+    "status": "said_not_found"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 944,
+  "tokens_out": 478
+ },
+ "k10": {
+  "label": "silent_partial",
+  "claims": [
+   {
+    "claim": "It gets slower the deeper a client pages, because the database still walks past every skipped booking",
+    "quote": "It gets slower the deeper a client pages, because the database still walks past every skipped booking",
+    "verdict": "supported"
+   },
+   {
+    "claim": "It is wrong while bookings are being created, because a new booking shifts every later one down by a place",
+    "quote": "It is also wrong while bookings are being created, because a new booking shifts every later one down by a place",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Two problems with skip and limit",
+    "status": "answered"
+   },
+   {
+    "part": "What replaced it",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 925,
+  "tokens_out": 494
  }
 }
