@@ -3983,6 +3983,117 @@ app.post('/api/assignments/:id/criteria/:setId/confirm', requireAuth, async (req
   }
 });
 
+/** How long Express waits for one hand-in's assessment: a call per window and per few criteria. */
+const COVERAGE_ASSESS_TIMEOUT_MS = Number(process.env.COVERAGE_ASSESS_TIMEOUT_MS) || 300000;
+
+/** What of the AI service's assessment reaches the mentor: these fields and nothing else. */
+const ASSESSMENT_FIELDS = ['verdicts', 'notRead', 'setAside', 'droppedQuotes', 'calls', 'promptVersion'];
+const VERDICT_FIELDS = [
+  'criterionId', 'criterion', 'verdict', 'label', 'present', 'absent', 'reason', 'reasonText',
+  'evidence', 'strippedCitations', 'suggestedMarks', 'maxMarks', 'suggestion'
+];
+const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => k in (obj || {})).map((k) => [k, obj[k]]));
+
+/**
+ * POST /api/submissions/:id/coverage — suggested verdicts for one hand-in,
+ * criterion by criterion, against a confirmed checklist (S8 Step 3).
+ *
+ * Body: `{ setId }`. Only the mentor who set the assignment, in their own
+ * active mentorship; never the student. Nothing is assessed without a
+ * confirmed version (409). The AI service is sent the hand-in's own text box
+ * (never the mentor's review) and its own files, and reads those files as
+ * this mentor; it keeps only chunks that belong to this hand-in. The reply is
+ * a draft for the mentor: nothing is written to the hand-in, nothing is sent
+ * to the student, and only the named fields are passed on (never a total).
+ */
+app.post('/api/submissions/:id/coverage', requireAuth, async (req, res) => {
+  try {
+    const loaded = await loadSubmission(req.params.id);
+    if (loaded.error) {
+      return res.status(loaded.status).json({ error: loaded.error });
+    }
+    const { submission } = loaded;
+    if (String(submission.assignment.mentor) !== String(req.authUser._id)) {
+      return res.status(403).json({ error: 'Only the mentor who set this can check it against a rubric' });
+    }
+    const mentorship = await Mentorship.findOne({
+      _id: submission.mentorship,
+      mentor: req.authUser._id,
+      status: 'active'
+    }).select('_id');
+    if (!mentorship) {
+      return res.status(403).json({ error: 'This hand-in is not in an active mentorship of yours' });
+    }
+
+    const setId = (req.body || {}).setId;
+    if (!mongoose.isValidObjectId(setId)) {
+      return res.status(404).json({ error: 'Checklist not found' });
+    }
+    const set = await CriteriaSet.findOne({ _id: setId, assignment: submission.assignment._id });
+    if (!set) {
+      return res.status(404).json({ error: 'Checklist not found' });
+    }
+    const latest = set.latest();
+    if (!latest) {
+      return res.status(409).json({ error: 'Confirm the checklist first: nothing is assessed until you do' });
+    }
+    if (!submission.text && submission.attachments.length === 0) {
+      return res.status(400).json({ error: 'There is nothing in this hand-in to check yet' });
+    }
+    if (!AI_SERVICE_URL || !AI_SERVICE_SECRET) {
+      return res.status(503).json({ error: 'Rubric checks are not configured on this server' });
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), COVERAGE_ASSESS_TIMEOUT_MS);
+    let upstream;
+    let body;
+    try {
+      upstream = await fetch(`${AI_SERVICE_URL}/coverage/assess`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-AI-Secret': AI_SERVICE_SECRET },
+        body: JSON.stringify({
+          mentorshipId: String(mentorship._id),
+          viewerId: String(req.authUser._id),
+          submissionId: String(submission._id),
+          // The hand-in's own text box: never `review.note`, which is the mentor's.
+          text: submission.text || '',
+          files: submission.attachments.map((f) => ({ fileId: String(f.fileId), name: f.name })),
+          criteria: latest.criteria.map((c) => ({ id: c.id, text: c.text, marks: c.marks }))
+        }),
+        signal: controller.signal
+      });
+      body = await upstream.json().catch(() => null);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!upstream.ok || !body || !Array.isArray(body.verdicts)) {
+      if ([429, 502, 503].includes(upstream.status) && typeof body?.message === 'string') {
+        return res.status(upstream.status).json({ error: body.message });
+      }
+      console.error('Coverage assessment answered', upstream.status);
+      return res.status(502).json({ error: 'The hand-in could not be checked' });
+    }
+
+    const result = pick(body, ASSESSMENT_FIELDS);
+    result.verdicts = body.verdicts.map((v) => pick(v, VERDICT_FIELDS));
+    res.json({
+      ...result,
+      submissionId: String(submission._id),
+      checklist: { setId: String(set._id), version: latest.n, source: set.source },
+      draft: true
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.error('Error checking a hand-in: timed out');
+      return res.status(504).json({ error: 'Checking this hand-in took too long. Try again in a few minutes.' });
+    }
+    console.error('Error checking a hand-in:', err);
+    res.status(502).json({ error: 'The hand-in could not be checked' });
+  }
+});
+
 // ============================================
 // MENTORSHIP COPILOT - RETRIEVAL
 // ============================================

@@ -100,3 +100,53 @@ def test_the_secret_is_required(wire):
 
 def test_the_routes_provider_is_gemini_even_if_the_app_runs_on_groq():
     assert service.coverage_llm.name == "gemini"
+
+
+# ---------------------------------------------------------------------------
+# POST /coverage/assess (S8 Step 3)
+# ---------------------------------------------------------------------------
+SUB = "5" * 24
+ASSESS = {"mentorshipId": M1, "viewerId": MENTOR, "submissionId": SUB, "text": "My rule clears one list.",
+          "files": [{"fileId": FILE, "name": "report.pdf"}],
+          "criteria": [{"id": "k1", "text": "States the rule", "marks": 10}]}
+MIXED = [
+    {"chunkIndex": 0, "content": "Own work.", "parentType": "submission", "parentId": SUB},
+    {"chunkIndex": 1, "content": "Someone else's.", "parentType": "submission", "parentId": "6" * 24},
+    {"chunkIndex": 2, "content": "A brief file.", "parentType": "assignment", "parentId": SUB},
+]
+VERDICT = json.dumps({"verdicts": [{"criterion_id": "k1", "verdict": "not_found"}]})
+
+
+def assess_post(client, body=ASSESS, secret=SECRET):
+    return client.post("/coverage/assess", json=body, headers={"X-AI-Secret": secret} if secret else {})
+
+
+def test_assess_reads_each_file_as_the_viewer_and_keeps_only_this_hand_ins_chunks(wire):
+    client, store, llm = wire(json.dumps({"evidence": []}), VERDICT, chunks=MIXED)
+    res = assess_post(client)
+    assert res.status_code == 200 and res.json()["verdicts"][0]["label"] == "Not found in submission"
+    assert store.reads == [(M1, MENTOR, FILE)]
+    shown = llm.calls[0][1]
+    assert "Own work." in shown and "Someone else's." not in shown and "A brief file." not in shown
+
+
+@pytest.mark.parametrize("app_db, index_db", [("chatapp", "chatapp_demo"), ("chatapp_demo", "chatapp_rag")])
+def test_assess_is_refused_off_the_synthetic_databases_before_anything_is_read_or_sent(wire, app_db, index_db):
+    client, store, llm = wire(VERDICT, app_db=app_db, index_db=index_db)
+    assert assess_post(client).status_code == 503
+    assert store.reads == [] and llm.calls == []
+
+
+@pytest.mark.parametrize("change", [
+    {"criteria": []},
+    {"criteria": [{"id": "c1", "text": "x"}]},                      # not a confirmed id
+    {"criteria": [{"id": "k1", "text": "x", "marks": -1}]},
+    {"criteria": [{"id": "k1", "text": "x", "total": 10}]},
+    {"files": [{"fileId": FILE, "name": "a"}] * 6},
+    {"total": 30},
+    {"text": "x" * 5001},
+])
+def test_assess_refuses_a_malformed_request(wire, change):
+    client, store, llm = wire(VERDICT)
+    assert assess_post(client, {**ASSESS, **change}).status_code == 422
+    assert store.reads == [] and llm.calls == []

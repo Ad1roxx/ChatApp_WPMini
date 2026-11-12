@@ -423,3 +423,64 @@ def extract_criteria(body: CriteriaRequest) -> JSONResponse:
     if not result["criteria"] and result["notRead"] and not result["rejected"]:
         return JSONResponse(status_code=502, content={"status": "error", "message": PLAIN[FAILED], **result})
     return JSONResponse(content={"status": "ok", **result})
+
+
+import coverage  # noqa: E402
+
+
+class CriterionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(pattern=r"^k\d{1,3}$")
+    text: str = Field(min_length=1, max_length=1000)
+    marks: float | None = Field(default=None, ge=0, le=1000)
+
+
+class FileIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fileId: str = Field(pattern=_OBJECT_ID)
+    name: str = Field(min_length=1, max_length=200)
+
+
+class AssessRequest(BaseModel):
+    """Assess one hand-in against one confirmed checklist, as the mentor who set the work.
+
+    Express sends this only after its own checks: the viewer set the
+    assignment, the mentorship is theirs and active, and the checklist is a
+    confirmed version. `text` is the hand-in's own text box (never its review);
+    `files` are the hand-in's own files. Each file is read through the store's
+    gated read as `viewerId`, and a chunk is used only if it belongs to
+    `submissionId`. Extra fields are refused.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    mentorshipId: str = Field(pattern=_OBJECT_ID)
+    viewerId: str = Field(pattern=_OBJECT_ID)
+    submissionId: str = Field(pattern=_OBJECT_ID)
+    text: str = Field(default="", max_length=5000)
+    files: list[FileIn] = Field(default_factory=list, max_length=5)
+    criteria: list[CriterionIn] = Field(min_length=1, max_length=40)
+
+
+def submission_files(mentorship_id: str, viewer_id: str, submission_id: str, files: list[FileIn]) -> list[dict]:
+    """Each named file's chunks, read as the viewer, kept only if they are this hand-in's."""
+    out = []
+    for f in files:
+        chunks = [c for c in store.file_chunks(mentorship_id, viewer_id, f.fileId)
+                  if c.get("parentType") == "submission" and c.get("parentId") == submission_id]
+        out.append({"name": f.name, "chunks": chunks})
+    return out
+
+
+@app.post("/coverage/assess", dependencies=[Depends(require_secret), Depends(require_localhost)])
+def assess_submission(body: AssessRequest) -> JSONResponse:
+    """200 with suggested verdicts (never a total or a grade); 503 off the
+    synthetic databases, before anything is read or sent."""
+    log = logging.getLogger("copilot.coverage")
+    problem = database_problem()
+    if problem:
+        log.warning("coverage refused: %s", problem)
+        return JSONResponse(status_code=503, content={"status": "error", "message": COVERAGE_NOT_CONFIGURED})
+    files = submission_files(body.mentorshipId, body.viewerId, body.submissionId, body.files)
+    with obslog.turn("/coverage/assess"):
+        result = coverage.assess([c.model_dump() for c in body.criteria], body.text, files, coverage_llm)
+    return JSONResponse(content={"status": "ok", **result})
