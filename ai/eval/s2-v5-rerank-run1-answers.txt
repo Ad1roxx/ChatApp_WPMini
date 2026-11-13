@@ -698,7 +698,13 @@ new: answerable
 
 [s2-04] In my replay test, how many events were processed twice before the change?
   expected: ['queue-retries.pdf']
-  NOT YET ASKED
+  status: answered   cause: -   outcome: ok   stripped: 0   turn: 1274 ms   prompt: s2-v5
+    source [1] queue-retries.pdf  /  4 What I tested
+    source [2] Retries and idempotency for the payment webhook
+    source [3] Hand-in: Retries and idempotency for the payment webhook
+    source [4] race-condition.pdf  /  Reproducing it
+  answer: Before the change, 97 events were processed twice [1].
+  cited: [1] queue-retries.pdf
 
 [s2-05] What failure case is still unsolved in my webhook design?
   expected: ['queue-retries.pdf', 'Hand-in: Retries and idempotency for the payment webhook']
@@ -762,7 +768,13 @@ new: answerable
 
 [s2-16] What does Priya want me to check before trusting my load test numbers?
   expected: ['Hand-in: Load test the bookings API']
-  NOT YET ASKED
+  status: answered   cause: -   outcome: ok   stripped: 0   turn: 1704 ms   prompt: s2-v5
+    source [1] Hand-in: Load test the bookings API
+    source [2] Load test the bookings API
+    source [3] learning-log.pdf  /  Document
+    source [4] Hand-in: Explain N+1 queries with a worked example
+  answer: Priya wants you to check that the load generator was not running out of CPU [1].
+  cited: [1] Hand-in: Load test the bookings API
 
 [s2-17] What did Priya tell me to do differently after the URL shortener mock interview?
   expected: ['learning-log.pdf']

@@ -1,11 +1,11 @@
 S2 step 6 - answers, counted. No correctness or faithfulness figure: read s2-answers.txt.
 PROMPT_VERSION s2-v5, run 2; reranker on; provider gemini; model gemini-3.5-flash-lite; role student
 model check before the run: gemini-3.5-flash-lite listed by Gemini, generateContent supported, input limit 1048576, output limit 65536
-written 2026-11-12 16:45 UTC; 118 of 120 questions answered from the cache
+written 2026-11-13 08:06 UTC; 120 of 120 questions answered from the cache
 
-original: records, answerable  (n=33, 1 NOT YET ASKED)
+original: records, answerable  (n=33)
   answered     27/33   of which cite a labelled source 26/27, contain an uncited sentence 3/27
-  abstained     5/33   no_results 0, declined 5, unverified 0
+  abstained     6/33   no_results 0, declined 6, unverified 0
   error         0/33   -
 
 original: documents, answerable  (n=15)
@@ -18,8 +18,8 @@ original: unanswerable  (n=17)
   abstained    17/17   no_results 0, declined 17, unverified 0
   error         0/17   -
 
-new: answerable  (n=31, 1 NOT YET ASKED)
-  answered     28/31   of which cite a labelled source 28/28, contain an uncited sentence 0/28
+new: answerable  (n=31)
+  answered     29/31   of which cite a labelled source 29/29, contain an uncited sentence 0/29
   abstained     2/31   no_results 0, declined 1, unverified 1
   error         0/31   -
 
@@ -45,11 +45,11 @@ new: injection  (n=4)
   error         0/4   -
 
 == across all questions
-  provider calls made: 118/118 (the rest found nothing and called no model)
+  provider calls made: 120/120 (the rest found nothing and called no model)
   cut off at the output cap (truncated): 0
-  citation handles: 117 kept, 0 stripped as invalid (validity 117/117 = 1.000)
-  answers containing an uncited sentence: 3/79
+  citation handles: 119 kept, 0 stripped as invalid (validity 119/119 = 1.000)
+  answers containing an uncited sentence: 3/80
   bracketed numbers in sources: 0 of 115 indexed chunks contain a handle-shaped string (Entry 66),
     so every kept handle here numbers a source; it does not say the source supports the sentence (S6).
-  turn latency (search + generation, after pacing), over 118 calls: median 11220 ms, p95 41079 ms, max 58458 ms
+  turn latency (search + generation, after pacing), over 120 calls: median 11047 ms, p95 41079 ms, max 58458 ms
   slowest turns: none-08 58458 ms, s2-24 57755 ms, auth-05 55472 ms

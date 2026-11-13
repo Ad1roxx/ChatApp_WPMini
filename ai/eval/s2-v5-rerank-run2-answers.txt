@@ -148,7 +148,13 @@ original: records, answerable
 
 [cache-07] What did the article about write-through versus write-around explain?
   expected: ['A post on cache invalidation']
-  NOT YET ASKED
+  status: abstained   cause: declined   outcome: ok   stripped: 0   turn: 1020 ms   prompt: s2-v5
+    source [1] A post on cache invalidation
+    source [2] consistency-essay.pdf  /  1 Introduction
+    source [3] consistency-essay.pdf  /  3 Read-your-writes
+    source [4] n-plus-one.docx  /  After
+  message: I couldn't find an answer to that in what I can search in this mentorship.
+  model wrote (rejected, not shown): The sources do not mention what the article about write-through versus write-around explained.
 
 [cache-08] How does my cache invalidate when an item is added?
   expected: ['Hand-in: Add caching to the reading list endpoint', 'Add caching to the reading list endpoint']
@@ -892,7 +898,13 @@ new: answerable
 
 [s2-29] How does the fix guarantee that only one booking wins a slot?
   expected: ['race-condition.pdf']
-  NOT YET ASKED
+  status: answered   cause: -   outcome: ok   stripped: 0   turn: 2088 ms   prompt: s2-v5
+    source [1] race-condition.pdf  /  The fix
+    source [2] race-condition.pdf  /  Reproducing it
+    source [3] consistency-essay.pdf  /  2 Strong consistency
+    source [4] Find and fix the double-booking race
+  answer: The slot itself is claimed in one atomic operation using a findOneAndUpdate on the slot document, with a filter requiring the status to be free and an update setting it to held [1]. Because the database applies that to one request at a time, exactly one request matches and wins [1].
+  cited: [1] race-condition.pdf
 
 [s2-30] How many bookings did fifty simultaneous requests create before the fix?
   expected: ['race-condition.pdf']
