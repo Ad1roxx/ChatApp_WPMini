@@ -278,9 +278,9 @@ def test_a_criterion_with_no_verdict_is_cant_assess_not_dropped():
 
 def test_criteria_are_judged_a_few_at_a_time():
     many = [{"id": f"k{i}", "text": f"Criterion {i}", "marks": None} for i in range(1, 12)]
-    p = gemini(evidence(), *[verdicts() for _ in range(3)])
+    p = gemini(evidence(), *[verdicts() for _ in range(4)])
     out = coverage.assess(many, TEXT, [], p)
-    assert out["calls"] == 1 + 3 and len(out["verdicts"]) == 11
+    assert out["calls"] == 1 + 4 and len(out["verdicts"]) == 11  # three a call (Entry 145)
 
 
 def test_groq_is_never_used():
@@ -337,3 +337,58 @@ def test_a_long_hand_in_is_summarised_window_by_window_and_unread_parts_listed()
 def test_a_summary_never_uses_groq():
     with pytest.raises(Exception, match="never uses Groq"):
         coverage.summarise(TEXT, [], ScriptedProvider(name="groq"))
+
+
+# --------------------------------------------------------------------------
+# Verdict calls and the output cap (BUILD_NOTES Entry 145)
+# --------------------------------------------------------------------------
+SEVEN = [{"id": f"k{i}", "text": f"Criterion number {i} about the cache", "marks": None} for i in range(1, 8)]
+
+
+def asked(user):
+    return re.findall(r"Criterion (k\d+)", user)
+
+
+def answer_all(system, user):
+    return verdicts(*({"criterion_id": k, "verdict": "not_found"} for k in asked(user)))
+
+
+def cut_off(system, user):
+    from providers import TRUNCATED
+    return Generation(TRUNCATED, "gemini", "gemini-scripted", text='{"verdicts": [{"criterion_id": "k1", "ver', attempts=1)
+
+
+def verdict_calls(p):
+    return [asked(user) for system, user in p.calls if system.startswith("You suggest")]
+
+
+def test_verdicts_are_asked_three_criteria_at_a_time():
+    p = gemini(evidence(), answer_all, answer_all, answer_all)
+    r = coverage.assess(SEVEN, TEXT, [], p)
+    assert verdict_calls(p) == [["k1", "k2", "k3"], ["k4", "k5", "k6"], ["k7"]]
+    assert [v["criterionId"] for v in r["verdicts"]] == [c["id"] for c in SEVEN]
+    assert all(v["verdict"] == "not_found" for v in r["verdicts"])
+
+
+def test_a_reply_cut_off_is_asked_again_half_at_a_time():
+    p = gemini(evidence(), cut_off, answer_all, answer_all)
+    r = coverage.assess(CRITERIA, TEXT, [], p)
+    assert verdict_calls(p) == [["k1", "k2", "k3"], ["k1", "k2"], ["k3"]]
+    assert all(v["verdict"] == "not_found" and v.get("reason") is None for v in r["verdicts"])
+    assert r["calls"] == 4
+
+
+def test_halves_are_split_again_until_one_criterion_and_then_it_stands():
+    p = gemini(evidence(), cut_off, cut_off, cut_off, answer_all, answer_all)
+    r = by_id(coverage.assess(CRITERIA, TEXT, [], p))
+    assert verdict_calls(p) == [["k1", "k2", "k3"], ["k1", "k2"], ["k1"], ["k2"], ["k3"]]
+    assert r["k1"]["reason"] == "no_verdict" and "(provider: truncated)" in r["k1"]["reasonText"]
+    assert r["k2"]["verdict"] == "not_found" and r["k3"]["verdict"] == "not_found"
+
+
+def test_another_failure_is_not_split():
+    refused = Generation(RATE_LIMITED, "gemini", "gemini-scripted", attempts=1)
+    p = gemini(evidence(), refused)
+    r = coverage.assess(CRITERIA, TEXT, [], p)
+    assert verdict_calls(p) == [["k1", "k2", "k3"]]
+    assert all(v["reason"] == "no_verdict" and "rate_limited" in v["reasonText"] for v in r["verdicts"])

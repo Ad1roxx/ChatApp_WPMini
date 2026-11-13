@@ -39,10 +39,15 @@ import jsonschema
 
 from criteria import WINDOW_CHARS, normalise, quote_in, require_gemini
 from extract import has_unread
-from providers import DEFAULT_BUDGET_S
+from providers import DEFAULT_BUDGET_S, TRUNCATED
 
 ASSESS_PROMPT_VERSION = "coverage-v1"
-BATCH = 5  # criteria per verdict call
+# Criteria per verdict call. Five verdicts could outgrow the 400-token output cap
+# (AI_LLM_MAX_OUTPUT_TOKENS): 2 of about 72 batches were cut off in the S8 runs,
+# and the largest verdict seen was about 130 tokens. Three fit the cap even at that
+# size; a reply still cut off is asked again half at a time (BUILD_NOTES Entry 145).
+BATCH = 3
+CUT_OFF = f"provider: {TRUNCATED}"
 MAX_QUOTES = 3  # evidence quotes kept per criterion per window
 
 VERDICTS = ("met", "partially_met", "not_found", "cant_assess")
@@ -286,8 +291,9 @@ def assess(criteria: list[dict], text: str, files: list[dict], provider, *, budg
                for c in criteria if c["id"] in set_aside_for and not evidence[c["id"]]}
     to_judge = [c for c in criteria if c["id"] not in settled]
 
-    for start in range(0, len(to_judge), BATCH):
-        batch = to_judge[start:start + BATCH]
+    pending = [to_judge[start:start + BATCH] for start in range(0, len(to_judge), BATCH)]
+    while pending:
+        batch = pending.pop(0)
         handles: dict[str, dict[str, dict]] = {}
         blocks = []
         for c in batch:
@@ -299,6 +305,11 @@ def assess(criteria: list[dict], text: str, files: list[dict], provider, *, budg
             blocks.append("Parts of the submission that could not be read:\n" + "\n".join(f"- {x['where']}: {x['reason']}" for x in not_read))
         data, why, n = _call(provider, VERDICT_PROMPT, [("ASSESS", "\n\n".join(blocks))], _VERDICT, budget_s)
         calls += n
+        if data is None and why == CUT_OFF and len(batch) > 1:
+            # The reply outgrew the output cap: the same criteria again, half at a time (BUILD_NOTES Entry 145).
+            half = (len(batch) + 1) // 2
+            pending[:0] = [batch[:half], batch[half:]]
+            continue
         given = {}
         for v in (data or {}).get("verdicts", []):
             if v["criterion_id"] in handles and v["criterion_id"] not in given:
