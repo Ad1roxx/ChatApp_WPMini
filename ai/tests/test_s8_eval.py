@@ -379,8 +379,14 @@ def test_a_pdf_with_no_text_layer_falls_back_to_the_indexed_text():
     assert rubric and sections == file_sections(rubric)
 
 
-def test_a_docx_rubric_is_read_from_the_index_as_before():
+def test_a_docx_rubric_is_read_from_the_index_as_before(monkeypatch):
+    import criteria
     from chunking import file_sections
+
+    def never(data):
+        raise AssertionError("a .docx is never read as a PDF")
+    monkeypatch.setattr(criteria, "pdf_page_sections", never)
+    monkeypatch.setattr(criteria, "pdf_table_sections", never)
     rubric, sections = rubric_read("R2")
     assert sections == file_sections(rubric)
 
