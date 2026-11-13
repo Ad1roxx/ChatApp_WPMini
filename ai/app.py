@@ -381,6 +381,8 @@ def agent_resume(body: ResumeRequest) -> JSONResponse:
 # ---------------------------------------------------------------------------
 # Gemini, whatever AI_LLM_PROVIDER says: S8 never spends S6's Groq quota.
 import criteria  # noqa: E402
+import sources  # noqa: E402
+from bson import ObjectId  # noqa: E402
 from chunking import file_sections  # noqa: E402
 
 coverage_llm = criteria.coverage_provider()
@@ -403,6 +405,23 @@ class CriteriaRequest(BaseModel):
     fileId: str = Field(pattern=_OBJECT_ID)
 
 
+def rubric_file(records, mentorship_id: str, viewer_id: str, file_id: str) -> dict | None:
+    """The attachment record of a file that is the rubric of an assignment `viewer_id` set, in
+    `mentorship_id`, or None. Read from the app's records, as the read-time check reads them."""
+    if not all(ObjectId.is_valid(x) for x in (mentorship_id, viewer_id, file_id)):
+        return None
+    if records.mentorships.find_one({"_id": ObjectId(mentorship_id), "mentor": ObjectId(viewer_id), "status": "active"}) is None:
+        return None
+    assignment = records.assignments.find_one({
+        "mentor": ObjectId(viewer_id),
+        "mentorships": ObjectId(mentorship_id),
+        "attachments": {"$elemMatch": {"fileId": ObjectId(file_id), "rubric.isRubric": True}},
+    })
+    if assignment is None:
+        return None
+    return next((a for a in assignment.get("attachments", []) if a.get("fileId") == ObjectId(file_id)), None)
+
+
 @app.post("/criteria/extract", dependencies=[Depends(require_secret), Depends(require_localhost)])
 def extract_criteria(body: CriteriaRequest) -> JSONResponse:
     """200 with the proposed criteria (none assessed, none confirmed); 404 when
@@ -414,12 +433,21 @@ def extract_criteria(body: CriteriaRequest) -> JSONResponse:
     if problem:
         log.warning("criteria refused: %s", problem)
         return JSONResponse(status_code=503, content={"status": "error", "message": COVERAGE_NOT_CONFIGURED})
+    unreadable = JSONResponse(status_code=404, content={"status": "unreadable",
+                                                        "message": "No text could be read from that file yet."})
+    # The file's bytes are read only if the records say it is the rubric of an
+    # assignment this viewer set, in this mentorship: the same people the
+    # index lets read it. Then its tables are read too (criteria.rubric_sections).
+    rubric = rubric_file(store.records, body.mentorshipId, body.viewerId, body.fileId)
+    if rubric is None:
+        return unreadable
     chunks = store.file_chunks(body.mentorshipId, body.viewerId, body.fileId)
-    if not chunks:
-        return JSONResponse(status_code=404, content={"status": "unreadable",
-                                                      "message": "No text could be read from that file yet."})
+    data = sources._attachment_bytes(store.records, ObjectId(body.fileId))
+    sections = criteria.rubric_sections(chunks, data, rubric.get("contentType"))
+    if not sections:
+        return unreadable
     with obslog.turn("/criteria/extract"):
-        result = criteria.extract(file_sections(chunks), coverage_llm)
+        result = criteria.extract(sections, coverage_llm)
     if not result["criteria"] and result["notRead"] and not result["rejected"]:
         return JSONResponse(status_code=502, content={"status": "error", "message": PLAIN[FAILED], **result})
     return JSONResponse(content={"status": "ok", **result})

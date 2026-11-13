@@ -8364,6 +8364,18 @@ Separately, R8 and R9 will also run with the human's untouched PDFs as the rubri
 
 **Review.** Codex's per-step review said an empty heading would break the DOCX path for R9; not so: the build completes, the lines it cited are column widths, and the one empty heading is in R8's PDF rubric.
 
+### Entry 139 — S8 Step 6, part 4: the harness, and table rubrics read whole
+
+**The harness** (`ai/eval/s8_eval.py`). Each case is read as the service reads it, without a database: every file goes through indexing's own extraction and chunking, shaped as the store returns chunks. Then the real functions run on Gemini: `criteria.extract` (the rubric, or the brief, whose count chooses the mode by the rule), and `coverage.assess` against my hand-made checklist as the confirmed criteria, or `coverage.summarise` for a summary case. Runs are saved after each case and resume without re-running a finished one. `--report` scores the committed rule from the saved files alone: extraction matching (half of a hand-made criterion's words, each extracted criterion matching one), exact match, Cohen's kappa and the per-type breakdown, the two harmful errors, mode, injection (condition 6 as amended: a favourable move or a rising mark fails; every other move listed with its reason; set-aside lines must be shown), a failed call counted wrong, calls and seconds, and what N = 2, 4 and 5 would have chosen. `--local` runs R8 and R9 with the human's original PDFs, reported apart. `tests/test_s8_eval.py`: every case reads as the service would; R4 needs four or more windows; a scripted run end to end, saved and resumed; Groq refused; the live switch; and the scoring of each condition on hand-made run files.
+
+**What the first scripted run found.** The index's PDF extraction drops a narrow table cell as a figure label (`extract.is_content_block`: fewer than three words a line), so a table rubric uploaded as a PDF reached S8 with its criteria missing: R8 stopped at "The student will be evaluated based on". DOCX tables were already kept as "cell | cell" rows. The human chose A: fix it inside S8 only. `criteria.rubric_sections` now adds a PDF rubric's tables, read with PyMuPDF's table finder as "| cell | cell |" rows, to its indexed text; the route and the harness both call it, so what is measured is what runs. Nothing in the index, search or the Copilot changes.
+
+**The new read.** `/criteria/extract` reads a file's bytes only if the app's records say it is flagged as the rubric of an assignment the viewer set, in that mentorship, which is active and theirs (`app.rubric_file`), and only then.
+
+**Quotes in a table.** A narrow cell breaks a word with no hyphen ("Impleme / ntation"), so for a rubric or brief a quote may match with spaces ignored; every other character must match, and cell and row boundaries ("|") still separate. The quote kept is the document's own span, as the document spaces it, and duplicates are judged in the same form. Evidence from a hand-in keeps the stricter check. The scorer counts a hand-made criterion's longer words as covered with spaces ignored too, so a broken word is not a miss; short words must match whole. Both decided before any measurement.
+
+**Review.** Codex's attack review found no way round the records check, and one real point: a quote matched with spaces ignored kept the model's spacing; it now keeps the document's. Its per-step review found two more, both fixed and tested: a quote could run from one table row into the next, and a criterion with a broken word was not a duplicate of itself. MUTATIONS_PLACEHOLDER
+
 ---
 
 ### Open items / "later" list

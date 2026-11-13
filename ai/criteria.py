@@ -106,6 +106,77 @@ def quote_in(quote: str, text: str) -> bool:
     return bool(q) and q in normalise(text)
 
 
+def _squash(text: str) -> str:
+    return re.sub(r"\s+", "", normalise(text))
+
+
+def quote_in_ignoring_spaces(quote: str, text: str) -> bool:
+    """For the mentor's rubric or brief only: the same characters in order, spaces ignored.
+
+    A narrow table cell breaks a word across lines with no hyphen
+    ("Impleme / ntation"), and nothing in the text can tell that from two real
+    words, so "Implementation" must still count as quoted. Every other
+    character must match; a paraphrase or an invention still fails. Evidence
+    quotes from a hand-in keep the stricter `quote_in`.
+    """
+    q = _squash(quote)
+    return bool(q) and q in _squash(text)
+
+
+def document_span(quote: str, text: str) -> str:
+    """The document's own text that `quote` matches: the quote itself when it is there as written
+    (normalised), otherwise the span of `text` with the same characters, spaces as the document has them."""
+    if quote_in(quote, text):
+        return normalise(quote)
+    norm = normalise(text)
+    chars = [(c, i) for i, c in enumerate(norm) if not c.isspace()]
+    squashed = "".join(c for c, _ in chars)
+    q = _squash(quote)
+    at = squashed.find(q)
+    if not q or at < 0:
+        return normalise(quote)
+    return norm[chars[at][1]:chars[at + len(q) - 1][1] + 1]
+
+
+def pdf_table_sections(data: bytes) -> list[dict]:
+    """A PDF's tables as text, one "cell | cell" line per row, a section per table.
+
+    The index's PDF extraction drops narrow table cells as figure labels
+    (extract.is_content_block: fewer than three words a line), which removes a
+    table rubric's criteria; a .docx table already arrives as "cell | cell"
+    rows. Used only to read a rubric for criteria (S8 Step 6, the human's
+    decision A), never for search or the Copilot.
+    """
+    import pymupdf
+
+    sections = []
+    with pymupdf.open(stream=data, filetype="pdf") as doc:
+        for page_number, page in enumerate(doc, start=1):
+            for table in page.find_tables().tables:
+                rows = [" | ".join(" ".join((cell or "").split()) for cell in row)
+                        for row in table.extract() if any((cell or "").strip() for cell in row)]
+                if rows:
+                    # Rows start and end with "|" so a row boundary, like a cell boundary, survives
+                    # quote_in_ignoring_spaces: no quote can run from one row into the next.
+                    sections.append({"heading": f"Table on page {page_number}",
+                                     "text": "\n".join(f"| {row} |" for row in rows)})
+    return sections
+
+
+def rubric_sections(chunks: list[dict], data: bytes | None, content_type: str | None) -> list[dict]:
+    """What criteria are extracted from: the rubric's indexed text, plus its tables if it is a PDF.
+
+    One function for the route (app.extract_criteria) and the evaluation
+    (eval/s8_eval.py), so what is measured is what runs.
+    """
+    from chunking import file_sections
+
+    sections = file_sections(chunks) if chunks else []
+    if data and content_type == "application/pdf":
+        sections += pdf_table_sections(data)
+    return sections
+
+
 def number_in(value, quote: str, percent: bool = False) -> bool:
     """Whether `value` is written in `quote` as a number (with % for a weight)."""
     if value is None:
@@ -225,10 +296,11 @@ def extract(sections: list[dict], provider, *, budget_s: float = DEFAULT_BUDGET_
             continue
         for item in data["criteria"]:
             quote = (item.get("source_text") or "").strip()
-            key = normalise(quote).lower()
+            # The same form the quote is matched in: one criterion with a word broken or not is one criterion.
+            key = _squash(quote).lower()
             if not quote:
                 rejected.append({"sourceText": quote, "reason": "empty"})
-            elif not quote_in(quote, window["text"]):
+            elif not quote_in_ignoring_spaces(quote, window["text"]):
                 rejected.append({"sourceText": quote, "reason": "not in the document"})
             elif key in seen:
                 rejected.append({"sourceText": quote, "reason": "a duplicate"})
@@ -237,6 +309,9 @@ def extract(sections: list[dict], provider, *, budget_s: float = DEFAULT_BUDGET_
             else:
                 seen.add(key)
                 marks, weight = item.get("marks"), item.get("weight")
+                # What is kept is the document's own words: when the quote matched only with spaces
+                # ignored, the span it matched, as the document spaces it.
+                quote = document_span(quote, window["text"])
                 criteria.append({
                     "id": f"c{len(criteria) + 1}",
                     "sourceText": quote,

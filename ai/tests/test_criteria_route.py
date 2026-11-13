@@ -25,10 +25,39 @@ CHUNKS = [{"chunkIndex": 0, "sectionIndex": 0, "heading": "Marking scheme",
            "content": "States the invalidation rule as a comment (10 marks)."}]
 
 
+class Records:
+    """The app's records, as far as a rubric read needs them: whether the file is this viewer's rubric, and its bytes."""
+
+    def __init__(self, allowed=True, data=b"", content_type="application/pdf"):
+        from bson import ObjectId
+        self.allowed, self.data, self.queries = allowed, data, []
+        attachment = {"fileId": ObjectId(FILE), "contentType": content_type, "rubric": {"isRubric": True}}
+        self.mentorships = types.SimpleNamespace(find_one=lambda q: self.queries.append(("mentorships", q)) or ({} if self.allowed else None))
+        self.assignments = types.SimpleNamespace(find_one=lambda q: self.queries.append(("assignments", q)) or (
+            {"attachments": [attachment]} if self.allowed else None))
+
+    def open_download_stream(self, file_id):
+        data = self.data
+
+        class Stream:
+            length = len(data)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return data
+        return Stream()
+
+
 class Store:
-    def __init__(self, db_name="chatapp_demo", chunks=CHUNKS):
+    def __init__(self, db_name="chatapp_demo", chunks=CHUNKS, records=None):
         self.db = types.SimpleNamespace(name=db_name)
         self.chunks, self.reads = list(chunks), []
+        self.records = records or Records()
 
     def file_chunks(self, mentorship_id, viewer_id, file_id):
         self.reads.append((mentorship_id, viewer_id, file_id))
@@ -37,8 +66,8 @@ class Store:
 
 @pytest.fixture
 def wire(monkeypatch):
-    def _wire(*replies, app_db="chatapp_demo", index_db="chatapp_demo", chunks=CHUNKS):
-        store, llm = Store(index_db, chunks), ScriptedProvider(*replies, name="gemini")
+    def _wire(*replies, app_db="chatapp_demo", index_db="chatapp_demo", chunks=CHUNKS, records=None):
+        store, llm = Store(index_db, chunks, records), ScriptedProvider(*replies, name="gemini")
         monkeypatch.setattr(service, "store", store)
         monkeypatch.setattr(service, "coverage_llm", llm)
         monkeypatch.setattr(service, "SERVICE_SECRET", SECRET)
@@ -178,3 +207,38 @@ def test_a_summary_request_cannot_carry_criteria_and_reads_only_this_hand_in(wir
     res = client.post("/coverage/summary", json=body, headers={"X-AI-Secret": SECRET})
     assert res.status_code == 200 and res.json()["points"] == []
     assert "Own work." in llm.calls[0][1] and "Someone else's." not in llm.calls[0][1]
+
+
+# ---------------------------------------------------------------------------
+# A table rubric (S8 Step 6, the human's decision A)
+# ---------------------------------------------------------------------------
+from pathlib import Path  # noqa: E402
+
+R8_RUBRIC = (Path(__file__).resolve().parents[1] / "eval" / "s8-set" / "files" / "R8" / "rubric.pdf").read_bytes()
+
+
+def test_a_table_rubrics_criteria_reach_the_model(wire):
+    reply = json.dumps({"criteria": [{"source_text": "Implementation and Presentation", "marks": 10}]})
+    client, store, llm = wire(*[reply] * 6, records=Records(data=R8_RUBRIC))
+    res = post(client)
+    assert res.status_code == 200
+    shown = " ".join(u for _, u in llm.calls)
+    assert "Impleme ntation and Pres entation" in shown, "the table's rows are read, word breaks and all"
+    assert "Impleme ntation and Pres entation" in [c["sourceText"] for c in res.json()["criteria"]], (
+        "a word a narrow cell broke still counts as quoted, and is kept as the document spaces it")
+
+
+def test_the_bytes_are_read_only_for_this_viewers_rubric_in_this_mentorship(wire):
+    client, store, llm = wire(REPLY, records=Records(allowed=False, data=R8_RUBRIC))
+    res = post(client)
+    assert res.status_code == 404 and llm.calls == [] and store.reads == []
+    (kind1, q1), = store.records.queries[:1]
+    assert kind1 == "mentorships" and q1["status"] == "active" and str(q1["mentor"]) == MENTOR and str(q1["_id"]) == M1
+
+
+def test_the_rubric_query_names_the_setter_the_mentorship_and_the_rubric_flag(wire):
+    client, store, _ = wire(REPLY, records=Records(data=b""))
+    post(client)
+    q = dict(store.records.queries)["assignments"]
+    assert str(q["mentor"]) == MENTOR and str(q["mentorships"]) == M1
+    assert q["attachments"]["$elemMatch"]["rubric.isRubric"] is True and str(q["attachments"]["$elemMatch"]["fileId"]) == FILE

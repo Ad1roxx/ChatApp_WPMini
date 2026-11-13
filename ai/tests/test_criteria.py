@@ -10,6 +10,7 @@ never used.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -156,3 +157,45 @@ def test_the_coverage_provider_is_gemini_whatever_the_app_is_configured_with(mon
 def test_a_provider_failure_on_every_window_reads_nothing_and_says_so():
     out = criteria.extract(SECTIONS, gemini(Generation(FAILED, "gemini", "m")))
     assert out["criteria"] == [] and out["notRead"] == [{"sections": [1], "reason": "provider: failed"}]
+
+
+@pytest.mark.parametrize("quote, ok", [
+    ("Implementation and Presentation", True),       # the cell broke "Impleme / ntation"
+    ("Impleme ntation and Pres entation", True),     # as extracted
+    ("Implementation & Presentation", False),        # a changed character
+    ("Presentation and Implementation", False),      # reordered
+    ("Implementation and Documentation", False),     # joined from two cells
+])
+def test_a_rubric_quote_may_ignore_spaces_but_nothing_else(quote, ok):
+    text = "Impleme ntation and Pres entation | (10-8) Excelle nt " + chr(10) + "Documentatio n | (8-7) well organized"
+    assert criteria.quote_in_ignoring_spaces(quote, text) is ok
+
+
+def test_evidence_from_a_hand_in_keeps_the_strict_check():
+    import coverage
+    assert coverage.quote_in is criteria.quote_in
+    assert not criteria.quote_in("Implementation", "Impleme ntation")
+
+
+def test_a_quote_matched_only_with_spaces_ignored_is_kept_as_the_document_spaces_it():
+    text = "Impleme ntation and Pres entation | (10-8) | no tests"
+    assert criteria.document_span("Implementation and Presentation", text) == "Impleme ntation and Pres entation"
+    assert criteria.document_span("notests", text) == "no tests"
+    out = criteria.extract([{"text": text}], gemini(reply({"source_text": "notests"})))
+    assert [c["sourceText"] for c in out["criteria"]] == ["no tests"], "the stored quote is the document's"
+
+
+def test_a_quote_cannot_run_across_table_cells_or_rows():
+    data = (Path(__file__).resolve().parents[1] / "eval" / "s8-set" / "files" / "R8" / "rubric.pdf").read_bytes()
+    text = "\n".join(s["text"] for s in criteria.pdf_table_sections(data))
+    assert criteria.quote_in_ignoring_spaces("Implementation and Presentation", text)
+    # The end of the Implementation row runs into the next row's first cell only across a boundary.
+    assert not criteria.quote_in_ignoring_spaces("10 Documentation", text)
+    assert not criteria.quote_in_ignoring_spaces("Implementation and Presentation (10-8)", text), "across a cell"
+
+
+def test_a_criterion_with_a_word_broken_or_not_is_one_criterion():
+    text = "Impleme ntation and Pres entation"
+    out = criteria.extract([{"text": text}], gemini(reply({"source_text": "Implementation and Presentation"},
+                                                          {"source_text": "Impleme ntation and Pres entation"})))
+    assert len(out["criteria"]) == 1 and out["rejected"][0]["reason"] == "a duplicate"
