@@ -1,0 +1,67 @@
+{
+  "id": "R9",
+  "mode": "rubric",
+  "assignment": {
+    "title": "Screencast demo: monolithic, three-tier and micro-service architecture",
+    "instructions": "Record a screencast demo explaining the monolithic, three-tier and micro-service architectures. Hand in the link to your video and a transcript of what you say."
+  },
+  "rubric": {
+    "name": "rubric.docx",
+    "format": "docx",
+    "title": "",
+    "sections": [
+      {
+        "heading": "Evaluation rubrics for Internal assessment (IA)",
+        "paragraphs": [
+          "Programme & Department: IT",
+          "Year: LY",
+          "Semester: VII"
+        ]
+      },
+      {
+        "heading": "Evaluation Rubrics for Screen Cast Demo video on a monolithic, three-tier and micro-service architecture:",
+        "paragraphs": [
+          "Content & Technical Depth (5). Excellent (E): Monolithic, Three-tier architecture and micro service are thoroughly covered; concepts accurate and in-depth. Good (G): Monolithic, Three-tier architecture and micro-service are partially clear with accurate depth. Poor(P): Basic coverage; Monolithic, Three tier architecture and micro-service are partially clear. Total Score 5.",
+          "Individual performance (3). Excellent (E): Student is properly visible, confident with explanation and elaboration. Student high voice modulation and correct precise pronunciation(3). Good (G): Student is properly visible, confident but no explanation and elaboration. Student moderate voice modulation and moderate precise pronunciation(2-1). Poor(P): Student is not visible or confident or no explanation and elaboration. Student voice is not clear/incorrect pronunciation(0). Total Score 3.",
+          "Timely Submission (2). Excellent (E): Submitted on the allocated day (2). Good (G): Submitted after one week later(1). Poor(P): Submitted after two week(0). Total Score 2."
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "text": "My screencast is uploaded and the transcript is attached. Video link: https://video.example.com/demo/4471",
+    "files": [
+      {
+        "name": "transcript.docx",
+        "format": "docx",
+        "sections": [
+          {
+            "heading": "Monolithic architecture",
+            "paragraphs": [
+              "A monolithic application is built and deployed as one unit. In my demo it is a bookstore app where the catalogue, cart, orders and user accounts live in one codebase, run as one process and share one database.",
+              "Deployment is simple: one build produces one artifact, such as a single jar file or container image, and it is copied to the servers and started. Rolling back means redeploying the previous artifact.",
+              "Scaling is done by running more copies of the whole application behind a load balancer. This works, but every copy carries all the modules, so a busy cart module forces me to scale the catalogue and accounts too. The copies must also share the one database, which becomes the bottleneck first.",
+              "The trade-offs are that development and debugging are easy at first, because a call between modules is a plain function call and a transaction can span modules. As the code grows, builds slow down, one bug can bring the whole process down, and any change needs the whole application to be tested and redeployed."
+            ]
+          },
+          {
+            "heading": "Three-tier architecture",
+            "paragraphs": [
+              "The three-tier architecture splits the application into a presentation tier, a logic tier and a data tier. In the demo the presentation tier is the web front end in the browser, the logic tier is the application server that holds the business rules, and the data tier is the database server.",
+              "Each tier is deployed separately, usually on its own machines or containers. The front end is served as static files, the application servers run behind a load balancer, and the database sits in a private network that only the logic tier can reach.",
+              "Scaling is done per tier. I can add application servers when the load on the business logic grows, add read replicas or a cache for the data tier, and put the static front end on a content delivery network, all without touching the other tiers.",
+              "The trade-offs are better separation of concerns, better security because the database is not exposed, and the ability to change one tier with little effect on the others. The costs are extra network hops between tiers, more deployment work than a monolith, and the logic tier is still one deployable unit that can grow large."
+            ]
+          },
+          {
+            "heading": "Micro-services",
+            "paragraphs": [
+              "Micro-services split it further, but I ran out of time."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "injected": null
+}

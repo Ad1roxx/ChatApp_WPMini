@@ -52,3 +52,7 @@ Everything else in this file is unchanged.
 NOTED 2026-11-13, by the human, before any live run: the human will not label the subset for now. S8 is measured against
 my labels alone (s8-labels-claude.json); the human-subset comparison, which was only ever reported and never a condition, is
 not reported. If issues come up in the demo, labels are reviewed then. No condition above changes.
+
+NOTED 2026-11-13, before any live run: the human's two rubrics are cases R8 (a band rubric for a presentation) and R9 (a band
+rubric for a screencast video), specified, built and labelled like the rest (s8-set-spec.md, s8-labels-claude.json). The set is
+9 rubric, 3 brief and 2 summary cases and 4 injection pairs; every condition above applies to all of it unchanged.

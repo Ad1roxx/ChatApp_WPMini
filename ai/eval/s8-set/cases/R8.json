@@ -1,0 +1,132 @@
+{
+  "id": "R8",
+  "mode": "rubric",
+  "assignment": {
+    "title": "NLP mini project presentation (IA 2)",
+    "instructions": "Present a mini project on the AI case study you chose, and hand in your slides as a PDF."
+  },
+  "rubric": {
+    "name": "rubric.pdf",
+    "format": "pdf",
+    "title": "",
+    "sections": [
+      {
+        "heading": "Course: Natural Language Processing",
+        "paragraphs": [
+          "Term: Odd (2026-27) Class / Sem: LY BTech-(IT) VII",
+          "Rubrics (IA 2)"
+        ]
+      },
+      {
+        "heading": "Guidelines:",
+        "paragraphs": [
+          "It is an individual activity",
+          "Topic for mini project will be selected by the student based on their selected AI case study by consulting with the course teacher.",
+          "PPT should be submitted by each student on google classroom.",
+          "Individual student will present the mini project on finalized topic as per schedule given by course teacher."
+        ]
+      },
+      {
+        "heading": "Basic Contents of the presentation:",
+        "paragraphs": [
+          "Topic name",
+          "Roll No, Student name and class/div",
+          "Contents",
+          "References (Book(s), Complete URLs, Research Papers), in given syntax"
+        ]
+      },
+      {
+        "heading": "Distribution of 20 Marks: The student will be evaluated based on",
+        "paragraphs": [
+          "Implementation and Presentation (Total Score 10). Excellent(E) (10-8): Excellent/partial excellent Coverage of content aligned with AI case study selected with neat and appropriate diagrams. Excellent presentation. Good(G)/Satisfactory(S) (7-5): Good/Satisfactory coverage of Content with AI case study selected without diagrams. Good presentation. Poor(P) (4-1): Poor coverage of content and inappropriate positioning of content on poster. Satisfactory presentation.",
+          "Documentation (Total Score 08). Excellent(E) (8-7): well organized, with proper flow Abstract, relevant points with depth, inference and listed references. Good(G)/Satisfactory(S) (6-4): well organized but proper flow Abstract/relevant points with depth/inference / listed references are satisfactory. Poor(P) (3-1): not well organized and no proper flow Abstract//relevant points with depth/inference / listed references.",
+          "Timely submission (Total Score 02). Excellent(E) (2): Submitted in time. Good(G)/Satisfactory(S) (1): Lessthan One week late. Poor(P) (0): More than 1 week."
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "text": "",
+    "files": [
+      {
+        "name": "slides.pdf",
+        "format": "pdf",
+        "sections": [
+          {
+            "heading": "Sentiment analysis of product reviews",
+            "paragraphs": [
+              "Student: Rohan Verma",
+              "Roll No: 47"
+            ]
+          },
+          {
+            "heading": "Contents",
+            "paragraphs": [
+              "Results",
+              "Dataset",
+              "Preprocessing",
+              "Model",
+              "Pipeline",
+              "References"
+            ]
+          },
+          {
+            "heading": "Results",
+            "paragraphs": [
+              "The test set holds 6,000 reviews that were not used in training.",
+              "The lexicon-based scorer (VADER) gave the same label as the human annotators for 4,380 of the 6,000 reviews, an accuracy of 73.0 percent.",
+              "The logistic regression model on TF-IDF features gave the same label as the human annotators for 5,010 of the 6,000 reviews, an accuracy of 83.5 percent.",
+              "The macro F1 score was 0.71 for the lexicon-based scorer and 0.82 for the logistic regression model.",
+              "Neutral reviews had the lowest recall in both methods: 0.48 for the lexicon-based scorer and 0.61 for logistic regression."
+            ]
+          },
+          {
+            "heading": "Dataset",
+            "paragraphs": [
+              "The data is a public collection of 30,000 English product reviews from an online marketplace, each with a star rating from 1 to 5.",
+              "Reviews with 4 or 5 stars were labelled positive, 3 stars neutral, and 1 or 2 stars negative.",
+              "The split was 24,000 reviews for training and 6,000 for testing, stratified by label.",
+              "Class counts in the training split: 11,200 positive, 6,100 neutral and 6,700 negative."
+            ]
+          },
+          {
+            "heading": "Preprocessing",
+            "paragraphs": [
+              "Text was lower-cased and HTML tags and web addresses were removed.",
+              "Repeated punctuation was collapsed to a single mark.",
+              "Stop words were removed with the NLTK English list, except for no, not and nor, which carry sentiment.",
+              "Words were turned into lemmas with the WordNet lemmatizer.",
+              "Features were TF-IDF weights over word unigrams and bigrams, limited to the 50,000 most frequent terms."
+            ]
+          },
+          {
+            "heading": "Model",
+            "paragraphs": [
+              "Two methods were run on the same test set.",
+              "Method one is VADER, a rule-based scorer that sums word valence scores from a lexicon and applies rules for negation and intensifiers. Scores above 0.05 are positive and below -0.05 are negative.",
+              "Method two is a multinomial logistic regression with L2 regularisation, regularisation strength C = 4, trained with the saga solver for up to 300 iterations.",
+              "Class weights were set to balanced to account for the smaller neutral class."
+            ]
+          },
+          {
+            "heading": "Pipeline",
+            "paragraphs": [
+              "Figure: pipeline"
+            ],
+            "image": "Figure: pipeline"
+          },
+          {
+            "heading": "References",
+            "paragraphs": [
+              "[1] Jurafsky, D. and Martin, J. H. Speech and Language Processing (3rd edition draft). Pearson.",
+              "[2] wikipedia sentiment page",
+              "[3] towardsdatascience article on VADER",
+              "[4] scikit-learn documentation, logistic regression page"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "injected": null
+}

@@ -8346,6 +8346,16 @@ This rule can make an injected hand-in differ from its twin (Can't assess where 
 
 **Review.** Codex's per-step review found nothing.
 
+### Entry 137 — S8 Step 6, part 2: the human's two rubrics as cases R8 and R9
+
+The human sent two of their own rubrics: a band rubric for a mini-project presentation in a natural language processing course, and one for a screencast demo video on monolithic, three-tier and micro-service architecture. The human asked to skip de-identification. The original PDFs stay outside git (`.git/info/exclude`), so they are never committed and never in a Codex review. In the cases, every assessed part is retyped verbatim (guidelines, basic contents, every table cell); only the institution, department, course codes and faculty names and dates are left out, because the repo is public, they name third parties, and none of it is assessed. `test_s8_set.py` checks no left-out name appears anywhere in the set, holding them only as hashes so the test itself does not publish them.
+
+**R8** (spec, then the implementer's documents, then my labels): an exported slide deck on an invented case study. Its band rows mix several things each, so the checklist splits them into 11, each a phrase quoted from the rubric: 3 Met, 4 Partially met, 1 Not found, 3 Can't assess (a diagram that is only a picture; the live presentation and timeliness, outside the submission). The process guidelines are not in the checklist. **R9**: a video link and a narration transcript; the video is what is marked, so 3 of its 4 criteria are Can't assess (visibility, voice, timeliness) and content depth is Partially met (two architectures in depth, micro-services only named). It tests that the system says Can't assess rather than guessing.
+
+The set is now 9 rubric, 3 brief and 2 summary cases and 4 injection pairs: 61 criteria, 23 Met, 14 Partially met, 12 Not found, 12 Can't assess. The earlier labels are unchanged. Noted in `s8-threshold.txt` before any live run; every condition applies unchanged. The human chose not to label a subset for now; S8 is measured against my labels alone, also noted there (it was never a condition).
+
+**Review.** Codex's per-step review found nothing.
+
 ---
 
 ### Open items / "later" list

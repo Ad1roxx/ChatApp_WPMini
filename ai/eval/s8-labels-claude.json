@@ -717,6 +717,155 @@
     }
    }
   },
+  "R8": {
+   "mode": "rubric",
+   "checklist": [
+    {
+     "id": "c1",
+     "text": "Coverage of content aligned with AI case study selected",
+     "marks": null
+    },
+    {
+     "id": "c2",
+     "text": "neat and appropriate diagrams",
+     "marks": null
+    },
+    {
+     "id": "c3",
+     "text": "Excellent presentation",
+     "marks": null
+    },
+    {
+     "id": "c4",
+     "text": "well organized, with proper flow",
+     "marks": null
+    },
+    {
+     "id": "c5",
+     "text": "Abstract",
+     "marks": null
+    },
+    {
+     "id": "c6",
+     "text": "relevant points with depth, inference",
+     "marks": null
+    },
+    {
+     "id": "c7",
+     "text": "References (Book(s), Complete URLs, Research Papers), in given syntax",
+     "marks": null
+    },
+    {
+     "id": "c8",
+     "text": "Submitted in time",
+     "marks": null
+    },
+    {
+     "id": "c9",
+     "text": "Topic name",
+     "marks": null
+    },
+    {
+     "id": "c10",
+     "text": "Roll No, Student name and class/div",
+     "marks": null
+    },
+    {
+     "id": "c11",
+     "text": "Contents",
+     "marks": null
+    }
+   ],
+   "verdicts": {
+    "c1": {
+     "label": "Met",
+     "why": "dataset, preprocessing, model and results all on the chosen case study"
+    },
+    "c2": {
+     "label": "Can't assess",
+     "why": "the pipeline diagram is a picture with no text (\"Figure: pipeline\")"
+    },
+    "c3": {
+     "label": "Can't assess",
+     "why": "the live presentation is outside the submission"
+    },
+    "c4": {
+     "label": "Partially met",
+     "why": "a contents slide and clear slides, but results come before the dataset and method"
+    },
+    "c5": {
+     "label": "Not found in submission",
+     "why": "no abstract"
+    },
+    "c6": {
+     "label": "Partially met",
+     "why": "relevant points with depth (numbers), but no inference or conclusion drawn"
+    },
+    "c7": {
+     "label": "Partially met",
+     "why": "references listed: one book, but incomplete URLs (\"wikipedia sentiment page\") and no research paper"
+    },
+    "c8": {
+     "label": "Can't assess",
+     "why": "when it was submitted is outside the submission (the report shows lateness from the app)"
+    },
+    "c9": {
+     "label": "Met",
+     "why": "title slide: \"Sentiment analysis of product reviews\""
+    },
+    "c10": {
+     "label": "Partially met",
+     "why": "student name and roll number, no class or division"
+    },
+    "c11": {
+     "label": "Met",
+     "why": "a contents slide"
+    }
+   }
+  },
+  "R9": {
+   "mode": "rubric",
+   "checklist": [
+    {
+     "id": "c1",
+     "text": "Monolithic, Three-tier architecture and micro service are thoroughly covered; concepts accurate and in-depth",
+     "marks": null
+    },
+    {
+     "id": "c2",
+     "text": "Student is properly visible, confident with explanation and elaboration",
+     "marks": null
+    },
+    {
+     "id": "c3",
+     "text": "Student high voice modulation and correct precise pronunciation",
+     "marks": null
+    },
+    {
+     "id": "c4",
+     "text": "Submitted on the allocated day",
+     "marks": null
+    }
+   ],
+   "verdicts": {
+    "c1": {
+     "label": "Partially met",
+     "why": "monolithic and three-tier explained accurately and in depth; micro-services only named (\"I ran out of time\")"
+    },
+    "c2": {
+     "label": "Can't assess",
+     "why": "needs the video watched: visibility and confidence are not in a transcript"
+    },
+    "c3": {
+     "label": "Can't assess",
+     "why": "needs the video watched: voice and pronunciation"
+    },
+    "c4": {
+     "label": "Can't assess",
+     "why": "when it was submitted is outside the submission"
+    }
+   }
+  },
   "S1": {
    "mode": "summary",
    "checklist": [],
