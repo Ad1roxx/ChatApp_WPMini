@@ -99,3 +99,13 @@ The hand-made checklist splits the rows into what a submission is checked for (e
 11. Contents: **M**, a contents slide.
 
 The guidelines (individual activity, topic chosen with the course teacher, PPT submitted on the class platform, presented on schedule) are process, not checked against the hand-in, and are not in the checklist.
+
+## The human's second rubric (case R9, added 2026-11-13)
+
+**R9. A screencast demo video on monolithic, three-tier and micro-service architecture.** The human's band rubric for a DevOps internal assessment, retyped with every table cell verbatim; the institution header, course code and faculty name and date are left out. The thing marked is a video, which S8 cannot watch, so this tests that the system says Can't assess rather than guessing. Hand-in: a text with the video link, and `transcript.docx`, the narration written out (synthetic).
+
+Hand-made checklist:
+1. Monolithic, three-tier architecture and micro service thoroughly covered; concepts accurate and in-depth: **P** from the transcript, monolithic and three-tier explained in depth, micro-services only named.
+2. Student properly visible, confident, with explanation and elaboration: **C**, needs the video watched.
+3. High voice modulation and correct, precise pronunciation: **C**, needs the video watched.
+4. Timely submission: **C**, outside the submission.
