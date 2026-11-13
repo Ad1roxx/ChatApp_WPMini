@@ -6,25 +6,85 @@
     "instructions": "Record a screencast demo explaining the monolithic, three-tier and micro-service architectures. Hand in the link to your video and a transcript of what you say."
   },
   "rubric": {
-    "name": "rubric.docx",
-    "format": "docx",
+    "name": "rubric.pdf",
+    "format": "pdf",
     "title": "",
     "sections": [
       {
         "heading": "Evaluation rubrics for Internal assessment (IA)",
-        "paragraphs": [
-          "Programme & Department: IT",
-          "Year: LY",
-          "Semester: VII"
-        ]
+        "paragraphs": [],
+        "table": {
+          "columns_mm": [
+            41,
+            46,
+            37,
+            42
+          ],
+          "align": "center",
+          "bold_first_column": false,
+          "header_rows": [],
+          "rows": [
+            [
+              "Programme & Department",
+              "IT",
+              "Year",
+              "LY"
+            ],
+            [
+              "Academic year",
+              "2025-26",
+              "Semester",
+              "VII"
+            ]
+          ]
+        }
       },
       {
         "heading": "Evaluation Rubrics for Screen Cast Demo video on a monolithic, three-tier and micro-service architecture:",
-        "paragraphs": [
-          "Content & Technical Depth (5). Excellent (E): Monolithic, Three-tier architecture and micro service are thoroughly covered; concepts accurate and in-depth. Good (G): Monolithic, Three-tier architecture and micro-service are partially clear with accurate depth. Poor(P): Basic coverage; Monolithic, Three tier architecture and micro-service are partially clear. Total Score 5.",
-          "Individual performance (3). Excellent (E): Student is properly visible, confident with explanation and elaboration. Student high voice modulation and correct precise pronunciation(3). Good (G): Student is properly visible, confident but no explanation and elaboration. Student moderate voice modulation and moderate precise pronunciation(2-1). Poor(P): Student is not visible or confident or no explanation and elaboration. Student voice is not clear/incorrect pronunciation(0). Total Score 3.",
-          "Timely Submission (2). Excellent (E): Submitted on the allocated day (2). Good (G): Submitted after one week later(1). Poor(P): Submitted after two week(0). Total Score 2."
-        ]
+        "paragraphs": [],
+        "table": {
+          "columns_mm": [
+            32,
+            40,
+            40,
+            34,
+            18
+          ],
+          "align": "center",
+          "bold_first_column": true,
+          "header_rows": [
+            [
+              "Weightage / Criteria",
+              "Excellent (E)",
+              "Good (G)",
+              "Poor(P)",
+              "Total Score"
+            ]
+          ],
+          "rows": [
+            [
+              "Content & Technical Depth (5)",
+              "Monolithic, Three-tier architecture and micro service are thoroughly covered; concepts accurate and in-depth.",
+              "Monolithic, Three-tier architecture and micro-service are partially clear with accurate depth.",
+              "Basic coverage; Monolithic, Three tier architecture and micro-service are partially clear.",
+              "5"
+            ],
+            [
+              "Individual performance (3)",
+              "Student is properly visible, confident with explanation and elaboration. Student high voice modulation and correct precise pronunciation(3)",
+              "Student is properly visible, confident but no explanation and elaboration. Student moderate voice modulation and moderate precise pronunciation(2-1)",
+              "Student is not visible or confident or no explanation and elaboration. Student voice is not clear/incorrect pronunciation(0)",
+              "3"
+            ],
+            [
+              "Timely Submission (2)",
+              "Submitted on the allocated day (2)",
+              "Submitted after one week later(1)",
+              "Submitted after two week(0)",
+              "2"
+            ]
+          ]
+        }
       }
     ]
   },

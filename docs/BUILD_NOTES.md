@@ -8356,6 +8356,14 @@ The set is now 9 rubric, 3 brief and 2 summary cases and 4 injection pairs: 61 c
 
 **Review.** Codex's per-step review found nothing.
 
+### Entry 138 — S8 Step 6, part 3: R8 and R9 rendered as their originals are laid out
+
+The human's point: a mentor uploads the real file and nobody retypes it, and a real table rubric extracts badly (words broken across lines in narrow cells, cells read one by one, a header block before the criteria), which retyped paragraphs hide. So R8's and R9's rubric files are now rendered layout-faithful: the same table, cells, column widths and header block, with narrow cells that break words as the originals do. Extracted, R8 reads "Distributi / on of 20 / Marks" and "Impleme / ntation", as the original does; a test checks the whole word "Implementation" is absent from the extracted text. R9's rubric is now a PDF. Only the institution, course codes and faculty names and dates are left out. The builder gained table rendering (ReportLab tables of escaped Paragraph cells with `splitLongWords`). Hand-ins and labels are unchanged; every checklist quote is still in the documents.
+
+Separately, R8 and R9 will also run with the human's untouched PDFs as the rubric file, from `ai/eval/s8-local/` (git-excluded, never committed, never in a Codex review), reported apart from the scored set and not part of any condition. Noted in `s8-threshold.txt` and `s8-set-spec.md` before any live run.
+
+**Review.** Codex's per-step review said an empty heading would break the DOCX path for R9; not so: the build completes, the lines it cited are column widths, and the one empty heading is in R8's PDF rubric.
+
 ---
 
 ### Open items / "later" list

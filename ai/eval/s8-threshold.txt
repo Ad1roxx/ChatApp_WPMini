@@ -56,3 +56,8 @@ not reported. If issues come up in the demo, labels are reviewed then. No condit
 NOTED 2026-11-13, before any live run: the human's two rubrics are cases R8 (a band rubric for a presentation) and R9 (a band
 rubric for a screencast video), specified, built and labelled like the rest (s8-set-spec.md, s8-labels-claude.json). The set is
 9 rubric, 3 brief and 2 summary cases and 4 injection pairs; every condition above applies to all of it unchanged.
+
+NOTED 2026-11-13, before any live run: R8's and R9's rubric files are re-rendered layout-faithful to the originals (tables, narrow
+cells breaking words), so extraction meets what a real upload gives it; hand-ins and labels unchanged. R8 and R9 are also run
+with the human's untouched PDFs from a git-excluded folder; that result is reported separately, is not part of any condition,
+and cannot be recounted from committed files.

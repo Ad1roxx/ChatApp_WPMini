@@ -19,6 +19,7 @@
       },
       {
         "heading": "Guidelines:",
+        "bullets": true,
         "paragraphs": [
           "It is an individual activity",
           "Topic for mini project will be selected by the student based on their selected AI case study by consulting with the course teacher.",
@@ -28,6 +29,7 @@
       },
       {
         "heading": "Basic Contents of the presentation:",
+        "bullets": true,
         "paragraphs": [
           "Topic name",
           "Roll No, Student name and class/div",
@@ -36,12 +38,75 @@
         ]
       },
       {
-        "heading": "Distribution of 20 Marks: The student will be evaluated based on",
-        "paragraphs": [
-          "Implementation and Presentation (Total Score 10). Excellent(E) (10-8): Excellent/partial excellent Coverage of content aligned with AI case study selected with neat and appropriate diagrams. Excellent presentation. Good(G)/Satisfactory(S) (7-5): Good/Satisfactory coverage of Content with AI case study selected without diagrams. Good presentation. Poor(P) (4-1): Poor coverage of content and inappropriate positioning of content on poster. Satisfactory presentation.",
-          "Documentation (Total Score 08). Excellent(E) (8-7): well organized, with proper flow Abstract, relevant points with depth, inference and listed references. Good(G)/Satisfactory(S) (6-4): well organized but proper flow Abstract/relevant points with depth/inference / listed references are satisfactory. Poor(P) (3-1): not well organized and no proper flow Abstract//relevant points with depth/inference / listed references.",
-          "Timely submission (Total Score 02). Excellent(E) (2): Submitted in time. Good(G)/Satisfactory(S) (1): Lessthan One week late. Poor(P) (0): More than 1 week."
-        ]
+        "heading": "",
+        "paragraphs": [],
+        "table": {
+          "columns_mm": [
+            24,
+            24,
+            32,
+            30,
+            28,
+            16
+          ],
+          "align": "left",
+          "bold_first_column": false,
+          "bold_columns": [
+            1
+          ],
+          "spans": [
+            [
+              1,
+              0,
+              5,
+              0
+            ]
+          ],
+          "header_rows": [
+            [
+              "Distribution of 20 Marks",
+              "The student will be evaluated based on",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Internal Assessment 2",
+              "Criteria",
+              "Excellent(E)",
+              "Good(G)/ Satisfactory(S)",
+              "Poor(P)",
+              "Total Score"
+            ]
+          ],
+          "rows": [
+            [
+              "",
+              "Implementation and Presentation",
+              "(10-8) Excellent/partial excellent Coverage of content aligned with AI case study selected with neat and appropriate diagrams. Excellent presentation",
+              "(7-5) Good/Satisfactory coverage of Content with AI case study selected without diagrams. Good presentation.",
+              "(4-1) Poor coverage of content and inappropriate positioning of content on poster. Satisfactory presentation",
+              "10"
+            ],
+            [
+              "",
+              "Documentation",
+              "(8-7) well organized, with proper flow Abstract, relevant points with depth, inference and listed references",
+              "(6-4) well organized but proper flow Abstract/relevant points with depth/inference / listed references are satisfactory",
+              "(3-1) not well organized and no proper flow Abstract//relevant points with depth/inference / listed references",
+              "08"
+            ],
+            [
+              "",
+              "Timely submission",
+              "(2) Submitted in time",
+              "(1) Lessthan One week late",
+              "(0) More than 1 week",
+              "02"
+            ]
+          ]
+        }
       }
     ]
   },

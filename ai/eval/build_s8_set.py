@@ -10,6 +10,9 @@ Formats
 - scan: an image-only PDF. The text is rendered to a PDF, each page is rasterised
         (PyMuPDF, ~110 dpi) and the images are placed in a new PDF, so there is
         no text layer.
+- A section may carry "bullets": true (its paragraphs get bullets) and a "table"
+  (columns_mm, header_rows, rows, align, bold_first_column, bold_columns, spans),
+  drawn after the paragraphs as a ReportLab grid table (pdf only).
 - A section's "image" caption becomes a rasterised PNG (no text layer) placed in
   the PDF or DOCX with nothing accompanying it.
 
@@ -36,7 +39,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import Image as RLImage
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 HERE = Path(__file__).resolve().parent
 CASES_DIR = HERE / "s8-set" / "cases"
@@ -52,10 +57,34 @@ TITLE = ParagraphStyle("t", fontName="DejaVu-Bold", fontSize=16, leading=20, spa
 HEAD = ParagraphStyle("h", fontName="DejaVu-Bold", fontSize=12, leading=15, spaceBefore=10, spaceAfter=5)
 BODY = ParagraphStyle("b", fontName="DejaVu", fontSize=10, leading=14, spaceAfter=6)
 
+BULLET = ParagraphStyle("bl", parent=BODY, leftIndent=14, bulletIndent=2)
+
 
 def _para(text: str, style) -> Paragraph:
     # Escape for ReportLab's mini-markup; keep line breaks inside a paragraph.
     return Paragraph(escape(text).replace("\n", "<br/>"), style)
+
+
+def _table(spec: dict) -> Table:
+    """A rubric table: Paragraph cells (long words break across lines), grid lines."""
+    align = TA_CENTER if spec.get("align") == "center" else TA_LEFT
+    bold_cols = set(spec.get("bold_columns", []))
+    if spec.get("bold_first_column"):
+        bold_cols.add(0)
+
+    def style(bold: bool) -> ParagraphStyle:
+        return ParagraphStyle("c", fontName="DejaVu-Bold" if bold else "DejaVu", fontSize=10.5,
+                              leading=13, alignment=align, splitLongWords=1)
+
+    header = spec.get("header_rows", [])
+    data = []
+    for i, row in enumerate(header + spec["rows"]):
+        data.append([Paragraph(escape(c), style(i < len(header) or j in bold_cols)) for j, c in enumerate(row)])
+    t = Table(data, colWidths=[w * mm for w in spec["columns_mm"]])
+    cmds = [("GRID", (0, 0), (-1, -1), 0.6, colors.black), ("VALIGN", (0, 0), (-1, -1), "TOP")]
+    cmds += [("SPAN", (a, b), (c, d)) for a, b, c, d in spec.get("spans", [])]
+    t.setStyle(TableStyle(cmds))
+    return t
 
 
 def caption_png(caption: str) -> bytes:
@@ -87,9 +116,16 @@ def text_pdf_bytes(title: str | None, sections: list[dict]) -> bytes:
     if title:
         story.append(_para(title, TITLE))
     for s in sections:
-        story.append(_para(s["heading"], HEAD))
+        if s["heading"]:
+            story.append(_para(s["heading"], HEAD))
         for p in s["paragraphs"]:
-            story.append(_para(p, BODY))
+            if s.get("bullets"):
+                story.append(Paragraph(escape(p), BULLET, bulletText="•"))
+            else:
+                story.append(_para(p, BODY))
+        if s.get("table"):
+            story.append(Spacer(1, 4))
+            story.append(_table(s["table"]))
         if s.get("image"):
             story.append(Spacer(1, 4))
             story.append(RLImage(io.BytesIO(caption_png(s["image"])), width=105 * mm, height=57.5 * mm))

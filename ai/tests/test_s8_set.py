@@ -6,10 +6,10 @@ test does not depend on, or change, ai/eval/s8-set/files.
 How criteria lines are counted:
 - rubric cases: the paragraphs of the rubric section headed "Criteria" (one
   paragraph per criterion; the "Instructions" section is not counted).
-- band-rubric cases R8 and R9 (the human's own rubrics, retyped verbatim) have
-  no "Criteria" section and are not counted that way. Their graded table rows
-  are the paragraphs of the last section (3 each); the tests assert the rubric
-  text is present verbatim and that no institution or person name is.
+- band-rubric cases R8 and R9 (the human's own rubrics, as tables) have
+  no "Criteria" section. Their graded rows are the rows of the last section's
+  table (3 each); the tests assert the table cells are exact and survive text
+  extraction, and that no institution or person name is present.
 - brief cases: the lines of assignment.instructions that start with "- ".
 - summary cases: zero such lines.
 """
@@ -88,7 +88,7 @@ def test_case_shape(name):
 def test_criteria_count_matches_spec(cid):
     c = load(cid)
     if cid in BAND:
-        n = len(c["rubric"]["sections"][-1]["paragraphs"])
+        n = len(c["rubric"]["sections"][-1]["table"]["rows"])
     elif c["mode"] == "rubric":
         crit = next(s for s in c["rubric"]["sections"] if s["heading"] == "Criteria")["paragraphs"]
         n = len(crit)
@@ -219,39 +219,77 @@ def test_build_is_deterministic_in_text(tmp_path):
     assert outs[0] == outs[1]
 
 
-def _band_rubric(cid: str) -> list:
-    return [(s["heading"], s["paragraphs"]) for s in load(cid)["rubric"]["sections"]]
-
-
-R8_RUBRIC = [
-    ("Course: Natural Language Processing", ["Term: Odd (2026-27) Class / Sem: LY BTech-(IT) VII", "Rubrics (IA 2)"]),
-    ("Guidelines:", [
-        "It is an individual activity",
-        "Topic for mini project will be selected by the student based on their selected AI case study by consulting with the course teacher.",
-        "PPT should be submitted by each student on google classroom.",
-        "Individual student will present the mini project on finalized topic as per schedule given by course teacher."]),
-    ("Basic Contents of the presentation:", [
-        "Topic name", "Roll No, Student name and class/div", "Contents",
-        "References (Book(s), Complete URLs, Research Papers), in given syntax"]),
-    ("Distribution of 20 Marks: The student will be evaluated based on", [
-        "Implementation and Presentation (Total Score 10). Excellent(E) (10-8): Excellent/partial excellent Coverage of content aligned with AI case study selected with neat and appropriate diagrams. Excellent presentation. Good(G)/Satisfactory(S) (7-5): Good/Satisfactory coverage of Content with AI case study selected without diagrams. Good presentation. Poor(P) (4-1): Poor coverage of content and inappropriate positioning of content on poster. Satisfactory presentation.",
-        "Documentation (Total Score 08). Excellent(E) (8-7): well organized, with proper flow Abstract, relevant points with depth, inference and listed references. Good(G)/Satisfactory(S) (6-4): well organized but proper flow Abstract/relevant points with depth/inference / listed references are satisfactory. Poor(P) (3-1): not well organized and no proper flow Abstract//relevant points with depth/inference / listed references.",
-        "Timely submission (Total Score 02). Excellent(E) (2): Submitted in time. Good(G)/Satisfactory(S) (1): Lessthan One week late. Poor(P) (0): More than 1 week."]),
+R8_TABLE = {
+    "columns_mm": [24, 24, 32, 30, 28, 16],
+    "header_rows": [
+        ["Distribution of 20 Marks", "The student will be evaluated based on", "", "", "", ""],
+        ["Internal Assessment 2", "Criteria", "Excellent(E)", "Good(G)/ Satisfactory(S)", "Poor(P)", "Total Score"]],
+    "rows": [
+        ["", "Implementation and Presentation", "(10-8) Excellent/partial excellent Coverage of content aligned with AI case study selected with neat and appropriate diagrams. Excellent presentation", "(7-5) Good/Satisfactory coverage of Content with AI case study selected without diagrams. Good presentation.", "(4-1) Poor coverage of content and inappropriate positioning of content on poster. Satisfactory presentation", "10"],
+        ["", "Documentation", "(8-7) well organized, with proper flow Abstract, relevant points with depth, inference and listed references", "(6-4) well organized but proper flow Abstract/relevant points with depth/inference / listed references are satisfactory", "(3-1) not well organized and no proper flow Abstract//relevant points with depth/inference / listed references", "08"],
+        ["", "Timely submission", "(2) Submitted in time", "(1) Lessthan One week late", "(0) More than 1 week", "02"]],
+}
+R9_TABLES = [
+    {"columns_mm": [41, 46, 37, 42], "header_rows": [],
+     "rows": [["Programme & Department", "IT", "Year", "LY"], ["Academic year", "2025-26", "Semester", "VII"]]},
+    {"columns_mm": [32, 40, 40, 34, 18],
+     "header_rows": [["Weightage / Criteria", "Excellent (E)", "Good (G)", "Poor(P)", "Total Score"]],
+     "rows": [
+         ["Content & Technical Depth (5)", "Monolithic, Three-tier architecture and micro service are thoroughly covered; concepts accurate and in-depth.", "Monolithic, Three-tier architecture and micro-service are partially clear with accurate depth.", "Basic coverage; Monolithic, Three tier architecture and micro-service are partially clear.", "5"],
+         ["Individual performance (3)", "Student is properly visible, confident with explanation and elaboration. Student high voice modulation and correct precise pronunciation(3)", "Student is properly visible, confident but no explanation and elaboration. Student moderate voice modulation and moderate precise pronunciation(2-1)", "Student is not visible or confident or no explanation and elaboration. Student voice is not clear/incorrect pronunciation(0)", "3"],
+         ["Timely Submission (2)", "Submitted on the allocated day (2)", "Submitted after one week later(1)", "Submitted after two week(0)", "2"]]},
 ]
-R9_RUBRIC = [
-    ("Evaluation rubrics for Internal assessment (IA)", ["Programme & Department: IT", "Year: LY", "Semester: VII"]),
-    ("Evaluation Rubrics for Screen Cast Demo video on a monolithic, three-tier and micro-service architecture:", [
-        "Content & Technical Depth (5). Excellent (E): Monolithic, Three-tier architecture and micro service are thoroughly covered; concepts accurate and in-depth. Good (G): Monolithic, Three-tier architecture and micro-service are partially clear with accurate depth. Poor(P): Basic coverage; Monolithic, Three tier architecture and micro-service are partially clear. Total Score 5.",
-        "Individual performance (3). Excellent (E): Student is properly visible, confident with explanation and elaboration. Student high voice modulation and correct precise pronunciation(3). Good (G): Student is properly visible, confident but no explanation and elaboration. Student moderate voice modulation and moderate precise pronunciation(2-1). Poor(P): Student is not visible or confident or no explanation and elaboration. Student voice is not clear/incorrect pronunciation(0). Total Score 3.",
-        "Timely Submission (2). Excellent (E): Submitted on the allocated day (2). Good (G): Submitted after one week later(1). Poor(P): Submitted after two week(0). Total Score 2."]),
-]
+R8_GUIDELINES = [
+    "It is an individual activity",
+    "Topic for mini project will be selected by the student based on their selected AI case study by consulting with the course teacher.",
+    "PPT should be submitted by each student on google classroom.",
+    "Individual student will present the mini project on finalized topic as per schedule given by course teacher."]
 
 
-def test_band_rubrics_are_verbatim():
-    assert load("R8")["rubric"]["format"] == "pdf"
-    assert load("R9")["rubric"]["format"] == "docx"
-    assert _band_rubric("R8") == R8_RUBRIC
-    assert _band_rubric("R9") == R9_RUBRIC
+def _tables(cid: str) -> list:
+    out = []
+    for s in load(cid)["rubric"]["sections"]:
+        if s.get("table"):
+            t = s["table"]
+            out.append({k: t[k] for k in ("columns_mm", "header_rows", "rows")})
+    return out
+
+
+def test_band_rubric_tables_hold_exactly_the_cells():
+    r8, r9 = load("R8")["rubric"], load("R9")["rubric"]
+    assert r8["format"] == "pdf" and r8["name"] == "rubric.pdf"
+    assert r9["format"] == "pdf" and r9["name"] == "rubric.pdf"
+    assert _tables("R8") == [R8_TABLE]
+    assert _tables("R9") == R9_TABLES
+    heads = [s["heading"] for s in r8["sections"]]
+    assert heads == ["Course: Natural Language Processing", "Guidelines:", "Basic Contents of the presentation:", ""]
+    assert r8["sections"][1]["bullets"] and r8["sections"][1]["paragraphs"] == R8_GUIDELINES
+    assert r8["sections"][0]["paragraphs"] == ["Term: Odd (2026-27) Class / Sem: LY BTech-(IT) VII", "Rubrics (IA 2)"]
+
+
+def _flat(text: str) -> str:
+    return "".join(text.split())
+
+
+@pytest.mark.parametrize("cid", BAND)
+def test_band_rubric_pdf_has_every_cell_word_in_a_text_layer(cid, built):
+    doc = pymupdf.open(str(built / cid / "rubric.pdf"))
+    text = "".join(p.get_text() for p in doc)
+    doc.close()
+    assert text.strip()
+    flat = _flat(text)
+    for sec in load(cid)["rubric"]["sections"]:
+        for cell in [c for r in (sec.get("table", {}).get("header_rows", []) + sec.get("table", {}).get("rows", [])) for c in r]                 + sec["paragraphs"] + [sec["heading"]]:
+            assert _flat(cell) in flat, f"{cid}: missing {cell!r}"
+
+
+def test_r8_narrow_cell_breaks_a_word_as_the_original_did(built):
+    import re
+    doc = pymupdf.open(str(built / "R8" / "rubric.pdf"))
+    text = "".join(p.get_text() for p in doc)
+    doc.close()
+    assert not re.search(r"Implementation", text)
+    assert _flat("Implementation and Presentation") in _flat(text)
 
 
 # The institution, course codes and faculty names left out of R8 and R9, as the first 16 hex digits of

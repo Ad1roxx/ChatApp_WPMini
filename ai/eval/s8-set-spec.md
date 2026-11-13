@@ -109,3 +109,11 @@ Hand-made checklist:
 2. Student properly visible, confident, with explanation and elaboration: **C**, needs the video watched.
 3. High voice modulation and correct, precise pronunciation: **C**, needs the video watched.
 4. Timely submission: **C**, outside the submission.
+
+## R8 and R9 made layout-faithful (2026-11-13, the human's decision, before any live run)
+
+A mentor uploads the real file; nobody retypes it. So R8's and R9's rubric files are rendered as the originals are laid out: the
+same table, cells, column widths and header block, with narrow cells that break words across lines ("Impleme / ntation") and
+table text read cell by cell, minus only the institution, course codes and faculty names and dates. The hand-ins and labels do
+not change. Separately, R8 and R9 are also run once with the human's untouched PDFs as the rubric file, from a git-excluded
+folder (ai/eval/s8-local), and reported apart from the scored set.
