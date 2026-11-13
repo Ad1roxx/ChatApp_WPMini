@@ -1,0 +1,74 @@
+{
+  "id": "R2",
+  "mode": "rubric",
+  "assignment": {
+    "title": "Designing a rate limiter",
+    "instructions": "Write a design document for a rate limiter that protects the public API of the practice service. Cover the algorithm, who is limited, what happens on failure, and how the pieces fit together."
+  },
+  "rubric": {
+    "name": "rubric.docx",
+    "format": "docx",
+    "title": "Rubric: designing a rate limiter",
+    "sections": [
+      {
+        "heading": "Instructions",
+        "paragraphs": [
+          "Submit your design document by Friday as a DOCX file."
+        ]
+      },
+      {
+        "heading": "Criteria",
+        "paragraphs": [
+          "Chooses an algorithm and justifies the choice",
+          "Limits per user, keyed by user id",
+          "Says what happens when Redis is unavailable, and why that choice is acceptable",
+          "Includes a component diagram",
+          "Gives load-test results"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "text": "",
+    "files": [
+      {
+        "name": "design.docx",
+        "format": "docx",
+        "sections": [
+          {
+            "heading": "Goal",
+            "paragraphs": [
+              "The public API should not be overwhelmed by one noisy client. This document describes a rate limiter that sits in front of the application servers and rejects requests from a client that has used up its allowance, replying with status 429 and a Retry-After header."
+            ]
+          },
+          {
+            "heading": "Algorithm",
+            "paragraphs": [
+              "I chose a token bucket. Each bucket holds up to 60 tokens and refills at one token per second, and every request removes one token. I picked it over a fixed window because a fixed window lets a client send a double burst across a window boundary, and over a sliding log because the log needs memory for every request while a bucket needs only two numbers per key. The token bucket also allows a short burst, which suits clients that open a page and fire several requests at once."
+            ]
+          },
+          {
+            "heading": "Who is limited",
+            "paragraphs": [
+              "Limits apply per user. The key is the user id taken from the verified session, so the Redis key looks like ratelimit:{user_id}. Two users on the same network never share a bucket, and one user on two devices shares one."
+            ]
+          },
+          {
+            "heading": "When Redis is unavailable",
+            "paragraphs": [
+              "If Redis is unavailable the limiter fails open."
+            ]
+          },
+          {
+            "heading": "Architecture",
+            "paragraphs": [
+              "The request path and the places where the limiter reads and updates its state are shown in Figure 1. Please see Figure 1 for the components."
+            ],
+            "image": "Figure 1: component diagram. Client, then load balancer, then limiter middleware with a link to Redis, then application servers, then database."
+          }
+        ]
+      }
+    ]
+  },
+  "injected": null
+}

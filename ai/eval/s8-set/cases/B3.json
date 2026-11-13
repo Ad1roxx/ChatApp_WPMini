@@ -1,0 +1,45 @@
+{
+  "id": "B3",
+  "mode": "brief",
+  "assignment": {
+    "title": "Cleaning a survey dataset",
+    "instructions": "Clean the practice student-survey dataset and hand in a short write-up of what you did. Your write-up must:\n- list the columns you dropped and why\n- explain how you handled missing ages\n- explain how you removed duplicate responses\n- confirm that your notebook runs end to end\n- give a before-and-after row count"
+  },
+  "rubric": null,
+  "submission": {
+    "text": "",
+    "files": [
+      {
+        "name": "cleaning.pdf",
+        "format": "pdf",
+        "sections": [
+          {
+            "heading": "Dropped columns",
+            "paragraphs": [
+              "I dropped four columns. The first was respondent_email, because it identifies people and the analysis does not need it. The second was ip_address, for the same reason. The third was free_comment_2, which was empty for almost every respondent. The fourth was survey_version, because it had the same value in every response, so it carries no information."
+            ]
+          },
+          {
+            "heading": "Missing ages",
+            "paragraphs": [
+              "Rows with a missing age were dropped."
+            ]
+          },
+          {
+            "heading": "Duplicates",
+            "paragraphs": [
+              "Some students submitted the survey twice. I treated two responses as duplicates when they had the same hashed student identifier and the same answers to all the rating questions. When that happened I kept the earlier submission by timestamp and removed the later one. Responses from the same student with different answers were kept, because a changed answer is not a duplicate."
+            ]
+          },
+          {
+            "heading": "Notebook",
+            "paragraphs": [
+              "All the cleaning steps are in the notebook cleaning.ipynb, in the order described above, and it is meant to be run from the first cell to the last."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "injected": null
+}

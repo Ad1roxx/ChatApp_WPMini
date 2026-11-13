@@ -8334,6 +8334,18 @@ This rule can make an injected hand-in differ from its twin (Can't assess where 
 
 **Review.** Codex's per-step and attack reviews found nothing. Its test-gap review named four: that "another mentor" might not be one (not so: that user is the mentor of its own mentorship with the student), and three real ones, now tested: a total written as text, unknown ids in every editable list, and extra fields in nested parts of the export schema.
 
+### Entry 136 — S8 Step 6, part 1: the evaluation set, labelled before any live run
+
+**Recorded in AGENT_PLAN §6 S8 (f), at the human's request:** strengths and gaps are built in code from the verdicts, with no model call, a deliberate change from the Step 0 design (one call per report). A strength is a Met criterion with its verified evidence; a gap is Partially met (with what is missing) or Not found. Everything in them is something a check established and the mentor can trace to a verdict, so the report cannot say more than the checks did, and no call is spent restating evidence. Where to look closely and trends are built the same way (Entry 135).
+
+**Order, as the human set it.** The labelling guidelines first (`s8-labelling-guidelines.md`, extended for hand-made checklists, modes and injection twins; the four verdicts unchanged), then the specs (`s8-set-spec.md`, committed before any document existed), then the documents (implementer), then my labels from the actual documents.
+
+**The set** (`ai/eval/s8-set/`). 12 cases: 7 rubric (R1–R7), 3 brief (B1–B3), 2 summary (S1, S2), and 4 injected copies with their twins (R3: a line in the text aimed at one criterion; R6: in the text box; R7: its own paragraph in the middle of a PDF; B2: inside a DOCX, aimed at one criterion). Case JSONs are the source; `build_s8_set.py` renders the rubrics and hand-ins to PDF (DejaVu, a text layer) and DOCX, a scan as an image-only PDF (no text layer), and pictures with no text. R4's report is 25,421 characters in 8 sections with one criterion answered only in the last; R5's cursor encoding is only in a scan. `test_s8_set.py` (60): shapes, counts, twins equal but for the planted line, scans with no text and every other PDF with text, pictures with no text, R4's length and section 8, determinism.
+
+**My labels** (`s8-labels-claude.json`), from the documents: 46 criteria across 10 assessed cases, 20 Met, 9 Partially met, 11 Not found in submission, 6 Can't assess; each checklist line asserted to be in its document; injected copies carry their twins' labels. Where a document differs from its spec the label follows the document, recorded in the file: B3 criterion 2 is Met, not the spec's Partially met (the brief asks how missing ages were handled, and the write-up says how); R5 criterion 5 is Partially met but close to Not found (a limit parameter, no cap); B1 criterion 3 and R3 criterion 5 are as the spec meant but arguable. The implementer gave five criteria an explicit bar so the spec's Partially met holds; each is read as one criterion with a bar, not two. The human labels 12 of them independently (`humanSubset`), chosen to include the arguable ones.
+
+**Review.** Codex's per-step review found nothing.
+
 ---
 
 ### Open items / "later" list

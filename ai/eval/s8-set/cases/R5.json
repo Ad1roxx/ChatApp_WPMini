@@ -1,0 +1,87 @@
+{
+  "id": "R5",
+  "mode": "rubric",
+  "assignment": {
+    "title": "Paginating an API",
+    "instructions": "Design pagination for the GET /messages endpoint of the practice chat service. Hand in a short write-up of your design."
+  },
+  "rubric": {
+    "name": "rubric.docx",
+    "format": "docx",
+    "title": "Rubric: paginating an API",
+    "sections": [
+      {
+        "heading": "Instructions",
+        "paragraphs": [
+          "Submit your write-up by Friday; a DOCX file is preferred."
+        ]
+      },
+      {
+        "heading": "Criteria",
+        "paragraphs": [
+          "Explains cursor pagination",
+          "Uses a stable sort key",
+          "Shows how the cursor is encoded",
+          "Handles items deleted between pages",
+          "Caps the page size and says what happens to a request above the cap"
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "text": "",
+    "files": [
+      {
+        "name": "pagination.pdf",
+        "format": "pdf",
+        "sections": [
+          {
+            "heading": "Why not page numbers",
+            "paragraphs": [
+              "The messages endpoint can return thousands of messages for a busy channel, so it has to return them in pages. Page numbers with an offset work for small data, but the database must skip all the earlier rows on every request, and the later pages get slower and slower."
+            ]
+          },
+          {
+            "heading": "Cursor pagination",
+            "paragraphs": [
+              "I use cursor pagination. The first request asks for the newest messages. The response contains the page of messages and a cursor that marks the last message the client received. To get the next page, the client sends that cursor back, and the server returns the messages that come after the marked one. The server does not count rows to skip. It asks the database for the rows after a position, which an index can answer directly, so every page costs about the same however deep the client has gone."
+            ]
+          },
+          {
+            "heading": "Sort key",
+            "paragraphs": [
+              "Messages are sorted by the pair (created_at, id), newest first. The timestamp alone is not enough, because two messages can be created in the same millisecond and then their relative order would be undefined. The id is unique and never changes, so adding it as a second key gives every message exactly one place in the sort. The cursor refers to a position in that sort, so a message never appears on two pages and never gets skipped when new messages arrive at the top."
+            ]
+          },
+          {
+            "heading": "Cursor format",
+            "paragraphs": [
+              "The exact cursor format is on my whiteboard, please see whiteboard-scan.pdf."
+            ]
+          },
+          {
+            "heading": "Page size",
+            "paragraphs": [
+              "The client can pass a limit parameter to say how many messages it wants in one page, and the default is 25."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "whiteboard-scan.pdf",
+        "format": "scan",
+        "sections": [
+          {
+            "heading": "Whiteboard photo: cursor encoding",
+            "paragraphs": [
+              "cursor = base64url( created_at + '|' + id )",
+              "Example: created_at = 2026-03-04T10:15:22.481Z, id = 9f3a. Joined with a bar and base64url-encoded, this gives MjAyNi0wMy0wNFQxMDoxNToyMi40ODFafDlmM2E.",
+              "To decode: base64url-decode the cursor, then split the result on the bar. The first part is the timestamp and the second part is the id. If decoding fails or there are not exactly two parts, return 400."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "injected": null
+}

@@ -1,0 +1,14 @@
+{
+  "id": "B1",
+  "mode": "brief",
+  "assignment": {
+    "title": "A load-test plan",
+    "instructions": "Write a load-test plan for the practice booking service before its launch. Your plan must:\n- name the tool you will use\n- state the target load in requests per second\n- define the pass and fail thresholds\n- say how the test data is reset between runs"
+  },
+  "rubric": null,
+  "submission": {
+    "text": "Load-test plan for the booking service\n\nTool. I will use k6, because the scripts are plain JavaScript that the team can read and it reports percentiles out of the box.\n\nScenario. Each virtual user opens the search page, picks a time slot and submits a booking, with a short pause between steps, to imitate a person rather than a loop. Searching is about three quarters of the traffic and bookings the rest.\n\nTarget load. The launch forecast is 400 requests per second at the busiest hour, so I will ramp up to 400 requests per second over five minutes and hold it for twenty minutes. A second stage will push to 600 requests per second for five minutes, to see how much headroom there is.\n\nThresholds. The test passes if the 95th percentile response time stays under 300 ms and the error rate stays under 1 percent over the whole 400 requests per second stage.\n\nEnvironment. The test runs against the staging environment, which has the same instance sizes as production, from a separate machine on the same network so that the load generator does not compete with the service.\n\nReporting. k6 writes its summary to a file after every run, and I will attach the file and a short note to the launch ticket.",
+    "files": []
+  },
+  "injected": null
+}

@@ -1,0 +1,14 @@
+{
+  "id": "S1",
+  "mode": "summary",
+  "assignment": {
+    "title": "Reflection",
+    "instructions": "Write a short reflection on what you learned this month."
+  },
+  "rubric": null,
+  "submission": {
+    "text": "This month I started the mentorship thinking I was behind everyone else, and I think that feeling shaped most of what I did. I spent the first two weeks reading a lot and writing very little, which felt safe but taught me less than I expected.\n\nThe turning point was the review of my first small project. My mentor did not tell me what was wrong. She asked me to explain why each function existed, and twice I could not. That was uncomfortable, but it was the most useful twenty minutes of the month, because it showed me the difference between code that works and code I understand.\n\nI also learned to ask smaller questions. At the start I would save up a big confusing problem and bring it to a meeting. Now I try to write down the question as soon as I get stuck, and often writing it out is enough to answer it myself. When it is not, the question is short enough that the answer takes a minute.\n\nOn the technical side, I finally understood how a database index works, after trying and failing to learn it from videos. What worked was building a tiny one by hand with a sorted list and counting the comparisons. I want to do more of that, making a small version of a thing before using the real one.\n\nNot everything went well. I missed one deadline because I underestimated how long testing would take, and I did not tell anyone until the day before. I do not want to repeat that. The next time I am running late I will say so early and say what I need.\n\nNext month I would like to finish the larger project I have started, write tests as I go instead of at the end, and spend a little time each week helping someone who started after me, since explaining things seems to be the quickest way for me to find the gaps in what I know.",
+    "files": []
+  },
+  "injected": null
+}
