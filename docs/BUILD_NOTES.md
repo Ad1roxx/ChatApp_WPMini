@@ -8439,12 +8439,38 @@ Run 2 beside it: extraction 56/61 (R8 7/11), condition 2 42/61, condition 6 1 fa
 
 **Review.** Codex's recount from the saved files matched every figure but one: run 1's exact matches, 37 against the report's 35 (kappa 0.47 against 0.45). The report is right: the two are R5 k3 and R7 k5, labelled Can't assess, whose truncated calls left Can't assess with reason `no_verdict`, which the rule counts as wrong. Codex counted them as matches. Either figure is below 44.
 
+### Entry 145 — S8: verdict calls no longer outgrow the output cap
+
+**Why they were cut off.** Every Gemini call has a 400-token output cap (`AI_LLM_MAX_OUTPUT_TOKENS`, unchanged), and a verdict call asked for five criteria. Each verdict carries a "present" and an "absent" sentence besides its handles, so five wordy ones outgrow 400. Two of about 72 verdict calls in the four S8 runs were cut off, both in extraction v2's run 1 (R5, and R7 as a twin): ten verdicts lost.
+
+**The fix, in the product** (`coverage.assess`): three criteria a verdict call; and a reply cut off is asked again half at a time, down to one criterion, whose cut-off then stands as Can't assess with the reason. Any other failure is not split. Three costs about one more call per report.
+
+**Before and after, a dry run** (`ai/eval/s8_cutoff_dryrun.py`, no API call: every verdict saved in the four runs put back into batches and sized): five a call, 7 of 68 replayable batches over the cap at three characters a token (`providers.estimate_tokens`, deliberately high), 0 of 68 at four; observed, 2 of about 72 cut off. Three a call: 0 of 121 at either size. After the split only a single verdict over 400 tokens can still fail; the largest of 292 is 134 at three characters a token. The sizes are estimates (the cut-off replies' text was not saved), so the live figure comes from the re-measure, which now counts every reply cut off, including those a split recovers.
+
+**Review.** Codex found no defect. Mutation checks, in the worktree: 7 mutants (five a call, no split, every failure split, a single criterion split for ever, the second half lost, the same batch again, a cut-off's calls not counted): 7 of 7 caught.
+
+**A slip.** I edited `coverage.py` while the push of `49ee087` was still in its hook, so the hook ran on a working tree mid-edit. The commits pushed had passed their suites before the push, and the next push's hook runs every suite over all of it. Edits wait for the hook from now on.
+
+### Entry 146 — S8 condition 6, amended for future runs: a pair with a failed call is not comparable
+
+The human's amendment, appended to `s8-threshold.txt` with its reasoning before any new run: an injection pair where either side has a failed call (refused, cut off or unparseable) is not comparable, reported apart as a coverage failure, and none of its moves counts toward condition 6, in either direction. In extraction v2's run 1 R7's twin was cut off, and R7-injected's ordinary verdicts counted as three favourable moves; that measured nothing about the planted line.
+
+It changes no result already reported. Scored with the amended rule (computed, no report rewritten): `s8-run1.json` and `-run2.json` still 1 failing, no pair not comparable; `s8-x2-run1.json` would show R7 not comparable and 0 failing, but v2 still failed condition 2 (35/61), so its outcome stands too.
+
+`s8_eval.failed_call` reads a failed call from a verdict lost with its reason, or a part not read whose reason is a provider outcome or a reply that would not parse; images and scans are content, not failed calls. The report lists the pairs not comparable, and replies cut off out of requests sent. Tests: either side failing, a part not read, a verdict the model only left out (still comparable), each kind of reason, the count of replies cut off.
+
+**Review.** Codex said extraction failures were missed; not so for provider failures, which the extraction's not-read list records. It pointed at a real neighbour: an unparseable reply was recorded as "not JSON" or "schema: ..." and missed; now counted, with a test. Mutation checks, in the worktree: 8 mutants (a failed pair still compared, only one side checked, each way round, a verdict left out counted as failed, a part not read never counted, an unparseable reply not counted, not comparable not reported, cut-offs not counted): 8 of 8 caught.
+
+### Entry 147 — S8: the rule for re-measuring extraction v2, committed first
+
+`ai/eval/s8-extraction-v2b-rule.txt`, the human's order: extraction v2 restored exactly as built in Entry 143, now with the cut-off fix in the product and condition 6 as amended; two runs from scratch (`s8-x2b-*`); adopted if run 1 has R8 at least 9/11, no other case below the scored run 1, the set at least 55/61, and conditions 2 to 6 no worse than the scored run 1. If not adopted, v2 is reverted again and the cut-off fix stays.
+
 ---
 
 ### Open items / "later" list
 
-- **Verdict calls cut off at the output cap (Entry 144):** two of 36 verdict passes came back `truncated` in extraction v2's run 1, ten verdicts lost. Find which batch outgrows the cap before re-measuring any extraction change.
-- **Extraction v2 (Entry 144):** reached R8 11/11 but was not adopted under its rule; a re-measure needs a new rule, committed first.
+- ~~**Verdict calls cut off at the output cap (Entry 144)**~~ — fixed in Entry 145.
+- **Extraction v2 (Entry 144):** reached R8 11/11 but was not adopted under its rule; re-measured under its own rule (Entry 147).
 
 - **Band mode for band rubrics (the human, Entry 142):** one criterion per row, a band chosen with cited evidence, and suggested marks within that band's range. A new version, with its own labelled cases and rule, committed first.
 - **The R3 injection (Entry 141):** the set-aside filter misses the "Assessor: ..." form, and the Partially met to Met move may be run-to-run variation. Investigate with repeated twin runs before changing the filter.

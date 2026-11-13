@@ -1,0 +1,40 @@
+S8 extraction v2, re-measured with the cut-off fix: the decision rule. Decided by the human 2026-11-13, committed and pushed
+before extraction v2 is restored and before any run of it (BUILD_NOTES Entry 147). Gemini only.
+
+WHY
+Extraction v2 (s8-extraction-v2-rule.txt) reached R8 11/11 in its run 1 but was not adopted: two verdict calls were cut off at the
+output cap, which failed conditions 2 and 6 (Entry 144). The cut-off is now fixed in the product (Entry 145: three criteria a
+verdict call, and a reply cut off is asked again half at a time), and condition 6 is amended for future runs (Entry 146: a pair
+with a failed call on either side is not comparable). This re-measures v2 with both in place.
+
+WHAT IS MEASURED
+Exactly extraction v2 as built in Entry 143: (a) a PDF rubric's own page text outside its tables; (b) the two prompt lines
+(criteria-v2). Restored unchanged, with its tests. Plus what is now in the product: the cut-off fix. No label, case, other
+prompt or condition changes; R8 is not relabelled.
+
+HOW IT IS MEASURED
+The whole set, two runs from scratch with the paced harness, saved as s8-x2b-run1.json and s8-x2b-run2.json and scored from those
+files (s8-x2b-report.txt). Run 1 decides; run 2 is reported beside it. Replies cut off at the output cap are counted and
+reported (the "after" figure for Entry 145). The human's original PDFs run too, reported apart, not part of any condition.
+It may run across two days' quota.
+
+THE BASELINE: the scored run 1 (s8-run1.json), as in s8-extraction-v2-rule.txt
+Extraction per case: B1 4/4, B2 3/3, B3 5/5, R1 5/5, R2 5/5, R3 5/5, R4 5/5, R5 5/5, R6 4/4, R7 5/5, R8 1/11, R9 3/4; whole set 50/61.
+Condition 2: 44/61. Condition 3: 0/12. Condition 4: 1/23. Condition 5: 14/14. Condition 6: 1 failing (scored as amended, the
+same: no pair in s8-run1.json has a failed call).
+
+EXTRACTION V2 IS ADOPTED IF ALL OF THESE HOLD IN RUN 1:
+1. R8: at least 9 of 11 hand-made criteria found.
+2. No other case's extraction is lower than its baseline above.
+3. The whole set: at least 90% found, i.e. at least 55 of 61.
+4. Conditions 2 to 6 of s8-threshold.txt no worse than the baseline: condition 2 at least 44/61; condition 3 at most 0;
+   condition 4 at most 1; condition 5 14/14; condition 6 (as amended) at most 1 failing.
+A call that fails after its retries is a wrong verdict, as in s8-threshold.txt.
+
+IF ADOPTED
+Extraction v2 stays. The new run 1 is reported against s8-threshold.txt as S8's current result; S8 stays behind its off-by-default
+experimental setting unless all six of that rule's conditions hold.
+IF NOT
+Extraction v2 is reverted again; the runs are kept and reported, and S8's result stays the one in s8-report.txt. The cut-off fix
+stays either way: it is measured here, not decided here.
+Nothing here is loosened after measuring.
