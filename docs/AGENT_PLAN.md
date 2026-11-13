@@ -1117,6 +1117,17 @@ f) **Report** (structured, never one paragraph): header (student, mentorship,
    page, section) and why; what could not be assessed and why; trends across
    the period.
 
+   **Changed in S8 Step 5, deliberately (BUILD_NOTES Entries 135, 136):
+   strengths and gaps are built in code from the verdicts, with no model
+   call.** The plan's Step 0 design had one model call per report to write
+   them. Instead, a strength is a criterion judged Met, with that verdict's
+   verified evidence; a gap is a criterion judged Partially met (with what is
+   missing) or Not found in submission. Why: everything in them is then
+   something a check already established and the mentor can trace to a
+   verdict, so the report cannot say more than the checks did, and a model
+   call that could restate or embellish the evidence (and costs quota) is not
+   needed. "Where to look closely" and trends are built the same way.
+
 **Three modes**, chosen automatically, stated at the top of the report:
 
 1. **Rubric mode** — a rubric document exists.
