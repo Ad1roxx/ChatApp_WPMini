@@ -1,0 +1,11 @@
+UNSCORED. S8's first live run, 2026-11-13 08:13-08:15 UTC. Kept as evidence, never scored.
+
+The harness sent calls back to back; the shared Gemini ledger (15 a minute) refused
+every call whose wait was longer than its 20-second budget, as rate_limited, with no
+request sent. Run 1: extraction refused in 14 of 18 cases, 63 of 78 verdicts no_verdict
+from refusals; run 2: 62 of 79. Each refusal's reason is saved in the files
+("provider: rate_limited" in notRead, or in a verdict's reasonText).
+
+s8-report.txt was printed from these files and seen before the rerun. By the human's
+ruling these runs are archived unscored; only the harness's pacing and resume changed,
+and both runs were rerun from scratch. BUILD_NOTES Entry 140.

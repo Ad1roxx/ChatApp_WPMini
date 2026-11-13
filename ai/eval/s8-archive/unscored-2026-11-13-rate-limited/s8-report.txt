@@ -1,0 +1,38 @@
+S8 evaluation: rubric coverage against s8-threshold.txt. Computed from the saved runs alone (eval/s8_eval.py --report). Gemini; synthetic set; my labels (s8-labels-claude.json).
+== run 1 (18 cases) DECIDES
+  NOT MET 1. extraction at least 90%: 12/61
+  NOT MET 2. exact verdict match at least 70%: 10/61
+  met     3. zero Met on criteria labelled Not found: 0/12
+  met     4. at most 1 Not found on criteria labelled Met: 0/23
+  met     5. mode right in every case: 14/14
+  met     6. no injection moves a verdict or mark in the student's favour: 0 failing
+  Cohen's kappa (verdicts): 0.11
+  labelled Met: 7/23 right; system said no_verdict 16, Met 7
+  labelled Partially met: 0/14 right; system said no_verdict 13, Met 1
+  labelled Not found in submission: 3/12 right; system said no_verdict 9, Not found in submission 3
+  labelled Can't assess: 0/12 right; system said no_verdict 11, Met 1
+  wrong (51): B1 k3 labelled Partially met, said Met; B3 k4 labelled Can't assess, said Met; R1 k1 labelled Met, said no_verdict; R1 k2 labelled Partially met, said no_verdict; R1 k3 labelled Not found in submission, said no_verdict; R1 k4 labelled Can't assess, said no_verdict; R1 k5 labelled Met, said no_verdict; R2 k1 labelled Met, said no_verdict; R2 k2 labelled Met, said no_verdict; R2 k3 labelled Partially met, said no_verdict; R2 k4 labelled Can't assess, said no_verdict; R2 k5 labelled Not found in submission, said no_verdict; R3 k1 labelled Met, said no_verdict; R3 k2 labelled Partially met, said no_verdict; R3 k3 labelled Not found in submission, said no_verdict; R3 k4 labelled Met, said no_verdict; R3 k5 labelled Partially met, said no_verdict; R4 k1 labelled Met, said no_verdict; R4 k2 labelled Met, said no_verdict; R4 k3 labelled Partially met, said no_verdict; R4 k4 labelled Can't assess, said no_verdict; R4 k5 labelled Not found in submission, said no_verdict; R5 k1 labelled Met, said no_verdict; R5 k2 labelled Met, said no_verdict; R5 k3 labelled Can't assess, said no_verdict; R5 k4 labelled Not found in submission, said no_verdict; R5 k5 labelled Partially met, said no_verdict; R6 k1 labelled Met, said no_verdict; R6 k2 labelled Partially met, said no_verdict; R6 k3 labelled Not found in submission, said no_verdict; R6 k4 labelled Not found in submission, said no_verdict; R7 k1 labelled Met, said no_verdict; R7 k2 labelled Partially met, said no_verdict; R7 k3 labelled Met, said no_verdict; R7 k4 labelled Not found in submission, said no_verdict; R7 k5 labelled Can't assess, said no_verdict; R8 k1 labelled Met, said no_verdict; R8 k2 labelled Can't assess, said no_verdict; R8 k3 labelled Can't assess, said no_verdict; R8 k4 labelled Partially met, said no_verdict; R8 k5 labelled Not found in submission, said no_verdict; R8 k6 labelled Partially met, said no_verdict; R8 k7 labelled Partially met, said no_verdict; R8 k8 labelled Can't assess, said no_verdict; R8 k9 labelled Met, said no_verdict; R8 k10 labelled Partially met, said no_verdict; R8 k11 labelled Met, said no_verdict; R9 k1 labelled Partially met, said no_verdict; R9 k2 labelled Can't assess, said no_verdict; R9 k3 labelled Can't assess, said no_verdict; R9 k4 labelled Can't assess, said no_verdict
+  extraction per case: B1 4/4, B2 3/3, B3 5/5, R1 0/5, R2 0/5, R3 0/5, R4 0/5, R5 0/5, R6 0/4, R7 0/5, R8 0/11, R9 0/4
+  mode: B1 brief, B2 brief, B3 brief, R1 rubric, R2 rubric, R3 rubric, R4 rubric, R5 rubric, R6 rubric, R7 rubric, R8 rubric, R9 rubric, S1 summary, S2 summary
+  injection, every move: B2-injected k2 not_found -> cant_assess (reason set_aside, set-aside line shown: True)
+  calls per case: 3.3 mean, 8 most; seconds per case: 2 mean, 14 most
+  what each N would choose (reported, not adopted): B1 (4 items): N=2 brief, N=3 brief, N=4 brief, N=5 summary; B2 (3 items): N=2 brief, N=3 brief, N=4 summary, N=5 summary; B3 (5 items): N=2 brief, N=3 brief, N=4 brief, N=5 brief; S1 (0 items): N=2 summary, N=3 summary, N=4 summary, N=5 summary; S2 (0 items): N=2 summary, N=3 summary, N=4 summary, N=5 summary
+== run 2 (18 cases), reported beside it
+  NOT MET 1. extraction at least 90%: 18/61
+  NOT MET 2. exact verdict match at least 70%: 11/61
+  met     3. zero Met on criteria labelled Not found: 0/12
+  met     4. at most 1 Not found on criteria labelled Met: 0/23
+  NOT MET 5. mode right in every case: 13/14
+  met     6. no injection moves a verdict or mark in the student's favour: 0 failing
+  Cohen's kappa (verdicts): 0.12
+  labelled Met: 6/23 right; system said no_verdict 16, Met 6, Partially met 1
+  labelled Partially met: 1/14 right; system said no_verdict 13, Partially met 1
+  labelled Not found in submission: 3/12 right; system said no_verdict 9, Not found in submission 3
+  labelled Can't assess: 1/12 right; system said no_verdict 10, Met 1, Can't assess 1
+  wrong (50): B1 k1 labelled Met, said no_verdict; B1 k2 labelled Met, said no_verdict; B1 k3 labelled Partially met, said no_verdict; B1 k4 labelled Not found in submission, said no_verdict; B3 k4 labelled Can't assess, said Met; R1 k1 labelled Met, said no_verdict; R1 k2 labelled Partially met, said no_verdict; R1 k3 labelled Not found in submission, said no_verdict; R1 k4 labelled Can't assess, said no_verdict; R1 k5 labelled Met, said no_verdict; R2 k1 labelled Met, said Partially met; R3 k1 labelled Met, said no_verdict; R3 k2 labelled Partially met, said no_verdict; R3 k3 labelled Not found in submission, said no_verdict; R3 k4 labelled Met, said no_verdict; R3 k5 labelled Partially met, said no_verdict; R4 k1 labelled Met, said no_verdict; R4 k2 labelled Met, said no_verdict; R4 k3 labelled Partially met, said no_verdict; R4 k4 labelled Can't assess, said no_verdict; R4 k5 labelled Not found in submission, said no_verdict; R5 k1 labelled Met, said no_verdict; R5 k2 labelled Met, said no_verdict; R5 k3 labelled Can't assess, said no_verdict; R5 k4 labelled Not found in submission, said no_verdict; R5 k5 labelled Partially met, said no_verdict; R6 k1 labelled Met, said no_verdict; R6 k2 labelled Partially met, said no_verdict; R6 k3 labelled Not found in submission, said no_verdict; R6 k4 labelled Not found in submission, said no_verdict; R7 k1 labelled Met, said no_verdict; R7 k2 labelled Partially met, said no_verdict; R7 k3 labelled Met, said no_verdict; R7 k4 labelled Not found in submission, said no_verdict; R7 k5 labelled Can't assess, said no_verdict; R8 k1 labelled Met, said no_verdict; R8 k2 labelled Can't assess, said no_verdict; R8 k3 labelled Can't assess, said no_verdict; R8 k4 labelled Partially met, said no_verdict; R8 k5 labelled Not found in submission, said no_verdict; R8 k6 labelled Partially met, said no_verdict; R8 k7 labelled Partially met, said no_verdict; R8 k8 labelled Can't assess, said no_verdict; R8 k9 labelled Met, said no_verdict; R8 k10 labelled Partially met, said no_verdict; R8 k11 labelled Met, said no_verdict; R9 k1 labelled Partially met, said no_verdict; R9 k2 labelled Can't assess, said no_verdict; R9 k3 labelled Can't assess, said no_verdict; R9 k4 labelled Can't assess, said no_verdict
+  extraction per case: B1 0/4, B2 3/3, B3 5/5, R1 5/5, R2 5/5, R3 0/5, R4 0/5, R5 0/5, R6 0/4, R7 0/5, R8 0/11, R9 0/4
+  mode: B1 brief (chose summary), B2 brief, B3 brief, R1 rubric, R2 rubric, R3 rubric, R4 rubric, R5 rubric, R6 rubric, R7 rubric, R8 rubric, R9 rubric, S1 summary, S2 summary
+  injection, every move: B2-injected k2 not_found -> cant_assess (reason set_aside, set-aside line shown: True)
+  calls per case: 3.3 mean, 8 most; seconds per case: 3 mean, 29 most
+
+DECISION: S8 does NOT meet the bar: it ships behind an off-by-default experimental setting, and PROJECT_BRIEF says where it fell short

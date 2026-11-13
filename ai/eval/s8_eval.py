@@ -144,6 +144,55 @@ def run_case(case: dict, labels: dict, provider) -> dict:
     return out
 
 
+# --------------------------------------------------------------------------
+# Pacing (BUILD_NOTES Entry 140). The first live run sent calls back to back;
+# the shared ledger (providers.CallBudget) then refused every call whose wait
+# for a free slot in the minute was longer than the call's budget, so most of
+# the run was refusals, not verdicts. The harness now spaces its calls to
+# Gemini's 15 a minute and, when a call is still refused, waits and asks again.
+# Nothing the service does changes: same functions, prompts and budgets.
+# --------------------------------------------------------------------------
+REFUSED = "provider: rate_limited"
+BACKOFF_S = (15.0, 30.0, 60.0, 60.0)  # waits after a refusal before asking again; then the refusal stands
+LONGEST_WAIT_S = 120.0  # a refusal naming a longer wait is the day's quota: no waiting, the case resumes later
+
+
+class Paced:
+    """The provider, spaced to `rpm` calls a minute, asking again after a refusal."""
+
+    def __init__(self, provider, rpm: int | None = None, sleep=None, clock=None):
+        from config import GEMINI_RPM
+        self.provider = provider
+        self.sleep = sleep or (lambda s: time.sleep(s))
+        self.clock = clock or (lambda: time.monotonic())
+        self.name, self.model = provider.name, provider.model
+        self.pace_s = 60.0 / (rpm or GEMINI_RPM) + 0.1
+        self.last: float | None = None
+        self.refusals = 0
+
+    def generate(self, system: str, user: str, *, budget_s: float | None = None):
+        from providers import RATE_LIMITED
+        kw = {} if budget_s is None else {"budget_s": budget_s}
+        for backoff in (*BACKOFF_S, None):
+            if self.last is not None and (gap := self.last + self.pace_s - self.clock()) > 0:
+                self.sleep(gap)
+            self.last = self.clock()
+            g = self.provider.generate(system, user, **kw)
+            if g.outcome != RATE_LIMITED or backoff is None or (g.retry_after or 0) > LONGEST_WAIT_S:
+                return g
+            self.refusals += 1
+            self.sleep(max(backoff, g.retry_after or 0))
+        return g
+
+
+def refused(out: dict) -> bool:
+    """True when a call in the case was refused for rate and the refusal stood: the case is not finished."""
+    parts = [out.get("extraction") or {}, out.get("result") or {}]
+    if any(str(x.get("reason", "")).startswith(REFUSED) for p in parts for x in p.get("notRead") or []):
+        return True
+    return any(REFUSED in (v.get("reasonText") or "") for v in (out.get("result") or {}).get("verdicts") or [])
+
+
 def run(n: int, local: bool = False) -> None:
     if os.getenv("AI_LIVE_SMOKE") != "1":
         raise SystemExit("live provider calls: set AI_LIVE_SMOKE=1")
@@ -151,17 +200,27 @@ def run(n: int, local: bool = False) -> None:
 
     provider = criteria.coverage_provider()
     criteria.require_gemini(provider)
+    provider = Paced(provider)
     labels = json.loads(LABELS.read_text(encoding="utf-8"))
     path = LOCAL_RUN if local else run_path(n)
     state = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    unfinished = []
     for case in load_cases(local):
         if case["id"] in state:
             continue  # resumable: a finished case is never run again
         print(f"{case['id']}: running", flush=True)
-        state[case["id"]] = run_case(case, labels, provider)
+        before = provider.refusals
+        out = run_case(case, labels, provider)
+        out["refusalsAskedAgain"] = provider.refusals - before
+        if refused(out):
+            unfinished.append(case["id"])  # not saved: a resume runs it again
+            print(f"{case['id']}: refused for rate after waiting; not saved", flush=True)
+            continue
+        state[case["id"]] = out
         path.write_text(json.dumps(state, indent=1, ensure_ascii=False, default=str), encoding="utf-8")
-        print(f"{case['id']}: {state[case['id']]['calls']} calls, {state[case['id']]['seconds']} s", flush=True)
-    print(f"run {'local' if local else n}: {len(state)} cases saved to {path.name}")
+        print(f"{case['id']}: {out['calls']} calls, {out['seconds']} s", flush=True)
+    print(f"run {'local' if local else n}: {len(state)} cases saved to {path.name}"
+          + (f"; not finished: {', '.join(unfinished)}" if unfinished else ""))
 
 
 # --------------------------------------------------------------------------
@@ -350,11 +409,15 @@ def report() -> None:
         state = json.loads(p.read_text(encoding="utf-8"))
         s = score(state, labels)
         lines += report_lines(f"run {n} ({len(state)} cases)" + (" DECIDES" if n == 1 else ", reported beside it"), s)
+        missing = sorted({c["id"] for c in load_cases()} - set(state))
+        if missing:
+            lines.append(f"  not finished: {', '.join(missing)}")
         if n == 1:
             lines.append(n_sensitivity(state, labels))
-            decided = all(ok for ok, _ in conditions(s).values())
+            # A run with a case not finished (refused for rate, BUILD_NOTES Entry 140) decides nothing.
+            decided = None if missing else all(ok for ok, _ in conditions(s).values())
     lines.append("")
-    lines.append("DECISION: " + ("not yet (run 1 not saved)" if decided is None else
+    lines.append("DECISION: " + ("not yet (run 1 not saved in full)" if decided is None else
                                  "S8 meets the bar" if decided else
                                  "S8 does NOT meet the bar: it ships behind an off-by-default experimental setting, and PROJECT_BRIEF says where it fell short"))
     out = "\n".join(lines) + "\n"

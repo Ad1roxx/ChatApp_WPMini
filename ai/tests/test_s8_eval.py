@@ -210,3 +210,133 @@ def test_injection_fails_on_a_favourable_move_or_a_rising_mark_and_needs_the_lin
 def test_a_wrong_mode_fails_condition_5():
     c = ev.conditions(ev.score(fake_state(RIGHT_R1, [verdict(f"k{i}", "not_found") for i in range(1, 6)], r1_mode="brief"), LABELS))
     assert c["5. mode right in every case"] == (False, "1/2")
+
+
+# --------------------------------------------------------------------------
+# Pacing and resuming (BUILD_NOTES Entry 140)
+# --------------------------------------------------------------------------
+class Clock:
+    """A fake clock whose sleep moves time on and records each wait."""
+
+    def __init__(self):
+        self.now, self.waits = 0.0, []
+
+    def sleep(self, s):
+        self.waits.append(round(s, 2))
+        self.now += s
+
+
+class Refusing:
+    """Answers OK except where `plan` (a list of outcomes, used up in order) says rate_limited."""
+
+    name, model = "gemini", "scripted"
+
+    def __init__(self, plan=(), retry_after=None):
+        self.plan, self.retry_after, self.calls = list(plan), retry_after, 0
+
+    def generate(self, system, user, *, budget_s=None):
+        from providers import RATE_LIMITED
+        self.calls += 1
+        if self.plan and self.plan.pop(0) == "refuse":
+            return Generation(RATE_LIMITED, self.name, self.model, retry_after=self.retry_after, attempts=1)
+        return Generation(OK, self.name, self.model, text="{}", input_tokens=0, output_tokens=0, attempts=1)
+
+
+def paced(inner, clock):
+    return ev.Paced(inner, rpm=15, sleep=clock.sleep, clock=lambda: clock.now)
+
+
+def test_calls_are_spaced_to_fifteen_a_minute():
+    clock = Clock()
+    starts = []
+
+    class Timed(Refusing):
+        def generate(self, system, user, *, budget_s=None):
+            starts.append(clock.now)
+            return super().generate(system, user, budget_s=budget_s)
+
+    p = paced(Timed(), clock)
+    for _ in range(16):
+        p.generate("s", "u", budget_s=20.0)
+    assert all(b - a >= 60.0 / 15 for a, b in zip(starts, starts[1:]))
+    assert starts[15] - starts[0] > 60.0, "never 16 calls inside one minute"
+
+
+def test_a_refusal_is_asked_again_after_waiting():
+    clock = Clock()
+    inner = Refusing(["refuse", "refuse", "ok"])
+    g = paced(inner, clock).generate("s", "u", budget_s=20.0)
+    assert g.ok and inner.calls == 3
+    assert clock.waits[:1] == [15.0] and 30.0 in clock.waits
+
+
+def test_a_refusal_that_outlasts_every_wait_stands():
+    from providers import RATE_LIMITED
+    clock = Clock()
+    inner = Refusing(["refuse"] * 10)
+    g = paced(inner, clock).generate("s", "u")
+    assert g.outcome == RATE_LIMITED and inner.calls == len(ev.BACKOFF_S) + 1
+
+
+def test_the_days_quota_is_not_waited_for():
+    from providers import RATE_LIMITED
+    clock = Clock()
+    inner = Refusing(["refuse", "ok"], retry_after=6 * 3600)
+    g = paced(inner, clock).generate("s", "u")
+    assert g.outcome == RATE_LIMITED and inner.calls == 1 and clock.waits == []
+
+
+@pytest.mark.parametrize("out, expected", [
+    ({"extraction": {"notRead": [{"reason": "provider: rate_limited"}]}, "result": {}}, True),
+    ({"extraction": {}, "result": {"notRead": [{"where": "x", "reason": "provider: rate_limited"}]}}, True),
+    ({"extraction": {}, "result": {"verdicts": [{"reason": "no_verdict", "reasonText": "no verdict was given for it (provider: rate_limited)"}]}}, True),
+    ({"extraction": {}, "result": {"verdicts": [{"reason": "no_verdict", "reasonText": "no verdict was given for it (provider: truncated)"}]}}, False),
+    ({"extraction": {"notRead": [{"reason": "no readable text"}]}, "result": {"notRead": [{"reason": "parts not read: images 1"}]}}, False),
+])
+def test_what_counts_as_refused(out, expected):
+    assert ev.refused(out) is expected
+
+
+def test_a_refused_case_is_not_saved_and_a_resume_runs_it(tmp_path, monkeypatch):
+    monkeypatch.setenv("AI_LIVE_SMOKE", "1")
+    monkeypatch.setattr(ev, "run_path", lambda n: tmp_path / f"run{n}.json")
+    monkeypatch.setattr(ev.time, "sleep", lambda s: None)
+    cases = {c["id"]: c for c in [json.loads(p.read_text(encoding="utf-8")) for p in sorted((ev.SET / "cases").glob("*.json"))]}
+    monkeypatch.setattr(ev, "load_cases", lambda local=False: [cases["B1"], cases["R1"]])
+    import criteria
+    from providers import RATE_LIMITED
+
+    class RefuseR1(Scripted):
+        refuse = True
+
+        def generate(self, system, user, *, budget_s=None):
+            if self.refuse and system.startswith("You suggest"):
+                self.calls.append((system, user))
+                return Generation(RATE_LIMITED, self.name, self.model, retry_after=None, attempts=1)
+            return super().generate(system, user, budget_s=budget_s)
+
+    model = RefuseR1()
+    model.refuse = False
+    monkeypatch.setattr(criteria, "coverage_provider", lambda: model)
+    ev.run(1)  # both finish
+    assert set(json.loads((tmp_path / "run1.json").read_text(encoding="utf-8"))) == {"B1", "R1"}
+
+    (tmp_path / "run1.json").unlink()
+    model.refuse = True
+    monkeypatch.setattr(ev, "load_cases", lambda local=False: [cases["R1"]])
+    ev.run(1)
+    assert not (tmp_path / "run1.json").exists() or "R1" not in json.loads((tmp_path / "run1.json").read_text(encoding="utf-8"))
+    model.refuse = False
+    ev.run(1)
+    state = json.loads((tmp_path / "run1.json").read_text(encoding="utf-8"))
+    assert "R1" in state and not ev.refused(state["R1"])
+
+
+def test_a_run_with_a_case_not_finished_decides_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(ev, "run_path", lambda n: tmp_path / f"run{n}.json")
+    monkeypatch.setattr(ev, "REPORT", tmp_path / "report.txt")
+    state = fake_state(RIGHT_R1, [verdict(f"k{i}", "not_found") for i in range(1, 6)])
+    (tmp_path / "run1.json").write_text(json.dumps(state), encoding="utf-8")
+    ev.report()
+    text = (tmp_path / "report.txt").read_text(encoding="utf-8")
+    assert "DECISION: not yet" in text and "not finished: B1" in text
