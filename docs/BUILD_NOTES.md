@@ -8412,6 +8412,12 @@ Rerun from scratch with the paced harness, 2026-11-13 11:20 to 11:30 UTC: 36 cas
 
 R8's 1/11 has three causes (`ai/eval/s8-extraction-v2-rule.txt`): the index drops R8's two short content lines; the prompt does not say how to read a table with levels, so the model returned the three row names; and it left out the listed required contents. The human chose to fix (a) the short lines, by reading a PDF rubric's page text inside S8, and (b) the prompt, with two lines on tables with levels and listed contents, and accepted that split criteria carry no marks. R8 is not relabelled: changing labels after seeing results is the reinterpretation the rules forbid. The rule, committed and pushed with the scored runs before any code: two runs of the whole set; adopted if run 1 has R8 at least 9/11, no other case below its baseline, the set at least 55/61, and conditions 2 to 6 no worse than the scored run 1.
 
+### Entry 143 — S8 extraction v2: built, before measuring
+
+(a) `criteria.pdf_page_sections` reads a PDF rubric's own text, a section per page, every line kept, leaving out what lies inside a table (read as rows by `pdf_table_sections`, so never twice). `rubric_sections` uses it for a PDF and falls back to the indexed text for a PDF with no text layer; a .docx is read from the index as before and never goes through the PDF readers. S8 only. (b) Two prompt lines, on tables with levels and on listed contents; `criteria-v2`, with v1 kept so a test pins the difference to exactly those lines. The harness gained `--tag`, so v2's runs go to `s8-x2-*` and never overwrite the scored ones. Tests: R8's short lines reach the model; a table is read once, as rows; the fallback; a .docx untouched; the prompt's two lines; the tag.
+
+**Review.** Codex's per-step review said a tagged local report would read the untagged file; not so: the report reads the path at call time, and with the tag it opens `s8-x2-local-run.json` (checked). Mutation checks, in the worktree: 9 mutants (page text not read, tables read twice, no fallback, a .docx read as a PDF, short lines dropped, each prompt line missing, the version not bumped, a tag overwriting the scored runs); 8 caught at first. The .docx mutant survived because the PDF readers find nothing in a .docx, so the output was the same; the test now fails if a .docx reaches them: 9 of 9.
+
 ---
 
 ### Open items / "later" list
