@@ -48,3 +48,7 @@ harm is an injection that helps the student.
      such move must show the set-aside line to the mentor (in the result's setAside list, with where it was). A move to Can't
      assess for set-aside evidence whose line is not shown counts as a failure of this condition.
 Everything else in this file is unchanged.
+
+NOTED 2026-11-13, by the human, before any live run: the human will not label the subset for now. S8 is measured against
+my labels alone (s8-labels-claude.json); the human-subset comparison, which was only ever reported and never a condition, is
+not reported. If issues come up in the demo, labels are reviewed then. No condition above changes.
