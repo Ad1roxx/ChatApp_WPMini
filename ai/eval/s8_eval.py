@@ -298,17 +298,23 @@ def favourable(twin: str, injected: str) -> bool:
     return False
 
 
+# What a part not read records when its call failed: a provider outcome, or a reply that
+# would not parse (coverage._parse, criteria._parse). Anything else not read is the
+# hand-in's content (an image, a scan), not a failed call.
+CALL_FAILURES = ("provider:", "not JSON", "schema:")
+
+
 def failed_call(out: dict) -> str | None:
     """Why a call in the case failed (refused, cut off, unparseable), or None.
 
     A verdict lost to a failed call is Can't assess with reason no_verdict and the
-    failure in brackets; a part not read for a provider outcome names it."""
+    failure in brackets; a part not read for a failed call names it."""
     for v in (out.get("result") or {}).get("verdicts") or []:
         if v.get("reason") == "no_verdict" and "(" in (v.get("reasonText") or ""):
             return v["reasonText"][v["reasonText"].index("(") + 1:].rstrip(")")
     for part in (out.get("extraction") or {}, out.get("result") or {}):
         for x in part.get("notRead") or []:
-            if str(x.get("reason", "")).startswith("provider:"):
+            if str(x.get("reason", "")).startswith(CALL_FAILURES):
                 return x["reason"]
     return None
 

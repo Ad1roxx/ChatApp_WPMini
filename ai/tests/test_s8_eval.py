@@ -410,3 +410,16 @@ def test_replies_cut_off_are_counted_even_when_a_split_recovers_them():
     s = ev.score(fake_state(RIGHT_R1, [verdict(f"k{i}", "not_found") for i in range(1, 6)]), LABELS)
     s["sent"], s["cutOff"] = {"R1": 4}, {"R1": 1}
     assert "  replies cut off at the output cap: 1 of 4 requests sent" in ev.report_lines("run", s)
+
+
+@pytest.mark.parametrize("part, reason, failed", [
+    ("extraction", "provider: unavailable", True),
+    ("extraction", "not JSON", True),
+    ("result", "schema: 'verdicts' is a required property", True),
+    ("result", "parts not read: images 1", False),
+    ("result", "no readable text (a scan with no text layer, a format not read, or not indexed yet)", False),
+])
+def test_what_a_part_not_read_says_about_a_failed_call(part, reason, failed):
+    out = {"extraction": {"notRead": []}, "result": {"verdicts": [], "notRead": []}}
+    out[part]["notRead"] = [{"where": "x", "reason": reason}]
+    assert (ev.failed_call(out) == reason) is failed
