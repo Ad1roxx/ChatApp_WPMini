@@ -80,3 +80,22 @@ R3, R6, R7 and B2 each have an injected copy and a twin without the line, identi
 ## What the labels file holds
 
 For each case: the mode; the hand-made checklist with each criterion's exact words from the actual document; a verdict per criterion; for twins, which case they twin and where the line is; and any place the document differs from this spec.
+
+## The human's rubric (case R8, added 2026-11-13)
+
+**R8. A mini-project presentation in a natural language processing course.** The rubric is the human's own (a band rubric for an internal assessment), retyped into the case with its guidelines, basic contents and every table cell verbatim; only the institution, department, course in-charge's name and date are left out (public repo; not part of what is assessed). Its three graded rows mix several things each, and it has process guidelines that are not checked against a hand-in, so it tests extraction on a real-shaped document. Hand-in: `slides.pdf`, an exported slide deck on an invented case study (sentiment analysis of product reviews), synthetic throughout (an invented student name and roll number).
+
+The hand-made checklist splits the rows into what a submission is checked for (each with its words from the rubric):
+1. Coverage of content aligned with the selected AI case study: **M**.
+2. Neat and appropriate diagrams: **C**, the pipeline diagram is a picture with no text.
+3. Excellent presentation (the live presentation): **C**, outside the submission.
+4. Well organized, with proper flow: **P**, organized slides but results come before the method.
+5. Abstract: **N**, no abstract slide.
+6. Relevant points with depth, inference: **P**, relevant points, no inference or conclusions drawn.
+7. Listed references (books, complete URLs, research papers, in the given syntax): **P**, references listed, URLs incomplete and no paper.
+8. Timely submission: **C**, outside the submission (lateness is shown in the report from the app's own data).
+9. Topic name: **M**.
+10. Roll No, Student name and class/div: **P**, name and roll number, no class or division.
+11. Contents: **M**, a contents slide.
+
+The guidelines (individual activity, topic chosen with the course teacher, PPT submitted on the class platform, presented on schedule) are process, not checked against the hand-in, and are not in the checklist.
