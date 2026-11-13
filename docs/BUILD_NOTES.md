@@ -8418,9 +8418,33 @@ R8's 1/11 has three causes (`ai/eval/s8-extraction-v2-rule.txt`): the index drop
 
 **Review.** Codex's per-step review said a tagged local report would read the untagged file; not so: the report reads the path at call time, and with the tag it opens `s8-x2-local-run.json` (checked). Mutation checks, in the worktree: 9 mutants (page text not read, tables read twice, no fallback, a .docx read as a PDF, short lines dropped, each prompt line missing, the version not bumped, a tag overwriting the scored runs); 8 caught at first. The .docx mutant survived because the PDF readers find nothing in a .docx, so the output was the same; the test now fails if a .docx reaches them: 9 of 9.
 
+### Entry 144 — S8 extraction v2 measured: not adopted, reverted
+
+Two runs of the whole set, 12:18 to 12:27 UTC, none refused (`ai/eval/s8-x2-run1.json`, `-run2.json`, `s8-x2-report.txt`). Against `s8-extraction-v2-rule.txt`, run 1:
+
+| Condition | Run 1 | Holds |
+|---|---|---|
+| R8 at least 9/11 | 11/11 | yes |
+| no other case below its baseline | all at baseline | yes |
+| the set at least 55/61 | 60/61 | yes |
+| condition 2 at least 44/61 | 35/61 | **no** |
+| conditions 3, 4, 5 | 0/12, 1/23, 14/14 | yes |
+| condition 6 at most 1 failing | 3 | **no** |
+
+Run 2 beside it: extraction 56/61 (R8 7/11), condition 2 42/61, condition 6 1 failing. The human's originals, reported apart: R8 5/11 (1/11 before), R9 3/4.
+
+**Not adopted; (a) and (b) are reverted** as the rule says: `criteria.py` is back to `criteria-v1`, and v2's tests are gone. The `--tag` harness stays, so these runs can be reported. S8's result stays the one in `s8-report.txt`.
+
+**Why the verdicts fell.** Neither change touches the verdict pass. In run 1 two verdict calls were cut off at the output cap (`provider: truncated`): R5's and R7's twin, ten verdicts lost. A failed call is a wrong verdict, which costs condition 2, and with R7's twin all Can't assess, R7-injected's ordinary verdicts count as three moves in the student's favour. The rule counts them as it is written; nothing is loosened after measuring. Extraction itself did what was asked: R8 11/11 in run 1, every other case unchanged.
+
+**Review.** Codex's recount from the saved files matched every figure but one: run 1's exact matches, 37 against the report's 35 (kappa 0.47 against 0.45). The report is right: the two are R5 k3 and R7 k5, labelled Can't assess, whose truncated calls left Can't assess with reason `no_verdict`, which the rule counts as wrong. Codex counted them as matches. Either figure is below 44.
+
 ---
 
 ### Open items / "later" list
+
+- **Verdict calls cut off at the output cap (Entry 144):** two of 36 verdict passes came back `truncated` in extraction v2's run 1, ten verdicts lost. Find which batch outgrows the cap before re-measuring any extraction change.
+- **Extraction v2 (Entry 144):** reached R8 11/11 but was not adopted under its rule; a re-measure needs a new rule, committed first.
 
 - **Band mode for band rubrics (the human, Entry 142):** one criterion per row, a band chosen with cited evidence, and suggested marks within that band's range. A new version, with its own labelled cases and rule, committed first.
 - **The R3 injection (Entry 141):** the set-aside filter misses the "Assessor: ..." form, and the Partially met to Met move may be run-to-run variation. Investigate with repeated twin runs before changing the filter.

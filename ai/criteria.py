@@ -30,7 +30,7 @@ import jsonschema
 
 from providers import DEFAULT_BUDGET_S, build_provider
 
-EXTRACT_PROMPT_VERSION = "criteria-v2"
+EXTRACT_PROMPT_VERSION = "criteria-v1"
 
 # One call reads at most this much of the document. A section longer than this
 # is split on paragraph boundaries, never mid-paragraph unless one paragraph is
@@ -47,15 +47,9 @@ A criterion is one thing a submission is checked for. For each one give:
 - "source_text": the exact words of the document that state it, copied character for character as one continuous span. Never paraphrase, shorten inside, or join two places.
 - "marks": the marks the document gives this criterion, as a number, or null if it gives none.
 - "weight": the percentage weight the document gives it, as a number, or null if it gives none.
-In a table with levels (columns such as Excellent, Good and Poor), the criteria are the separate things the highest level's cell asks for, each quoted from that cell.
-Contents the document lists as required in a submission are criteria, one for each item.
 Leave out headings, general instructions that are not checked, and anything that is not a criterion. If this part states no criteria, return an empty list.
 
 Reply with JSON only, no markdown: {{"criteria": [{{"source_text": "...", "marks": null, "weight": null}}]}}"""
-
-# criteria-v1, before the two lines on tables with levels and listed contents (BUILD_NOTES Entry 142).
-SYSTEM_PROMPT_V1 = "\n".join(line for line in SYSTEM_PROMPT.splitlines()
-                             if not line.startswith(("In a table with levels", "Contents the document lists")))
 
 SCHEMA = {
     "type": "object",
@@ -169,46 +163,18 @@ def pdf_table_sections(data: bytes) -> list[dict]:
     return sections
 
 
-def pdf_page_sections(data: bytes) -> list[dict]:
-    """A PDF's text outside its tables, a section per page, every line kept.
-
-    The index drops a line of fewer than three words (extract.is_content_block),
-    so a rubric's short listed contents ("Topic name") never reached the model.
-    The tables are left out here because pdf_table_sections reads them as rows;
-    read here too, they would come cell by cell. S8 only, for reading a rubric
-    (s8-extraction-v2-rule.txt (a)); the index, search and the Copilot are unchanged.
-    """
-    import pymupdf
-
-    sections = []
-    with pymupdf.open(stream=data, filetype="pdf") as doc:
-        for page_number, page in enumerate(doc, start=1):
-            tables = [pymupdf.Rect(t.bbox) for t in page.find_tables().tables]
-            lines = []
-            for x0, y0, x1, y1, text, *_ in page.get_text("blocks", sort=True):
-                centre = pymupdf.Point((x0 + x1) / 2, (y0 + y1) / 2)
-                if any(centre in t for t in tables):
-                    continue
-                lines += [" ".join(line.split()) for line in text.splitlines() if line.strip()]
-            if lines:
-                sections.append({"heading": f"Page {page_number}", "text": "\n".join(lines)})
-    return sections
-
-
 def rubric_sections(chunks: list[dict], data: bytes | None, content_type: str | None) -> list[dict]:
-    """What criteria are extracted from. A PDF: its own page text outside the tables, then
-    the tables as rows. Anything else, or a PDF with no text layer: the indexed text.
+    """What criteria are extracted from: the rubric's indexed text, plus its tables if it is a PDF.
 
     One function for the route (app.extract_criteria) and the evaluation
     (eval/s8_eval.py), so what is measured is what runs.
     """
     from chunking import file_sections
 
-    indexed = file_sections(chunks) if chunks else []
+    sections = file_sections(chunks) if chunks else []
     if data and content_type == "application/pdf":
-        pages = pdf_page_sections(data)
-        return (pages or indexed) + pdf_table_sections(data)
-    return indexed
+        sections += pdf_table_sections(data)
+    return sections
 
 
 def number_in(value, quote: str, percent: bool = False) -> bool:

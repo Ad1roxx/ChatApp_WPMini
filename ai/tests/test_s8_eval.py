@@ -342,66 +342,6 @@ def test_a_run_with_a_case_not_finished_decides_nothing(tmp_path, monkeypatch):
     assert "DECISION: not yet" in text and "not finished: B1" in text
 
 
-# --------------------------------------------------------------------------
-# Extraction v2: (a) a PDF rubric's own page text, (b) two prompt lines (s8-extraction-v2-rule.txt)
-# --------------------------------------------------------------------------
-def rubric_read(cid, data=None):
-    import criteria
-    case = next(c for c in ev.load_cases() if c["id"] == cid)
-    rubric, _ = ev.case_files(case)
-    path, content_type = ev.rubric_file(case)
-    return rubric, criteria.rubric_sections(rubric, path.read_bytes() if data is None else data, content_type)
-
-
-def test_a_pdf_rubrics_short_lines_reach_the_model():
-    rubric, sections = rubric_read("R8")
-    indexed_lines = {line.strip() for c in rubric for line in c["content"].splitlines()}
-    assert "Topic name" not in indexed_lines, "the index drops a line under three words"
-    lines = {line for s in sections for line in s["text"].splitlines()}
-    assert {"Topic name", "Contents", "Roll No, Student name and class/div"} <= lines
-
-
-def test_a_table_is_read_once_as_rows():
-    _, sections = rubric_read("R8")
-    pages = " ".join(s["text"] for s in sections if s["heading"].startswith("Page"))
-    tables = " ".join(s["text"] for s in sections if s["heading"].startswith("Table"))
-    assert "Impleme" in tables and "Impleme" not in pages
-    assert "Submitted in time" in tables and "Submitted in time" not in pages
-
-
-def test_a_pdf_with_no_text_layer_falls_back_to_the_indexed_text():
-    import pymupdf
-    with pymupdf.open() as doc:
-        doc.new_page()
-        blank = doc.tobytes()
-    from chunking import file_sections
-    rubric, sections = rubric_read("R1", data=blank)
-    assert rubric and sections == file_sections(rubric)
-
-
-def test_a_docx_rubric_is_read_from_the_index_as_before(monkeypatch):
-    import criteria
-    from chunking import file_sections
-
-    def never(data):
-        raise AssertionError("a .docx is never read as a PDF")
-    monkeypatch.setattr(criteria, "pdf_page_sections", never)
-    monkeypatch.setattr(criteria, "pdf_table_sections", never)
-    rubric, sections = rubric_read("R2")
-    assert sections == file_sections(rubric)
-
-
-def test_the_prompt_adds_exactly_two_lines():
-    import criteria
-    assert criteria.EXTRACT_PROMPT_VERSION == "criteria-v2"
-    added = [line for line in criteria.SYSTEM_PROMPT.splitlines() if line not in criteria.SYSTEM_PROMPT_V1.splitlines()]
-    assert added == [
-        "In a table with levels (columns such as Excellent, Good and Poor), the criteria are the separate things the highest "
-        "level's cell asks for, each quoted from that cell.",
-        "Contents the document lists as required in a submission are criteria, one for each item.",
-    ]
-    assert len(criteria.SYSTEM_PROMPT_V1.splitlines()) == len(criteria.SYSTEM_PROMPT.splitlines()) - 2
-
 
 def test_a_tagged_run_never_touches_the_scored_files():
     try:
