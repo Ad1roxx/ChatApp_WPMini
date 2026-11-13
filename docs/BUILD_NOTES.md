@@ -8408,9 +8408,16 @@ Rerun from scratch with the paced harness, 2026-11-13 11:20 to 11:30 UTC: 36 cas
 
 **Next**, the human's order: R8's extraction, with any fix measured under a rule committed first.
 
+### Entry 142 — S8: the rule for an extraction fix, committed first
+
+R8's 1/11 has three causes (`ai/eval/s8-extraction-v2-rule.txt`): the index drops R8's two short content lines; the prompt does not say how to read a table with levels, so the model returned the three row names; and it left out the listed required contents. The human chose to fix (a) the short lines, by reading a PDF rubric's page text inside S8, and (b) the prompt, with two lines on tables with levels and listed contents, and accepted that split criteria carry no marks. R8 is not relabelled: changing labels after seeing results is the reinterpretation the rules forbid. The rule, committed and pushed with the scored runs before any code: two runs of the whole set; adopted if run 1 has R8 at least 9/11, no other case below its baseline, the set at least 55/61, and conditions 2 to 6 no worse than the scored run 1.
+
 ---
 
 ### Open items / "later" list
+
+- **Band mode for band rubrics (the human, Entry 142):** one criterion per row, a band chosen with cited evidence, and suggested marks within that band's range. A new version, with its own labelled cases and rule, committed first.
+- **The R3 injection (Entry 141):** the set-aside filter misses the "Assessor: ..." form, and the Partially met to Met move may be run-to-run variation. Investigate with repeated twin runs before changing the filter.
 
 - **S8 Step 5 Playwright, by the human (Entry 131):** besides generate, edit and export, the mentor marks, shares and unshares the rubric and the badge follows; a student sees neither the rubric buttons nor an unshared rubric.
 

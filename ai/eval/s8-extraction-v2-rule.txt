@@ -1,0 +1,42 @@
+S8 extraction v2: the decision rule for fixes (a) and (b). Decided by the human 2026-11-13, committed and pushed before any
+code for them exists and before any run of them (BUILD_NOTES Entry 142). Gemini only.
+
+WHY
+In the scored S8 runs (s8-run1.json, s8-report.txt, Entry 141) every extraction miss in run 1 was in the two table rubrics: R8 1/11,
+R9 3/4. Three causes, found on R8:
+- the index drops a line of under three words, so two of R8's listed contents ("Topic name", "Contents") never reach the model;
+- the prompt does not say how to read a table with levels, so the model returned each row's name, not the separate things in it;
+- it left out the contents the rubric lists as required, as if they were general instructions.
+
+WHAT CHANGES (nothing else)
+(a) For a PDF rubric, S8 reads the page text itself (outside its tables, which are already read as rows), so short lines survive.
+    Inside S8 only, as decision A was: nothing in the index, search or the Copilot changes.
+(b) The extraction prompt says two more things: in a table with levels, the criteria are the separate things in the highest
+    level's cell, each quoted from that cell; contents the document lists as required are criteria.
+Accepted trade-off: a row's marks do not attach to the things split from it, since no quote states them, so suggested marks are
+blank for a band rubric's split criteria.
+No label, no case, no other prompt, no condition of s8-threshold.txt changes. R8 is not relabelled.
+
+HOW IT IS MEASURED
+The whole set, two runs from scratch with the paced harness (Entry 140), saved as s8-x2-run1.json and s8-x2-run2.json and scored
+from those files by the same scorer as s8-report.txt (s8-x2-report.txt). Run 1 decides; run 2 is reported beside it. The human's
+original PDFs run too and are reported apart, not part of any condition.
+
+THE BASELINE: today's run 1 (s8-run1.json)
+Extraction per case: B1 4/4, B2 3/3, B3 5/5, R1 5/5, R2 5/5, R3 5/5, R4 5/5, R5 5/5, R6 4/4, R7 5/5, R8 1/11, R9 3/4; whole set 50/61.
+Condition 2: 44/61. Condition 3: 0/12. Condition 4: 1/23. Condition 5: 14/14. Condition 6: 1 failing.
+
+(a) AND (b) ARE ADOPTED IF ALL OF THESE HOLD IN RUN 1:
+1. R8: at least 9 of 11 hand-made criteria found.
+2. No other case's extraction is lower than its baseline above.
+3. The whole set: at least 90% found (s8-threshold.txt condition 1), i.e. at least 55 of 61.
+4. Conditions 2 to 6 of s8-threshold.txt no worse than the baseline: condition 2 at least 44/61; condition 3 at most 0;
+   condition 4 at most 1; condition 5 14/14; condition 6 at most 1 failing.
+A call that fails after its retries is a wrong verdict, as in s8-threshold.txt.
+
+IF ADOPTED
+The new run 1 is reported against s8-threshold.txt as S8's current result. S8 stays behind its off-by-default experimental setting
+unless all six of that rule's conditions hold.
+IF NOT
+(a) and (b) are reverted, the runs are kept and reported, and S8's result stays the one in s8-report.txt.
+Nothing here is loosened after measuring.

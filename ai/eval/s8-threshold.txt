@@ -61,3 +61,6 @@ NOTED 2026-11-13, before any live run: R8's and R9's rubric files are re-rendere
 cells breaking words), so extraction meets what a real upload gives it; hand-ins and labels unchanged. R8 and R9 are also run
 with the human's untouched PDFs from a git-excluded folder; that result is reported separately, is not part of any condition,
 and cannot be recounted from committed files.
+
+NOTED 2026-11-13, after the scored runs (s8-report.txt: conditions 1 and 6 not met): a fix to extraction, (a) and (b), is measured
+under its own rule, s8-extraction-v2-rule.txt, committed before the fix exists. No condition above changes.
