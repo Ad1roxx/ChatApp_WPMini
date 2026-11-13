@@ -345,13 +345,24 @@
   "tokens_out": 258
  },
  "c19": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Adding an item clears the list for that user only, because the cache is in-process.",
+    "claim": "When an item is added, the cache entry for that user is cleared, and this occurs because the cache operates in-process.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What happens to the cache when an item is added?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
   "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "tokens_in": 1062,
+  "tokens_out": 242
  },
  "c20": {
   "label": null,
@@ -428,13 +439,24 @@
   "tokens_out": 0
  },
  "c27": {
-  "label": null,
-  "claims": [],
-  "parts": [],
-  "no_verdict": "provider: rate_limited",
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "A request that reuses a cursor with a different filter gets a 409 response.",
+    "claim": "When a cursor is reused with a different filter, the API returns a 409 error response.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What error does the API return when a cursor is reused with a different filter?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
   "attempts": 2,
-  "tokens_in": 0,
-  "tokens_out": 0
+  "tokens_in": 1067,
+  "tokens_out": 243
  },
  "c28": {
   "label": null,
@@ -455,6 +477,358 @@
   "tokens_out": 0
  },
  "c30": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c31": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c32": {
+  "label": "unsupported",
+  "claims": [
+   {
+    "quote": "Your mentor spotted the thundering herd problem in your caching hand-in.",
+    "claim": "The mentor was the person who identified the thundering herd problem in the caching assignment.",
+    "verdict": "unsupported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Identify who spotted the thundering herd problem in the caching hand‑in",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1062,
+  "tokens_out": 247
+ },
+ "c33": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c34": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c35": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c36": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c37": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c38": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "An N+1 query issue occurred in the comments loader where the system issued one query for the posts and then one query per post for its author, resulting in forty-one queries for a page of forty posts.",
+    "claim": "An N+1 query issue occurred in the comments loader, with one query for posts and one per post for its author, totaling forty-one queries for forty posts.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "Definition of N+1 query",
+    "status": "missing"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1132,
+  "tokens_out": 328
+ },
+ "c39": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c40": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c41": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c42": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c43": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "You must use an in-process cache rather than Redis.",
+    "claim": "The assignment requires using an in-process cache instead of Redis.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What do I have to build for the caching assignment?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1034,
+  "tokens_out": 352
+ },
+ "c44": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c45": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c46": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c47": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c48": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c49": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c50": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c51": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "c52": {
+  "label": "supported",
+  "claims": [
+   {
+    "quote": "Your mentor fixed the N+1 with a single $lookup, bringing 41 queries down to 2.",
+    "claim": "The mentor fixed the N+1 issue by using a single $lookup, reducing the number of queries from 41 to 2.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "How was the N+1 in the comments loader fixed?",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 1,
+  "tokens_in": 1021,
+  "tokens_out": 198
+ },
+ "k01": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k02": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k03": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k04": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k05": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k06": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k07": {
+  "label": "silent_partial",
+  "claims": [
+   {
+    "quote": "Before you trust any of your load test numbers, check that the load generator was not running out of CPU, and watch its usage during the next run [1].",
+    "claim": "One should check that the load generator was not running out of CPU before trusting load test numbers.",
+    "verdict": "supported"
+   },
+   {
+    "quote": "Before you trust any of your load test numbers, check that the load generator was not running out of CPU, and watch its usage during the next run [1].",
+    "claim": "One should watch the load generator's usage during the next run.",
+    "verdict": "supported"
+   }
+  ],
+  "parts": [
+   {
+    "part": "What p95 latency did my load test report",
+    "status": "missing"
+   },
+   {
+    "part": "what should I check before trusting it",
+    "status": "answered"
+   }
+  ],
+  "no_verdict": null,
+  "attempts": 2,
+  "tokens_in": 1016,
+  "tokens_out": 364
+ },
+ "k08": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k09": {
+  "label": null,
+  "claims": [],
+  "parts": [],
+  "no_verdict": "provider: rate_limited",
+  "attempts": 2,
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "k10": {
   "label": null,
   "claims": [],
   "parts": [],
