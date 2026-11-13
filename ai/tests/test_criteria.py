@@ -199,3 +199,11 @@ def test_a_criterion_with_a_word_broken_or_not_is_one_criterion():
     out = criteria.extract([{"text": text}], gemini(reply({"source_text": "Implementation and Presentation"},
                                                           {"source_text": "Impleme ntation and Pres entation"})))
     assert len(out["criteria"]) == 1 and out["rejected"][0]["reason"] == "a duplicate"
+
+
+def test_a_quote_cannot_run_from_one_table_row_into_the_next():
+    # R9's rows begin with text, so only the row boundary separates "... Total Score" from "Content & Technical Depth".
+    data = (Path(__file__).resolve().parents[1] / "eval" / "s8-set" / "files" / "R9" / "rubric.pdf").read_bytes()
+    text = "\n".join(s["text"] for s in criteria.pdf_table_sections(data))
+    assert criteria.quote_in_ignoring_spaces("Content & Technical Depth (5)", text)
+    assert not criteria.quote_in_ignoring_spaces("Total Score Content & Technical Depth", text)
