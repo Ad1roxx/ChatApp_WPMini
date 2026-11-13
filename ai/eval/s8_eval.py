@@ -53,8 +53,18 @@ CONTENT_TYPES = {"pdf": "application/pdf", "scan": "application/pdf",
                  "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
 
 
+TAG = ""  # "-x2" for extraction v2 (s8-extraction-v2-rule.txt): its runs never overwrite the scored ones
+
+
+def set_tag(tag: str) -> None:
+    global TAG, REPORT, LOCAL_RUN
+    TAG = f"-{tag}" if tag else ""
+    REPORT = HERE / f"s8{TAG}-report.txt"
+    LOCAL_RUN = LOCAL / f"s8{TAG}-local-run.json"
+
+
 def run_path(n: int) -> Path:
-    return HERE / f"s8-run{n}.json"
+    return HERE / f"s8{TAG}-run{n}.json"
 
 
 # --------------------------------------------------------------------------
@@ -430,7 +440,9 @@ if __name__ == "__main__":
     ap.add_argument("--run", type=int, choices=(1, 2))
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--local", action="store_true", help="the human's original PDFs (git-excluded), reported apart")
+    ap.add_argument("--tag", default="", help="a version's own run files, e.g. x2")
     a = ap.parse_args()
+    set_tag(a.tag)
     if a.report and a.local:
         local_report()
     elif a.report:
