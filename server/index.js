@@ -92,6 +92,8 @@ const { parseSharedUrl } = require('./lib/sharedUrl');
 const { guardedOn } = require('./lib/socketGuard');
 const { loginIdentity, cosmetic } = require('./lib/loginIdentity');
 const { PUBLIC_SELECT, publicUser } = require('./lib/publicUser');
+const { allowedOrigins, originGate, allowSocketRequest, securityHeaders } = require('./lib/httpGuards');
+const { createLimiter, limitFrom, limited } = require('./lib/rateLimit');
 const { parsePage, historyPage } = require('./lib/history');
 const AgentProposal = require('./models/AgentProposal');
 
@@ -111,16 +113,43 @@ const {
 const app = express();
 const server = http.createServer(app);  // Create HTTP server from Express app
 
-// Socket.IO setup with CORS (allows frontend on different port to connect)
+// The browser origins that may call this server: CORS_ORIGINS, or the two local
+// front-end addresses. One list for REST and for Socket.IO (lib/httpGuards.js).
+const ALLOWED_ORIGINS = allowedOrigins(process.env.CORS_ORIGINS);
+
+// Socket.IO setup with CORS (allows frontend on different port to connect).
+// `allowRequest` as well as `cors`: a WebSocket handshake is not subject to
+// CORS, so the list is applied to it directly.
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000"],  // Vite and CRA default ports
+    origin: ALLOWED_ORIGINS,
     methods: ["GET", "POST"],
     credentials: true
-  }
+  },
+  allowRequest: allowSocketRequest(ALLOWED_ORIGINS)
 });
 
 const PORT = process.env.PORT || 3001;
+
+// How often one account may do one thing (lib/rateLimit.js). Generous: these stop
+// a script, not a person.
+const messageLimiter = createLimiter({
+  max: limitFrom(process.env.MESSAGES_PER_10S, 30),
+  windowMs: 10000
+});
+const reportLimiter = createLimiter({
+  max: limitFrom(process.env.REPORTS_PER_HOUR, 20),
+  windowMs: 60 * 60000
+});
+const uploadLimiter = createLimiter({
+  max: limitFrom(process.env.UPLOADS_PER_10MIN, 30),
+  windowMs: 10 * 60000
+});
+const loginLimiter = createLimiter({
+  max: limitFrom(process.env.LOGINS_PER_MINUTE, 30),
+  windowMs: 60000
+});
+const TOO_FAST = 'You are sending messages too quickly. Wait a few seconds.';
 
 // Fail fast rather than starting a server that will 401 every request.
 if (!process.env.FIREBASE_PROJECT_ID) {
@@ -163,8 +192,17 @@ if (devAuthEnabled()) {
 // ============================================
 
 // CORS - allows frontend to make requests to this server
+app.disable('x-powered-by');
+
+// Headers every response carries. First, so they are on refusals and errors too;
+// a route that sets its own (the file downloads' CSP) replaces these.
+app.use(securityHeaders);
+
+// A request from an origin that is not on the list is refused, not merely left
+// without a CORS header (lib/httpGuards.js says why). No more reflecting any origin.
+app.use(originGate(ALLOWED_ORIGINS));
 app.use(cors({
-  origin: true,
+  origin: ALLOWED_ORIGINS,
   credentials: true
 }));
 
@@ -287,7 +325,11 @@ function emitToUser(visitorId, event, payload) {
  * Our MongoDB handles DATA (messages, online status, etc.)
  * This endpoint links the two.
  */
-app.post('/api/auth/login', requireToken, async (req, res) => {
+app.post(
+  '/api/auth/login',
+  requireToken,
+  limited(loginLimiter, 'Too many sign-ins. Wait a minute and try again.', (req) => req.firebaseUser?.uid),
+  async (req, res) => {
   try {
     // Identity comes from the VERIFIED token, never from the body. The body
     // is still consulted for display name and photo, which are cosmetic —
@@ -370,7 +412,8 @@ app.post('/api/auth/login', requireToken, async (req, res) => {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Server error' });
   }
-});
+  }
+);
 
 /**
  * GET /api/users
@@ -1429,7 +1472,7 @@ app.patch('/api/admin/users/:id/suspend', requireAuth, requireRole('admin'), asy
  * report usually means deleting the thing it points at — and an admin should
  * still be able to see what they are deciding about.
  */
-app.post('/api/reports', requireAuth, async (req, res) => {
+app.post('/api/reports', requireAuth, limited(reportLimiter, 'Too many reports. Try again later.'), async (req, res) => {
   try {
     const { targetType, targetId, reason, details = '' } = req.body;
 
@@ -3491,6 +3534,7 @@ function receiveFile(req, res, next) {
 app.post(
   '/api/submissions/:id/files',
   requireAuth,
+  limited(uploadLimiter, 'Too many uploads. Try again in a few minutes.'),
   canAttach,
   receiveFile,
   async (req, res) => {
@@ -3686,6 +3730,7 @@ async function announceBrief(assignment) {
 app.post(
   '/api/assignments/:id/files',
   requireAuth,
+  limited(uploadLimiter, 'Too many uploads. Try again in a few minutes.'),
   canAttachToAssignment,
   receiveFile,
   async (req, res) => {
@@ -5645,6 +5690,34 @@ app.get('/api/analytics/me', requireAuth, async (req, res) => {
 });
 
 // ============================================
+// LAST: WHAT NO ROUTE ANSWERED, AND WHAT A ROUTE THREW
+// ============================================
+//
+// After every route. Express's own fallbacks answer in HTML and replace the
+// Content-Security-Policy set at the top; these answer in JSON like everything
+// else here and leave the headers as they are.
+
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Four arguments: that is how Express knows this is the error handler. Each
+// route still catches its own errors; this is for what happens before a route
+// runs (a body that is not JSON, or is too large) and for anything a route misses.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (res.headersSent) return res.destroy();
+  if (err && err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'That request body is not valid JSON' });
+  }
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'That request is too large' });
+  }
+  console.error('Unhandled error:', err && err.message);
+  res.status(500).json({ error: 'Server error' });
+});
+
+// ============================================
 // SOCKET.IO - REAL-TIME EVENTS
 // ============================================
 
@@ -5732,8 +5805,12 @@ io.on('connection', (socket) => {
       const senderId = String(socket.data.user._id);
 
       // Validate
-      if (!receiverId || !text?.trim()) {
+      if (!mongoose.isValidObjectId(receiverId) || typeof text !== 'string' || !text.trim()) {
         socket.emit('error', { message: 'Invalid message data' });
+        return;
+      }
+      if (!messageLimiter.allow(senderId)) {
+        socket.emit('error', { message: TOO_FAST, tooFast: true });
         return;
       }
 
@@ -5940,8 +6017,13 @@ io.on('connection', (socket) => {
       const senderId = String(socket.data.user._id);
 
       // Validate
-      if (!groupId || !text?.trim()) {
+      if (!mongoose.isValidObjectId(groupId) || typeof text !== 'string' || !text.trim()) {
         socket.emit('error', { message: 'Invalid group message data' });
+        return;
+      }
+      // One allowance for both kinds of message: it is the account that is limited.
+      if (!messageLimiter.allow(senderId)) {
+        socket.emit('error', { message: TOO_FAST, tooFast: true });
         return;
       }
 
