@@ -8549,10 +8549,27 @@ Checks on the updated tree: lint 0 errors; `npm run build` builds; server 1343 o
 
 Review: no Codex review for this step. The diff is two lockfiles, about 900 lines of version numbers and hashes, and the allowance is better spent on the code steps.
 
+### Entry 154 — Audit H6, H9: the AI service's suite in CI; group input checked
+
+**H6.** CI ran lint, the build, the frontend tests and the server tests. The Python suite, which guards retrieval permissions, the agent's caps and the citation check, ran only in the local pre-push hook. `.github/workflows/ci.yml` gains an `ai` job: MongoDB on 27017 and Atlas Local on 27018 as service containers, `AI_TESTS_REQUIRE_ATLAS=1` so a missing container fails instead of skipping, the CPU build of torch, the models cached, a wait for Atlas to accept connections, and node with the server's dependencies, because two tests ask the server's own code which role may use which tool.
+
+**A dry run of CI's conditions found what a first push would have:** with no secrets file, 12 tests of the sync endpoint fail, because the service refuses to start without the file `AI_ENV_FILE` names. With an empty one, and no keys, the suite is 1337 passed and 3 skipped (the three live-provider tests), the same as on this machine. The job makes that empty file. **Not verified:** the job itself has not run on GitHub; that happens at the next push. If it fails there, the likeliest causes are the Atlas image's start-up time and the model download.
+
+**H9.** Creating a group took `memberIds` as it came: something that was not an id was a 500, and the id of nobody was stored as a member. A group is now created with a list of at most 200 ids of people who exist, and a name that is text. Joining a group whose id is not an id is a 404, and listing by something that is not a user id is a 400; both were 500s. Five doc comments still described body fields the routes stopped reading when sign-in became the token's job (one said "there is no token check" above one); they now say what the code does. `.gitignore` listed `package-lock.json`, though both lockfiles are tracked and CI installs from them; the line is gone.
+
+Tests: `server/test/group-input.test.js` (16). Mutation checks, in the worktree: 8 of 8 caught.
+
+Review: Codex found nothing to act on in either change.
+
+**Left open, and why (H8):** `/api/users` and `/api/groups` are still unpaginated. A cap on the server without paging or search in the pages that show those lists would silently hide people and groups past it, which is the kind of bug F2 was. It needs the two pages designed first. Open item below.
+
 ---
 
 ### Open items / "later" list
 
+- **The user list and the group list are unpaginated (audit H8, Entry 154):** a server cap needs paging or search in the two pages first, or it hides people past it.
+- **The chat pages do not show the socket's `error` event (Entry 152):** a message refused by the rate limit just does not appear.
+- **The CI job for the AI service has not run on GitHub yet (Entry 154):** check it at the next push.
 - **Three major upgrades in the root package (the human, Entry 153):** `firebase`, `vite` and `react-router-dom`. 15 advisories remain there and none can be fixed inside the current version ranges. `firebase` first; it needs a real Google sign-in tried by hand afterwards.
 - **Should other users see a user's email? (the human, Entry 151):** the profile page shows it, so `publicUser` still carries it. Taking it out is one line in `server/lib/publicUser.js` and one in `UserProfilePage.jsx`.
 - ~~**Verdict calls cut off at the output cap (Entry 144)**~~ — fixed in Entry 145.
