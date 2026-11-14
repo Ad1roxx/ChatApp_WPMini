@@ -151,6 +151,9 @@ const loginLimiter = createLimiter({
 });
 const TOO_FAST = 'You are sending messages too quickly. Wait a few seconds.';
 
+// The most people a group can be created with. A bound, so the list in a request is one.
+const MAX_GROUP_MEMBERS = 200;
+
 // Fail fast rather than starting a server that will 401 every request.
 if (!process.env.FIREBASE_PROJECT_ID) {
   console.error(
@@ -663,8 +666,7 @@ app.post('/api/users/:id/role', requireAuth, async (req, res) => {
  *   in the database (not anything the client sends), so a student cannot
  *   acquire mentor-only fields by crafting a request.
  *
- * NOTE: like every other endpoint here, there is no token check proving the
- * caller *is* this user. Consistent with the app's current trust model.
+ * The caller is whoever the token says, and may only edit their own profile.
  */
 app.put('/api/users/:id/profile', requireAuth, async (req, res) => {
   try {
@@ -720,15 +722,26 @@ app.put('/api/users/:id/profile', requireAuth, async (req, res) => {
  *
  * Body:
  * - name: group display name
- * - createdBy: MongoDB _id of the creator
+ * (The creator is whoever is signed in; a `createdBy` in the body is not read.)
  * - memberIds: array of MongoDB _ids to add (the creator is added automatically)
  */
 app.post('/api/groups', requireAuth, async (req, res) => {
   try {
-    const { name, memberIds = [] } = req.body;
+    const { name, memberIds = [] } = req.body || {};
 
-    if (!name?.trim()) {
+    if (typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // The members are a list of ids of people who exist. Unchecked, anything
+    // in the list reached the database: something that is not an id was a 500,
+    // and an id of nobody was stored as a member (the audit, H9).
+    if (
+      !Array.isArray(memberIds) ||
+      memberIds.length > MAX_GROUP_MEMBERS ||
+      !memberIds.every((id) => typeof id === 'string' && mongoose.isValidObjectId(id))
+    ) {
+      return res.status(400).json({ error: 'Members must be a list of people' });
     }
 
     // The creator is whoever is signed in, not whoever the body claims.
@@ -746,6 +759,11 @@ app.post('/api/groups', requireAuth, async (req, res) => {
     // Always include the creator in the members list, and de-duplicate.
     // (A Set of string ids removes accidental repeats before we store them.)
     const uniqueMembers = [...new Set([createdBy, ...memberIds].map(String))];
+
+    const known = await User.countDocuments({ _id: { $in: uniqueMembers } });
+    if (known !== uniqueMembers.length) {
+      return res.status(400).json({ error: 'One of those people does not exist' });
+    }
 
     const group = await Group.create({
       name: name.trim(),
@@ -770,13 +788,16 @@ app.post('/api/groups', requireAuth, async (req, res) => {
  * Add a user to an existing group.
  *
  * Body:
- * - visitorId: MongoDB _id of the user joining
+ * (none: the user joining is whoever is signed in)
  *
  * We use $addToSet so joining twice does not create duplicate entries.
  */
 app.post('/api/groups/:groupId/join', requireAuth, async (req, res) => {
   try {
     const { groupId } = req.params;
+    if (!mongoose.isValidObjectId(groupId)) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
 
     // You can only add YOURSELF to a group.
     const visitorId = req.authUser._id;
@@ -808,6 +829,9 @@ app.post('/api/groups/:groupId/join', requireAuth, async (req, res) => {
 app.get('/api/groups', requireAuth, async (req, res) => {
   try {
     const { userId } = req.query;
+    if (userId !== undefined && (typeof userId !== 'string' || !mongoose.isValidObjectId(userId))) {
+      return res.status(400).json({ error: 'userId must be a user id' });
+    }
 
     // If userId given, only groups where they are a member
     const query = userId ? { members: userId } : {};
@@ -1021,7 +1045,7 @@ app.get('/api/announcements', requireAuth, async (req, res) => {
  * the database, so the client cannot claim to be a mentor.
  *
  * Body:
- * - authorId: MongoDB _id of the poster
+ * (The author is whoever is signed in; an `authorId` in the body is not read.)
  * - text: the announcement body
  */
 app.post('/api/announcements', requireAuth, async (req, res) => {
@@ -1076,7 +1100,7 @@ app.post('/api/announcements', requireAuth, async (req, res) => {
  * wipe another mentor's notices.
  *
  * Body:
- * - visitorId: MongoDB _id of whoever is asking
+ * (none: who is asking comes from the token)
  */
 app.delete('/api/announcements/:id', requireAuth, async (req, res) => {
   try {

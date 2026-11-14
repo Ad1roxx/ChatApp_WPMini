@@ -8,7 +8,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-package-lock.json
+# package-lock.json is NOT ignored: both lockfiles are tracked, and CI installs from
+# them with `npm ci`. This file used to list it, which the tracked files overrode.
 
 # ========================
 # Build output
