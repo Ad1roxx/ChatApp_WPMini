@@ -1,0 +1,22 @@
+S8 extraction v2, re-measured (s8-extraction-v2b-rule.txt): how the two runs were made, and one fault in how run 2 was made.
+
+RUN 1 (s8-x2b-run1.json) DECIDES. Made 2026-11-13, 13:18 to 13:25 UTC, by one process, all 18 cases in one pass. Nothing below touches it.
+
+RUN 2 (s8-x2b-run2.json) is reported beside run 1 and decides nothing.
+- 9 of its 18 cases (B1, B2-injected, B2, B3, R1, R2, R3-injected, R3, R4) were made 2026-11-13, 13:25 to 13:30 UTC, by the same
+  single process, until Gemini's daily quota ran out.
+- The other 9 (R5, R6-injected, R6, R7-injected, R7, R8, R9, S1, S2) were made 2026-11-14, 08:05 to 08:10 UTC, after the quota
+  reset, BY TWO COPIES OF THE RESUME SCRIPT RUNNING AT ONCE. The first copy was thought to have ended with the session on
+  2026-11-13 and had not; a second was started beside it. Each ran those 9 cases against the same code, and each wrote this
+  file. So each of those 9 cases in the file is one whole, real run of that case, from one copy or the other, and which copy
+  is not recorded. Nothing was run on changed code, no label or rule changed, and the daily and per-minute quota limits were
+  honoured by both copies through the shared ledger (84 of 480 calls used that day, about twice what one copy needs).
+- The fault is in procedure, not in what was measured: run 2 was meant to be one pass. It is committed as made, with this note,
+  and not rerun: a rerun after seeing a result is a decision for the human, and run 2 decides nothing under the rule.
+
+THE ORIGINAL-PDF RUN (reported apart, in no condition; its files are local and not committed) was also made by both copies at
+once, and each then stopped with an error after its two cases: the harness reads every .json in the local folder as a case,
+and that folder now also holds result files. The two cases had been run and saved by then. A fault in the harness, noted in
+BUILD_NOTES Entry 157 as an open item.
+
+THE SAME HAPPENED TO THE S6 CALIBRATION'S RUN 2 (s6-judge2-*-run2.json): see BUILD_NOTES Entry 157.

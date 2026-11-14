@@ -8601,17 +8601,56 @@ Review: Codex found nothing to act on.
 
 Tests: `public-user.test.js` 32; `tests/frontend/chat-not-sent.test.mjs` 14, in a real browser with the socket answered through `routeWebSocket`, the first browser test here to do so; `rate-limit.test.js` 12. The server suite, 1370 of 1370. Mutation checks, in the worktree: 18 of 18 caught. The runner must be given the worktree's full path: from the short `ADITYA~1` form Vite cannot serve the app and every browser test times out, which looked like a red baseline.
 
+### Entry 157 — S8 extraction v2, re-measured with the cut-off fix: not adopted, reverted; and a fault in how run 2 was made
+
+Under `ai/eval/s8-extraction-v2b-rule.txt` (Entry 147), run 1 decides. **Extraction v2 is not adopted and is reverted again**: `ai/criteria.py` and `ai/tests/test_s8_eval.py` are exactly as they were before it was restored (the diff against `e839153` is empty). The cut-off fix (Entry 145) stays, as the rule says. S8's result stays the one in `s8-report.txt`, and S8 stays behind its off-by-default setting.
+
+Run 1 (`s8-x2b-run1.json`) against the rule: R8 7/11, needs 9, **fails**; no other case below its baseline, holds; the set 56/61, needs 55, holds; condition 2, 42/61, needs 44, **fails**; condition 3, 0/12, holds; **condition 4, 2/23, needs at most 1, fails**; condition 5, 14/14, holds; condition 6, 1 failing, holds.
+
+**Condition 4 is the one that matters most to a student:** on 2 of the 23 criteria labelled Met, the system said the work was not found in the submission. That tells a student they left out something they did.
+
+The cut-off fix, measured: no verdict call was cut off in either run. The 2 replies cut off of 75 requests in run 1, and 2 of 78 in run 2, are the two summary calls (S1, S2). **Summary mode has not produced points in any run**; the human has ordered it fixed next, after this (the 13 November instruction).
+
+Run 2, reported beside it: extraction 52/61 (R8 3/11), condition 2 40/61, condition 4 2/23, condition 6 1 failing. R8's extraction moved from 7 to 3 between two runs of the same code, so R8 is not stable under v2 either.
+
+The human's original PDFs, reported apart and in no condition: R8-original extraction 1/11, R9-original 3/4.
+
+**A fault in how run 2 was made** (`ai/eval/s8-x2b-NOTE.txt`, committed with the runs). Run 2 stopped half-way on 13 November when Gemini's daily quota ran out. A resume script waited for the reset. That session ended; the script was thought to have ended with it and had not, and a second copy was started beside it. On 14 November at 08:05 UTC **both copies ran the remaining 9 cases at once**, on the same code, and both wrote the run file. Each of those 9 cases in the file is one whole real run of that case, from one copy or the other. Run 1 is untouched: one process, 13 November. Nothing ran on changed code, and both copies honoured the quota through the shared ledger (84 of 480 calls that day, about twice what one copy needs). Run 2 decides nothing under the rule, so it is committed as made, with the note, and **not rerun: whether to rerun it is the human's call**. What should have been done: check for a live process before starting a second.
+
+**Found by the same fault, and open:** `s8_eval.py --local` reads every `.json` in `ai/eval/s8-local/` as a case, and that folder now also holds result files, so the run ends with `KeyError: 'id'` after its two real cases are done and saved.
+
+**The audit of saved runs the human asked for (reported, not fixed):** marks are almost never kept at extraction (R1 in 0 of 5 runs, R7 in 1 of 5: the model quotes a criterion without its "(10 marks)"); weight is untested, because no rubric in the set states one; the coverage report and its export are not in any saved run; brief mode is fine.
+
+Review: Codex recounted both runs from the saved files alone, with no API calls: every figure matches the report, and it reaches the same decision, naming the same three failing conditions (`.agent-logs/s8-x2b-recount-codex.md`).
+
+### Entry 158 — S6 Step 3: the second judge calibration is complete; qwen/qwen3.8-27b is trusted
+
+Under `ai/eval/s6-judge2-threshold.txt` (conditions 1, 2, 3, 5, 6, 7; condition 4 dropped by the human before any judge saw the set), each model on its own, run 1 deciding and run 2 for condition 6 (`ai/eval/s6-judge2-calibration.txt`):
+
+- **qwen/qwen3.8-27b: trusted, all six.** Weighted kappa 0.90 (0.82 to 0.98), exact 47/52; unsupported caught 22/22; supported flagged unsupported 0/23; completeness 10/10 and silent partial 4/4; same verdict twice 50/52 (96%); no injection claim moved the way its planted line asks.
+- **openai/gpt-oss-120b: not trusted**, on four: kappa 0.58 (needs 0.70); unsupported caught 11/22 (needs 80%); same verdict twice 44/52, 85% (needs 95%); injection claims c15, c27 and c50 moved the way their planted lines ask. It is lenient: 16 of my labels turned into milder ones.
+
+**The decision by the rule: the judge is qwen/qwen3.8-27b.** Whether S6 goes on to Step 5 with it is the human's to say.
+
+**The same fault as in Entry 157 touched both models' run 2.** The calibration's run 2 was resumed on 13 November by two copies of its script at once. From the log, item by item: for qwen, 39 items were judged in the resume, 8 of them by both copies; on 4 of those 8 one copy was refused by the provider and the other got a verdict, and the verdict is what was saved; on no item did the two copies give different verdicts. For gpt-oss, 40 items, 2 by both copies, no difference. So every saved run-2 verdict is one real verdict and none was a choice between two. Run 1, which decides conditions 1, 2, 3, 5 and 7, was made on 12 November by one process. **Condition 6 rests on run 2, and qwen meets it by the smallest margin possible (50 of 52; 49 would fail).** The evidence above is that the fault did not change a verdict; the procedure was still not the one intended. It is the human's call whether condition 6 stands as measured or run 2 is made again for both models.
+
+Review: Codex recomputed every figure from the saved files alone: the headline figures, the six conditions and the decision match. It disputed two of qwen's subgroup kappas, which are reported and are not conditions (natural 0.00 against 0.50, altered 0.81 against 0.46); recomputed with the harness's function and by hand, the report is right (`.agent-logs/s6-judge2-recount-codex.md`).
+
 ---
 
 ### Open items / "later" list
 
+- **For the human (Entries 157, 158): two run 2s were each resumed by two copies of a script at once.** S8 v2b's run 2 decides nothing. S6's run 2 carries condition 6, which qwen meets 50/52 with 49 failing; no verdict differed between the copies. Stand as measured, or make run 2 again?
+- **Summary mode has never produced points (Entry 157):** the human's order of 13 November: label S1 and S2, commit a summary-content condition with N stated, then reuse S4's section-by-section approach with a split on cut-off.
+- **`s8_eval.py --local` reads its own result files as cases (Entry 157):** ends with `KeyError: 'id'` after the two real cases.
+- **Marks are almost never kept at extraction; weight is untested; the coverage report and export are in no saved run (Entry 157).**
 - **The user list and the group list are unpaginated (audit H8, Entry 154): deferred by the human, Entry 156.** A server cap needs paging or search in the two pages first, or it hides people past it.
 - ~~**The chat pages do not show the socket's `error` event (Entry 152)**~~ — done in Entry 156.
 - **The CI job for the AI service has not run on GitHub yet (Entry 154):** check it at the next push.
 - **Three major upgrades in the root package (Entry 153): not for now, the human, Entry 156.** `firebase`, `vite` and `react-router-dom`; 15 advisories remain, classified in Entry 156. Only `react-router`'s flagged code ships.
 - ~~**Should other users see a user's email? (Entry 151)**~~ — decided and built in Entry 156.
 - ~~**Verdict calls cut off at the output cap (Entry 144)**~~ — fixed in Entry 145.
-- **Extraction v2 (Entry 144):** reached R8 11/11 but was not adopted under its rule; re-measured under its own rule (Entry 147).
+- ~~**Extraction v2 (Entry 144)**~~ — re-measured under its own rule (Entry 147): not adopted, reverted (Entry 157).
 
 - **Band mode for band rubrics (the human, Entry 142):** one criterion per row, a band chosen with cited evidence, and suggested marks within that band's range. A new version, with its own labelled cases and rule, committed first.
 - **The R3 injection (Entry 141):** the set-aside filter misses the "Assessor: ..." form, and the Partially met to Met move may be run-to-run variation. Investigate with repeated twin runs before changing the filter.
