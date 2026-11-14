@@ -8505,10 +8505,25 @@ Tests: `token-verify.test.js` (26), `verification-link.test.js` (16), `tests/fro
 
 Review: Codex reported one finding, not real: that the allowlist is no longer normalised before matching. `ADMIN_EMAILS` is trimmed and lower-cased where it is read (`index.js`), and the token's email is lower-cased in `loginIdentity`; a test covers a mixed-case address.
 
+### Entry 151 — Audit F3, F6: what a report gives back, and what one user learns about another
+
+**F3.** `POST /api/reports` copied its target's text into the report without asking whether the reporter could see the target, and sent the whole report back. So filing a report on a message id returned that message: any 1-to-1 message, any group message. A report can now be filed only on what its reporter can see (a user or an announcement, anyone; a message, its sender and receiver; a group message, the group's members); anything else gets the same 404 as content that does not exist, and nothing is stored. The snapshot is still taken and kept for the admin's queue, and is no longer in the response. A target id that is not an id is a 404 before any query reads it, which the new test found was a 500.
+
+**F6.** The user list, the single-user lookup and the `user-added` and `user-updated` broadcasts, which go to every connected socket, carried whole user documents: the Firebase uid, a mentor's verification evidence and the admin's review note, and why and by whom an account was suspended. They now carry `publicUser(user)` (`server/lib/publicUser.js`), an allowlist, so a field added to the model later stays private until someone lists it. The verification badge keeps its status and nothing else. A user's own record, and the admin routes, are unchanged. `/api/users?exclude=` no longer matches a Firebase uid in the query; present, it leaves the caller out.
+
+**For the human: email is still in the public view.** The profile page shows another user's email, so removing it changes what the product does, which is not the agent's call. It is one line in `publicUser.js` and one in `UserProfilePage.jsx`. Open item below.
+
+One existing assertion changed with the behaviour, not weakened: `moderation.test.js` read the snapshot from the response; it now reads it from the stored report and asserts the response has none.
+
+Tests: `server/test/public-user.test.js` (21). Mutation checks, in the worktree: 13 of 15 caught. The two not caught are the list's two layers taken one at a time (the query's field selection, and `publicUser` on each row): either alone still yields the public view. With both removed together the test fails (2 failures), so the pair is covered and each is the other's backstop.
+
+Review: Codex found nothing to act on.
+
 ---
 
 ### Open items / "later" list
 
+- **Should other users see a user's email? (the human, Entry 151):** the profile page shows it, so `publicUser` still carries it. Taking it out is one line in `server/lib/publicUser.js` and one in `UserProfilePage.jsx`.
 - ~~**Verdict calls cut off at the output cap (Entry 144)**~~ — fixed in Entry 145.
 - **Extraction v2 (Entry 144):** reached R8 11/11 but was not adopted under its rule; re-measured under its own rule (Entry 147).
 
