@@ -38,13 +38,13 @@ frontend browser tests 230/230; AI service tests 1337 passed and 3 skipped; `npm
 
 | # | Item | Status |
 |---|---|---|
-| H1 | No rate limiting except Copilot asks: messages, reports, uploads and sign-in are unlimited | open |
-| H2 | REST CORS reflects any origin (item 13: origins from config, local dev origins by default, an unlisted origin refused) | open |
-| H3 | No security headers (item 14: one middleware, without breaking download headers or the Vite dev setup) | open |
+| H1 | No rate limiting except Copilot asks: messages, reports, uploads and sign-in are unlimited | Entry 152 |
+| H2 | REST CORS reflects any origin (item 13: origins from config, local dev origins by default, an unlisted origin refused) | Entry 152 |
+| H3 | No security headers (item 14: one middleware, without breaking download headers or the Vite dev setup) | Entry 152 |
 | H4 | The signing-certificate fetch has no timeout, and an unknown key id does not refetch | Entry 150 |
 | H5 | `/search` on the AI service lacks the loopback check every other route has | open |
 | H6 | CI does not run the Python suite; the real token verification path has no test (every test signs in through the dev header) | token verification tested: Entry 150; the Python suite in CI: open |
-| H7 | `server/index.js` is one 6,000-line file; every route repeats the same catch-and-500 | open |
+| H7 | `server/index.js` is one 6,000-line file; every route repeats the same catch-and-500 | one error handler and a JSON 404: Entry 152; the file split: open |
 | H8 | `/api/users`, `/api/groups` and history are unpaginated; the message indexes do not carry `timestamp` | history and the message indexes: Entry 149; users and groups: open |
 | H9 | Group `memberIds` are not validated; stale comments (`index.js` "there is no token check" above one); `.gitignore` ignores `package-lock.json` though both lockfiles are tracked | open |
 

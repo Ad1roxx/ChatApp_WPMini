@@ -8519,6 +8519,22 @@ Tests: `server/test/public-user.test.js` (21). Mutation checks, in the worktree:
 
 Review: Codex found nothing to act on.
 
+### Entry 152 — Audit H1, H2, H3 (the human's items 13 and 14): origins from configuration, security headers, and limits
+
+**Hosting, decided by the human:** MentorConnect stays local for now. No deployment files and no shared store, since one instance runs. Deployment is revisited if a public link is ever needed. What follows is written for that: the limits live in the process's memory, and the origin list defaults to the local front-end addresses.
+
+**Item 13, origins (H2).** REST answered CORS with whatever origin asked (`origin: true`), and Socket.IO had its own hardcoded list of two. There is now one list for both, `CORS_ORIGINS` (comma-separated; a star is not a wildcard), defaulting to `http://localhost:5173` and `http://localhost:3000`, the two the app has always run on (`server/lib/httpGuards.js`). A request naming an origin outside the list is **refused with 403**, not just left without a CORS header: CORS only stops a page reading the answer, and the request would still have run. A request with no `Origin` is not from a page on another site and passes; identity is still the token's job. A WebSocket handshake is not subject to CORS at all, so the list is applied to it as well (`allowRequest`). The test checks six unlisted origins (other scheme, other port, look-alike hosts, `null`), a write from one that must not land, the preflight, and the socket handshake.
+
+**Item 14, security headers (H3).** One middleware, first, so refusals and errors carry them too: `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, a `Content-Security-Policy` of `default-src 'none'; frame-ancestors 'none'` (this server sends JSON and downloads, never a page), `Cross-Origin-Resource-Policy: same-site`, a `Permissions-Policy`, and no `X-Powered-By`. **The download headers are intact:** a download sets its own policy afterwards and wins, and `attachments.test.js` now pins it exactly (`default-src 'none'; sandbox`, `nosniff`, `attachment`, `no-store`). **The Vite dev setup is unaffected:** the headers are on this server's responses only, the front end is served by Vite from an origin on the list, and the frontend browser suite passes (see below).
+
+Express's own fallbacks answered in HTML and replaced the policy, so what no route answers is now a JSON 404, and a body that is not JSON or is too large is a JSON 400 or 413 from one error handler, which is also where anything a route misses now lands (part of H7).
+
+**Limits (H1).** Only Copilot asks were limited. `server/lib/rateLimit.js`, a sliding window per account: 30 messages in 10 s (1-to-1 and group share the allowance), 20 reports an hour, 30 uploads in 10 minutes, 30 sign-ins a minute, each settable by its variable (`server/.env.example`). They are meant to stop a script, not to be noticed by a person. Over the limit: 429 with `Retry-After`, or the socket's `error` event; a refused message is not stored; a malformed one does not use the allowance. Message sends also now check that the text is text and the id is an id before anything else. **Not done:** the chat pages do not listen for the socket's `error` event, so a person who did reach the limit would see their message simply not appear.
+
+Tests: `http-guards.test.js` (32), `rate-limit.test.js` (12), three assertions added to `attachments.test.js`; the whole server suite, 1343 of 1343. Mutation checks, in the worktree: 27 of 27 caught. The limiter on assignment-file uploads is the same middleware as on hand-in uploads and has no test of its own.
+
+Review: Codex found nothing to act on.
+
 ---
 
 ### Open items / "later" list
