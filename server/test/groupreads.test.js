@@ -9,7 +9,10 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { USERS, start, stop, api, connect, once, settle } = require('./helpers/harness');
+const { USERS, start, stop, api, db, mongoose, connect, once, settle } = require('./helpers/harness');
+
+// In no group, and not an admin. Not in the harness's seed, so it is made in `before`.
+const OUTSIDER = { _id: '0000000000000000000000b2', email: 'outsider@test.local', displayName: 'Outsider' };
 
 let sStudent;
 let sStudent2;
@@ -27,14 +30,27 @@ test.before(async () => {
   [sStudent, sStudent2, sMentor].forEach((s) => s.emit('user-online'));
   await settle(400);
 
-  group = await (await api('/api/groups', {
+  // Groups are private since Entry 159: nobody joins one, and a mentor adds only
+  // their own active mentees. So both students are the mentor's mentees here, and
+  // the mentor makes the group with them in it. (This used to be two calls to /join.)
+  const oid = (hex) => new mongoose.Types.ObjectId(hex);
+  await db().collection('mentorships').insertMany([USERS.student, USERS.student2].map((s, i) => ({
+    _id: oid(`0000000000000000000000e${i + 1}`), mentor: oid(USERS.mentor._id), student: oid(s._id),
+    status: 'active', topic: 'T', initiatedBy: 'student', requestedAt: new Date()
+  })));
+  // Someone who is in no group and is not an admin: admins may now see any group.
+  await db().collection('users').insertOne({
+    _id: oid(OUTSIDER._id), firebaseUid: 'uid-outsider', email: OUTSIDER.email, displayName: OUTSIDER.displayName, role: 'student'
+  });
+
+  const made = await api('/api/groups', {
     as: USERS.mentor,
     method: 'POST',
-    body: { name: 'Backend crew', description: '' }
-  })).json();
-
-  await api(`/api/groups/${group._id}/join`, { as: USERS.student, method: 'POST' });
-  await api(`/api/groups/${group._id}/join`, { as: USERS.student2, method: 'POST' });
+    body: { name: 'Backend crew', description: '', memberIds: [USERS.student._id, USERS.student2._id] }
+  });
+  assert.equal(made.status, 200);
+  group = await made.json();
+  assert.equal(group.members.length, 3);
 });
 
 test.after(async () => {
@@ -170,13 +186,20 @@ test('activity reaches members who are NOT in the room', async (t) => {
 });
 
 test('none of it is visible to a non-member', async (t) => {
+  // The non-member here used to be the admin. Since Entry 159 an admin may see any
+  // group, so the non-member is now someone who is neither in it nor an admin.
   await t.test('no group conversations', async () => {
-    assert.deepEqual(await groupRows(USERS.admin), []);
+    assert.deepEqual(await groupRows(OUTSIDER), []);
   });
 
   await t.test('and the receipts are refused', async () => {
-    const res = await api(`/api/groups/${group._id}/reads`, { as: USERS.admin });
+    const res = await api(`/api/groups/${group._id}/reads`, { as: OUTSIDER });
     assert.equal(res.status, 403);
+  });
+
+  await t.test('an admin may see the receipts, and has no conversation row: they are not a member', async () => {
+    assert.equal((await api(`/api/groups/${group._id}/reads`, { as: USERS.admin })).status, 200);
+    assert.deepEqual(await groupRows(USERS.admin), []);
   });
 });
 

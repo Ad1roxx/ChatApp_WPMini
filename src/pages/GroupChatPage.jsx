@@ -16,7 +16,8 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useConversations } from '../context/ConversationsContext';
 import AppShell from '../components/AppShell';
@@ -26,10 +27,13 @@ import { SendIcon } from '../components/Icons';
 import styles from './Chat.module.css';
 import { mayHaveEarlier, earlierPath, withEarlier, placeOf, restorePlace } from '../lib/history';
 import { useNotSent, restoredText } from '../lib/notSent';
+import { isGroupMember } from '../lib/groups';
 import groupStyles from './GroupChatPage.module.css';
 
 export default function GroupChatPage() {
   const { groupId } = useParams();
+  const navigate = useNavigate();
+  const toast = useToast();
   const { dbUser, socket, authFetch } = useAuth();
   const { markGroupRead } = useConversations();
 
@@ -98,9 +102,8 @@ export default function GroupChatPage() {
       if (!dbUser) return;
       try {
         // Group info (name + members) — find it among the user's groups
-        const groupsRes = await authFetch(
-          `/api/groups?userId=${dbUser._id}`
-        );
+        // Your own groups; for an admin, every group (groups are private).
+        const groupsRes = await authFetch('/api/groups');
         if (groupsRes.ok) {
           const myGroups = await groupsRes.json();
           setGroup(myGroups.find((g) => g._id === groupId) || null);
@@ -203,6 +206,15 @@ export default function GroupChatPage() {
       setReads((prev) => ({ ...prev, [String(userId)]: lastReadAt }));
     };
 
+    // Taken out of this group, or left it in another tab: the server has already
+    // stopped sending its messages here, so say so and go back to the list.
+    const handleRemoved = (payload) => {
+      if (String(payload?.groupId) !== String(groupId)) return;
+      toast.info('You are no longer in that group');
+      navigate('/groups');
+    };
+
+    socket.on('group-removed', handleRemoved);
     socket.on('group-receipt', handleReceipt);
     socket.on('new-group-message', handleNewMessage);
     socket.on('group-user-typing', handleTyping);
@@ -210,6 +222,7 @@ export default function GroupChatPage() {
 
     return () => {
       socket.emit('leave-group', groupId);
+      socket.off('group-removed', handleRemoved);
       socket.off('group-receipt', handleReceipt);
       socket.off('new-group-message', handleNewMessage);
       socket.off('group-user-typing', handleTyping);
@@ -385,6 +398,13 @@ export default function GroupChatPage() {
 
           <div ref={messagesEndRef} />
         </div>
+
+        {/* An admin may read any group and is not a member of it, so cannot post. */}
+        {group && !isGroupMember(group, dbUser?._id) && (
+          <p className={styles.notSent} role="note">
+            You are viewing this group as an admin. Only its members can post in it.
+          </p>
+        )}
 
         {/* Shown when the server refused a message for being sent too quickly. */}
         {notSent && (

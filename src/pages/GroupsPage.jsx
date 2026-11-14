@@ -1,16 +1,16 @@
 /**
- * GroupsPage - Create and browse/join group chats
+ * GroupsPage - Your group chats: create one, open one, leave one. Groups are private.
  *
  * Two sections:
- * 1. Browse groups: see all groups; Open the ones you're in, Join the rest
- *    — everyone, students included.
+ * 1. Your groups: the ones you are a member of (an admin sees every group).
+ *    Nobody joins a group; a member can leave one.
  * 2. Create a group — MENTORS ONLY. Students get an explanatory note
  *    instead of the form, so the absence reads as a rule rather than a
  *    missing feature. The server enforces this independently in
  *    POST /api/groups.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useConversations } from '../context/ConversationsContext';
@@ -24,7 +24,9 @@ import EmptyState from '../components/EmptyState';
 import { InlineLoader } from '../components/Loading';
 import { useToast } from '../components/Toast';
 import { GroupsIcon } from '../components/Icons';
-import { canMentor } from '../lib/roles';
+import { canMentor, isAdmin } from '../lib/roles';
+import { addablePeople, isGroupMember } from '../lib/groups';
+import ConfirmDialog from '../components/ConfirmDialog';
 import styles from './GroupsPage.module.css';
 
 export default function GroupsPage() {
@@ -48,7 +50,11 @@ export default function GroupsPage() {
   // Browse state
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [joiningId, setJoiningId] = useState(null);
+  // Groups are private: nobody joins one. A member can leave; this is the group
+  // they have asked to leave, until they confirm.
+  const [leaving, setLeaving] = useState(null);
+  // The caller's mentorships: a mentor can add only their own active mentees.
+  const [mentorships, setMentorships] = useState([]);
 
   /**
    * Fetch the list of other users (to choose group members from).
@@ -96,6 +102,7 @@ export default function GroupsPage() {
   useEffect(() => {
     const fetchGroups = async () => {
       try {
+        // Your own groups; for an admin, every group.
         const res = await authFetch('/api/groups');
         if (res.ok) setGroups(await res.json());
       } catch (err) {
@@ -107,6 +114,38 @@ export default function GroupsPage() {
 
     fetchGroups();
   }, [authFetch]);
+
+  // The same list again, when the server says it has changed.
+  const refetchGroups = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/groups');
+      if (res.ok) setGroups(await res.json());
+    } catch (err) {
+      console.error('Error fetching groups:', err);
+    }
+  }, [authFetch]);
+
+  // Being added to a group, or taken out of one, changes this list.
+  useEffect(() => {
+    if (!socket) return undefined;
+    socket.on('group-added', refetchGroups);
+    socket.on('group-removed', refetchGroups);
+    return () => {
+      socket.off('group-added', refetchGroups);
+      socket.off('group-removed', refetchGroups);
+    };
+  }, [socket, refetchGroups]);
+
+  useEffect(() => {
+    if (!dbUser || !isMentor) return;
+    authFetch('/api/mentorships?status=active')
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setMentorships)
+      .catch(() => {});
+  }, [dbUser, isMentor, authFetch]);
+
+  // Who can be offered when making a group: the server refuses anyone else.
+  const addable = addablePeople(dbUser, users, mentorships);
 
   /**
    * Toggle a user in/out of the selected-members set.
@@ -158,33 +197,26 @@ export default function GroupsPage() {
   /**
    * Join a group I'm not yet a member of, then open it.
    */
-  const handleJoin = async (groupId) => {
-    if (!dbUser) return;
-    setJoiningId(groupId);
-
+  const handleLeave = async () => {
+    const group = leaving;
+    setLeaving(null);
+    if (!group) return;
     try {
-      // No body: you can only ever add yourself, so the server uses
-      // the identity on the token.
-      const res = await authFetch(`/api/groups/${groupId}/join`, {
-        method: 'POST'
-      });
+      const res = await authFetch(`/api/groups/${group._id}/leave`, { method: 'POST' });
       if (res.ok) {
-        navigate(`/group/${groupId}`);
+        setGroups((prev) => prev.filter((g) => g._id !== group._id));
+        toast.success(`You left ${group.name}`);
       } else {
         const body = await res.json().catch(() => ({}));
-        toast.error(body.error || 'Failed to join group');
+        toast.error(body.error || 'Could not leave the group');
       }
     } catch (err) {
-      console.error('Error joining group:', err);
-      toast.error('Failed to join group');
-    } finally {
-      setJoiningId(null);
+      console.error('Error leaving group:', err);
+      toast.error('Could not leave the group');
     }
   };
 
-  // Is the current user already a member of this group?
-  const isMember = (group) =>
-    group.members?.some((m) => (m._id || m) === dbUser?._id);
+  const isMember = (group) => isGroupMember(group, dbUser?._id);
 
 
   /**
@@ -207,7 +239,13 @@ export default function GroupsPage() {
   return (
     <AppShell
       title="Groups"
-      subtitle={isMentor ? 'Create a group or join an existing one' : 'Join a group to start chatting'}
+      subtitle={
+        isAdmin(dbUser?.role)
+          ? 'Every group. Groups are private: only their members and admins see them'
+          : isMentor
+            ? 'Your groups. Create one and add your mentees'
+            : 'The groups you have been added to'
+      }
       actions={
         isMentor && (
           <Button
@@ -243,10 +281,14 @@ export default function GroupsPage() {
               }
             >
               <div className={styles.memberList}>
-                {users.length === 0 ? (
-                  <p className={styles.muted}>No other users to add yet.</p>
+                {addable.length === 0 ? (
+                  <p className={styles.muted}>
+                    {isAdmin(dbUser?.role)
+                      ? 'No other users to add yet.'
+                      : 'You can add your own mentees. You have no active mentees yet.'}
+                  </p>
                 ) : (
-                  users.map((u) => (
+                  addable.map((u) => (
                     <label key={u._id} className={styles.memberRow}>
                       <input
                         type="checkbox"
@@ -281,8 +323,9 @@ export default function GroupsPage() {
         <div className={styles.notice}>
           <p className={styles.noticeTitle}>Only mentors can create groups</p>
           <p className={styles.noticeText}>
-            You can join and chat in any group below. If you mentor others, switch
-            your role from your profile.
+            Groups are private: a mentor adds you to theirs, and the ones you are
+            in are listed below. If you mentor others, switch your role from your
+            profile.
           </p>
         </div>
       )}
@@ -298,7 +341,7 @@ export default function GroupsPage() {
             description={
               isMentor
                 ? 'Create the first one and add the people who should be in it.'
-                : 'Once a mentor creates a group it will show up here to join.'
+                : 'When a mentor adds you to a group it will show up here.'
             }
           />
         ) : (
@@ -353,34 +396,24 @@ export default function GroupsPage() {
 
               return (
                 <li key={g._id} className={styles.row}>
-                  {/* For a member the whole bar is the way in, as in the
-                      Messages list. A non-member gets a static row and the
-                      Join button: joining is a decision rather than
-                      navigation, and should not happen because somebody
-                      tapped a row on their way past. */}
-                  {member ? (
-                    <button
-                      type="button"
-                      className={styles.rowMain}
-                      onClick={() => {
-                        markGroupRead(g._id);
-                        navigate(`/group/${g._id}`);
-                      }}
-                    >
-                      {rowContent}
-                    </button>
-                  ) : (
-                    <>
-                      <span className={styles.rowMain}>{rowContent}</span>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        loading={joiningId === g._id}
-                        onClick={() => handleJoin(g._id)}
-                      >
-                        Join
-                      </Button>
-                    </>
+                  {/* The whole bar is the way in, as in the Messages list.
+                      Groups are private, so everyone who sees a row is a member
+                      of it or an admin; nobody joins a group from here. A member
+                      can leave, which is asked about first. */}
+                  <button
+                    type="button"
+                    className={styles.rowMain}
+                    onClick={() => {
+                      if (member) markGroupRead(g._id);
+                      navigate(`/group/${g._id}`);
+                    }}
+                  >
+                    {rowContent}
+                  </button>
+                  {member && (
+                    <Button size="sm" variant="secondary" onClick={() => setLeaving(g)}>
+                      Leave
+                    </Button>
                   )}
                 </li>
               );
@@ -388,6 +421,16 @@ export default function GroupsPage() {
           </ul>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={Boolean(leaving)}
+        title={`Leave ${leaving?.name || 'this group'}?`}
+        description="You will stop seeing this group and its messages. Only the person who made it, or an admin, can add you back."
+        confirmLabel="Leave"
+        destructive
+        onConfirm={handleLeave}
+        onCancel={() => setLeaving(null)}
+      />
     </AppShell>
   );
 }

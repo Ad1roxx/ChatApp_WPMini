@@ -286,13 +286,32 @@ io.on('connection', (socket) => {
     // to. Without this, any client could join any group by id and receive
     // every message posted to it. This is the gap deferred in Entry 2 — it
     // could not be closed before the socket had a verified identity.
-    const group = await Group.findById(groupId).select('members');
-    if (!group?.members?.some((m) => String(m) === String(socket.data.user._id))) {
+    // Members, and admins, who may see any group (lib/groupAccess.js). The
+    // role is read again, not taken from the handshake: an account can stop
+    // being an admin while its socket stays open.
+    const allowedNow = async () => {
+      const group = await Group.findById(groupId).select('members');
+      const me = group && (await User.findById(socket.data.user._id).select('role suspended'));
+      return Boolean(me && !me.suspended &&
+        (group.members.some((m) => String(m) === String(me._id)) || me.role === 'admin'));
+    };
+
+    if (!(await allowedNow())) {
       socket.emit('error', { message: 'You are not a member of that group' });
       return;
     }
 
     socket.join(`group:${groupId}`);
+
+    // Asked again AFTER joining. A removal that landed between the check above
+    // and the join had nothing to take out of the room yet, and would have left
+    // this socket in it for good. Checked after, either this sees the removal and
+    // leaves, or the removal comes later and finds the socket in the room.
+    if (!(await allowedNow())) {
+      socket.leave(`group:${groupId}`);
+      socket.emit('error', { message: 'You are not a member of that group' });
+      return;
+    }
     console.log(`👥 Socket ${socket.id} joined room group:${groupId}`);
   }, { id: true });
 
@@ -403,14 +422,19 @@ io.on('connection', (socket) => {
    * Relay typing indicators to the rest of the room.
    * socket.to(room) sends to everyone in the room EXCEPT the sender.
    */
+  // Only a socket that is IN the room may send into it: `socket.to(room)`
+  // reaches a room whether or not the sender is in it, so without this anyone
+  // could put a typing notice in any group.
+  const inRoom = (groupId) => typeof groupId === 'string' && socket.rooms.has(`group:${groupId}`);
+
   on('group-typing', ({ groupId }) => {
-    if (!groupId) return;
+    if (!inRoom(groupId)) return;
     const senderId = String(socket.data.user._id);
     socket.to(`group:${groupId}`).emit('group-user-typing', { groupId, senderId });
   });
 
   on('group-stop-typing', ({ groupId }) => {
-    if (!groupId) return;
+    if (!inRoom(groupId)) return;
     const senderId = String(socket.data.user._id);
     socket.to(`group:${groupId}`).emit('group-user-stop-typing', { groupId, senderId });
   });

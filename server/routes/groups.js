@@ -14,7 +14,8 @@ const GroupRead = require('../models/GroupRead');
 const { parsePage, historyPage } = require('../lib/history');
 // Authentication
 const { requireAuth } = require('../middleware/auth');
-const { app, MAX_GROUP_MEMBERS } = require('../app');
+const { seeGroup, canManage, addProblem, dropFromRoom, isMember } = require('../lib/groupAccess');
+const { app, io, onlineUsers, emitToUser, MAX_GROUP_MEMBERS } = require('../app');
 
 // ============================================
 // GROUP REST API ENDPOINTS
@@ -75,6 +76,19 @@ app.post('/api/groups', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'One of those people does not exist' });
     }
 
+    // A suspended account is not added to anything, here or one at a time below.
+    const suspended = await User.countDocuments({ _id: { $in: uniqueMembers }, suspended: true });
+    if (suspended > 0) {
+      return res.status(400).json({ error: 'One of those accounts is suspended' });
+    }
+
+    // Groups are private: a mentor can put only their own active mentees in
+    // one, an admin anyone (lib/groupAccess.js).
+    const notAllowed = await addProblem(creator, uniqueMembers);
+    if (notAllowed) {
+      return res.status(403).json({ error: notAllowed });
+    }
+
     const group = await Group.create({
       name: name.trim(),
       createdBy,
@@ -109,21 +123,9 @@ app.post('/api/groups/:groupId/join', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    // You can only add YOURSELF to a group.
-    const visitorId = req.authUser._id;
-
-    const group = await Group.findByIdAndUpdate(
-      groupId,
-      { $addToSet: { members: visitorId } },  // add only if not already present
-      { new: true }                           // return the updated group
-    ).populate('members', 'displayName photoURL role');
-
-    if (!group) {
-      return res.status(404).json({ error: 'Group not found' });
-    }
-
-    console.log(`➕ User ${visitorId} joined group ${group.name}`);
-    res.json(group);
+    // Groups are private: nobody joins one themselves. The route stays, to say
+    // so, where it used to add the caller to any group they named.
+    res.status(403).json({ error: 'Groups are private. Ask the person who made the group to add you.' });
   } catch (err) {
     console.error('Error joining group:', err);
     res.status(500).json({ error: 'Server error' });
@@ -143,8 +145,15 @@ app.get('/api/groups', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'userId must be a user id' });
     }
 
-    // If userId given, only groups where they are a member
-    const query = userId ? { members: userId } : {};
+    // Your own groups. An admin sees every group, or one person's with userId.
+    // Anyone else may name only themselves: whose groups someone is in is not
+    // public (lib/groupAccess.js).
+    const me = String(req.authUser._id);
+    const admin = req.authUser.role === 'admin';
+    if (!admin && userId !== undefined && userId !== me) {
+      return res.status(403).json({ error: 'You can only list your own groups' });
+    }
+    const query = admin ? (userId ? { members: userId } : {}) : { members: req.authUser._id };
     const groups = await Group.find(query)
       .populate('members', 'displayName photoURL role')
       .sort({ createdAt: -1 });  // newest groups first
@@ -258,14 +267,9 @@ app.get('/api/groups/conversations', requireAuth, async (req, res) => {
  */
 app.get('/api/groups/:groupId/reads', requireAuth, async (req, res) => {
   try {
-    const group = await Group.findById(req.params.groupId).select('members');
-    if (!group) {
-      return res.status(404).json({ error: 'Group not found' });
-    }
-
-    const me = String(req.authUser._id);
-    if (!group.members.some((m) => String(m) === me)) {
-      return res.status(403).json({ error: 'You are not a member of that group' });
+    const seen = await seeGroup(req.params.groupId, req.authUser);
+    if (seen.error) {
+      return res.status(seen.status).json({ error: seen.error });
     }
 
     const reads = await GroupRead.find({ group: req.params.groupId })
@@ -295,13 +299,10 @@ app.get('/api/groups/:groupId/messages', requireAuth, async (req, res) => {
   try {
     const { groupId } = req.params;
 
-    // MEMBERSHIP: only members can read a group's history.
-    const membership = await Group.findById(groupId).select('members');
-    if (!membership) {
-      return res.status(404).json({ error: 'Group not found' });
-    }
-    if (!membership.members.some((m) => String(m) === String(req.authUser._id))) {
-      return res.status(403).json({ error: 'You are not a member of this group' });
+    // MEMBERSHIP: only members, and admins, can read a group's history.
+    const seen = await seeGroup(groupId, req.authUser);
+    if (seen.error) {
+      return res.status(seen.status).json({ error: seen.error });
     }
     const page = parsePage(req.query);
     if (page.error) {
@@ -315,6 +316,142 @@ app.get('/api/groups/:groupId/messages', requireAuth, async (req, res) => {
     res.json(messages);
   } catch (err) {
     console.error('Error fetching group messages:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
+// GROUP MEMBERSHIP: adding, removing, leaving
+// ============================================
+//
+// Groups are private (lib/groupAccess.js). Nobody joins one themselves: the
+// group's creator, or an admin, adds people; a member can leave; the creator
+// and admins can remove a member. Leaving and removal take that person's open
+// sockets out of the group's room at once.
+
+const GROUP_MEMBER_FIELDS = 'displayName photoURL role';
+
+/** After someone stops being a member: off the live room, read mark gone, and told. */
+async function memberGone(groupId, userId) {
+  dropFromRoom(io, onlineUsers, userId, groupId);
+  // Their read mark feeds the "seen by" line under other people's messages.
+  await GroupRead.deleteOne({ group: groupId, user: userId });
+  emitToUser(userId, 'group-removed', { groupId: String(groupId) });
+}
+
+/**
+ * POST /api/groups/:groupId/members   { userId }
+ *
+ * Add one person. The group's creator (while still a member) or an admin. A
+ * mentor can add only their own active mentees; an admin can add anyone.
+ */
+app.post('/api/groups/:groupId/members', requireAuth, async (req, res) => {
+  try {
+    const seen = await seeGroup(req.params.groupId, req.authUser);
+    if (seen.error) {
+      return res.status(seen.status).json({ error: seen.error });
+    }
+    if (!canManage(seen.group, req.authUser)) {
+      return res.status(403).json({ error: 'Only the person who made the group, or an admin, can add people' });
+    }
+
+    const userId = req.body?.userId;
+    if (typeof userId !== 'string' || !mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ error: 'Name one person to add' });
+    }
+    const person = await User.findById(userId).select('_id suspended');
+    if (!person) {
+      return res.status(404).json({ error: 'That person no longer exists' });
+    }
+    if (person.suspended) {
+      return res.status(400).json({ error: 'That account is suspended' });
+    }
+    if (seen.group.members.length >= MAX_GROUP_MEMBERS && !isMember(seen.group, userId)) {
+      return res.status(400).json({ error: `A group can have up to ${MAX_GROUP_MEMBERS} people` });
+    }
+
+    const notAllowed = await addProblem(req.authUser, [userId]);
+    if (notAllowed) {
+      return res.status(403).json({ error: notAllowed });
+    }
+
+    const group = await Group.findByIdAndUpdate(
+      seen.group._id,
+      { $addToSet: { members: person._id } },
+      { new: true }
+    ).populate('members', GROUP_MEMBER_FIELDS);
+
+    emitToUser(userId, 'group-added', { groupId: String(group._id), groupName: group.name });
+    console.log(`➕ ${req.authUser.displayName} added someone to group ${group.name}`);
+    res.json(group);
+  } catch (err) {
+    console.error('Error adding a group member:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * DELETE /api/groups/:groupId/members/:userId
+ *
+ * Remove a member. The group's creator (while still a member) or an admin. To
+ * take yourself out, leave: this route is for removing somebody else.
+ */
+app.delete('/api/groups/:groupId/members/:userId', requireAuth, async (req, res) => {
+  try {
+    const seen = await seeGroup(req.params.groupId, req.authUser);
+    if (seen.error) {
+      return res.status(seen.status).json({ error: seen.error });
+    }
+    if (!canManage(seen.group, req.authUser)) {
+      return res.status(403).json({ error: 'Only the person who made the group, or an admin, can remove people' });
+    }
+
+    const { userId } = req.params;
+    if (!mongoose.isValidObjectId(userId) || !isMember(seen.group, userId)) {
+      return res.status(404).json({ error: 'That person is not in this group' });
+    }
+    if (String(userId) === String(req.authUser._id)) {
+      return res.status(400).json({ error: 'To take yourself out of a group, leave it' });
+    }
+
+    const group = await Group.findByIdAndUpdate(
+      seen.group._id,
+      { $pull: { members: new mongoose.Types.ObjectId(userId) } },
+      { new: true }
+    ).populate('members', GROUP_MEMBER_FIELDS);
+
+    await memberGone(group._id, userId);
+    console.log(`➖ ${req.authUser.displayName} removed someone from group ${group.name}`);
+    res.json(group);
+  } catch (err) {
+    console.error('Error removing a group member:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/groups/:groupId/leave
+ *
+ * Leave a group you are in. Anyone in it may, the person who made it included;
+ * after that only an admin can manage it.
+ */
+app.post('/api/groups/:groupId/leave', requireAuth, async (req, res) => {
+  try {
+    const seen = await seeGroup(req.params.groupId, req.authUser);
+    if (seen.error) {
+      return res.status(seen.status).json({ error: seen.error });
+    }
+    if (!seen.member) {
+      return res.status(403).json({ error: 'You are not a member of that group' });
+    }
+
+    await Group.updateOne({ _id: seen.group._id }, { $pull: { members: req.authUser._id } });
+    await memberGone(seen.group._id, req.authUser._id);
+
+    console.log(`👋 ${req.authUser.displayName} left group ${seen.group.name}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error leaving a group:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

@@ -6,9 +6,18 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { USERS, start, stop, api, db } = require('./helpers/harness');
+const { USERS, start, stop, api, db, mongoose } = require('./helpers/harness');
 
-test.before(() => start());
+// Groups are private since Entry 159: a mentor adds only their own active mentees,
+// so both students are the mentor's mentees here.
+test.before(async () => {
+  await start();
+  const oid = (hex) => new mongoose.Types.ObjectId(hex);
+  await db().collection('mentorships').insertMany([USERS.student, USERS.student2].map((s, i) => ({
+    _id: oid(`0000000000000000000000e${i + 1}`), mentor: oid(USERS.mentor._id), student: oid(s._id),
+    status: 'active', topic: 'T', initiatedBy: 'student', requestedAt: new Date()
+  })));
+});
 test.after(() => stop());
 
 const create = (body) => api('/api/groups', { as: USERS.mentor, method: 'POST', body });
@@ -63,9 +72,14 @@ test('ids in the group routes', async (t) => {
     assert.equal((await api('/api/groups?userId=a&userId=b', { as: USERS.student })).status, 400);
   });
 
-  await t.test('listing by a real user id still works', async () => {
-    const res = await api(`/api/groups?userId=${USERS.mentor._id}`, { as: USERS.student });
-    assert.equal(res.status, 200);
-    assert.ok((await res.json()).length >= 1);
+  await t.test('listing by your own id still works; by somebody else\'s it is refused, except for an admin', async () => {
+    const own = await api(`/api/groups?userId=${USERS.mentor._id}`, { as: USERS.mentor });
+    assert.equal(own.status, 200);
+    assert.ok((await own.json()).length >= 1);
+    // Whose groups someone is in is not public since Entry 159.
+    assert.equal((await api(`/api/groups?userId=${USERS.mentor._id}`, { as: USERS.student2 })).status, 403);
+    const admin = await api(`/api/groups?userId=${USERS.mentor._id}`, { as: USERS.admin });
+    assert.equal(admin.status, 200);
+    assert.ok((await admin.json()).length >= 1);
   });
 });
