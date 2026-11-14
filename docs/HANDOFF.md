@@ -211,6 +211,8 @@ Two findings that shape what comes next:
 | Socket handlers / events | 12 / 27 | `grep` in `server/index.js` |
 | Models | 14 | `ls server/models` |
 | Pages / components | 15 / 20 | `ls src/pages src/components` |
+
+*Measured the day this was written. Since 2026-11-14 (BUILD_NOTES Entry 155) the routes are in `server/routes/*.js` and the socket handlers in `server/realtime.js`, so the two `server/index.js` commands above need those paths.*
 | Tests | **490 passing**, 16 files, ~53 s | `cd server && npm test` |
 | Lint | 0 errors, 1 documented warning | `npx eslint .` |
 | Bundle | 506.60 kB JS (140.33 gzip), 65.73 kB CSS | `npm run build` |

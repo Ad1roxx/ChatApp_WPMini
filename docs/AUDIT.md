@@ -31,8 +31,8 @@ frontend browser tests 230/230; AI service tests 1337 passed and 3 skipped; `npm
 | F3 | `POST /api/reports` snapshots its target without checking the reporter can see it, and returns the snapshot: any message, group message or user's email, given its id. | Medium | Code | Entry 151 |
 | F4 | A mentor's verification `linkedinUrl` is stored without a scheme check and shown to the admin as a link, so it can be a `javascript:` URL. Any user can make themselves a mentor. | Medium | Code; not tried in a browser | Entry 150 |
 | F5 | Sign-in takes the email from the request body when the token has none, and never checks `email_verified`; the admin allowlist is matched on that email. Not reachable with Google sign-in only. | Medium, depends on Firebase settings | Code | Entry 150 |
-| F6 | Whole user documents (email, Firebase uid, verification details and review note, suspension reason) go to every signed-in user: `/api/users`, `/api/user/:id`, and the `user-added` and `user-updated` broadcasts. | Medium | Code | Entry 151, except email, which is the human's call |
-| F7 | Known advisories in production dependencies, among them `mongoose` and `multer` directly, and `ws`, `socket.io-parser`, `body-parser`, `path-to-regexp` beneath. | Medium | `npm audit`; each advisory not verified | `server/` clean: Entry 153; three major upgrades in the root package: open, the human's call |
+| F6 | Whole user documents (email, Firebase uid, verification details and review note, suspension reason) go to every signed-in user: `/api/users`, `/api/user/:id`, and the `user-added` and `user-updated` broadcasts. | Medium | Code | Entry 151; email by the human's rule: Entry 156 |
+| F7 | Known advisories in production dependencies, among them `mongoose` and `multer` directly, and `ws`, `socket.io-parser`, `body-parser`, `path-to-regexp` beneath. | Medium | `npm audit`; each advisory not verified | `server/` clean: Entry 153; three major upgrades in the root package: not for now (the human), classified in Entry 156 |
 
 ## Hardening gaps, and the rest of the batch
 
@@ -45,7 +45,7 @@ frontend browser tests 230/230; AI service tests 1337 passed and 3 skipped; `npm
 | H5 | `/search` on the AI service lacks the loopback check every other route has | open: held until the S8 v2b run finishes, so that run is on unchanged `ai/` code |
 | H6 | CI does not run the Python suite; the real token verification path has no test (every test signs in through the dev header) | token verification tested: Entry 150; the Python suite in CI: Entry 154, not yet run on GitHub |
 | H7 | `server/index.js` is one 6,000-line file; every route repeats the same catch-and-500 | one error handler and a JSON 404: Entry 152; the file split: Entry 155 |
-| H8 | `/api/users`, `/api/groups` and history are unpaginated; the message indexes do not carry `timestamp` | history and the message indexes: Entry 149; users and groups: open, needs the two pages designed first (Entry 154) |
+| H8 | `/api/users`, `/api/groups` and history are unpaginated; the message indexes do not carry `timestamp` | history and the message indexes: Entry 149; users and groups: deferred by the human (Entry 156) |
 | H9 | Group `memberIds` are not validated; stale comments (`index.js` "there is no token check" above one); `.gitignore` ignores `package-lock.json` though both lockfiles are tracked | Entry 154 |
 
 ## Decided by the human, 2026-11-14

@@ -8581,15 +8581,35 @@ Mutation checks, in the worktree, on the moved files: 6 of 6 caught after the fi
 
 Review: Codex found nothing to act on.
 
+### Entry 156 — After the audit batch: the human's review, two decisions, and a scope rule
+
+**Scope.** The file split (Entry 155), the rate limiting (Entry 152) and the CI job (Entry 154) were meant to stay open items; the agent did them without asking. They stay, since they are done, with the extra review below. The rule from here: a batch is what was listed, and anything large or structural is asked about first.
+
+**The split, reviewed on its own by Codex** (`.agent-logs/audit-split-codex.md`), comparing the file before commit `b2b77ea` with the files after. Route order: the same, and the `agent.js`/`proposals.js` pair does not register anything early, because `agent.js` reaches `proposals.js` only when called. Middleware order: the same, the 404 and error handlers still after every route. Handlers and their middleware chains: none differs. Shared state and the start-up checks: made once, at start-up, as before. Stale references it found: the dated tables in `HANDOFF.md` and `PROJECT_BRIEF.md` (both now carry a note) and line references in `AGENT_PLAN.md`, which is pinned to commit `9a0b6b9` by its own header and was already out of date before the split; left as it is.
+
+**The four equivalent-mutant claims, checked by Codex.** Three agreed, with the library's source quoted and the quote found where it said (`jsonwebtoken/verify.js:148-150`: an `HS*` algorithm with a key that is not symmetric is refused). It disagreed with the fourth, that the user list still returns the public view with only the query's field selection and no `publicUser` on each row, saying `__v` would be returned. **Not so, and measured rather than argued:** that exact mutant was run in Entry 151 and all 21 tests passed, among them the assertion that no row has `__v`; an inclusion projection does not return it. The claim stands as worded: neither layer alone leaks, and the pair is covered by the combined mutant.
+
+**The frontend browser suite was rerun after the split: 236 of 236.** It does not drive the server: every browser test stubs the server in the browser (`page.route`) and refuses the socket. What exercises the moved code is the server suite, which starts the real `index.js`: 1359 of 1359 after the split.
+
+**Decided by the human: who sees an email.** The user themself, admins, and a mentor for their own mentees; nobody else. `publicUser` no longer carries an email at all, so nothing broadcast can. `userFor(viewer, user, mentees)` adds it where the rule allows, in the user list and the lookup. **A mentee is the student in an active mentorship with that mentor**: a request still waiting does not count, nor a mentorship that has ended; this reading is the agent's and is one line to change. A mentee does not see their mentor's email. The profile page shows an email only when the server sent one.
+
+**The chat pages say when a message was not sent.** A message over the rate limit is answered on the socket's `error` event, which no page listened to, so it vanished with the box already cleared. Both chat pages now show "Message not sent: you are sending messages too quickly. Wait a few seconds, then send it again." above the box and put the text back (`src/lib/notSent.js`). Other socket errors show nothing, as before. Review: Codex found one real flaw in the first version, which restored whatever was sent last; with two messages on their way the wrong one came back. The refusal now carries the text it refused and the page restores that, without overwriting anything typed since. Left as it is: a second refused message while the box is full is announced but not restored.
+
+**Decided by the human: no major upgrades for now** (firebase, vite, react-router-dom). The 15 advisories left in the root package, by where the code runs. Dev tooling only, never shipped: `vite`, `esbuild` (2). Installed with `firebase` but not in the bundle, because the app imports only `firebase/app` and `firebase/auth`: `@firebase/firestore`, `-firestore-compat`, `-functions`, `-functions-compat`, `-storage`, `-storage-compat`, `-auth-compat`, `@grpc/grpc-js`, `undici` (9); checked in the built bundle, which has no `grpc` or `undici` and mentions the others only as names in firebase's package registry. In the bundle: `firebase` and `@firebase/auth`, whose advisories are all inherited from `undici`, Node's HTTP client, which a browser build does not use (2); and `react-router` and `react-router-dom` (2), the only two whose flagged code ships. Whether this app's use of the router reaches the flagged paths (an open redirect through `<Link>`/`useNavigate`, and one in data deserialisation) was not established.
+
+**Deferred by the human:** pagination for the user and group lists.
+
+Tests: `public-user.test.js` 32; `tests/frontend/chat-not-sent.test.mjs` 14, in a real browser with the socket answered through `routeWebSocket`, the first browser test here to do so; `rate-limit.test.js` 12. The server suite, 1370 of 1370. Mutation checks, in the worktree: 18 of 18 caught. The runner must be given the worktree's full path: from the short `ADITYA~1` form Vite cannot serve the app and every browser test times out, which looked like a red baseline.
+
 ---
 
 ### Open items / "later" list
 
-- **The user list and the group list are unpaginated (audit H8, Entry 154):** a server cap needs paging or search in the two pages first, or it hides people past it.
-- **The chat pages do not show the socket's `error` event (Entry 152):** a message refused by the rate limit just does not appear.
+- **The user list and the group list are unpaginated (audit H8, Entry 154): deferred by the human, Entry 156.** A server cap needs paging or search in the two pages first, or it hides people past it.
+- ~~**The chat pages do not show the socket's `error` event (Entry 152)**~~ — done in Entry 156.
 - **The CI job for the AI service has not run on GitHub yet (Entry 154):** check it at the next push.
-- **Three major upgrades in the root package (the human, Entry 153):** `firebase`, `vite` and `react-router-dom`. 15 advisories remain there and none can be fixed inside the current version ranges. `firebase` first; it needs a real Google sign-in tried by hand afterwards.
-- **Should other users see a user's email? (the human, Entry 151):** the profile page shows it, so `publicUser` still carries it. Taking it out is one line in `server/lib/publicUser.js` and one in `UserProfilePage.jsx`.
+- **Three major upgrades in the root package (Entry 153): not for now, the human, Entry 156.** `firebase`, `vite` and `react-router-dom`; 15 advisories remain, classified in Entry 156. Only `react-router`'s flagged code ships.
+- ~~**Should other users see a user's email? (Entry 151)**~~ — decided and built in Entry 156.
 - ~~**Verdict calls cut off at the output cap (Entry 144)**~~ — fixed in Entry 145.
 - **Extraction v2 (Entry 144):** reached R8 11/11 but was not adopted under its rule; re-measured under its own rule (Entry 147).
 
