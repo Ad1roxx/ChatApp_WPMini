@@ -58,7 +58,7 @@ export default function GroupsPage() {
     const fetchUsers = async () => {
       if (!dbUser) return;
       try {
-        const res = await authFetch(`/api/users?exclude=${dbUser.firebaseUid}`);
+        const res = await authFetch(`/api/users?exclude=me`);
         if (res.ok) setUsers(await res.json());
       } catch (err) {
         console.error('Error fetching users:', err);

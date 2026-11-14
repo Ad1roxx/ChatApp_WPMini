@@ -91,6 +91,7 @@ const agentWrites = require('./lib/agentWrites');
 const { parseSharedUrl } = require('./lib/sharedUrl');
 const { guardedOn } = require('./lib/socketGuard');
 const { loginIdentity, cosmetic } = require('./lib/loginIdentity');
+const { PUBLIC_SELECT, publicUser } = require('./lib/publicUser');
 const { parsePage, historyPage } = require('./lib/history');
 const AgentProposal = require('./models/AgentProposal');
 
@@ -359,7 +360,7 @@ app.post('/api/auth/login', requireToken, async (req, res) => {
     // Announce brand-new accounts so open user lists gain the row without a
     // manual refresh. Only on insert — see the comment above.
     if (isNewUser) {
-      io.emit('user-added', user);
+      io.emit('user-added', publicUser(user));
       console.log(`✨ New user registered: ${user.displayName}`);
     }
 
@@ -378,19 +379,23 @@ app.post('/api/auth/login', requireToken, async (req, res) => {
  * Used to show "who can I chat with?" list.
  * 
  * Query params:
- * - exclude: Firebase UID to exclude from results (the logged-in user)
+ * - exclude: present, with any value, to leave the caller out of the list.
+ *   (It used to be the caller's Firebase uid, matched in the query; who the
+ *   caller is comes from the token, so the value is no longer read.)
+ *
+ * Each row is the PUBLIC view of a user (lib/publicUser.js), not the document.
  */
 app.get('/api/users', requireAuth, async (req, res) => {
   try {
-    const { exclude } = req.query;
+    const leaveMeOut = req.query.exclude !== undefined;
     
     // Find all users except the one making the request
-    const query = exclude ? { firebaseUid: { $ne: exclude } } : {};
+    const query = leaveMeOut ? { _id: { $ne: req.authUser._id } } : {};
     const users = await User.find(query)
-      .select('-__v')  // Exclude Mongoose version key
+      .select(PUBLIC_SELECT)
       .sort({ displayName: 1 });  // Sort alphabetically
     
-    res.json(users);
+    res.json(users.map(publicUser));
   } catch (err) {
     console.error('Error fetching users:', err);
     res.status(500).json({ error: 'Server error' });
@@ -536,11 +541,16 @@ app.get('/api/messages/:visitorId/:peerId', requireAuth, async (req, res) => {
  */
 app.get('/api/user/:visitorId', requireAuth, async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.visitorId)) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     const user = await User.findById(req.params.visitorId).select('-__v');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json(user);
+    // Your own record in full; anyone else's public view (lib/publicUser.js).
+    const own = String(user._id) === String(req.authUser._id);
+    res.json(own ? user : publicUser(user));
   } catch (err) {
     console.error('Error fetching user:', err);
     res.status(500).json({ error: 'Server error' });
@@ -591,7 +601,7 @@ app.post('/api/users/:id/role', requireAuth, async (req, res) => {
     // /api/auth/login, which happens BEFORE the first-login role picker, so
     // everyone else first sees the new person with no role at all. Without
     // this emit their badge would stay missing until someone refreshed.
-    io.emit('user-updated', user);
+    io.emit('user-updated', publicUser(user));
 
     console.log(`🎓 Role set: ${user.displayName} -> ${role}`);
     res.json(user);
@@ -1200,7 +1210,7 @@ app.patch('/api/admin/users/:id/role', requireAuth, requireRole('admin'), async 
     const updated = await User.findById(target._id).select('-__v');
 
     // Same broadcast the self-service route uses, so open user lists re-badge
-    io.emit('user-updated', updated);
+    io.emit('user-updated', publicUser(updated));
 
     console.log(`\u{1F6E1} Admin ${req.authUser.displayName} set ${target.displayName} -> ${role}`);
     res.json(updated);
@@ -1338,8 +1348,9 @@ app.patch('/api/admin/verifications/:userId', requireAuth, requireRole('admin'),
 
     const updated = await User.findById(target._id).select('-__v');
 
-    // The badge is visible to everyone, so everyone's copy should update.
-    io.emit('user-updated', updated);
+    // The badge is visible to everyone, so everyone's copy should update:
+    // the status, not the evidence or the review note (lib/publicUser.js).
+    io.emit('user-updated', publicUser(updated));
 
     console.log(`📋 Verification ${decision}: ${target.displayName}`);
     res.json(updated);
@@ -1399,7 +1410,7 @@ app.patch('/api/admin/users/:id/suspend', requireAuth, requireRole('admin'), asy
       }
     }
 
-    io.emit('user-updated', updated);
+    io.emit('user-updated', publicUser(updated));
 
     console.log(`${suspended ? '⛔ Suspended' : '✅ Restored'}: ${target.displayName}`);
     res.json(updated);
@@ -1431,6 +1442,10 @@ app.post('/api/reports', requireAuth, async (req, res) => {
     if (!targetId) {
       return res.status(400).json({ error: 'Missing targetId' });
     }
+    // Before any query reads it: an id that is not one is content that does not exist.
+    if (typeof targetId !== 'string' || !mongoose.isValidObjectId(targetId)) {
+      return res.status(404).json({ error: 'That content no longer exists' });
+    }
 
     // You cannot report yourself — it is either a mistake or an attempt to
     // clutter the queue.
@@ -1451,8 +1466,11 @@ app.post('/api/reports', requireAuth, async (req, res) => {
       return res.status(409).json({ error: 'You have already reported this' });
     }
 
-    // Snapshot whatever the target currently says.
-    const snapshot = await snapshotTarget(targetType, targetId);
+    // Snapshot whatever the target currently says, if the reporter can see it.
+    // Without that check, and with the snapshot in the response, a report was a
+    // way to read any message by its id (the audit, F3). A target the reporter
+    // cannot see gets the same answer as one that does not exist.
+    const snapshot = await snapshotTarget(targetType, targetId, req.authUser._id);
     if (snapshot === null) {
       return res.status(404).json({ error: 'That content no longer exists' });
     }
@@ -1467,7 +1485,10 @@ app.post('/api/reports', requireAuth, async (req, res) => {
     });
 
     console.log(`🚩 Report filed: ${reason} on a ${targetType}`);
-    res.json(report);
+    // The snapshot is for the admin's queue. The reporter gets the rest.
+    const filed = report.toObject();
+    delete filed.targetSnapshot;
+    res.json(filed);
   } catch (err) {
     console.error('Error filing report:', err);
     res.status(500).json({ error: 'Server error' });
@@ -1476,20 +1497,34 @@ app.post('/api/reports', requireAuth, async (req, res) => {
 
 /**
  * Read the reported thing and return a short text form of it, or null when it
- * does not exist. Keeps the four collection lookups out of the route body.
+ * does not exist OR the reporter could not have seen it. Keeps the four
+ * collection lookups out of the route body.
+ *
+ * Who can see what: a user and an announcement, anyone signed in; a message,
+ * its sender and its receiver; a group message, the group's members.
  */
-async function snapshotTarget(targetType, targetId) {
+async function snapshotTarget(targetType, targetId, reporterId) {
+  const me = String(reporterId);
+
   if (targetType === 'user') {
     const user = await User.findById(targetId).select('displayName email bio');
     return user ? `${user.displayName} <${user.email}> — ${user.bio || 'no bio'}` : null;
   }
 
-  const Model =
-    targetType === 'message' ? Message
-      : targetType === 'groupMessage' ? GroupMessage
-        : Announcement;
+  if (targetType === 'message') {
+    const doc = await Message.findById(targetId).select('text sender receiver');
+    if (!doc) return null;
+    return String(doc.sender) === me || String(doc.receiver) === me ? doc.text : null;
+  }
 
-  const doc = await Model.findById(targetId).select('text');
+  if (targetType === 'groupMessage') {
+    const doc = await GroupMessage.findById(targetId).select('text group');
+    if (!doc) return null;
+    const member = await Group.exists({ _id: doc.group, members: reporterId });
+    return member ? doc.text : null;
+  }
+
+  const doc = await Announcement.findById(targetId).select('text');
   return doc ? doc.text : null;
 }
 

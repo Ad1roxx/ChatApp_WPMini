@@ -69,7 +69,7 @@ export default function UsersPage() {
 
       try {
         const response = await authFetch(
-          `/api/users?exclude=${dbUser.firebaseUid}`
+          `/api/users?exclude=me`
         );
 
         if (response.ok) {

@@ -250,7 +250,11 @@ test('anyone can file a report', async (t) => {
 
     const report = await res.json();
     assert.equal(report.status, 'open');
-    assert.match(report.targetSnapshot, /Second Student/, 'the target is snapshotted');
+    // The snapshot is taken and kept for the admin's queue, and no longer sent
+    // back to the reporter (the audit, F3; test/public-user.test.js).
+    assert.equal('targetSnapshot' in report, false);
+    const stored = await db().collection('reports').findOne({ status: 'open', targetType: 'user' });
+    assert.match(stored.targetSnapshot, /Second Student/, 'the target is snapshotted');
   });
 
   await t.test('the same report cannot be filed twice', async () => {
