@@ -254,7 +254,9 @@ export default function UserProfilePage() {
           />
           <div className={styles.identityText}>
             <h2 className={styles.name}>{profile.displayName}</h2>
-            <p className={styles.email}>{profile.email}</p>
+            {/* Present only for an admin, or for a mentor looking at their own
+                mentee: the server leaves it out for everyone else. */}
+            {profile.email && <p className={styles.email}>{profile.email}</p>}
             <div className={styles.badges}>
               <RoleBadge role={profile.role} />
               <VerifiedBadge user={profile} />

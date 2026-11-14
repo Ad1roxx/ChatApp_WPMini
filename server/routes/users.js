@@ -9,8 +9,9 @@ const mongoose = require('mongoose');
 // Import our models
 const User = require('../models/User');
 const Message = require('../models/Message');
+const Mentorship = require('../models/Mentorship');
 const { loginIdentity, cosmetic } = require('../lib/loginIdentity');
-const { PUBLIC_SELECT, publicUser } = require('../lib/publicUser');
+const { VIEW_SELECT, publicUser, userFor } = require('../lib/publicUser');
 const { limited } = require('../lib/rateLimit');
 const { parsePage, historyPage } = require('../lib/history');
 // Authentication
@@ -123,6 +124,17 @@ app.post(
 );
 
 /**
+ * The ids of the students `user` is mentoring now, as a Set of strings: the
+ * people whose email a mentor may see (lib/publicUser.js). Active mentorships
+ * only. Empty for an admin, who sees every email without it.
+ */
+async function menteeIdsOf(user) {
+  if (user.role === 'admin') return new Set();
+  const students = await Mentorship.distinct('student', { mentor: user._id, status: 'active' });
+  return new Set(students.map(String));
+}
+
+/**
  * GET /api/users
  * 
  * Get all users except the current user.
@@ -134,6 +146,8 @@ app.post(
  *   caller is comes from the token, so the value is no longer read.)
  *
  * Each row is the PUBLIC view of a user (lib/publicUser.js), not the document.
+ * A row carries the email only for the caller themself, for an admin, and for a
+ * mentor looking at their own mentee.
  */
 app.get('/api/users', requireAuth, async (req, res) => {
   try {
@@ -142,10 +156,11 @@ app.get('/api/users', requireAuth, async (req, res) => {
     // Find all users except the one making the request
     const query = leaveMeOut ? { _id: { $ne: req.authUser._id } } : {};
     const users = await User.find(query)
-      .select(PUBLIC_SELECT)
+      .select(VIEW_SELECT)
       .sort({ displayName: 1 });  // Sort alphabetically
     
-    res.json(users.map(publicUser));
+    const mentees = await menteeIdsOf(req.authUser);
+    res.json(users.map((user) => userFor(req.authUser, user, mentees)));
   } catch (err) {
     console.error('Error fetching users:', err);
     res.status(500).json({ error: 'Server error' });
@@ -298,9 +313,10 @@ app.get('/api/user/:visitorId', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    // Your own record in full; anyone else's public view (lib/publicUser.js).
+    // Your own record in full; anyone else's public view, with their email only
+    // if you are an admin or their mentor (lib/publicUser.js).
     const own = String(user._id) === String(req.authUser._id);
-    res.json(own ? user : publicUser(user));
+    res.json(own ? user : userFor(req.authUser, user, await menteeIdsOf(req.authUser)));
   } catch (err) {
     console.error('Error fetching user:', err);
     res.status(500).json({ error: 'Server error' });

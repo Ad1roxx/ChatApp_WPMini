@@ -6,7 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { USERS, start, stop, api, db, mongoose, connect, once, settle } = require('./helpers/harness');
-const { publicUser, PUBLIC_FIELDS } = require('../lib/publicUser');
+const { publicUser, userFor, maySeeEmail, PUBLIC_FIELDS } = require('../lib/publicUser');
 
 const id = (hex) => new mongoose.Types.ObjectId(hex);
 
@@ -28,6 +28,13 @@ const PRIVATE = {
 };
 const MARKERS = /private-marker/;
 const NEVER = ['firebaseUid', 'suspended', 'suspendedReason', 'suspendedBy', 'suspendedAt', '__v'];
+// A second mentor, for a mentorship that has ended. Not in the harness's seed, so it is made here.
+const MENTOR2 = { _id: '0000000000000000000000b1', email: 'mentor2@test.local', displayName: 'Second Mentor', role: 'mentor' };
+const MENTORSHIPS = {
+  active: '0000000000000000000000e1',   // mentor -> student: the student is the mentor's mentee
+  pending: '0000000000000000000000e2',  // mentor <- student2: a request, not yet a mentee
+  ended: '0000000000000000000000e3'     // mentor2 -> student, over: no longer a mentee
+};
 
 const DM = '0000000000000000000000d1'; // mentor -> student2: the student is no party to it
 const GROUP = '0000000000000000000000c2'; // mentor only
@@ -47,13 +54,22 @@ test.before(async () => {
   await db().collection('groupmessages').insertOne({
     _id: id(GM), group: id(GROUP), sender: id(USERS.mentor._id), text: 'group-secret-text', timestamp: new Date()
   });
+  await db().collection('users').insertOne({
+    _id: id(MENTOR2._id), firebaseUid: 'uid-mentor2', email: MENTOR2.email, displayName: MENTOR2.displayName, role: 'mentor'
+  });
+  await db().collection('mentorships').insertMany([
+    { _id: id(MENTORSHIPS.active), mentor: id(USERS.mentor._id), student: id(USERS.student._id), status: 'active', topic: 'T', initiatedBy: 'student', requestedAt: new Date() },
+    { _id: id(MENTORSHIPS.pending), mentor: id(USERS.mentor._id), student: id(USERS.student2._id), status: 'pending', topic: 'T', initiatedBy: 'student', requestedAt: new Date() },
+    { _id: id(MENTORSHIPS.ended), mentor: id(MENTOR2._id), student: id(USERS.student._id), status: 'ended', topic: 'T', initiatedBy: 'student', requestedAt: new Date() }
+  ]);
   await db().collection('announcements').insertOne({
     _id: id(ANNOUNCEMENT), author: id(USERS.mentor._id), text: 'a public notice', timestamp: new Date()
   });
 });
 test.after(() => stop());
 
-const assertPublic = (user, what) => {
+const assertPublic = (user, what, { email = false } = {}) => {
+  assert.equal('email' in user, email, `${what} ${email ? 'lacks' : 'carries'} the email`);
   assert.doesNotMatch(JSON.stringify(user), MARKERS, `${what} carries private text`);
   for (const field of NEVER) assert.equal(field in user, false, `${what} carries ${field}`);
   assert.deepEqual(Object.keys(user.verification), ['status'], `${what} carries more than the verification status`);
@@ -70,6 +86,13 @@ test('another user sees the public view, nothing more', async (t) => {
     assert.equal(mentor.verification.status, 'approved', 'the badge still has its status');
     assert.equal(mentor.displayName, USERS.mentor.displayName);
     for (const u of users) assertPublic(u, `the row for ${u.displayName}`);
+  });
+
+  await t.test('no email anywhere in a student\'s view of other people, their own mentor included', async () => {
+    const text = await (await api('/api/users?exclude=me', { as: USERS.student })).text();
+    assert.doesNotMatch(text, /@test\.local/);
+    const lookup = await (await api(`/api/user/${USERS.mentor._id}`, { as: USERS.student })).text();
+    assert.doesNotMatch(lookup, /@test\.local/);
   });
 
   await t.test('exclude leaves the caller out, whatever its value; without it they are in', async () => {
@@ -99,6 +122,71 @@ test('another user sees the public view, nothing more', async (t) => {
     const users = await (await api('/api/admin/users', { as: USERS.admin })).json();
     const mentor = users.find((u) => u._id === USERS.mentor._id);
     assert.equal(mentor.verification.company, PRIVATE.verification.company);
+  });
+});
+
+test('who sees an email: the user, an admin, and a mentor for their own mentee', async (t) => {
+  const listAs = async (as) => await (await api('/api/users', { as })).json();
+  const row = (users, who) => users.find((u) => u._id === who._id);
+  const lookup = async (as, who) => await (await api(`/api/user/${who._id}`, { as })).json();
+
+  await t.test('a mentor sees their active mentee\'s email, in the list and the lookup', async () => {
+    assert.equal(row(await listAs(USERS.mentor), USERS.student).email, USERS.student.email);
+    assert.equal((await lookup(USERS.mentor, USERS.student)).email, USERS.student.email);
+  });
+
+  await t.test('and still nothing else of theirs that is private', async () => {
+    assertPublic(row(await listAs(USERS.mentor), USERS.student), 'the mentee row', { email: true });
+    assertPublic(await lookup(USERS.mentor, USERS.student), 'the mentee lookup', { email: true });
+  });
+
+  await t.test('not the email of a student whose request is still waiting', async () => {
+    assertPublic(row(await listAs(USERS.mentor), USERS.student2), 'the pending row');
+    assertPublic(await lookup(USERS.mentor, USERS.student2), 'the pending lookup');
+  });
+
+  await t.test('not the email of a student whose mentorship has ended', async () => {
+    assertPublic(row(await listAs(MENTOR2), USERS.student), 'the ended row');
+    assertPublic(await lookup(MENTOR2, USERS.student), 'the ended lookup');
+  });
+
+  await t.test('not the email of another mentor, or of an admin', async () => {
+    const users = await listAs(USERS.mentor);
+    assertPublic(row(users, MENTOR2), 'another mentor');
+    assertPublic(row(users, USERS.admin), 'an admin');
+  });
+
+  await t.test('a mentee does not see their mentor\'s email', async () => {
+    assertPublic(row(await listAs(USERS.student), USERS.mentor), 'the mentor row');
+    assertPublic(await lookup(USERS.student, USERS.mentor), 'the mentor lookup');
+  });
+
+  await t.test('everyone sees their own, and only their own', async () => {
+    const users = await listAs(USERS.student2);
+    assert.equal(row(users, USERS.student2).email, USERS.student2.email);
+    assert.deepEqual(users.filter((u) => 'email' in u).map((u) => u._id), [USERS.student2._id]);
+  });
+
+  await t.test('an admin sees every email, in the list and the lookup', async () => {
+    const users = await listAs(USERS.admin);
+    assert.ok(users.length >= 5);
+    for (const u of users) assert.match(u.email, /@test\.local$/, u.displayName);
+    assert.equal((await lookup(USERS.admin, USERS.student)).email, USERS.student.email);
+  });
+
+  await t.test('the rule itself', () => {
+    const viewer = { _id: 'm', role: 'mentor' };
+    const mentee = { _id: 's', email: 's@x' };
+    assert.equal(maySeeEmail(viewer, mentee, new Set(['s'])), true);
+    assert.equal(maySeeEmail(viewer, mentee, new Set(['other'])), false);
+    assert.equal(maySeeEmail(viewer, mentee, undefined), false);
+    assert.equal(maySeeEmail({ _id: 's', role: 'student' }, mentee, new Set()), true, 'your own');
+    assert.equal(maySeeEmail({ _id: 'a', role: 'admin' }, mentee, new Set()), true);
+    assert.equal(maySeeEmail({ _id: 'x', role: 'student' }, mentee, new Set()), false);
+    assert.equal(maySeeEmail(null, mentee, new Set(['s'])), false);
+    assert.equal('email' in userFor(viewer, mentee, new Set()), false);
+    assert.equal(userFor(viewer, mentee, new Set(['s'])).email, 's@x');
+    assert.equal('email' in publicUser({ _id: 's', email: 's@x' }), false, 'publicUser never carries one');
   });
 });
 
