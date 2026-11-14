@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
+import { mayHaveEarlier, earlierPath, withEarlier, placeOf, restorePlace } from '../lib/history';
 import { RoleBadge } from '../components/Badge';
 import { PageLoader } from '../components/Loading';
 import { SendIcon } from '../components/Icons';
@@ -53,6 +54,11 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState('');
   const [peerTyping, setPeerTyping] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Whether the server may hold messages earlier than the ones on screen.
+  const [hasEarlier, setHasEarlier] = useState(false);
+  // Where the view was when earlier messages were asked for, so it can be put back.
+  const keepPlaceRef = useRef(null);
+  const transcriptRef = useRef(null);
 
   // Refs
   const messagesEndRef = useRef(null);
@@ -68,8 +74,30 @@ export default function ChatPage() {
   // Scroll when messages change, and when the peer starts typing — the
   // indicator adds height at the bottom and would otherwise sit off-screen.
   useEffect(() => {
+    if (keepPlaceRef.current) {
+      restorePlace(transcriptRef.current, keepPlaceRef.current);
+      keepPlaceRef.current = null;
+      return;
+    }
     scrollToBottom();
   }, [messages, peerTyping]);
+
+  /** Fetch the page before the earliest message on screen and put it in front. */
+  const loadEarlier = async () => {
+    if (messages.length === 0) return;
+    try {
+      const res = await authFetch(
+        earlierPath(`/api/messages/${dbUser._id}/${peerId}`, messages)
+      );
+      if (!res.ok) return;
+      const earlier = await res.json();
+      setHasEarlier(mayHaveEarlier(earlier));
+      keepPlaceRef.current = placeOf(transcriptRef.current);
+      setMessages((prev) => withEarlier(earlier, prev));
+    } catch (err) {
+      console.error('Error fetching earlier messages:', err);
+    }
+  };
 
   /**
    * Effect: Fetch peer info and message history
@@ -93,6 +121,7 @@ export default function ChatPage() {
         if (msgRes.ok) {
           const msgData = await msgRes.json();
           setMessages(msgData);
+          setHasEarlier(mayHaveEarlier(msgData));
         }
       } catch (err) {
         console.error('Error fetching chat data:', err);
@@ -300,7 +329,12 @@ export default function ChatPage() {
     >
       <div className={styles.chat}>
         {/* Transcript */}
-        <div className={styles.transcript}>
+        <div className={styles.transcript} ref={transcriptRef}>
+          {hasEarlier && messages.length > 0 && (
+            <button type="button" className={styles.earlier} onClick={loadEarlier}>
+              Show earlier messages
+            </button>
+          )}
           {messages.length === 0 ? (
             <div className={styles.emptyChat}>
               <p className={styles.emptyTitle}>No messages yet</p>

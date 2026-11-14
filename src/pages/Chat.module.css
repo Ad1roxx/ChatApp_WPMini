@@ -206,3 +206,19 @@
     max-width: 85%;
   }
 }
+
+/* "Show earlier messages": the page before the earliest one on screen. */
+.earlier {
+  align-self: center;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.earlier:hover {
+  color: var(--color-text);
+}

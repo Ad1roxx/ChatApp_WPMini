@@ -24,6 +24,7 @@ import Avatar from '../components/Avatar';
 import { PageLoader } from '../components/Loading';
 import { SendIcon } from '../components/Icons';
 import styles from './Chat.module.css';
+import { mayHaveEarlier, earlierPath, withEarlier, placeOf, restorePlace } from '../lib/history';
 import groupStyles from './GroupChatPage.module.css';
 
 export default function GroupChatPage() {
@@ -40,6 +41,11 @@ export default function GroupChatPage() {
   const [newMessage, setNewMessage] = useState('');
   const [typingUsers, setTypingUsers] = useState({});  // senderId -> displayName
   const [loading, setLoading] = useState(true);
+  // Whether the server may hold messages earlier than the ones on screen.
+  const [hasEarlier, setHasEarlier] = useState(false);
+  // Where the view was when earlier messages were asked for, so it can be put back.
+  const keepPlaceRef = useRef(null);
+  const transcriptRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -49,8 +55,28 @@ export default function GroupChatPage() {
   };
 
   useEffect(() => {
+    if (keepPlaceRef.current) {
+      restorePlace(transcriptRef.current, keepPlaceRef.current);
+      keepPlaceRef.current = null;
+      return;
+    }
     scrollToBottom();
   }, [messages, typingUsers]);
+
+  /** Fetch the page before the earliest message on screen and put it in front. */
+  const loadEarlier = async () => {
+    if (messages.length === 0) return;
+    try {
+      const res = await authFetch(earlierPath(`/api/groups/${groupId}/messages`, messages));
+      if (!res.ok) return;
+      const earlier = await res.json();
+      setHasEarlier(mayHaveEarlier(earlier));
+      keepPlaceRef.current = placeOf(transcriptRef.current);
+      setMessages((prev) => withEarlier(earlier, prev));
+    } catch (err) {
+      console.error('Error fetching earlier group messages:', err);
+    }
+  };
 
   /**
    * Effect: fetch group info + message history.
@@ -85,7 +111,11 @@ export default function GroupChatPage() {
         const msgRes = await authFetch(
           `/api/groups/${groupId}/messages`
         );
-        if (msgRes.ok) setMessages(await msgRes.json());
+        if (msgRes.ok) {
+          const page = await msgRes.json();
+          setMessages(page);
+          setHasEarlier(mayHaveEarlier(page));
+        }
       } catch (err) {
         console.error('Error fetching group chat data:', err);
       } finally {
@@ -297,7 +327,12 @@ export default function GroupChatPage() {
     >
       <div className={styles.chat}>
         {/* Transcript */}
-        <div className={styles.transcript}>
+        <div className={styles.transcript} ref={transcriptRef}>
+          {hasEarlier && messages.length > 0 && (
+            <button type="button" className={styles.earlier} onClick={loadEarlier}>
+              Show earlier messages
+            </button>
+          )}
           {messages.length === 0 ? (
             <div className={styles.emptyChat}>
               <p className={styles.emptyTitle}>No messages yet</p>

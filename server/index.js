@@ -90,6 +90,7 @@ const agentProposal = require('./lib/agentProposal');
 const agentWrites = require('./lib/agentWrites');
 const { parseSharedUrl } = require('./lib/sharedUrl');
 const { guardedOn } = require('./lib/socketGuard');
+const { parsePage, historyPage } = require('./lib/history');
 const AgentProposal = require('./models/AgentProposal');
 
 // Authentication
@@ -493,26 +494,28 @@ app.get('/api/messages/:visitorId/:peerId', requireAuth, async (req, res) => {
     }
 
     const { visitorId, peerId } = req.params;
-    const { limit = 50, before } = req.query;  // Optional pagination
-
-    // Build query: messages between these two users
-    let query = {
-      $or: [
-        { sender: visitorId, receiver: peerId },
-        { sender: peerId, receiver: visitorId }
-      ]
-    };
-
-    // If "before" timestamp provided, get older messages (for "load more")
-    if (before) {
-      query.timestamp = { $lt: new Date(before) };
+    if (!mongoose.isValidObjectId(peerId)) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    const messages = await Message.find(query)
-      .sort({ timestamp: 1 })  // Oldest first
-      .limit(parseInt(limit))
-      .populate('sender', 'displayName photoURL role')  // Include sender info
-      .populate('receiver', 'displayName photoURL role');
+    // The latest page, or the page before `before` ("earlier messages"),
+    // oldest first either way (lib/history.js).
+    const page = parsePage(req.query);
+    if (page.error) {
+      return res.status(400).json({ error: page.error });
+    }
+
+    const messages = await historyPage(
+      Message,
+      {
+        $or: [
+          { sender: visitorId, receiver: peerId },
+          { sender: peerId, receiver: visitorId }
+        ]
+      },
+      page,
+      [['sender', 'displayName photoURL role'], ['receiver', 'displayName photoURL role']]
+    );
 
     res.json(messages);
   } catch (err) {
@@ -909,19 +912,14 @@ app.get('/api/groups/:groupId/messages', requireAuth, async (req, res) => {
     if (!membership.members.some((m) => String(m) === String(req.authUser._id))) {
       return res.status(403).json({ error: 'You are not a member of this group' });
     }
-    const { limit = 50, before } = req.query;  // optional pagination
-
-    let query = { group: groupId };
-
-    // "before" lets the client load older messages ("load more")
-    if (before) {
-      query.timestamp = { $lt: new Date(before) };
+    const page = parsePage(req.query);
+    if (page.error) {
+      return res.status(400).json({ error: page.error });
     }
 
-    const messages = await GroupMessage.find(query)
-      .sort({ timestamp: 1 })  // oldest first
-      .limit(parseInt(limit))
-      .populate('sender', 'displayName photoURL role');
+    const messages = await historyPage(GroupMessage, { group: groupId }, page, [
+      ['sender', 'displayName photoURL role']
+    ]);
 
     res.json(messages);
   } catch (err) {

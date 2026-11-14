@@ -57,8 +57,8 @@ const messageSchema = new mongoose.Schema({
 
 // Compound index: makes finding conversations between two users FAST
 // Without this, MongoDB would scan ALL messages to find a conversation
-messageSchema.index({ sender: 1, receiver: 1 });
-messageSchema.index({ receiver: 1, sender: 1 });
+messageSchema.index({ sender: 1, receiver: 1, timestamp: -1 });
+messageSchema.index({ receiver: 1, sender: 1, timestamp: -1 });
 
 const Message = mongoose.model('Message', messageSchema);
 
