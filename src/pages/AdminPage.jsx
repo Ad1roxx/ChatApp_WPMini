@@ -27,6 +27,7 @@ import { Textarea } from '../components/Field';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { InlineLoader } from '../components/Loading';
 import EmptyState from '../components/EmptyState';
+import { isWebLink } from '../lib/roles';
 import Stat, { StatGrid } from '../components/Stat';
 import { useToast } from '../components/Toast';
 import { ShieldIcon } from '../components/Icons';
@@ -317,7 +318,10 @@ export default function AdminPage() {
                   <div>
                     <dt>LinkedIn</dt>
                     <dd>
-                      {user.verification.linkedinUrl ? (
+                      {/* Only a web address becomes a link: the server refuses
+                          anything else now, but a record saved before it did
+                          could still hold one (lib/roles.js, isWebLink). */}
+                      {isWebLink(user.verification.linkedinUrl) ? (
                         <a
                           href={user.verification.linkedinUrl}
                           target="_blank"

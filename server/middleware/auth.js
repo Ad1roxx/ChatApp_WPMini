@@ -43,6 +43,16 @@ const PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
 let certCache = null;
 let certCacheExpiry = 0;
 
+// The fetch is given this long. Without a limit, a stalled connection to Google
+// would hold every sign-in open behind it.
+const CERT_FETCH_TIMEOUT_MS = 5000;
+
+// An unknown key id usually means Google rotated its keys inside our cache
+// window, so the certs are fetched again; but a forged token can carry any key
+// id, so no more often than this, or anyone could make the server fetch on demand.
+const CERT_REFETCH_INTERVAL_MS = 60000;
+let lastForcedFetch = 0;
+
 /**
  * Fetch (and cache) Google's public signing certificates.
  *
@@ -51,12 +61,12 @@ let certCacheExpiry = 0;
  * every request nor serve a stale set after a rotation. If the header is
  * missing we fall back to an hour.
  */
-async function getSigningCerts() {
-  if (certCache && Date.now() < certCacheExpiry) {
+async function getSigningCerts({ force = false } = {}) {
+  if (!force && certCache && Date.now() < certCacheExpiry) {
     return certCache;
   }
 
-  const response = await fetch(CERT_URL);
+  const response = await fetch(CERT_URL, { signal: AbortSignal.timeout(CERT_FETCH_TIMEOUT_MS) });
   if (!response.ok) {
     throw new Error(`Could not fetch Google signing certs (HTTP ${response.status})`);
   }
@@ -73,9 +83,13 @@ async function getSigningCerts() {
 /**
  * Verify a Firebase ID token and return its decoded payload.
  * Throws if the token is missing, malformed, expired or not ours.
+ *
+ * `getCerts` and `projectId` are parameters so the checks can be tested with a
+ * key made in the test (test/token-verify.test.js): every other test signs in
+ * through the dev header, which never reaches this function.
  */
-async function verifyIdToken(token) {
-  if (!PROJECT_ID) {
+async function verifyIdToken(token, { getCerts = getSigningCerts, projectId = PROJECT_ID, now = Date.now } = {}) {
+  if (!projectId) {
     throw new Error(
       'FIREBASE_PROJECT_ID is not set — the server cannot verify tokens. ' +
         'See server/.env.example.'
@@ -89,18 +103,24 @@ async function verifyIdToken(token) {
     throw new Error('Malformed token');
   }
 
-  const certs = await getSigningCerts();
-  const cert = certs[decoded.header.kid];
-  if (!cert) {
+  let certs = await getCerts();
+  let cert = Object.hasOwn(certs, decoded.header.kid) ? certs[decoded.header.kid] : null;
+  if (!cert && now() - lastForcedFetch >= CERT_REFETCH_INTERVAL_MS) {
     // A kid we don't recognise usually means the certs rotated since we
-    // cached them; a forged token also lands here.
+    // cached them, so look once more; a forged token also lands here, which
+    // is why this is rate-limited above.
+    lastForcedFetch = now();
+    certs = await getCerts({ force: true });
+    cert = Object.hasOwn(certs, decoded.header.kid) ? certs[decoded.header.kid] : null;
+  }
+  if (!cert) {
     throw new Error('Unknown signing key');
   }
 
   const payload = jwt.verify(token, cert, {
     algorithms: ['RS256'],
-    audience: PROJECT_ID,
-    issuer: `https://securetoken.google.com/${PROJECT_ID}`
+    audience: projectId,
+    issuer: `https://securetoken.google.com/${projectId}`
   });
 
   if (!payload.sub) {
@@ -217,6 +237,7 @@ async function requireToken(req, res, next) {
       req.firebaseUser = {
         uid: user.firebaseUid,
         email: user.email,
+        emailVerified: true,
         name: user.displayName,
         picture: user.photoURL
       };
@@ -230,12 +251,7 @@ async function requireToken(req, res, next) {
 
     const payload = await verifyIdToken(match[1]);
 
-    req.firebaseUser = {
-      uid: payload.sub,
-      email: payload.email,
-      name: payload.name,
-      picture: payload.picture
-    };
+    req.firebaseUser = firebaseUserFrom(payload);
     req.authUser = await User.findOne({ firebaseUid: payload.sub });
 
     next();
@@ -245,6 +261,20 @@ async function requireToken(req, res, next) {
     }
     res.status(401).json({ error: 'Invalid or expired session' });
   }
+}
+
+/**
+ * What sign-in may know about the caller, from a VERIFIED token's payload.
+ * `emailVerified` is true only when the token says exactly that.
+ */
+function firebaseUserFrom(payload) {
+  return {
+    uid: payload.sub,
+    email: typeof payload.email === 'string' ? payload.email : '',
+    emailVerified: payload.email_verified === true,
+    name: payload.name,
+    picture: payload.picture
+  };
 }
 
 /**
@@ -302,5 +332,6 @@ module.exports = {
   requireRole,
   socketAuth,
   verifyIdToken,
+  firebaseUserFrom,
   devAuthEnabled
 };

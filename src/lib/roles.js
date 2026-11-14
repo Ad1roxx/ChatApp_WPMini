@@ -50,3 +50,9 @@ export function verificationLabel(status) {
   if (status === 'rejected') return 'Not approved';
   return null;
 }
+
+/**
+ * Whether a stored address may be shown as a link: http or https only. A
+ * `javascript:` address in an `href` would run in the page of whoever clicks it.
+ */
+export const isWebLink = (url) => typeof url === 'string' && /^https?:\/\//i.test(url.trim());

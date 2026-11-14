@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "screenshot": "node scripts/screenshot.mjs",
     "demo": "node scripts/demo.mjs",
-    "test:frontend": "node --test --test-concurrency=1 tests/frontend/check-keys.test.mjs tests/frontend/check-private.test.mjs tests/frontend/demo-secrets.test.mjs tests/frontend/copilot-lib.test.mjs tests/frontend/attachments-lib.test.mjs tests/frontend/criteria-lib.test.mjs tests/frontend/history-lib.test.mjs tests/frontend/agent-actions.test.mjs tests/frontend/copilot-panel.test.mjs tests/frontend/coverage-report-lib.test.mjs tests/frontend/coverage-report.test.mjs tests/frontend/pre-push.test.mjs",
+    "test:frontend": "node --test --test-concurrency=1 tests/frontend/check-keys.test.mjs tests/frontend/check-private.test.mjs tests/frontend/demo-secrets.test.mjs tests/frontend/copilot-lib.test.mjs tests/frontend/attachments-lib.test.mjs tests/frontend/criteria-lib.test.mjs tests/frontend/history-lib.test.mjs tests/frontend/roles-lib.test.mjs tests/frontend/agent-actions.test.mjs tests/frontend/copilot-panel.test.mjs tests/frontend/coverage-report-lib.test.mjs tests/frontend/coverage-report.test.mjs tests/frontend/pre-push.test.mjs",
     "check:keys": "node scripts/check-keys.mjs",
     "check:private": "node scripts/check-private.mjs",
     "hooks:install": "node scripts/install-hooks.mjs"

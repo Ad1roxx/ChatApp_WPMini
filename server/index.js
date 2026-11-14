@@ -90,6 +90,7 @@ const agentProposal = require('./lib/agentProposal');
 const agentWrites = require('./lib/agentWrites');
 const { parseSharedUrl } = require('./lib/sharedUrl');
 const { guardedOn } = require('./lib/socketGuard');
+const { loginIdentity, cosmetic } = require('./lib/loginIdentity');
 const { parsePage, historyPage } = require('./lib/history');
 const AgentProposal = require('./models/AgentProposal');
 
@@ -291,15 +292,18 @@ app.post('/api/auth/login', requireToken, async (req, res) => {
     // is still consulted for display name and photo, which are cosmetic —
     // but uid and email decide WHICH ACCOUNT THIS IS, so letting the client
     // choose them meant anyone could sign in as anyone.
-    const { uid: firebaseUid, email: tokenEmail, name, picture } = req.firebaseUser;
-
-    const email = tokenEmail || req.body.email;
-    const displayName = req.body.displayName || name;
-    const photoURL = req.body.photoURL || picture;
-
-    if (!firebaseUid || !email) {
-      return res.status(400).json({ error: 'Token is missing uid or email' });
+    // The email decides which account this is, and whether it is an admin, so
+    // it comes from the token and nowhere else, and only when the token says
+    // the address was verified (lib/loginIdentity.js). The body's name and
+    // photo are cosmetic.
+    const identity = loginIdentity(req.firebaseUser, ADMIN_EMAILS);
+    if (identity.error) {
+      return res.status(identity.status).json({ error: identity.error });
     }
+    const { firebaseUid, email } = identity;
+    const { name, picture } = req.firebaseUser;
+    const displayName = cosmetic(req.body?.displayName, 200) || cosmetic(name, 200);
+    const photoURL = cosmetic(req.body?.photoURL, 2000) || cosmetic(picture, 2000);
 
     // findOneAndUpdate with upsert:true means:
     // - If user exists: UPDATE their info (name, photo might have changed)
@@ -334,7 +338,7 @@ app.post('/api/auth/login', requireToken, async (req, res) => {
     // role from the dashboard — because demoting would need a read of the
     // current role before this upsert, and silently stripping access on a
     // config edit is worse than doing it explicitly.
-    if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+    if (identity.admin) {
       update.role = 'admin';
     }
 
@@ -1233,15 +1237,29 @@ app.post('/api/verification', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'You are already verified' });
     }
 
-    const { linkedinUrl = '', company = '', title = '', yearsExperience } = req.body;
+    const { yearsExperience } = req.body || {};
+    const company = typeof req.body?.company === 'string' ? req.body.company : '';
+    const title = typeof req.body?.title === 'string' ? req.body.title : '';
+    const rawLink = typeof req.body?.linkedinUrl === 'string' ? req.body.linkedinUrl.trim() : '';
 
     if (!company.trim() || !title.trim()) {
       return res.status(400).json({ error: 'Company and title are required' });
     }
 
+    // The admin opens this link from the review queue, so it must be a web
+    // address: a `javascript:` one would run in the admin's page (the audit, F4).
+    let linkedinUrl = '';
+    if (rawLink) {
+      const link = parseSharedUrl(rawLink);
+      if (link.error) {
+        return res.status(400).json({ error: 'The profile link must be an http or https address' });
+      }
+      linkedinUrl = link.url;
+    }
+
     user.verification = {
       status: 'pending',
-      linkedinUrl: linkedinUrl.trim(),
+      linkedinUrl,
       company: company.trim(),
       title: title.trim(),
       yearsExperience:
