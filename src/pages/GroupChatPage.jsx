@@ -15,7 +15,7 @@
  * incoming messages and the multi-person typing line are group-specific.
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useConversations } from '../context/ConversationsContext';
@@ -25,6 +25,7 @@ import { PageLoader } from '../components/Loading';
 import { SendIcon } from '../components/Icons';
 import styles from './Chat.module.css';
 import { mayHaveEarlier, earlierPath, withEarlier, placeOf, restorePlace } from '../lib/history';
+import { useNotSent, restoredText } from '../lib/notSent';
 import groupStyles from './GroupChatPage.module.css';
 
 export default function GroupChatPage() {
@@ -43,6 +44,14 @@ export default function GroupChatPage() {
   const [loading, setLoading] = useState(true);
   // Whether the server may hold messages earlier than the ones on screen.
   const [hasEarlier, setHasEarlier] = useState(false);
+  // A message the server refused for being sent too quickly goes back in the box.
+  // The server says which text it refused, so it is that message and not merely
+  // the last one typed (lib/notSent.js).
+  const putBack = useCallback((refusedText) => {
+    setNewMessage((current) => restoredText(current, refusedText));
+  }, []);
+  const notSent = useNotSent(socket, putBack);
+
   // Where the view was when earlier messages were asked for, so it can be put back.
   const keepPlaceRef = useRef(null);
   const transcriptRef = useRef(null);
@@ -376,6 +385,13 @@ export default function GroupChatPage() {
 
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Shown when the server refused a message for being sent too quickly. */}
+        {notSent && (
+          <p className={styles.notSent} role="alert">
+            {notSent}
+          </p>
+        )}
 
         {/* Composer */}
         <form onSubmit={sendMessage} className={styles.composer}>

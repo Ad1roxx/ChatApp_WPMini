@@ -31,11 +31,14 @@ test('messages: the account is limited across both kinds, and a refused one is n
   const err = await refused;
   assert.equal(err.tooFast, true);
   assert.match(err.message, /too quickly/);
+  assert.equal(err.text, 'one too many', 'the refusal names the text it refused');
 
   // The same allowance covers group messages.
   const refusedGroup = once(student, 'error');
-  student.emit('send-group-message', { groupId: '0000000000000000000000c9', text: 'also too many' });
-  assert.equal((await refusedGroup).tooFast, true);
+  student.emit('send-group-message', { groupId: '0000000000000000000000c9', text: '  also too many ' });
+  const groupErr = await refusedGroup;
+  assert.equal(groupErr.tooFast, true);
+  assert.equal(groupErr.text, 'also too many');
 
   await settle();
   const texts = (await db().collection('messages').find({}).toArray()).map((m) => m.text).sort();

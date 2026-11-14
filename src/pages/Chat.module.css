@@ -207,6 +207,14 @@
   }
 }
 
+/* A message the server refused: said plainly, just above the box it was typed in. */
+.notSent {
+  margin: 0;
+  padding: var(--space-2) var(--space-6);
+  color: var(--color-danger, #b42318);
+  font-size: var(--text-sm);
+}
+
 /* "Show earlier messages": the page before the earliest one on screen. */
 .earlier {
   align-self: center;

@@ -118,7 +118,9 @@ io.on('connection', (socket) => {
         return;
       }
       if (!messageLimiter.allow(senderId)) {
-        socket.emit('error', { message: TOO_FAST, tooFast: true });
+        // The refused text goes back with the refusal, so the page can return
+        // exactly that message to the box (src/lib/notSent.js).
+        socket.emit('error', { message: TOO_FAST, tooFast: true, text: text.trim() });
         return;
       }
 
@@ -331,7 +333,7 @@ io.on('connection', (socket) => {
       }
       // One allowance for both kinds of message: it is the account that is limited.
       if (!messageLimiter.allow(senderId)) {
-        socket.emit('error', { message: TOO_FAST, tooFast: true });
+        socket.emit('error', { message: TOO_FAST, tooFast: true, text: text.trim() });
         return;
       }
 
