@@ -8491,6 +8491,20 @@ Tests: `server/test/history.test.js` (120 messages each way: the default page, p
 
 Review: Codex found two things, both real, both fixed. Messages sharing a millisecond could be skipped between pages, so the cursor is now the time and the id (`beforeId`), with a test that pages two at a time through three messages at one timestamp. And the view slid when earlier messages went in front, so the place is measured before and restored after (`placeOf`, `restorePlace`).
 
+### Entry 150 — Audit F4, F5, H4: the paths aimed at an admin, and the first tests of real token verification
+
+**F4.** A mentor's verification `linkedinUrl` was stored after a `.trim()` and nothing else, and the admin's review queue shows it as a link. Any user can make themselves a mentor, so any user could put a `javascript:` address in front of an admin. It now goes through `parseSharedUrl`, the check resources already use: http or https, or a 400. A link, company or title that is not text no longer reaches `.trim()` (it was a 500). The admin page also refuses to make a link of anything that is not a web address (`isWebLink` in `src/lib/roles.js`), for a record saved before the server checked. Not tried in a browser; the fix does not depend on whether it would have run.
+
+**F5.** Sign-in read `tokenEmail || req.body.email` and never looked at `email_verified`, and the admin allowlist is matched on that email. With Google sign-in only this cannot be reached. With any other Firebase method switched on, a caller could name an allowlisted address. `server/lib/loginIdentity.js` now decides who a sign-in is from the verified token alone: no email, or an email the token does not mark verified, is no sign-in. The request body is not one of its arguments. The body's name and photo, which are cosmetic, are taken only as bounded strings.
+
+**H4.** The fetch of Google's signing certificates has a 5 s limit, and a key id the cache does not hold fetches them again, at most once a minute, so a key rotation inside the cache window no longer refuses real sign-ins until the cache expires, and a forged key id cannot make the server fetch on demand.
+
+**The real token path is tested for the first time** (part of H6). Every test signs in through the dev header, which never reaches `verifyIdToken`. It now takes its certificate source and project id as parameters, and `server/test/token-verify.test.js` hands it a key made in the test: a good token is accepted; another project's audience or issuer, an expired token, another key under the same key id, an unknown or inherited key id, no key id, no subject, an HS256 token signed with the public key, an unsigned token, an altered payload and a missing project id are each refused.
+
+Tests: `token-verify.test.js` (26), `verification-link.test.js` (16), `tests/frontend/roles-lib.test.mjs` (2). Mutation checks, in the worktree: 19 of 21 caught. The two not caught are equivalent, and say so here rather than being dropped: allowing HS256 beside RS256 changes nothing because `jsonwebtoken` itself refuses an asymmetric key for an HMAC algorithm, and reading an inherited property as a key yields something `jsonwebtoken` cannot verify with. Both lines stay as a second defence that does not rest on the library.
+
+Review: Codex reported one finding, not real: that the allowlist is no longer normalised before matching. `ADMIN_EMAILS` is trimmed and lower-cased where it is read (`index.js`), and the token's email is lower-cased in `loginIdentity`; a test covers a mixed-case address.
+
 ---
 
 ### Open items / "later" list
