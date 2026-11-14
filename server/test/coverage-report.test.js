@@ -260,7 +260,9 @@ test('no report route notifies or sends anything to the student', () => {
   for (const file of others) {
     assert.ok(!/coverage-reports/.test(fs.readFileSync(file, 'utf8')), `${path.basename(file)} has a report route`);
   }
-  for (const word of ['announce', 'notify', 'io.to', 'emit(', 'sendMail', 'Message.create', 'Notification', 'student._id']) {
+  // 'emitToUser' and 'io.' were added with the split (Entry 155): a mutation check found
+  // that the app's own way of reaching a user's sockets, emitToUser, was not on the list.
+  for (const word of ['announce', 'notify', 'io.to', 'io.', 'emit(', 'emitToUser', 'sendMail', 'Message.create', 'Notification', 'student._id']) {
     assert.ok(!routes.includes(word), `the report routes mention ${word}`);
   }
 });
