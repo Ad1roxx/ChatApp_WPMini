@@ -8535,10 +8535,25 @@ Tests: `http-guards.test.js` (32), `rate-limit.test.js` (12), three assertions a
 
 Review: Codex found nothing to act on.
 
+### Entry 153 — Audit F7: dependencies updated within their ranges; three major upgrades left for the human
+
+`npm audit fix` in both packages, without `--force`: only the lockfiles changed, no `package.json`.
+
+**`server/`: 10 advisories to 0.** Among the moves: `mongoose` 8.19.2 to 8.24.9, `multer` 2.3.0 to 2.5.0, `ws` 8.18.3 to 8.21.3, `body-parser` 2.2.0 to 2.4.0, `qs` 6.14.0 to 6.17.1.
+
+**Root package: 20 advisories to 15, and the 15 cannot be fixed inside the current ranges.** Each needs a major version: `firebase` (10.14.1; the advisories are in its auth, firestore, storage and functions packages and in `undici` and `@grpc/grpc-js` beneath them; this app imports `firebase/auth` only), `vite` (5.4.21, with `esbuild`; a dev and build tool, not shipped), and `react-router-dom` (6.30.6). npm's own suggestion for firebase is a downgrade to 9.14.0, which is not a fix. These were **not** done: a major upgrade of the sign-in library cannot be verified here (no test completes a real Google sign-in), and the router and build tool upgrades change the app's wiring. Open item below, for the human to schedule.
+
+The advisories themselves were read from `npm audit`, not verified one by one.
+
+Checks on the updated tree: lint 0 errors; `npm run build` builds; server 1343 of 1343; frontend 236 of 236. No mutation check: nothing but versions changed.
+
+Review: no Codex review for this step. The diff is two lockfiles, about 900 lines of version numbers and hashes, and the allowance is better spent on the code steps.
+
 ---
 
 ### Open items / "later" list
 
+- **Three major upgrades in the root package (the human, Entry 153):** `firebase`, `vite` and `react-router-dom`. 15 advisories remain there and none can be fixed inside the current version ranges. `firebase` first; it needs a real Google sign-in tried by hand afterwards.
 - **Should other users see a user's email? (the human, Entry 151):** the profile page shows it, so `publicUser` still carries it. Taking it out is one line in `server/lib/publicUser.js` and one in `UserProfilePage.jsx`.
 - ~~**Verdict calls cut off at the output cap (Entry 144)**~~ — fixed in Entry 145.
 - **Extraction v2 (Entry 144):** reached R8 11/11 but was not adopted under its rule; re-measured under its own rule (Entry 147).

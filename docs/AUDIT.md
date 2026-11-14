@@ -32,7 +32,7 @@ frontend browser tests 230/230; AI service tests 1337 passed and 3 skipped; `npm
 | F4 | A mentor's verification `linkedinUrl` is stored without a scheme check and shown to the admin as a link, so it can be a `javascript:` URL. Any user can make themselves a mentor. | Medium | Code; not tried in a browser | Entry 150 |
 | F5 | Sign-in takes the email from the request body when the token has none, and never checks `email_verified`; the admin allowlist is matched on that email. Not reachable with Google sign-in only. | Medium, depends on Firebase settings | Code | Entry 150 |
 | F6 | Whole user documents (email, Firebase uid, verification details and review note, suspension reason) go to every signed-in user: `/api/users`, `/api/user/:id`, and the `user-added` and `user-updated` broadcasts. | Medium | Code | Entry 151, except email, which is the human's call |
-| F7 | Known advisories in production dependencies, among them `mongoose` and `multer` directly, and `ws`, `socket.io-parser`, `body-parser`, `path-to-regexp` beneath. | Medium | `npm audit`; each advisory not verified | open |
+| F7 | Known advisories in production dependencies, among them `mongoose` and `multer` directly, and `ws`, `socket.io-parser`, `body-parser`, `path-to-regexp` beneath. | Medium | `npm audit`; each advisory not verified | `server/` clean: Entry 153; three major upgrades in the root package: open, the human's call |
 
 ## Hardening gaps, and the rest of the batch
 
