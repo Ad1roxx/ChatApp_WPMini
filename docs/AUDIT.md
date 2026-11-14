@@ -42,7 +42,7 @@ frontend browser tests 230/230; AI service tests 1337 passed and 3 skipped; `npm
 | H2 | REST CORS reflects any origin (item 13: origins from config, local dev origins by default, an unlisted origin refused) | Entry 152 |
 | H3 | No security headers (item 14: one middleware, without breaking download headers or the Vite dev setup) | Entry 152 |
 | H4 | The signing-certificate fetch has no timeout, and an unknown key id does not refetch | Entry 150 |
-| H5 | `/search` on the AI service lacks the loopback check every other route has | open: held until the S8 v2b run finishes, so that run is on unchanged `ai/` code |
+| H5 | `/search` on the AI service lacks the loopback check every other route has | Entry 159 |
 | H6 | CI does not run the Python suite; the real token verification path has no test (every test signs in through the dev header) | token verification tested: Entry 150; the Python suite in CI: Entry 154, not yet run on GitHub |
 | H7 | `server/index.js` is one 6,000-line file; every route repeats the same catch-and-500 | one error handler and a JSON 404: Entry 152; the file split: Entry 155 |
 | H8 | `/api/users`, `/api/groups` and history are unpaginated; the message indexes do not carry `timestamp` | history and the message indexes: Entry 149; users and groups: deferred by the human (Entry 156) |
@@ -60,3 +60,10 @@ HTTP calls to the providers with an explicit call budget; the pinned embedding s
 handling; the test harness that starts the real server on a throwaway database. Not worth doing now:
 a TypeScript rewrite, a retrieval framework, Redis, or `firebase-admin` in place of the present
 token check.
+
+## After the batch: decisions by the human
+
+- **Email** is seen by the user, by admins, and by a mentor for their own active mentees (Entry 156).
+- **Groups are private** (Entry 159): members and admins only; nobody joins; a mentor adds only their own active mentees; leaving and removal, effective on live sockets at once. Existing groups were listed, read-only: one group, every member fits.
+- **No major upgrades for now** (firebase, vite, react-router-dom). The 15 remaining advisories are classified in Entry 156; the two whose code ships are checked against this app's use of the router in Entry 159: neither is reached.
+- **Pagination** for the user and group lists is deferred.
