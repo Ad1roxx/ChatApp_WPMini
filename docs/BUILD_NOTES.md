@@ -8479,6 +8479,18 @@ Tests: `server/test/socket-guard.test.js`, 18 malformed events each followed by 
 
 Review: Codex found nothing to act on.
 
+### Entry 149 — Audit F2: chat history showed the first 50 messages ever sent
+
+Both history routes sorted oldest-first and then took 50, and neither chat page asked for more, so once a conversation passed 50 messages a reload showed the oldest 50 and nothing newer. No test went past 50. `limit` was `parseInt` of whatever came, uncapped.
+
+`server/lib/history.js`: a page is the newest `limit` messages (default 50, capped at 100, a whole number or 400) before `before`, returned oldest first so the pages render as they did. Both routes use it. The 1-to-1 route also answers 404 to a peer id that is not an id, which used to be a 500. The two message indexes now carry `timestamp`, which the sort uses; an existing database keeps its old indexes beside the new ones, which is harmless.
+
+Both chat pages gain **Show earlier messages** when the page that came back was full (`src/lib/history.js`): it fetches the page before the earliest message on screen and puts it in front.
+
+Tests: `server/test/history.test.js` (120 messages each way: the default page, paging back to the first message, the cap, seven malformed queries refused) and `tests/frontend/history-lib.test.mjs`. **Not covered:** the button itself in a browser; its logic is in the tested helpers, the wiring in the two pages is not. Mutation checks, in the worktree: 11 of 11 caught.
+
+Review: Codex found two things, both real, both fixed. Messages sharing a millisecond could be skipped between pages, so the cursor is now the time and the id (`beforeId`), with a test that pages two at a time through three messages at one timestamp. And the view slid when earlier messages went in front, so the place is measured before and restored after (`placeOf`, `restorePlace`).
+
 ---
 
 ### Open items / "later" list
