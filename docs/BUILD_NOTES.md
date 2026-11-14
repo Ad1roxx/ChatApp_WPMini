@@ -8465,6 +8465,20 @@ It changes no result already reported. Scored with the amended rule (computed, n
 
 `ai/eval/s8-extraction-v2b-rule.txt`, the human's order: extraction v2 restored exactly as built in Entry 143, now with the cut-off fix in the product and condition 6 as amended; two runs from scratch (`s8-x2b-*`); adopted if run 1 has R8 at least 9/11, no other case below the scored run 1, the set at least 55/61, and conditions 2 to 6 no worse than the scored run 1. If not adopted, v2 is reverted again and the cut-off fix stays.
 
+### Entry 148 — An independent audit of the whole repository, and its first fix: a malformed socket event stopped the server
+
+At the human's request a different model audited the repository read-only (commit 80d37f0), then was asked to make the changes it recommended. **The record is `docs/AUDIT.md`**: what was read and what was only sampled, seven findings (F1 to F7) and nine hardening gaps (H1 to H9), each with how it was confirmed and the entry that fixed it. The checks at the audit: lint clean, server 1176/1176, frontend 230/230, `ai/` 1337 passed and 3 skipped. The agent and retrieval layers came out well; the findings are in the oldest code, the chat core.
+
+**Decided by the human:** MentorConnect stays local for now, so no deployment files, revisited if a public link is ever needed; and no shared store for presence and limits, since one instance runs.
+
+**F1, fixed here.** Socket.IO runs a handler with nothing around it, so a throw or a rejected promise in one is an uncaught exception and Node ends the process. `typing`, `stop-typing`, `group-typing` and `group-stop-typing` destructured their payload outside any `try`, and `join-group` awaited a query the same way. Confirmed by running it on a throwaway database: `emit('typing')` and `emit('join-group', 'not-an-id')` each ended the server with code 1, and a well-formed control did not. One signed-in client could stop the server for everyone.
+
+The fix is where handlers are registered, not inside each (a check per handler is only as good as the handler somebody forgets): `server/lib/socketGuard.js`. All 12 handlers go through `guardedOn(socket)`, which hands a handler an object (or a string, for the two events that take a bare id) whatever was sent, and catches whatever it throws or rejects with, answering on the socket's `error` event. `join-group` also refuses a non-id before any query.
+
+Tests: `server/test/socket-guard.test.js`, 18 malformed events each followed by a request the server must still answer, and the guard on its own. Mutation checks, in the worktree: 5 of 5 caught (the guard not catching; object and id payloads passed through; `typing` and `join-group` registered without it).
+
+Review: Codex found nothing to act on.
+
 ---
 
 ### Open items / "later" list
