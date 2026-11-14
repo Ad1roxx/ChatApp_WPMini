@@ -228,7 +228,10 @@ src/
     useNow.js                the clock as state, plus relative time formatting
 
 server/
-  index.js                   Express routes + all Socket.IO handlers
+  index.js                   Start-up: environment, database, then the files below
+  app.js                     The Express app, Socket.IO server, middleware, shared state
+  routes/                    The REST routes, one file per area
+  realtime.js                All Socket.IO handlers
   middleware/
     auth.js                  Firebase ID token verification + role gates
   lib/

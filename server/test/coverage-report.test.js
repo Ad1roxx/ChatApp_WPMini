@@ -241,11 +241,25 @@ test('export needs the tick, and sends exactly the stored draft', async () => {
 });
 
 test('no report route notifies or sends anything to the student', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
-  const start = src.indexOf('// RUBRIC COVERAGE (S8): the draft report');
-  const end = src.indexOf('// MENTORSHIP COPILOT - RETRIEVAL', start);
-  const routes = src.slice(start, end);
-  assert.ok(start > 0 && end > start);
+  // The report routes are a file of their own since index.js was split (Entry 155):
+  // the whole file is read, which is the same section and now its imports as well.
+  const routes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'coverageReports.js'), 'utf8');
+  assert.ok(routes.includes('// RUBRIC COVERAGE (S8): the draft report'));
+  // Not an empty or renamed file: every report route is registered in it, and nowhere else.
+  const REPORT_ROUTES = [
+    "app.post('/api/mentorships/:id/coverage-reports'",
+    "app.get('/api/mentorships/:id/coverage-reports'",
+    "app.get('/api/coverage-reports/:id'",
+    "app.patch('/api/coverage-reports/:id'",
+    "app.post('/api/coverage-reports/:id/review'",
+    "app.post('/api/coverage-reports/:id/export'"
+  ];
+  for (const route of REPORT_ROUTES) assert.ok(routes.includes(route), `${route} is not in routes/coverageReports.js`);
+  const others = fs.readdirSync(path.join(__dirname, '..', 'routes')).filter((f) => f !== 'coverageReports.js')
+    .map((f) => path.join(__dirname, '..', 'routes', f)).concat(path.join(__dirname, '..', 'index.js'), path.join(__dirname, '..', 'realtime.js'));
+  for (const file of others) {
+    assert.ok(!/coverage-reports/.test(fs.readFileSync(file, 'utf8')), `${path.basename(file)} has a report route`);
+  }
   for (const word of ['announce', 'notify', 'io.to', 'emit(', 'sendMail', 'Message.create', 'Notification', 'student._id']) {
     assert.ok(!routes.includes(word), `the report routes mention ${word}`);
   }

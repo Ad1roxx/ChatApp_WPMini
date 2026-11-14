@@ -54,6 +54,8 @@ behind an Express and Socket.IO server written for this project.
 | **14** Mongoose models — User, Message, Group, GroupMessage, Announcement, Report, Mentorship, Goal, Session, GroupRead, Feedback, Resource, Assignment, Submission — with **40** index-declaration lines, of which `User.firebaseUid` carries both `unique` and `index` and is one index, so **39** distinct | `server/models/*.js` · `grep -n "index: true\|unique: true\|\.index(" server/models/*.js` |
 | `server/index.js` is **4,458** lines; `server/middleware/auth.js` is **306**; the test suite is **4,234** lines across 15 files plus the harness | `wc -l server/index.js server/middleware/auth.js server/test/**` |
 
+*The figures in this table are as measured when it was written. Since 2026-11-14 (BUILD_NOTES Entry 155) `server/index.js` is start-up only: the routes are in `server/routes/*.js` and the socket handlers in `server/realtime.js`, registered as `on('...')` through a guard, so the first two commands above need those paths and that pattern. Measured that day: **79** route registrations (`cat server/routes/*.js | grep -cE "^app.(get|post|put|patch|delete)("`) and **12** socket handlers (`grep -c "^  on('" server/realtime.js`).*
+
 ### Retrieval service
 
 | Fact | Source |

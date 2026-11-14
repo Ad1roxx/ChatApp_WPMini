@@ -271,7 +271,10 @@ Two findings that shape what comes next:
 ## Where things are
 
 ```
-server/index.js              all REST routes + socket handlers, banner-commented by section
+server/index.js              start-up only since 2026-11-14 (BUILD_NOTES Entry 155)
+server/app.js                the Express app, Socket.IO server, middleware, shared state
+server/routes/*.js           the REST routes, one file per area, in the order index.js loads them
+server/realtime.js           the socket handlers
 server/middleware/auth.js    token verification, dev bypass, role gates
 server/models/*.js           schemas; the header comment explains the modelling choice
 server/test/*.test.js        16 files; helpers/harness.js spawns a real server
