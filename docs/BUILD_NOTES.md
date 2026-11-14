@@ -8563,6 +8563,24 @@ Review: Codex found nothing to act on in either change.
 
 **Left open, and why (H8):** `/api/users` and `/api/groups` are still unpaginated. A cap on the server without paging or search in the pages that show those lists would silently hide people and groups past it, which is the kind of bug F2 was. It needs the two pages designed first. Open item below.
 
+### Entry 155 — Audit H7: `server/index.js` split into `app.js`, `routes/` and `realtime.js`
+
+`server/index.js` had grown to 6,177 lines: every route, every socket handler, the middleware and start-up. It is now 154 lines of start-up (environment, database, then the files below, the last-resort handlers, listen).
+
+- `server/app.js`: the Express app, the HTTP and Socket.IO servers, the middleware every request passes, and the state the routes share (who is online, the limits, the origins).
+- `server/routes/*.js`: 21 files, one per area, each the section it was (users, groups, announcements, admin, moderation, mentorships, goals, sessions, resources, feedback, assignments, submissionFiles, assignmentFiles, criteria, coverageReports, copilot, agent, proposals, internalTools, analytics), and `aiService.js`, the AI service's address and secrets with their start-up checks, which sat above the Copilot's first route and are used by sections before it.
+- `server/realtime.js`: the socket handlers.
+
+**It is a move, not a rewrite, and that was checked rather than assumed.** A script cut the file at its section banners and wrote each section's text unchanged into its new file; the only generated lines are each file's `require`s at the top and `module.exports` at the bottom. The script fails unless every section's text is found, whole, in the output. Then: every file passes `node --check`; ESLint reports no undefined and no unused name across `server/`; **the ordered list of route registrations is identical before and after** (88 lines, `diff` empty), which matters because Express tries routes in order; and the server suite passes, 1359 of 1359. One pair of files needs each other (`agent.js` and `proposals.js`), so `agent.js` reaches `proposalFromTurn` when it is first called instead of at load.
+
+**One safety test read the old file's source** (`coverage-report.test.js`: no report route notifies or sends anything to the student). It now reads `routes/coverageReports.js`, checks that all six report routes are registered in it and in no other file, and applies the same word list to the whole file. A mutation check on it then found a gap that was there before the split: the list had `emit(` but not `emitToUser`, the app's own way of reaching a user's sockets, so a report route calling it passed. `emitToUser` and `io.` are now on the list. This strengthens the test; nothing was removed from it.
+
+Docs: the file maps in `README.md` and `docs/HANDOFF.md`, and a dated note under `PROJECT_BRIEF`'s backend table, whose two `grep` commands named the old file (measured now: 79 route registrations, 12 socket handlers).
+
+Mutation checks, in the worktree, on the moved files: 6 of 6 caught after the fix above (a report route that notifies; a report route in another file; and one earlier property per moved file: the socket guard, the public user view, the origin gate).
+
+Review: Codex found nothing to act on.
+
 ---
 
 ### Open items / "later" list
