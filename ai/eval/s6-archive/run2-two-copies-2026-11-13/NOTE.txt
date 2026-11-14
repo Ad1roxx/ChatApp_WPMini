@@ -1,0 +1,27 @@
+S6 Step 3, second calibration: the run 2s that were made by two copies of the resume script at once. Set aside, not scored.
+
+WHAT IS HERE
+- s6-judge2-openai_gpt-oss-120b-run2.json and s6-judge2-qwen_qwen3.8-27b-run2.json, as they were committed in 80d37f0.
+- s6-judge2-calibration.txt, the report computed from them (and from the run 1s, which are not here and are unchanged).
+
+WHY THEY ARE SET ASIDE
+Each model's run 2 was begun on 2026-11-12 by one process and stopped by its time limit part-way. It was resumed on 2026-11-13
+at 22:30 UTC by TWO copies of the resume script running at once: the first copy was thought to have ended with an earlier session
+and had not, and a second was started beside it (BUILD_NOTES Entries 157, 158, 160).
+
+Run 2 exists for condition 6, the same verdict twice. qwen/qwen3.8-27b met it 50 of 52, and 49 would fail, so the margin is
+one item.
+
+WHAT THE CACHE SHOWS (BUILD_NOTES Entry 160; measured 2026-11-14 from ai/eval/.judge-cache and these files)
+- No run-2 verdict came from run 1: the cache key carries the run label, and every run-2 cache file was written during run 2
+  or its resume.
+- Both copies made their own fresh call for the same item at least 18 times for gpt-oss-120b and at least 7 times for
+  qwen3.8-27b (the saved verdict and the cached one differ in text or tokens, so they are two replies). "At least": where
+  both copies' replies were identical, or one copy read the other's cached reply, nothing shows it.
+- On one of those, gpt-oss-120b's c51, the two copies gave different labels: the saved one "partly", the other "unsupported".
+  Which one was saved was a race. For qwen3.8-27b no label differed.
+- Entry 158 said that on no item did the two copies give different verdicts. That was read from the log, which both copies
+  were appending to and which lost lines. It was wrong for gpt-oss-120b's c51 and is corrected in Entry 160.
+
+THE RULING (the human, 2026-11-14; s6-judge2-threshold.txt, RULED)
+Run 2 is made again for both models, by one process, with a fresh call for every item, and replaces these whatever it shows.

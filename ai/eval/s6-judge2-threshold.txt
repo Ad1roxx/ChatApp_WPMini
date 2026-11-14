@@ -45,3 +45,12 @@ The human's labels were committed as written (99f62df) and agreed with mine on 8
 would have passed any judge with a kappa above -0.13 and tested nothing. The human chose to calibrate against my labels alone. A model is now
 trusted if conditions 1, 2, 3, 5, 6 and 7 all hold for it; numbers and bars are unchanged. The human's labels stay committed and appear in the
 report for the record only. THE DECISION is unchanged.
+
+RULED 2026-11-14, by the human, committed before any rerun (BUILD_NOTES Entry 160). Run 2 is made again for both models.
+The run 2s scored on 2026-11-13 were each resumed by two copies of the resume script running at once, so the procedure was not the
+one written above ("Each judges the whole set twice"). Run 2 decides condition 6 only, and qwen/qwen3.8-27b met it by one item
+(50 of 52; 49 fails). Both run 2s are set aside unscored (s6-archive/run2-two-copies-2026-11-13/) and made again: one process per
+model, a fresh call for every item (the run-2 entries in the judge cache are moved aside first, so none is read back), paced as
+before, behind a lock that stops a second copy starting. THE RERUN REPLACES BOTH RUN 2s WHATEVER IT SHOWS. Run 1 is untouched and
+still decides conditions 1, 2, 3, 5 and 7. No label, set, prompt, model, bar or condition changes, and THE DECISION is unchanged:
+it is applied to run 1 with the new run 2.
