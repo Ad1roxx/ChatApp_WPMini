@@ -134,6 +134,37 @@ def test_only_local_callers(wire, monkeypatch):
     assert post(remote).status_code == 403
 
 
+SEARCH = {"mentorshipId": M1, "viewerId": ADITYA, "query": "retries"}
+
+
+@pytest.mark.parametrize("host", ["10.0.0.7", "192.168.1.20", "203.0.113.9", "testclient"])
+def test_search_is_for_local_callers_only_and_nothing_is_searched(wire, host):
+    # Even with the right secret: the secret says "Express", the address says "this machine".
+    _, store, _ = wire()
+    remote = TestClient(service.app, client=(host, 50000))
+    res = remote.post("/search", json=SEARCH, headers={"X-AI-Secret": SECRET})
+    assert res.status_code == 403
+    assert "chunks" not in res.text
+    assert store.calls == []
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "::1"])
+def test_search_answers_a_local_caller(wire, host):
+    wire()
+    local = TestClient(service.app, client=(host, 50000))
+    res = local.post("/search", json=SEARCH, headers={"X-AI-Secret": SECRET})
+    assert res.status_code == 200
+    assert res.json()["chunks"]
+
+
+@pytest.mark.parametrize("secret", [None, "wrong"])
+def test_search_requires_the_secret_from_a_local_caller_too(wire, secret):
+    client, store, _ = wire()
+    headers = {"X-AI-Secret": secret} if secret is not None else {}
+    assert client.post("/search", json=SEARCH, headers=headers).status_code == 401
+    assert store.calls == []
+
+
 @pytest.mark.parametrize("change", [
     {"role": "admin"},
     {"role": "Mentor"},

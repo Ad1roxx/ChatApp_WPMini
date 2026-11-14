@@ -269,7 +269,8 @@ def test_the_endpoint_answers_an_error_not_chunks_when_the_app_database_is_down(
     monkeypatch.setattr(service, "store", down)
     monkeypatch.setattr(service, "SERVICE_SECRET", "test-secret")
 
-    response = TestClient(service.app, raise_server_exceptions=False).post(
+    # A local caller, as Express is: /search answers no other since H5 (docs/AUDIT.md).
+    response = TestClient(service.app, raise_server_exceptions=False, client=("127.0.0.1", 50000)).post(
         "/search",
         headers={"X-AI-Secret": "test-secret"},
         json={"mentorshipId": Corpus.M1, "viewerId": Corpus.ADITYA, "query": QUERY},

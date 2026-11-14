@@ -180,7 +180,11 @@ def health() -> dict:
     return {"ok": True}
 
 
-@app.post("/search", dependencies=[Depends(require_secret)])
+# Local callers only, like every other route that reads or writes: /search trusts
+# the mentorship and viewer it is handed, and was the one route that would have
+# answered a remote caller holding the secret had the service ever been bound to
+# another address (docs/AUDIT.md, H5).
+@app.post("/search", dependencies=[Depends(require_secret), Depends(require_localhost)])
 def search(body: SearchRequest) -> dict:
     hits = store.search(body.mentorshipId, body.viewerId, body.query, body.k)
 
