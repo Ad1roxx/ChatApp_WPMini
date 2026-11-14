@@ -1,7 +1,7 @@
 # Continuous integration.
 #
-# Four things run on every push and pull request: the linter, a production
-# build, the browser tests of the frontend, and the server test suite. They are separate jobs rather than steps in
+# Five things run on every push and pull request: the linter, a production
+# build, the browser tests of the frontend, the server test suite and the AI service's. They are separate jobs rather than steps in
 # one, so a lint failure and a test failure are told apart at a glance instead
 # of the first one hiding the second.
 #
@@ -120,3 +120,101 @@ jobs:
       - name: Run the suite
         working-directory: server
         run: npm test
+
+  # The AI service's suite. Until now it ran only in the local pre-push hook, so
+  # the tests that guard retrieval permissions, the agent's caps and the citation
+  # check were the one suite a pull request could change without anything
+  # running them (docs/AUDIT.md, H6).
+  #
+  # It needs two databases, as on a laptop: the app's MongoDB on 27017 and the
+  # Atlas Local container on 27018, which is where $vectorSearch exists.
+  # AI_TESTS_REQUIRE_ATLAS=1 makes a test that needs the container FAIL when it
+  # is missing, instead of skipping, so a broken service cannot pass as green.
+  #
+  # No provider keys: every test uses a scripted provider, and the three that
+  # call a real one are skipped unless AI_LIVE_SMOKE is set. The service refuses
+  # to start without the file AI_ENV_FILE names, so the job makes an empty one;
+  # run locally without it, twelve tests of the sync endpoint fail on exactly that.
+  ai:
+    name: AI service tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      atlas:
+        image: mongodb/mongodb-atlas-local:latest
+        ports:
+          - 27018:27017
+
+    env:
+      AI_TESTS_REQUIRE_ATLAS: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Two tests ask the server's own code which role may use which tool, through
+      # node, so the two services cannot drift apart; without node they would skip.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            ai/requirements.txt
+            ai/requirements-dev.txt
+
+      # The CPU build of torch: the default wheel on Linux carries CUDA and is
+      # several times the size, for a runner with no GPU.
+      - name: Install dependencies
+        working-directory: ai
+        run: |
+          python -m pip install --upgrade pip
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements-dev.txt
+
+      # The embedding and reranking models, so a download does not happen inside
+      # a test's time limit.
+      - name: Cache the models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ hashFiles('ai/requirements.txt', 'ai/config.py') }}
+
+      # The Atlas container has no health check of its own to wait on, and it
+      # takes longer to accept connections than the service start allows for.
+      - name: Wait for Atlas Local
+        run: |
+          for i in $(seq 1 60); do
+            if python -c "import pymongo; pymongo.MongoClient('mongodb://127.0.0.1:27018/?directConnection=true', serverSelectionTimeoutMS=2000).admin.command('ping')" 2>/dev/null; then
+              echo "Atlas Local is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Atlas Local did not come up"; exit 1
+
+      - name: Make the empty secrets file the service expects
+        run: |
+          mkdir -p "$RUNNER_TEMP/mentorconnect"
+          : > "$RUNNER_TEMP/mentorconnect/ai.env"
+          echo "AI_ENV_FILE=$RUNNER_TEMP/mentorconnect/ai.env" >> "$GITHUB_ENV"
+
+      - name: Run the suite
+        working-directory: ai
+        run: python -m pytest
