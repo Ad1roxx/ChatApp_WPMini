@@ -77,4 +77,24 @@ function dropFromRoom(io, onlineUsers, userId, groupId) {
   }
 }
 
-module.exports = { isMember, seeGroup, canManage, addProblem, dropFromRoom };
+/**
+ * Put a socket in a group's room if `allowedNow()` says so, and say whether it
+ * is in. `allowedNow` is asked twice: before joining, and again AFTER.
+ *
+ * The second time is the point. A removal that lands between the first answer
+ * and the join has nothing to take out of the room yet, and would leave the
+ * socket in it for good, receiving everything said. Asked again after the join,
+ * either this sees the removal and leaves, or the removal comes later and finds
+ * the socket in the room (`dropFromRoom`).
+ */
+async function joinRoomIfAllowed(socket, room, allowedNow) {
+  if (!(await allowedNow())) return false;
+  socket.join(room);
+  if (!(await allowedNow())) {
+    socket.leave(room);
+    return false;
+  }
+  return true;
+}
+
+module.exports = { isMember, seeGroup, canManage, addProblem, dropFromRoom, joinRoomIfAllowed };

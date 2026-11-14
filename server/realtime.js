@@ -13,6 +13,7 @@ const Group = require('./models/Group');
 const GroupMessage = require('./models/GroupMessage');
 const GroupRead = require('./models/GroupRead');
 const { guardedOn } = require('./lib/socketGuard');
+const { joinRoomIfAllowed } = require('./lib/groupAccess');
 // Authentication
 const { socketAuth } = require('./middleware/auth');
 const {
@@ -296,19 +297,9 @@ io.on('connection', (socket) => {
         (group.members.some((m) => String(m) === String(me._id)) || me.role === 'admin'));
     };
 
-    if (!(await allowedNow())) {
-      socket.emit('error', { message: 'You are not a member of that group' });
-      return;
-    }
-
-    socket.join(`group:${groupId}`);
-
-    // Asked again AFTER joining. A removal that landed between the check above
-    // and the join had nothing to take out of the room yet, and would have left
-    // this socket in it for good. Checked after, either this sees the removal and
-    // leaves, or the removal comes later and finds the socket in the room.
-    if (!(await allowedNow())) {
-      socket.leave(`group:${groupId}`);
+    // Asked before joining and again after, so a removal that lands in between
+    // cannot leave this socket in the room (lib/groupAccess.js, joinRoomIfAllowed).
+    if (!(await joinRoomIfAllowed(socket, `group:${groupId}`, allowedNow))) {
       socket.emit('error', { message: 'You are not a member of that group' });
       return;
     }

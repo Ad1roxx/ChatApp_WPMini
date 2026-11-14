@@ -13,6 +13,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { USERS, start, stop, api, db, mongoose, connect, once, settle } = require('./helpers/harness');
+const { joinRoomIfAllowed } = require('../lib/groupAccess');
 
 const id = (hex) => new mongoose.Types.ObjectId(hex);
 // A second mentor, whose mentee is student2. Not in the harness's seed.
@@ -201,6 +202,13 @@ test('a mentor can add only their own active mentees', async (t) => {
     assert.equal((await add(USERS.student, USERS.student2._id)).status, 403);
   });
 
+  await t.test('not even a mentor who is a member, adding their own mentee: the group is not theirs', async () => {
+    await db().collection('groups').updateOne({ _id: id(G) }, { $addToSet: { members: id(MENTOR2._id) } });
+    assert.equal((await add(MENTOR2, USERS.student2._id)).status, 403);
+    assert.equal((await members()).includes(USERS.student2._id), false);
+    await db().collection('groups').updateOne({ _id: id(G) }, { $pull: { members: id(MENTOR2._id) } });
+  });
+
   await t.test('an id that is not one, or nobody\'s, is refused', async () => {
     assert.equal((await add(USERS.admin, 'not-an-id')).status, 400);
     assert.equal((await add(USERS.admin, { $ne: null })).status, 400);
@@ -251,6 +259,14 @@ test('a member can leave', async (t) => {
 
   await t.test('someone who is not a member cannot', async () => {
     assert.equal((await api(`/api/groups/${G}/leave`, { as: MENTOR2, method: 'POST', body: {} })).status, 403);
+  });
+
+  await t.test('nor an admin, who can see the group and is not in it', async () => {
+    const admin = await online(USERS.admin);
+    const told = once(admin, 'group-removed', 500);
+    assert.equal((await api(`/api/groups/${G}/leave`, { as: USERS.admin, method: 'POST', body: {} })).status, 403);
+    assert.equal(await told, null, 'nobody is told they were removed from a group they were never in');
+    admin.close();
   });
 
   await t.test('leaving takes them out of the group', async () => {
@@ -357,6 +373,29 @@ test('the creator, and admins, can remove a member', async (t) => {
       racer.close();
     }
     mentor.close();
+  });
+
+  await t.test('joining a room asks twice, and a removal between the two answers leaves the socket out', async () => {
+    // The race above cannot be made to happen on demand, so the rule is tested where it lives.
+    const fake = () => {
+      const rooms = new Set();
+      return { rooms, join: (r) => rooms.add(r), leave: (r) => rooms.delete(r) };
+    };
+    const answers = (...list) => { const left = [...list]; return async () => left.shift(); };
+
+    const stays = fake();
+    assert.equal(await joinRoomIfAllowed(stays, 'group:x', answers(true, true)), true);
+    assert.deepEqual([...stays.rooms], ['group:x']);
+
+    const removedInBetween = fake();
+    assert.equal(await joinRoomIfAllowed(removedInBetween, 'group:x', answers(true, false)), false);
+    assert.deepEqual([...removedInBetween.rooms], [], 'allowed, then removed before the join finished: not in the room');
+
+    const never = fake();
+    let asked = 0;
+    assert.equal(await joinRoomIfAllowed(never, 'group:x', async () => { asked += 1; return false; }), false);
+    assert.deepEqual([...never.rooms], []);
+    assert.equal(asked, 1, 'refused at the first answer: never joined at all');
   });
 
   await t.test('an admin can remove a member too', async () => {
