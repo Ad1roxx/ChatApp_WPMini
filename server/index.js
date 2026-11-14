@@ -89,6 +89,7 @@ const agentTools = require('./lib/agentTools');
 const agentProposal = require('./lib/agentProposal');
 const agentWrites = require('./lib/agentWrites');
 const { parseSharedUrl } = require('./lib/sharedUrl');
+const { guardedOn } = require('./lib/socketGuard');
 const AgentProposal = require('./models/AgentProposal');
 
 // Authentication
@@ -5617,6 +5618,10 @@ io.use(socketAuth);
 io.on('connection', (socket) => {
   console.log(`🔌 New socket connection: ${socket.id}`);
 
+  // Every handler below is registered through the guard: a payload it can
+  // always destructure, and nothing it throws reaches the process (lib/socketGuard.js).
+  const on = guardedOn(socket);
+
   /**
    * USER-ONLINE Event
    * 
@@ -5624,7 +5629,7 @@ io.on('connection', (socket) => {
    * We store the mapping: visitorId -> socketId
    * Then broadcast to everyone that this user is online.
    */
-  socket.on('user-online', async () => {
+  on('user-online', async () => {
     try {
       // Identity comes from the authenticated handshake, not the payload.
       const visitorId = String(socket.data.user._id);
@@ -5667,7 +5672,7 @@ io.on('connection', (socket) => {
    * 3. Send to receiver if they're online
    * 4. Confirm to sender that message was sent
    */
-  socket.on('send-message', async (data) => {
+  on('send-message', async (data) => {
     try {
       const { receiverId, text } = data;
 
@@ -5723,7 +5728,7 @@ io.on('connection', (socket) => {
    * When user starts typing, notify the other person.
    * Creates that "John is typing..." indicator.
    */
-  socket.on('typing', (data) => {
+  on('typing', (data) => {
     const { receiverId } = data;
     const senderId = String(socket.data.user._id);
 
@@ -5735,7 +5740,7 @@ io.on('connection', (socket) => {
    * 
    * When user stops typing (or sends message), clear the indicator.
    */
-  socket.on('stop-typing', (data) => {
+  on('stop-typing', (data) => {
     const { receiverId } = data;
     const senderId = String(socket.data.user._id);
 
@@ -5747,7 +5752,7 @@ io.on('connection', (socket) => {
    * 
    * Mark messages as read (for read receipts).
    */
-  socket.on('mark-read', async (data) => {
+  on('mark-read', async (data) => {
     try {
       const { peerId } = data;
       const visitorId = String(socket.data.user._id);
@@ -5786,7 +5791,7 @@ io.on('connection', (socket) => {
    * unique (group, user) index means a second insert would fail rather than
    * advance the mark.
    */
-  socket.on('mark-group-read', async (data) => {
+  on('mark-group-read', async (data) => {
     try {
       const { groupId } = data;
       const userId = String(socket.data.user._id);
@@ -5832,8 +5837,12 @@ io.on('connection', (socket) => {
    * Client calls this when it opens a group chat.
    * The socket joins that group's room so it receives live messages.
    */
-  socket.on('join-group', async (groupId) => {
-    if (!groupId) return;
+  on('join-group', async (groupId) => {
+    // Not an id at all: the same answer as a group you are not in, and no query.
+    if (!mongoose.isValidObjectId(groupId)) {
+      socket.emit('error', { message: 'You are not a member of that group' });
+      return;
+    }
 
     // MEMBERSHIP: a socket may only join the room of a group it belongs
     // to. Without this, any client could join any group by id and receive
@@ -5847,18 +5856,18 @@ io.on('connection', (socket) => {
 
     socket.join(`group:${groupId}`);
     console.log(`👥 Socket ${socket.id} joined room group:${groupId}`);
-  });
+  }, { id: true });
 
   /**
    * LEAVE-GROUP Event
    *
    * Client calls this when it leaves/closes a group chat.
    */
-  socket.on('leave-group', (groupId) => {
+  on('leave-group', (groupId) => {
     if (!groupId) return;
     socket.leave(`group:${groupId}`);
     console.log(`👋 Socket ${socket.id} left room group:${groupId}`);
-  });
+  }, { id: true });
 
   /**
    * SEND-GROUP-MESSAGE Event
@@ -5872,7 +5881,7 @@ io.on('connection', (socket) => {
    * own UI adds the confirmed, DB-saved message the same way everyone
    * else receives it (no separate confirmation event needed).
    */
-  socket.on('send-group-message', async (data) => {
+  on('send-group-message', async (data) => {
     try {
       const { groupId, text } = data;
 
@@ -5951,13 +5960,13 @@ io.on('connection', (socket) => {
    * Relay typing indicators to the rest of the room.
    * socket.to(room) sends to everyone in the room EXCEPT the sender.
    */
-  socket.on('group-typing', ({ groupId }) => {
+  on('group-typing', ({ groupId }) => {
     if (!groupId) return;
     const senderId = String(socket.data.user._id);
     socket.to(`group:${groupId}`).emit('group-user-typing', { groupId, senderId });
   });
 
-  socket.on('group-stop-typing', ({ groupId }) => {
+  on('group-stop-typing', ({ groupId }) => {
     if (!groupId) return;
     const senderId = String(socket.data.user._id);
     socket.to(`group:${groupId}`).emit('group-user-stop-typing', { groupId, senderId });
@@ -5969,7 +5978,7 @@ io.on('connection', (socket) => {
    * When socket disconnects (user closed tab, lost internet, etc.)
    * Update their status to offline.
    */
-  socket.on('disconnect', async () => {
+  on('disconnect', async () => {
     try {
       const visitorId = socket.visitorId;
       
